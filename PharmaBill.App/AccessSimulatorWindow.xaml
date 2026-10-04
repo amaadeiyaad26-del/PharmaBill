@@ -1,0 +1,28 @@
+<Window x:Class="PharmaBill.App.AccessSimulatorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Access simulator - Debug"
+        Width="480"
+        Height="320"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="24">
+        <TextBlock Text="Debug-only access simulator"
+                   FontSize="21"
+                   FontWeight="SemiBold" />
+        <TextBlock Text="Preview access states without changing the stored trial or subscription."
+                   Margin="0,8,0,20"
+                   TextWrapping="Wrap" />
+        <ComboBox x:Name="StatusPicker"
+                  ItemsSource="{Binding Statuses}"
+                  SelectedIndex="0"
+                  SelectionChanged="StatusPicker_OnSelectionChanged"
+                  Padding="8" />
+        <TextBlock x:Name="ResultText"
+                   Margin="0,20,0,0"
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap" />
+        <Button Content="Close" IsCancel="True" HorizontalAlignment="Right" Padding="16,7" Margin="0,20,0,0" />
+    </StackPanel>
+</Window>

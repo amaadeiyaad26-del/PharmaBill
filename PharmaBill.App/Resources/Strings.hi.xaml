@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <sys:String x:Key="PharmacyBilling" xmlns:sys="clr-namespace:System;assembly=System.Runtime">फार्मेसी बिलिंग और इन्वेंटरी</sys:String>
+    <sys:String x:Key="NavBilling" xmlns:sys="clr-namespace:System;assembly=System.Runtime">बिलिंग</sys:String>
+    <sys:String x:Key="NavWholesaleSales" xmlns:sys="clr-namespace:System;assembly=System.Runtime">थोक बिक्री</sys:String>
+    <sys:String x:Key="NavStock" xmlns:sys="clr-namespace:System;assembly=System.Runtime">स्टॉक</sys:String>
+    <sys:String x:Key="NavPurchases" xmlns:sys="clr-namespace:System;assembly=System.Runtime">खरीद</sys:String>
+    <sys:String x:Key="NavCustomers" xmlns:sys="clr-namespace:System;assembly=System.Runtime">ग्राहक</sys:String>
+    <sys:String x:Key="NavRegisters" xmlns:sys="clr-namespace:System;assembly=System.Runtime">रजिस्टर</sys:String>
+    <sys:String x:Key="NavDrugRecords" xmlns:sys="clr-namespace:System;assembly=System.Runtime">दवा रिकॉर्ड</sys:String>
+    <sys:String x:Key="NavInspector" xmlns:sys="clr-namespace:System;assembly=System.Runtime">निरीक्षक</sys:String>
+    <sys:String x:Key="NavReports" xmlns:sys="clr-namespace:System;assembly=System.Runtime">रिपोर्ट</sys:String>
+    <sys:String x:Key="NavSettings" xmlns:sys="clr-namespace:System;assembly=System.Runtime">सेटिंग्स</sys:String>
+    <sys:String x:Key="PlaceholderMessage" xmlns:sys="clr-namespace:System;assembly=System.Runtime">यह अनुभाग एक प्लेसहोल्डर है। अभी कोई फार्मेसी कार्यप्रवाह लागू नहीं है।</sys:String>
+    <sys:String x:Key="SettingsTitle" xmlns:sys="clr-namespace:System;assembly=System.Runtime">सेटिंग्स</sys:String>
+    <sys:String x:Key="SettingsPlaceholderMessage" xmlns:sys="clr-namespace:System;assembly=System.Runtime">रूप और भाषा विकल्प</sys:String>
+    <sys:String x:Key="ThemeLabel" xmlns:sys="clr-namespace:System;assembly=System.Runtime">थीम</sys:String>
+    <sys:String x:Key="AccentLabel" xmlns:sys="clr-namespace:System;assembly=System.Runtime">मुख्य रंग</sys:String>
+    <sys:String x:Key="LanguageLabel" xmlns:sys="clr-namespace:System;assembly=System.Runtime">भाषा</sys:String>
+</ResourceDictionary>

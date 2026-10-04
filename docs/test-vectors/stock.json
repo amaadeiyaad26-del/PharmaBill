@@ -1,0 +1,15 @@
+{
+  "description": "Stock is the sum of movements, including a negative-stock alert",
+  "cases": [
+    {
+      "name": "two-devices-overdraw",
+      "opening": 10,
+      "movements": [
+        { "device": "device-a", "quantity": -6 },
+        { "device": "device-b", "quantity": -7 }
+      ],
+      "expectedClosing": -3,
+      "expectStockConflict": true
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "description": "Round half up per line",
+  "cases": [
+    { "valuePaise": 100.5, "roundedPaise": 101 },
+    { "valuePaise": 101.5, "roundedPaise": 102 },
+    { "valuePaise": -100.5, "roundedPaise": -101 }
+  ]
+}

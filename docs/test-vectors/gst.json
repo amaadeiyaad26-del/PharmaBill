@@ -1,0 +1,16 @@
+{
+  "description": "GST-inclusive retail price split",
+  "cases": [
+    {
+      "name": "12-percent-inclusive",
+      "pricePaise": 11200,
+      "gstRatePercent": 12,
+      "quantity": 1,
+      "taxableValuePaise": 10000,
+      "taxPaise": 1200,
+      "cgstPaise": 600,
+      "sgstPaise": 600,
+      "totalPaise": 11200
+    }
+  ]
+}

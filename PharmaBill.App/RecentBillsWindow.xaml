@@ -1,0 +1,86 @@
+﻿<Window x:Class="PharmaBill.App.RecentBillsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Recent retail bills"
+        Height="800"
+        Width="980"
+        MinHeight="680"
+        MinWidth="760"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top">
+            <DockPanel>
+                <TextBox x:Name="SearchBox"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="8"
+                         ToolTip="Search memo number, patient name or phone">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+                <Button Content="Search" Command="{Binding SearchCommand}" Margin="8,0,0,0" Padding="14,6" />
+                <Button Content="Refresh" Click="Refresh_Click" Margin="8,0,0,0" Padding="14,6" />
+            </DockPanel>
+            <TextBlock Text="{Binding StatusMessage}" Margin="0,8,0,2" />
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FFB42318" TextWrapping="Wrap" />
+        </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="3*" />
+                <RowDefinition Height="2*" />
+            </Grid.RowDefinitions>
+            <DataGrid ItemsSource="{Binding Bills}" SelectedItem="{Binding SelectedBill}"
+                      SelectionChanged="Bills_SelectionChanged"
+                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True"
+                      SelectionUnit="FullRow" Margin="0,0,0,8">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Memo no." Binding="{Binding InvoiceNo}" Width="180" />
+                    <DataGridTextColumn Header="Date" Binding="{Binding SaleAtUtc, StringFormat={}{0:dd-MMM-yyyy HH:mm}}" Width="150" />
+                    <DataGridTextColumn Header="Patient" Binding="{Binding PatientName}" Width="*" />
+                    <DataGridTextColumn Header="Phone" Binding="{Binding PatientPhone}" Width="130" />
+                    <DataGridTextColumn Header="Total" Binding="{Binding TotalAmount, StringFormat=N2}" Width="100" />
+                    <DataGridTextColumn Header="Paid" Binding="{Binding PaidAmount, StringFormat=N2}" Width="100" />
+                </DataGrid.Columns>
+            </DataGrid>
+            <GroupBox Grid.Row="1" Header="Select item quantities to return; use 0 for items not being returned">
+                <DataGrid ItemsSource="{Binding ReturnableLines}"
+                          AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False"
+                          SelectionUnit="CellOrRowHeader">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Medicine" Binding="{Binding DrugName}" IsReadOnly="True" Width="*" />
+                        <DataGridTextColumn Header="Batch" Binding="{Binding BatchNo}" IsReadOnly="True" Width="100" />
+                        <DataGridTextColumn Header="Expiry" Binding="{Binding ExpiryDate}" IsReadOnly="True" Width="100" />
+                        <DataGridTextColumn Header="Sold" Binding="{Binding SoldQuantity}" IsReadOnly="True" Width="65" />
+                        <DataGridTextColumn Header="Returned" Binding="{Binding ReturnedQuantity}" IsReadOnly="True" Width="75" />
+                        <DataGridTextColumn Header="Remaining" Binding="{Binding RemainingQuantity}" IsReadOnly="True" Width="85" />
+                        <DataGridTextColumn Header="&#8377; / unit" Binding="{Binding UnitPrice, StringFormat=N2}" IsReadOnly="True" Width="85" />
+                        <DataGridTextColumn Header="Return qty" Binding="{Binding ReturnQuantity, UpdateSourceTrigger=PropertyChanged}" Width="95" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+        </Grid>
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <WrapPanel>
+                <ComboBox ItemsSource="{Binding DocumentTypes}" SelectedItem="{Binding DocumentType}"
+                          Width="125" Padding="6" Margin="0,0,8,0" />
+                <Button Content="Preview" Click="Preview_Click" Padding="14,7" Margin="0,0,8,0" />
+                <Button Content="Print" Click="Print_Click" Padding="14,7" Margin="0,0,8,0" />
+                <Button Content="Save / share PDF" Click="SavePdf_Click" Padding="14,7" Margin="0,0,16,0" />
+                <Button Content="WhatsApp" Click="WhatsApp_Click" Padding="14,7" Margin="0,0,8,0" />
+                <Button Content="Copy PDF path" Click="CopyPdfPath_Click" Padding="14,7" Margin="0,0,8,0" />
+                <Button Content="Show PDF in Explorer" Click="ShowPdf_Click" Padding="14,7" Margin="0,0,12,0" />
+                <TextBox Width="190" Text="{Binding EmailRecipient, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="7" ToolTip="Email recipient address" />
+                <Button Content="Email" Click="Email_Click" Padding="14,7" Margin="8,0,12,0" />
+                <TextBox Width="300" Text="{Binding ReturnReason, UpdateSourceTrigger=PropertyChanged}"
+                         Padding="7" ToolTip="Reason required for the credit note" />
+                <CheckBox Content="Restock after physical inspection"
+                          IsChecked="{Binding RestockReturnedItems}" VerticalAlignment="Center"
+                          Margin="10,0" />
+                <Button Content="Process selected return"
+                        Command="{Binding IssueSalesReturnCommand}"
+                        Padding="14,7" Margin="8,0,0,0" />
+            </WrapPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>

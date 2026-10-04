@@ -1,0 +1,52 @@
+<Window x:Class="PharmaBill.App.ErrorMessageWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PharmaBill - Error"
+        Width="620"
+        SizeToContent="Height"
+        MinHeight="260"
+        MaxHeight="760"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        ShowInTaskbar="True">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="FriendlyMessage"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap" />
+        <TextBlock Grid.Row="1"
+                   Text="{Binding LogPath, StringFormat='Log folder: {0}'}"
+                   Margin="0,10,0,8"
+                   TextWrapping="Wrap" />
+        <TextBox Grid.Row="2"
+                 x:Name="ErrorDetails"
+                 IsReadOnly="True"
+                 TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 MinHeight="80"
+                 MaxHeight="420"
+                 Padding="8" />
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,0,0">
+            <Button Content="Open log folder"
+                    Click="OpenLogFolder_Click"
+                    MinWidth="130"
+                    Height="40"
+                    Margin="0,0,8,0" />
+            <Button Content="Close"
+                    IsDefault="True"
+                    IsCancel="True"
+                    MinWidth="90"
+                    Height="40" />
+        </StackPanel>
+    </Grid>
+</Window>

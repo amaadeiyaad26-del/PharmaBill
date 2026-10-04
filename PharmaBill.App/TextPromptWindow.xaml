@@ -1,0 +1,21 @@
+﻿<Window x:Class="PharmaBill.App.TextPromptWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PharmaBill.App.Controls"
+        SizeToContent="Height"
+        Width="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource ContentBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+    <StackPanel Margin="24">
+        <TextBlock x:Name="MessageText" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,16" />
+        <controls:FloatingField x:Name="InputField" IsRequired="True">
+            <TextBox x:Name="InputBox" />
+        </controls:FloatingField>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" IsCancel="True" Style="{StaticResource SecondaryButton}" MinWidth="90" Margin="0,0,8,0" />
+            <Button Content="OK" IsDefault="True" Click="Ok_Click" Style="{StaticResource PrimaryButton}" MinWidth="90" />
+        </StackPanel>
+    </StackPanel>
+</Window>

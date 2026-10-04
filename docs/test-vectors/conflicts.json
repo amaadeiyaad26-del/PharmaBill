@@ -1,0 +1,19 @@
+{
+  "description": "Hybrid logical clock ordering and immutable document conflict behavior",
+  "cases": [
+    {
+      "name": "higher-counter-wins-at-same-millisecond",
+      "local": "1770000000000:2:00000000-0000-4000-8000-000000000001",
+      "remote": "1770000000000:3:00000000-0000-4000-8000-000000000002",
+      "winner": "remote",
+      "conflictExpected": true
+    },
+    {
+      "name": "immutable-document-id-already-exists",
+      "localOperation": "Created",
+      "remoteOperation": "Updated",
+      "winner": "local",
+      "conflictExpected": true
+    }
+  ]
+}

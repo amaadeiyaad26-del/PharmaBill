@@ -1,0 +1,86 @@
+﻿<Window x:Class="PharmaBill.App.AddStockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PharmaBill.App.Controls"
+        Title="{Binding Title}"
+        Width="820"
+        SizeToContent="Height"
+        MaxHeight="900"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource ContentBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+    <DockPanel Margin="24">
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Title}" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,12" />
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource FieldErrorBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel (Esc)" IsCancel="True" Style="{StaticResource SecondaryButton}" MinWidth="110" Margin="0,0,8,0" />
+                <Button x:Name="SaveButton" Content="Save stock" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}" MinWidth="130" />
+            </StackPanel>
+        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <controls:FloatingField x:Name="Field_Medicine" Label="Medicine" IsRequired="{Binding IsManualMedicine}" ErrorText="{Binding MedicineError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding MedicineName, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsMedicineReadOnly}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField Label="Composition" Margin="0,0,0,10">
+                        <TextBox Text="{Binding Composition, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsMedicineReadOnly}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField Label="Manufacturer" Margin="0,0,0,10">
+                        <TextBox Text="{Binding Manufacturer, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsMedicineReadOnly}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_Schedule" Label="Schedule" IsRequired="True" HelperText="{Binding ScheduleHint}" ErrorText="{Binding ScheduleError}" Margin="0,0,0,10">
+                        <ComboBox ItemsSource="{Binding ScheduleOptions}" SelectedItem="{Binding Schedule}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_BatchNo" Label="Batch no." IsRequired="True" ErrorText="{Binding BatchNoError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding BatchNo, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_Expiry" Label="Expiry (month/year)" IsRequired="True" HelperText="MM/YYYY, for example 08/2027" ErrorText="{Binding ExpiryError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding ExpiryText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_Mrp" Label="MRP per pack (&#8377;)" IsRequired="True" ErrorText="{Binding MrpError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding MrpText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_PurchaseRate" Label="Purchase rate (&#8377;)" IsRequired="True" ErrorText="{Binding PurchaseRateError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding PurchaseRateText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <controls:FloatingField x:Name="Field_Quantity" Label="Quantity (packs)" IsRequired="True" ErrorText="{Binding QuantityError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_FreeQuantity" Label="Free quantity" ErrorText="{Binding FreeQuantityError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding FreeQuantityText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_PackSize" Label="Pack size (units per pack)" ErrorText="{Binding PackSizeError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding PackSizeText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_Gst" Label="GST %" ErrorText="{Binding GstError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding GstText, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <DockPanel Margin="0,0,0,10">
+                        <Button DockPanel.Dock="Right" Content="Add new" Command="{Binding AddSupplierCommand}" Style="{StaticResource SecondaryButton}" Height="48" Margin="8,0,0,0" />
+                        <controls:FloatingField x:Name="Field_Supplier" Label="Supplier" IsRequired="True" ErrorText="{Binding SupplierError}">
+                            <ComboBox ItemsSource="{Binding Suppliers}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedSupplier}" />
+                        </controls:FloatingField>
+                    </DockPanel>
+                    <controls:FloatingField x:Name="Field_SupplierInvoiceNo" Label="Supplier invoice no." IsRequired="True" ErrorText="{Binding SupplierInvoiceNoError}" Margin="0,0,0,10">
+                        <TextBox Text="{Binding SupplierInvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField x:Name="Field_InvoiceDate" Label="Invoice date" IsRequired="True" ErrorText="{Binding InvoiceDateError}" Margin="0,0,0,10">
+                        <DatePicker SelectedDate="{Binding InvoiceDate}" />
+                    </controls:FloatingField>
+                    <controls:FloatingField Label="Rack / location" Margin="0,0,0,10">
+                        <TextBox Text="{Binding Rack, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:FloatingField>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

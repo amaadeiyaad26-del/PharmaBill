@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="PharmaBill.App/PharmaBill.App.csproj" />
+  <Project Path="PharmaBill.CloudSync/PharmaBill.CloudSync.csproj" />
+  <Project Path="PharmaBill.Core/PharmaBill.Core.csproj" />
+  <Project Path="PharmaBill.Data/PharmaBill.Data.csproj" />
+  <Project Path="PharmaBill.Sync/PharmaBill.Sync.csproj" />
+  <Project Path="PharmaBill.Tests/PharmaBill.Tests.csproj" />
+</Solution>

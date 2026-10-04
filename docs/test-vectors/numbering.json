@@ -1,0 +1,19 @@
+{
+  "description": "Number series reset at Indian financial-year boundary",
+  "cases": [
+    {
+      "prefix": "WIN1",
+      "date": "2026-03-31",
+      "financialYear": "2025-26",
+      "nextNumber": 1,
+      "formatted": "WIN1/2025-26/000001"
+    },
+    {
+      "prefix": "WIN1",
+      "date": "2026-04-01",
+      "financialYear": "2026-27",
+      "nextNumber": 1,
+      "formatted": "WIN1/2026-27/000001"
+    }
+  ]
+}

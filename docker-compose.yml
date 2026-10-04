@@ -1,0 +1,44 @@
+﻿# Self-hosted PharmaBill Cloud Sync. Run from the solution root:
+#   set POSTGRES_PASSWORD and CLOUD_ADMIN_KEY in .env, then: docker compose up -d --build
+# Put a TLS-terminating reverse proxy (Caddy, nginx, Traefik) in front for internet use.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pharmabill_cloud
+      POSTGRES_USER: pharmabill
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pharmabill -d pharmabill_cloud"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  cloudsync:
+    build:
+      context: .
+      dockerfile: PharmaBill.CloudSync/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      Cloud__Provider: Postgres
+      ConnectionStrings__Cloud: Host=db;Database=pharmabill_cloud;Username=pharmabill;Password=${POSTGRES_PASSWORD}
+      Cloud__AdminKey: ${CLOUD_ADMIN_KEY:?set CLOUD_ADMIN_KEY in .env}
+      # Optional S3-compatible storage (MinIO, Cloudflare R2, AWS S3); local disk is used when unset.
+      # Cloud__S3__Bucket: pharmabill
+      # Cloud__S3__ServiceUrl: https://s3.example.com
+      # Cloud__S3__AccessKey: ...
+      # Cloud__S3__SecretKey: ...
+    ports:
+      - "8080:8080"
+    volumes:
+      - blobs:/data/blobs
+
+volumes:
+  pgdata:
+  blobs:
