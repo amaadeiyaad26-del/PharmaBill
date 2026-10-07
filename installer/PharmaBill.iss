@@ -45,7 +45,8 @@ MinVersion=10.0
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=yes
-CloseApplications=yes
+; Partner Center / silent automation: never block waiting on running app instances.
+CloseApplications=no
 RestartApplications=no
 UsePreviousAppDir=yes
 
