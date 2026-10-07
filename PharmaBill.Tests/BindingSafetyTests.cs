@@ -119,7 +119,7 @@ public sealed class BindingSafetyTests
                 PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
                 PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Warning | SourceLevels.Error;
 
-                var window = new PharmaBill.App.MainWindow(null!, null!, null!);
+                var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!);
                 foreach (var key in window.Resources.Keys.OfType<DataTemplateKey>())
                 {
                     var template = (DataTemplate)window.Resources[key];

@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.PharmacistProfileWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Pharmacist profile" SizeToContent="Height" Width="480" MaxHeight="640" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{DynamicResource CanvasBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+  <FrameworkElement.Resources>
+    <ResourceDictionary>
+      <Style x:Key="FieldLabel" TargetType="{x:Type TextBlock}">
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Margin" Value="0,10,0,0" />
+      </Style>
+    </ResourceDictionary>
+  </FrameworkElement.Resources>
+  <Border Margin="20" Padding="24" CornerRadius="14" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+    <UIElement.Effect>
+      <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.08" Color="#FF0F172A" />
+    </UIElement.Effect>
+    <StackPanel>
+      <StackPanel Orientation="Horizontal">
+        <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource AccentSoftBrush}">
+          <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="26" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+        <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+          <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding DisplayName}" />
+          <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Role}" />
+        </StackPanel>
+      </StackPanel>
+      <TextBlock Style="{StaticResource FieldLabel}" Text="Sign-in name" Margin="0,18,0,0" />
+      <TextBlock Text="{Binding UserName}" />
+      <TextBlock Style="{StaticResource FieldLabel}" Text="Contact" />
+      <TextBlock Text="{Binding Phone}" />
+      <TextBlock Text="{Binding Email}" />
+      <TextBlock Style="{StaticResource FieldLabel}" Text="Pharmacy" />
+      <TextBlock FontWeight="SemiBold" Text="{Binding PharmacyName}" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding Address}" />
+      <TextBlock Text="{Binding PharmacyPhone}" />
+      <TextBlock Style="{StaticResource FieldLabel}" Text="Competent person" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding CompetentPerson}" />
+      <TextBlock Style="{StaticResource FieldLabel}" Text="Drug licences" />
+      <ItemsControl ItemsSource="{Binding Licences}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <TextBlock TextWrapping="Wrap" Margin="0,2,0,0" Text="{Binding}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+        <Button Content="Close" IsCancel="True" Style="{StaticResource SecondaryButton}" MinWidth="90" Margin="0,0,8,0" />
+        <Button Content="Lock terminal / Sign out" IsDefault="True" Style="{StaticResource PrimaryButton}" MinWidth="170" Click="Lock_Click" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

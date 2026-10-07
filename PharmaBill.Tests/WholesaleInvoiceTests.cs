@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
@@ -19,7 +19,7 @@ public sealed class WholesaleInvoiceTests
     {
         var test = await CreateScenarioAsync(blocked: blocked, validLicence: hasLicence);
         await using var database = test.Database;
-        var service = CreateService(database.Context);
+        var service = CreateService(database);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
@@ -32,7 +32,7 @@ public sealed class WholesaleInvoiceTests
         await using var database = test.Database;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateService(database.Context).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class WholesaleInvoiceTests
         await using var database = test.Database;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateService(database.Context).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public sealed class WholesaleInvoiceTests
         var test = await CreateScenarioAsync(validLicence: true, sameState: true);
         await using var database = test.Database;
 
-        var result = await CreateService(database.Context).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
 
         Assert.Equal("WHO/2026-27/000001", result.Invoice.InvoiceNo);
         Assert.Equal(120m, result.CgstAmount + result.SgstAmount);
@@ -78,7 +78,7 @@ public sealed class WholesaleInvoiceTests
         var test = await CreateScenarioAsync(validLicence: true, sameState: false);
         await using var database = test.Database;
 
-        var result = await CreateService(database.Context).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
 
         Assert.Equal(0m, result.CgstAmount);
         Assert.Equal(0m, result.SgstAmount);
@@ -92,13 +92,13 @@ public sealed class WholesaleInvoiceTests
         await using var database = test.Database;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateService(database.Context).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
         var input = test.Input() with
         {
             OverrideCreditOrOverdue = true,
             OverrideReason = "Approved by owner"
         };
-        var result = await CreateService(database.Context).SaveAsync(input, test.Owner.Id, UserRole.Owner);
+        var result = await CreateService(database).SaveAsync(input, test.Owner.Id, UserRole.Owner);
 
         Assert.Equal(1120m, result.OutstandingAfterPosting);
         Assert.Contains(
@@ -115,7 +115,7 @@ public sealed class WholesaleInvoiceTests
         await using (nearExpiry.Database)
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                CreateService(nearExpiry.Database.Context)
+                CreateService(nearExpiry.Database)
                     .SaveAsync(nearExpiry.Input(), nearExpiry.Owner.Id, UserRole.Owner));
         }
 
@@ -125,7 +125,7 @@ public sealed class WholesaleInvoiceTests
         await using (expired.Database)
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                CreateService(expired.Database.Context)
+                CreateService(expired.Database)
                     .SaveAsync(expired.Input() with { ConfirmNearExpiry = true }, expired.Owner.Id, UserRole.Owner));
         }
     }
@@ -135,7 +135,7 @@ public sealed class WholesaleInvoiceTests
     {
         var test = await CreateScenarioAsync(validLicence: true);
         await using var database = test.Database;
-        var service = CreateService(database.Context);
+        var service = CreateService(database);
         var result = await service.SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
 
         await service.CancelAsync(result.Invoice.Id, "Duplicate order", test.Owner.Id, UserRole.Owner);
@@ -153,7 +153,7 @@ public sealed class WholesaleInvoiceTests
     {
         var test = await CreateScenarioAsync(validLicence: true);
         await using var database = test.Database;
-        var invoice = await CreateService(database.Context)
+        var invoice = await CreateService(database)
             .SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
         var invoiceLine = await database.Context.WholesaleInvoiceItems.SingleAsync();
         var entitlement = new AllowedEntitlement();
@@ -189,7 +189,7 @@ public sealed class WholesaleInvoiceTests
     {
         var test = await CreateScenarioAsync(validLicence: true);
         await using var database = test.Database;
-        var invoice = await CreateService(database.Context)
+        var invoice = await CreateService(database)
             .SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
         var accounts = new WholesaleAccountsService(new UnitOfWork(database.Context));
 
@@ -220,7 +220,7 @@ public sealed class WholesaleInvoiceTests
     {
         var test = await CreateScenarioAsync(validLicence: true);
         await using var database = test.Database;
-        var invoice = await CreateService(database.Context)
+        var invoice = await CreateService(database)
             .SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
         var supplier = new Supplier { Name = "Ledger supplier" };
         database.Context.Suppliers.Add(supplier);
@@ -302,7 +302,7 @@ public sealed class WholesaleInvoiceTests
     {
         var test = await CreateScenarioAsync(validLicence: true, sameState: false);
         await using var database = test.Database;
-        await CreateService(database.Context).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
         var reports = new WholesaleGstReportsService(database.Context);
         var today = DateOnly.FromDateTime(DateTime.Now);
 
@@ -356,10 +356,14 @@ public sealed class WholesaleInvoiceTests
         Assert.Equal(24m, row.TaxAmount);
     }
 
-    private static WholesaleInvoiceService CreateService(PharmaBillDbContext context)
+    private static WholesaleInvoiceService CreateService(DatabaseTestContext database)
     {
-        var unitOfWork = new UnitOfWork(context);
-        return new WholesaleInvoiceService(unitOfWork, new NumberSeriesService(unitOfWork), new AllowedEntitlement());
+        var unitOfWork = new UnitOfWork(database.Context);
+        return new WholesaleInvoiceService(
+            unitOfWork,
+            new NumberSeriesService(unitOfWork),
+            new AllowedEntitlement(),
+            database.CreateBranchService(unitOfWork));
     }
 
     private static async Task<Scenario> CreateScenarioAsync(
@@ -470,3 +474,4 @@ public sealed class WholesaleInvoiceTests
             CancellationToken cancellationToken = default) => Task.FromResult(true);
     }
 }
+

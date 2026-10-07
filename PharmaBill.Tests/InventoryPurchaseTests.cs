@@ -17,9 +17,7 @@ public sealed class InventoryPurchaseTests
         var drug = new Drug { Name = "Test medicine" };
         database.Context.AddRange(supplier, drug);
         await database.Context.SaveChangesAsync();
-        var service = new PurchaseService(
-            new UnitOfWork(database.Context),
-            new AllowAllEntitlements());
+        var service = database.CreatePurchaseService(new AllowAllEntitlements());
 
         var invoice = await service.SavePurchaseAsync(
             new SavePurchaseInput(
@@ -63,9 +61,7 @@ public sealed class InventoryPurchaseTests
         var drug = new Drug { Name = "Test medicine" };
         database.Context.AddRange(supplier, drug);
         await database.Context.SaveChangesAsync();
-        var service = new PurchaseService(
-            new UnitOfWork(database.Context),
-            new AllowAllEntitlements());
+        var service = database.CreatePurchaseService(new AllowAllEntitlements());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.SavePurchaseAsync(
             new SavePurchaseInput(
@@ -106,9 +102,7 @@ public sealed class InventoryPurchaseTests
             MovementType = "PurchaseReceipt"
         });
         await database.Context.SaveChangesAsync();
-        var service = new PurchaseService(
-            new UnitOfWork(database.Context),
-            new AllowAllEntitlements());
+        var service = database.CreatePurchaseService(new AllowAllEntitlements());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.SavePurchaseReturnAsync(
             supplier.Id,
@@ -146,9 +140,7 @@ public sealed class InventoryPurchaseTests
             MovementType = "PurchaseReceipt"
         });
         await database.Context.SaveChangesAsync();
-        var service = new PurchaseService(
-            new UnitOfWork(database.Context),
-            new AllowAllEntitlements());
+        var service = database.CreatePurchaseService(new AllowAllEntitlements());
 
         await service.SavePurchaseReturnAsync(
             supplier.Id,

@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="PharmaBill.App.Controls.DeveloperSupportBanner" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:PharmaBill.App.Controls;assembly=PharmaBill.App">
+  <Border Background="#FFF0F9FF" BorderBrush="#FFBAE6FD" BorderThickness="1" CornerRadius="8" Padding="12">
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBlock Grid.Column="0" FontFamily="Segoe MDL2 Assets" Text="" FontSize="22" Foreground="#FF0284C7" Margin="0,2,12,0" VerticalAlignment="Top" />
+      <StackPanel Grid.Column="1">
+        <TextBlock Text="Technical Support &amp; Feedback" FontWeight="SemiBold" FontSize="13.5" Foreground="#FF0C4A6E" />
+        <TextBlock TextWrapping="Wrap" Margin="0,4,0,6" FontSize="12.5" Foreground="#FF334155" Text="For any application-related issues, bug reports, or feature requests, contact the developer directly at:" />
+        <TextBlock>
+          <Hyperlink Foreground="#FF0284C7" FontWeight="SemiBold" ToolTip="Open mail client and copy address" Click="EmailLink_Click">
+            <Run Text="pharma.bill26@gmail.com" />
+          </Hyperlink>
+        </TextBlock>
+        <TextBlock Name="CopiedToast" Margin="0,6,0,0" FontSize="11.5" Foreground="#FF027A48" FontWeight="SemiBold" Text="Copied to clipboard!" Visibility="Collapsed" />
+      </StackPanel>
+      <Button Grid.Column="2" Margin="12,0,0,0" Padding="12,8" VerticalAlignment="Center" Cursor="Hand" ToolTip="Open mail client and copy address" Click="EmailDeveloper_Click">
+        <Control.Template>
+          <ControlTemplate TargetType="{x:Type Button}">
+            <Border Background="#FF0284C7" CornerRadius="6" Padding="{TemplateBinding Control.Padding}">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="13" Foreground="#FFFFFFFF" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <TextBlock Text="Email Developer" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFFFF" VerticalAlignment="Center" />
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </Control.Template>
+      </Button>
+    </Grid>
+  </Border>
+</UserControl>

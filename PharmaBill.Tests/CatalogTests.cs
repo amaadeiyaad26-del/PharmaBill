@@ -59,7 +59,7 @@ public sealed class CatalogTests
             Assert.Null((await database.Context.CatalogMedicines.SingleAsync(item => item.SourceId == "2")).ReferencePrice);
 
             var stopwatch = Stopwatch.StartNew();
-            var results = await new CatalogSearchService(database.Context).SearchAsync("Brand");
+            var results = await database.CreateCatalogSearch().SearchAsync("Brand");
             stopwatch.Stop();
             Assert.Single(results.FromCatalog);
             Assert.Equal("Test, Brand 500", results.FromCatalog[0].Name);

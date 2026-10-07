@@ -1,0 +1,174 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>PharmaBill.App</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>True</UseWPF>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>14.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <RootNamespace />
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="PharmaBill.App.Assets.Fonts.NotoSans-Bold.ttf" />
+    <None Remove="PharmaBill.App.Assets.Fonts.NotoSans-Regular.ttf" />
+    <EmbeddedResource Include="PharmaBill.App.Assets.Fonts.NotoSans-Bold.ttf" LogicalName="PharmaBill.App.Assets.Fonts.NotoSans-Bold.ttf" />
+    <EmbeddedResource Include="PharmaBill.App.Assets.Fonts.NotoSans-Regular.ttf" LogicalName="PharmaBill.App.Assets.Fonts.NotoSans-Regular.ttf" />
+    <ApplicationDefinition Remove="PharmaBill.App\App.xaml" />
+    <ApplicationDefinition Include="PharmaBill.App\App.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="app.xaml" />
+    <Page Remove="PharmaBill.App.Controls\DeveloperSupportBanner.xaml" />
+    <Page Remove="PharmaBill.App.Controls\GlobalMedicineSearchControl.xaml" />
+    <Page Remove="PharmaBill.App.Controls\InfoHelper.xaml" />
+    <Page Remove="PharmaBill.App.Controls\InlineSearchBusyRing.xaml" />
+    <Page Remove="PharmaBill.App.Controls\LiveHighlightTile.xaml" />
+    <Page Remove="PharmaBill.App.Views\DunningDashboardView.xaml" />
+    <Page Remove="PharmaBill.App.Views\SettingsView.xaml" />
+    <Page Remove="PharmaBill.App.Views\SyncView.xaml" />
+    <Page Remove="PharmaBill.App.Views\WholesaleReconciliationView.xaml" />
+    <Page Remove="PharmaBill.App\AccessSimulatorWindow.xaml" />
+    <Page Remove="PharmaBill.App\AddStockWindow.xaml" />
+    <Page Remove="PharmaBill.App\AuthenticationWindow.xaml" />
+    <Page Remove="PharmaBill.App\CatalogImportWindow.xaml" />
+    <Page Remove="PharmaBill.App\CloudKeysWindow.xaml" />
+    <Page Remove="PharmaBill.App\CriticalUpdateWindow.xaml" />
+    <Page Remove="PharmaBill.App\DiagnosticsWindow.xaml" />
+    <Page Remove="PharmaBill.App\ErrorMessageWindow.xaml" />
+    <Page Remove="PharmaBill.App\InitialSetupWindow.xaml" />
+    <Page Remove="PharmaBill.App\InvoiceDetailWindow.xaml" />
+    <Page Remove="PharmaBill.App\LicenceStatusWindow.xaml" />
+    <Page Remove="PharmaBill.App\MainWindow.xaml" />
+    <Page Remove="PharmaBill.App\PaymentQrCustomerWindow.xaml" />
+    <Page Remove="PharmaBill.App\PaymentQrWindow.xaml" />
+    <Page Remove="PharmaBill.App\PharmacistProfileWindow.xaml" />
+    <Page Remove="PharmaBill.App\PinPromptWindow.xaml" />
+    <Page Remove="PharmaBill.App\PrescriptionReviewWindow.xaml" />
+    <Page Remove="PharmaBill.App\RecentBillsWindow.xaml" />
+    <Page Remove="PharmaBill.App\RecoveryCodeWindow.xaml" />
+    <Page Remove="PharmaBill.App\RecoveryResetWindow.xaml" />
+    <Page Remove="PharmaBill.App\SimulateScannerWindow.xaml" />
+    <Page Remove="PharmaBill.App\TextPromptWindow.xaml" />
+    <Page Remove="PharmaBill.App\UserManualWindow.xaml" />
+    <Page Remove="PharmaBill.App\WebcamCaptureWindow.xaml" />
+    <Page Remove="resources\controls.xaml" />
+    <Page Remove="resources\premium.xaml" />
+    <Page Remove="resources\strings.en.xaml" />
+    <Page Remove="resources\strings.hi.xaml" />
+    <Page Remove="resources\strings.ur.xaml" />
+    <Page Remove="themes\dark.xaml" />
+    <Page Remove="themes\light.xaml" />
+    <Page Include="PharmaBill.App.Controls\DeveloperSupportBanner.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="controls/developersupportbanner.xaml" />
+    <Page Include="PharmaBill.App.Controls\GlobalMedicineSearchControl.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="controls/globalmedicinesearchcontrol.xaml" />
+    <Page Include="PharmaBill.App.Controls\InfoHelper.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="controls/infohelper.xaml" />
+    <Page Include="PharmaBill.App.Controls\InlineSearchBusyRing.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="controls/inlinesearchbusyring.xaml" />
+    <Page Include="PharmaBill.App.Controls\LiveHighlightTile.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="controls/livehighlighttile.xaml" />
+    <Page Include="PharmaBill.App.Views\DunningDashboardView.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="views/dunningdashboardview.xaml" />
+    <Page Include="PharmaBill.App.Views\SettingsView.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="views/settingsview.xaml" />
+    <Page Include="PharmaBill.App.Views\SyncView.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="views/syncview.xaml" />
+    <Page Include="PharmaBill.App.Views\WholesaleReconciliationView.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="views/wholesalereconciliationview.xaml" />
+    <Page Include="PharmaBill.App\AccessSimulatorWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="accesssimulatorwindow.xaml" />
+    <Page Include="PharmaBill.App\AddStockWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="addstockwindow.xaml" />
+    <Page Include="PharmaBill.App\AuthenticationWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="authenticationwindow.xaml" />
+    <Page Include="PharmaBill.App\CatalogImportWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="catalogimportwindow.xaml" />
+    <Page Include="PharmaBill.App\CloudKeysWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="cloudkeyswindow.xaml" />
+    <Page Include="PharmaBill.App\CriticalUpdateWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="criticalupdatewindow.xaml" />
+    <Page Include="PharmaBill.App\DiagnosticsWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="diagnosticswindow.xaml" />
+    <Page Include="PharmaBill.App\ErrorMessageWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="errormessagewindow.xaml" />
+    <Page Include="PharmaBill.App\InitialSetupWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="initialsetupwindow.xaml" />
+    <Page Include="PharmaBill.App\InvoiceDetailWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="invoicedetailwindow.xaml" />
+    <Page Include="PharmaBill.App\LicenceStatusWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="licencestatuswindow.xaml" />
+    <Page Include="PharmaBill.App\MainWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="mainwindow.xaml" />
+    <Page Include="PharmaBill.App\PaymentQrCustomerWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="paymentqrcustomerwindow.xaml" />
+    <Page Include="PharmaBill.App\PaymentQrWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="paymentqrwindow.xaml" />
+    <Page Include="PharmaBill.App\PharmacistProfileWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="pharmacistprofilewindow.xaml" />
+    <Page Include="PharmaBill.App\PinPromptWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="pinpromptwindow.xaml" />
+    <Page Include="PharmaBill.App\PrescriptionReviewWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="prescriptionreviewwindow.xaml" />
+    <Page Include="PharmaBill.App\RecentBillsWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="recentbillswindow.xaml" />
+    <Page Include="PharmaBill.App\RecoveryCodeWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="recoverycodewindow.xaml" />
+    <Page Include="PharmaBill.App\RecoveryResetWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="recoveryresetwindow.xaml" />
+    <Page Include="PharmaBill.App\SimulateScannerWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="simulatescannerwindow.xaml" />
+    <Page Include="PharmaBill.App\TextPromptWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="textpromptwindow.xaml" />
+    <Page Include="PharmaBill.App\UserManualWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="usermanualwindow.xaml" />
+    <Page Include="PharmaBill.App\WebcamCaptureWindow.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="webcamcapturewindow.xaml" />
+    <Page Include="resources\controls.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="resources/controls.xaml" />
+    <Page Include="resources\premium.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="resources/premium.xaml" />
+    <Page Include="resources\strings.en.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="resources/strings.en.xaml" />
+    <Page Include="resources\strings.hi.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="resources/strings.hi.xaml" />
+    <Page Include="resources\strings.ur.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="resources/strings.ur.xaml" />
+    <Page Include="themes\dark.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="themes/dark.xaml" />
+    <Page Include="themes\light.xaml" Generator="MSBuild:Compile" SubType="Designer" LogicalName="themes/light.xaml" />
+    <Resource Remove="assets\icons\app.ico" />
+    <Resource Remove="assets\icons\pharma_bill_3d.ico" />
+    <Resource Remove="assets\icons\pharma_bill_3d.png" />
+    <Resource Remove="assets\icons\pharma_bill_3d_watermark.png" />
+    <Resource Include="assets\icons\app.ico" LogicalName="assets/icons/app.ico" />
+    <Resource Include="assets\icons\pharma_bill_3d.ico" LogicalName="assets/icons/pharma_bill_3d.ico" />
+    <Resource Include="assets\icons\pharma_bill_3d.png" LogicalName="assets/icons/pharma_bill_3d.png" />
+    <Resource Include="assets\icons\pharma_bill_3d_watermark.png" LogicalName="assets/icons/pharma_bill_3d_watermark.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="PharmaBill.Core">
+      <HintPath>artifacts/publish/win-x64-appxprobe/PharmaBill.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="PharmaBill.Data">
+      <HintPath>artifacts/publish/win-x64-appxprobe/PharmaBill.Data.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Hosting.Abstractions">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.Extensions.Hosting.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.DependencyInjection.Abstractions">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.Extensions.DependencyInjection.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="PharmaBill.Sync">
+      <HintPath>artifacts/publish/win-x64-appxprobe/PharmaBill.Sync.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Windows.SDK.NET">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.Windows.SDK.NET.dll</HintPath>
+    </Reference>
+    <Reference Include="CommunityToolkit.Mvvm">
+      <HintPath>artifacts/publish/win-x64-appxprobe/CommunityToolkit.Mvvm.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.EntityFrameworkCore.dll</HintPath>
+    </Reference>
+    <Reference Include="ClosedXML">
+      <HintPath>artifacts/publish/win-x64-appxprobe/ClosedXML.dll</HintPath>
+    </Reference>
+    <Reference Include="QuestPDF">
+      <HintPath>artifacts/publish/win-x64-appxprobe/QuestPDF.dll</HintPath>
+    </Reference>
+    <Reference Include="CsvHelper">
+      <HintPath>artifacts/publish/win-x64-appxprobe/CsvHelper.dll</HintPath>
+    </Reference>
+    <Reference Include="zxing">
+      <HintPath>artifacts/publish/win-x64-appxprobe/zxing.dll</HintPath>
+    </Reference>
+    <Reference Include="Serilog">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Serilog.dll</HintPath>
+    </Reference>
+    <Reference Include="Serilog.Sinks.File">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Serilog.Sinks.File.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Hosting">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.Extensions.Hosting.dll</HintPath>
+    </Reference>
+    <Reference Include="Serilog.Extensions.Hosting">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Serilog.Extensions.Hosting.dll</HintPath>
+    </Reference>
+    <Reference Include="Serilog.Extensions.Logging">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Serilog.Extensions.Logging.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.EntityFrameworkCore.Relational">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

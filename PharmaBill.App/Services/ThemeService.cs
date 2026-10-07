@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 
@@ -5,54 +9,58 @@ namespace PharmaBill.App.Services;
 
 public sealed class ThemeService : IThemeService
 {
-    private static readonly IReadOnlyDictionary<string, string> AccentColors =
-        new Dictionary<string, string>
-        {
-            ["Blue"] = "#2563EB",
-            ["Green"] = "#16834A",
-            ["Purple"] = "#7C3AED",
-            ["Teal"] = "#0F766E",
-            ["Orange"] = "#C2410C"
-        };
+	private static readonly IReadOnlyDictionary<string, string> AccentColors = new Dictionary<string, string>
+	{
+		["Blue"] = "#2563EB",
+		["Green"] = "#16834A",
+		["Purple"] = "#7C3AED",
+		["Teal"] = "#0F766E",
+		["Orange"] = "#C2410C"
+	};
 
-    public IReadOnlyList<string> ThemeOptions { get; } = ["Light", "Dark"];
+	public IReadOnlyList<string> ThemeOptions { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[2] { "Light", "Dark" });
 
-    public IReadOnlyList<string> AccentOptions { get; } = [.. AccentColors.Keys];
+	public IReadOnlyList<string> AccentOptions { get; }
 
-    public void ApplyTheme(string theme)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(theme);
-        if (!ThemeOptions.Contains(theme, StringComparer.Ordinal))
-        {
-            throw new ArgumentOutOfRangeException(nameof(theme), theme, "The selected theme is not supported.");
-        }
+	public void ApplyTheme(string theme)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(theme, "theme");
+		if (!ThemeOptions.Contains(theme, StringComparer.Ordinal))
+		{
+			throw new ArgumentOutOfRangeException("theme", theme, "The selected theme is not supported.");
+		}
+		Collection<ResourceDictionary> mergedDictionaries = Application.Current.Resources.MergedDictionaries;
+		ResourceDictionary resourceDictionary = mergedDictionaries.FirstOrDefault((ResourceDictionary dictionary) => dictionary.Source?.OriginalString.Contains("Themes/", StringComparison.OrdinalIgnoreCase) ?? false);
+		if (resourceDictionary == null)
+		{
+			throw new InvalidOperationException("The application theme resource dictionary is missing.");
+		}
+		Uri source = new Uri("Themes/" + theme + ".xaml", UriKind.Relative);
+		ResourceDictionary value = new ResourceDictionary
+		{
+			Source = source
+		};
+		int index = mergedDictionaries.IndexOf(resourceDictionary);
+		mergedDictionaries[index] = value;
+	}
 
-        var dictionaries = Application.Current.Resources.MergedDictionaries;
-        var currentTheme = dictionaries.FirstOrDefault(dictionary =>
-            dictionary.Source?.OriginalString.Contains("Themes/", StringComparison.OrdinalIgnoreCase) == true);
-        if (currentTheme is null)
-        {
-            throw new InvalidOperationException("The application theme resource dictionary is missing.");
-        }
+	public void ApplyAccent(string accent)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(accent, "accent");
+		if (!AccentColors.TryGetValue(accent, out string value))
+		{
+			throw new ArgumentOutOfRangeException("accent", accent, "The selected accent is not supported.");
+		}
+		SolidColorBrush solidColorBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
+		solidColorBrush.Freeze();
+		Application.Current.Resources["AccentBrush"] = solidColorBrush;
+		Application.Current.Resources["AccentSoftBrush"] = new SolidColorBrush(Color.FromArgb(30, solidColorBrush.Color.R, solidColorBrush.Color.G, solidColorBrush.Color.B));
+	}
 
-        var source = new Uri($"Themes/{theme}.xaml", UriKind.Relative);
-        var replacement = new ResourceDictionary { Source = source };
-        var index = dictionaries.IndexOf(currentTheme);
-        dictionaries[index] = replacement;
-    }
-
-    public void ApplyAccent(string accent)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(accent);
-        if (!AccentColors.TryGetValue(accent, out var color))
-        {
-            throw new ArgumentOutOfRangeException(nameof(accent), accent, "The selected accent is not supported.");
-        }
-
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
-        brush.Freeze();
-        Application.Current.Resources["AccentBrush"] = brush;
-        Application.Current.Resources["AccentSoftBrush"] = new SolidColorBrush(
-            Color.FromArgb(30, brush.Color.R, brush.Color.G, brush.Color.B));
-    }
+	public ThemeService()
+	{
+		List<string> list = new List<string>();
+		list.AddRange(AccentColors.Keys);
+		AccentOptions = new _003C_003Ez__ReadOnlyList<string>(list);
+	}
 }

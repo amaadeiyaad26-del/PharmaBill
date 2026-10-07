@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="PharmaBill.App.Views.WholesaleReconciliationView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" AllowDrop="True" xmlns:views="clr-namespace:PharmaBill.App.Views;assembly=PharmaBill.App" Drop="OnDrop" DragOver="OnDragOver">
+  <DockPanel Margin="18">
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+      <TextBlock Text="Bank &amp; Ledger Reconciliation" FontSize="23" FontWeight="SemiBold" />
+      <TextBlock Margin="0,4,0,8" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Import a bank CSV/Excel statement. Matching uses UTR/cheque vouchers, fuzzy chemist/GSTIN narration, and subset-sum of open invoices &amp; credit notes." />
+      <WrapPanel>
+        <Button Content="Import bank statement" Padding="12,7" Command="{Binding ImportStatementCommand}" />
+        <Button Content="Approve High/Medium" Padding="12,7" Margin="8,0,0,0" Command="{Binding ApproveAllHighMediumCommand}" />
+        <Button Content="Approve &amp; Post Receipts" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Command="{Binding BatchSettleCommand}" />
+      </WrapPanel>
+      <TextBlock Margin="0,8,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding ImportPath}" />
+      <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+      <TextBlock Margin="0,2,0,0" Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+    </StackPanel>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <DataGrid Grid.Column="0" Margin="0,0,8,0" AutoGenerateColumns="False" IsReadOnly="False" CanUserAddRows="False" ItemsSource="{Binding Matches}">
+        <DataGrid.Columns>
+          <DataGridCheckBoxColumn Header="Approve" Width="70" Binding="{Binding Approve, UpdateSourceTrigger=PropertyChanged}" />
+          <DataGridTextColumn Header="Date" IsReadOnly="True" Width="90" Binding="{Binding BankDate}" />
+          <DataGridTextColumn Header="Reference / UTR" IsReadOnly="True" Width="120" Binding="{Binding Reference}" />
+          <DataGridTextColumn Header="Narration" IsReadOnly="True" Width="*" Binding="{Binding Narration}" />
+          <DataGridTextColumn Header="Deposit" IsReadOnly="True" Width="90" Binding="{Binding DepositAmount, StringFormat=₹{0:0.00}}" />
+        </DataGrid.Columns>
+      </DataGrid>
+      <DataGrid Grid.Column="1" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" ItemsSource="{Binding Matches}">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Matched chemist" Width="140" Binding="{Binding CustomerName}" />
+          <DataGridTextColumn Header="Invoices &amp; credit notes" Width="*" Binding="{Binding MatchedDocs}" />
+          <DataGridTextColumn Header="Confidence" Width="110" Binding="{Binding Confidence}" />
+          <DataGridTextColumn Header="Reason" Width="180" Binding="{Binding Reason}" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </Grid>
+  </DockPanel>
+</UserControl>

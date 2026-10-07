@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
+using PharmaBill.Data.Services;
 
 namespace PharmaBill.Tests;
 
@@ -16,11 +18,36 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
         _directory = directory;
         Connection = connection;
         Context = context;
+        Storage = new DatabaseStorageOptions(directory);
+        BranchSettings = new BranchSettingsStore(Storage);
     }
 
     public SqliteConnection Connection { get; }
 
     public PharmaBillDbContext Context { get; }
+
+    public DatabaseStorageOptions Storage { get; }
+
+    public BranchSettingsStore BranchSettings { get; }
+
+    public UnitOfWork CreateUnitOfWork() => new(Context);
+
+    public StorageLocationService CreateStorageLocations() => new(Context);
+
+    public BranchService CreateBranchService(IUnitOfWork? unitOfWork = null) =>
+        new(unitOfWork ?? CreateUnitOfWork(), BranchSettings, Storage);
+
+    public CatalogSearchService CreateCatalogSearch() =>
+        new(Context, CreateBranchService());
+
+    public PurchaseService CreatePurchaseService(IEntitlementService entitlements, IUnitOfWork? unitOfWork = null)
+    {
+        var uow = unitOfWork ?? CreateUnitOfWork();
+        return new PurchaseService(uow, entitlements, CreateStorageLocations(), CreateBranchService(uow));
+    }
+
+    public DbInitializer CreateDbInitializer() =>
+        new(Context, CreateStorageLocations(), CreateBranchService());
 
     public static async Task<DatabaseTestContext> CreateAsync(bool createSchema = true)
     {

@@ -1,19 +1,33 @@
 using System.Windows;
 using PharmaBill.App.ViewModels;
+using PharmaBill.Sync;
 
 namespace PharmaBill.App;
 
 public partial class DiagnosticsWindow : Window
 {
-    private readonly DiagnosticsViewModel _viewModel;
+	private readonly DiagnosticsViewModel _viewModel;
 
-    public DiagnosticsWindow(DiagnosticsViewModel viewModel)
-    {
-        _viewModel = viewModel;
-        InitializeComponent();
-        DataContext = viewModel;
-        Loaded += OnLoaded;
-    }
+	private readonly CloudOAuthClientStore _oauthClients;
 
-    private async void OnLoaded(object sender, RoutedEventArgs e) => await _viewModel.RefreshCommand.ExecuteAsync(null);
+	public DiagnosticsWindow(DiagnosticsViewModel viewModel, CloudOAuthClientStore oauthClients)
+	{
+		_viewModel = viewModel;
+		_oauthClients = oauthClients;
+		InitializeComponent();
+		DataContext = viewModel;
+		Loaded += OnLoaded;
+	}
+
+	private async void OnLoaded(object sender, RoutedEventArgs e)
+	{
+		await _viewModel.RefreshCommand.ExecuteAsync(null);
+	}
+
+	private void ConfigureCloudKeys_Click(object sender, RoutedEventArgs e)
+	{
+		CloudKeysWindow cloudKeysWindow = new CloudKeysWindow(_oauthClients);
+		cloudKeysWindow.Owner = this;
+		cloudKeysWindow.ShowDialog();
+	}
 }

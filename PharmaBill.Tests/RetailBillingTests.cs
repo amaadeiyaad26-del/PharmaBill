@@ -439,7 +439,9 @@ public sealed class RetailBillingTests
             unitOfWork,
             new NumberSeriesService(unitOfWork),
             new TestEntitlements(canCreateBills),
-            new CatalogSearchService(database.Context),
+            database.CreateCatalogSearch(),
+            database.CreateStorageLocations(),
+            database.CreateBranchService(unitOfWork),
             prescriptionStorageDirectory);
         return (service, drug, batch);
     }

@@ -94,7 +94,7 @@ public sealed class PersistenceTests
     {
         await using var database = await DatabaseTestContext.CreateAsync(createSchema: false);
 
-        await new DbInitializer(database.Context).InitializeAsync();
+        await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
             "_WholesaleInvoices",
@@ -144,7 +144,7 @@ public sealed class PersistenceTests
                 ({id}, {"Legacy pharmacy"}, {"BOTH"}, {now}, {now}, {Guid.NewGuid()}, {false}, {"legacy"}, {0})
             """);
 
-        await new DbInitializer(database.Context).InitializeAsync();
+        await database.CreateDbInitializer().InitializeAsync();
         database.Context.ChangeTracker.Clear();
 
         var profile = await database.Context.PharmacyProfiles.SingleAsync();

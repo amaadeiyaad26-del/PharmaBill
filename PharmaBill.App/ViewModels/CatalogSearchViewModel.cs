@@ -1,4 +1,10 @@
-﻿using System.Collections.ObjectModel;
+using System;
+using System.CodeDom.Compiler;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,217 +14,369 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public partial class CatalogSearchViewModel : ObservableObject, IDisposable
+public class CatalogSearchViewModel : ObservableObject, IDisposable
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<CatalogSearchViewModel> _logger;
-    private readonly IAddStockDialogService? _addStockDialog;
-    private CancellationTokenSource? _searchCancellation;
+	private readonly IServiceScopeFactory _scopeFactory;
 
-    public CatalogSearchViewModel(
-        IServiceScopeFactory scopeFactory,
-        ILogger<CatalogSearchViewModel> logger,
-        IAddStockDialogService? addStockDialog = null)
-    {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-        _addStockDialog = addStockDialog;
-    }
+	private readonly ILogger<CatalogSearchViewModel> _logger;
 
-    [ObservableProperty]
-    private string _query = string.Empty;
+	private readonly IAddStockDialogService? _addStockDialog;
 
-    partial void OnQueryChanged(string value) => _ = SearchCommand.ExecuteAsync(DebounceMarker);
+	private CancellationTokenSource? _searchCancellation;
 
-    private const string DebounceMarker = "debounce";
+	private string _query = string.Empty;
 
-    [ObservableProperty]
-    private bool _isVisible;
+	private const string DebounceMarker = "debounce";
 
-    [ObservableProperty]
-    private bool _isSearching;
+	private const int SearchDebounceMs = 180;
 
-    [ObservableProperty]
-    private string _errorMessage = string.Empty;
+	private bool _isVisible;
 
-    public ObservableCollection<MedicineSearchResult> InStockResults { get; } = [];
+	private bool _isSearching;
 
-    public ObservableCollection<MedicineSearchResult> CatalogResults { get; } = [];
+	private string _errorMessage = string.Empty;
 
-    public ObservableCollection<MedicineSearchResult> SubstituteResults { get; } = [];
+	private bool _showHint = true;
 
-    public bool HasInStock => InStockResults.Count > 0;
+	private string _hintText = "Type at least 2 letters to search";
 
-    public bool HasCatalog => CatalogResults.Count > 0;
+	private bool _showAddManual;
 
-    [ObservableProperty]
-    private bool _showHint = true;
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand<MedicineSearchResult?>? addStockCommand;
 
-    [ObservableProperty]
-    private string _hintText = "Type at least 2 letters to search";
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand? addManualCommand;
 
-    [ObservableProperty]
-    private bool _showAddManual;
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private RelayCommand<MedicineSearchResult?>? viewStockCommand;
 
-    public event EventHandler? StockChanged;
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand<object?>? searchCommand;
 
-    public event EventHandler<string>? ViewStockRequested;
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand<MedicineSearchResult?>? showSubstitutesCommand;
 
-    private void RefreshHint(bool searched)
-    {
-        OnPropertyChanged(nameof(HasInStock));
-        OnPropertyChanged(nameof(HasCatalog));
-        var text = Query.Trim();
-        if (text.Length < 2)
-        {
-            HintText = "Type at least 2 letters to search";
-            ShowAddManual = false;
-            ShowHint = true;
-            return;
-        }
+	public ObservableCollection<MedicineSearchResult> InStockResults { get; } = new ObservableCollection<MedicineSearchResult>();
 
-        var empty = searched && InStockResults.Count == 0 && CatalogResults.Count == 0;
-        HintText = empty ? $"No match in stock or catalogue for '{text}'" : string.Empty;
-        ShowAddManual = empty;
-        ShowHint = empty;
-    }
+	public ObservableCollection<MedicineSearchResult> CatalogResults { get; } = new ObservableCollection<MedicineSearchResult>();
 
-    [RelayCommand]
-    private async Task AddStockAsync(MedicineSearchResult? medicine)
-    {
-        if (_addStockDialog is null || medicine is null)
-        {
-            return;
-        }
+	public ObservableCollection<MedicineSearchResult> SubstituteResults { get; } = new ObservableCollection<MedicineSearchResult>();
 
-        var saved = await _addStockDialog.ShowAsync(
-            new AddStockRequest(null, medicine.CatalogMedicineId, medicine.Name, medicine.Composition, medicine.Manufacturer));
-        if (saved)
-        {
-            StockChanged?.Invoke(this, EventArgs.Empty);
-            await SearchAsync(null);
-        }
-    }
+	public bool HasInStock => InStockResults.Count > 0;
 
-    [RelayCommand]
-    private async Task AddManualAsync()
-    {
-        if (_addStockDialog is null)
-        {
-            return;
-        }
+	public bool HasCatalog => CatalogResults.Count > 0;
 
-        var saved = await _addStockDialog.ShowAsync(new AddStockRequest(null, null, Query.Trim(), null, null));
-        if (saved)
-        {
-            StockChanged?.Invoke(this, EventArgs.Empty);
-            await SearchAsync(null);
-        }
-    }
+	public bool HasSubstitutes => SubstituteResults.Count > 0;
 
-    [RelayCommand]
-    private void ViewStock(MedicineSearchResult? medicine)
-    {
-        if (medicine is not null)
-        {
-            ViewStockRequested?.Invoke(this, medicine.Name);
-        }
-    }
+	public string SubstituteNote => "Pharmacist must confirm suitability and prescription rules";
 
-    public bool HasSubstitutes => SubstituteResults.Count > 0;
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public string Query
+	{
+		get
+		{
+			return _query;
+		}
+		[MemberNotNull("_query")]
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_query, value))
+			{
+				OnPropertyChanging(nameof(Query));
+				_query = value;
+				OnQueryChanged(value);
+				OnPropertyChanged(nameof(Query));
+			}
+		}
+	}
 
-    public string SubstituteNote => "Pharmacist must confirm suitability and prescription rules";
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public bool IsVisible
+	{
+		get
+		{
+			return _isVisible;
+		}
+		set
+		{
+			if (!EqualityComparer<bool>.Default.Equals(_isVisible, value))
+			{
+				OnPropertyChanging(nameof(IsVisible));
+				_isVisible = value;
+				OnPropertyChanged(nameof(IsVisible));
+			}
+		}
+	}
 
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private async Task SearchAsync(object? mode)
-    {
-        _searchCancellation?.Cancel();
-        _searchCancellation?.Dispose();
-        _searchCancellation = new CancellationTokenSource();
-        var token = _searchCancellation.Token;
-        IsSearching = false;
-        InStockResults.Clear();
-        CatalogResults.Clear();
-        SubstituteResults.Clear();
-        OnPropertyChanged(nameof(HasSubstitutes));
-        ErrorMessage = string.Empty;
-        RefreshHint(searched: false);
-        if (Query.Trim().Length < 2)
-        {
-            return;
-        }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public bool IsSearching
+	{
+		get
+		{
+			return _isSearching;
+		}
+		set
+		{
+			if (!EqualityComparer<bool>.Default.Equals(_isSearching, value))
+			{
+				OnPropertyChanging(nameof(IsSearching));
+				_isSearching = value;
+				OnPropertyChanged(nameof(IsSearching));
+			}
+		}
+	}
 
-        try
-        {
-            IsSearching = true;
-            if (ReferenceEquals(mode, DebounceMarker))
-            {
-                await Task.Delay(250, token);
-            }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public string ErrorMessage
+	{
+		get
+		{
+			return _errorMessage;
+		}
+		[MemberNotNull("_errorMessage")]
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_errorMessage, value))
+			{
+				OnPropertyChanging(nameof(ErrorMessage));
+				_errorMessage = value;
+				OnPropertyChanged(nameof(ErrorMessage));
+			}
+		}
+	}
 
-            using var scope = _scopeFactory.CreateScope();
-            var search = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
-            var results = await search.SearchAsync(Query.Trim(), token);
-            foreach (var result in results.InStock)
-            {
-                InStockResults.Add(result);
-            }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public bool ShowHint
+	{
+		get
+		{
+			return _showHint;
+		}
+		set
+		{
+			if (!EqualityComparer<bool>.Default.Equals(_showHint, value))
+			{
+				OnPropertyChanging(nameof(ShowHint));
+				_showHint = value;
+				OnPropertyChanged(nameof(ShowHint));
+			}
+		}
+	}
 
-            foreach (var result in results.FromCatalog)
-            {
-                CatalogResults.Add(result);
-            }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public string HintText
+	{
+		get
+		{
+			return _hintText;
+		}
+		[MemberNotNull("_hintText")]
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_hintText, value))
+			{
+				OnPropertyChanging(nameof(HintText));
+				_hintText = value;
+				OnPropertyChanged(nameof(HintText));
+			}
+		}
+	}
 
-            RefreshHint(searched: true);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Medicine catalogue search failed.");
-            ErrorMessage = "Search could not be completed. Please try again.";
-        }
-        finally
-        {
-            if (!token.IsCancellationRequested)
-            {
-                IsSearching = false;
-            }
-        }
-    }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public bool ShowAddManual
+	{
+		get
+		{
+			return _showAddManual;
+		}
+		set
+		{
+			if (!EqualityComparer<bool>.Default.Equals(_showAddManual, value))
+			{
+				OnPropertyChanging(nameof(ShowAddManual));
+				_showAddManual = value;
+				OnPropertyChanged(nameof(ShowAddManual));
+			}
+		}
+	}
 
-    [RelayCommand]
-    private async Task ShowSubstitutesAsync(MedicineSearchResult? medicine)
-    {
-        if (medicine is null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
-        {
-            return;
-        }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand<MedicineSearchResult?> AddStockCommand => addStockCommand ?? (addStockCommand = new AsyncRelayCommand<MedicineSearchResult>(AddStockAsync));
 
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var search = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
-            var substitutes = await search.FindSubstitutesAsync(medicine.CompositionKey, medicine.CatalogMedicineId);
-            SubstituteResults.Clear();
-            foreach (var substitute in substitutes)
-            {
-                SubstituteResults.Add(substitute);
-            }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand AddManualCommand => addManualCommand ?? (addManualCommand = new AsyncRelayCommand(AddManualAsync));
 
-            OnPropertyChanged(nameof(HasSubstitutes));
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Medicine substitute search failed.");
-            ErrorMessage = "Substitutes could not be loaded.";
-        }
-    }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IRelayCommand<MedicineSearchResult?> ViewStockCommand => viewStockCommand ?? (viewStockCommand = new RelayCommand<MedicineSearchResult>(ViewStock));
 
-    public void Dispose()
-    {
-        _searchCancellation?.Cancel();
-        _searchCancellation?.Dispose();
-    }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand<object?> SearchCommand => searchCommand ?? (searchCommand = new AsyncRelayCommand<object>(SearchAsync, AsyncRelayCommandOptions.AllowConcurrentExecutions));
+
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand<MedicineSearchResult?> ShowSubstitutesCommand => showSubstitutesCommand ?? (showSubstitutesCommand = new AsyncRelayCommand<MedicineSearchResult>(ShowSubstitutesAsync));
+
+	public event EventHandler? StockChanged;
+
+	public event EventHandler<string>? ViewStockRequested;
+
+	public CatalogSearchViewModel(IServiceScopeFactory scopeFactory, ILogger<CatalogSearchViewModel> logger, IAddStockDialogService? addStockDialog = null)
+	{
+		_scopeFactory = scopeFactory;
+		_logger = logger;
+		_addStockDialog = addStockDialog;
+	}
+
+	private void RefreshHint(bool searched)
+	{
+		OnPropertyChanged("HasInStock");
+		OnPropertyChanged("HasCatalog");
+		string text = Query.Trim();
+		if (text.Length < 2)
+		{
+			HintText = "Type at least 2 letters to search";
+			ShowAddManual = false;
+			ShowHint = true;
+		}
+		else
+		{
+			bool flag = searched && InStockResults.Count == 0 && CatalogResults.Count == 0;
+			HintText = (flag ? ("No match in stock or catalogue for '" + text + "'") : string.Empty);
+			ShowAddManual = flag;
+			ShowHint = flag;
+		}
+	}
+
+	private async Task AddStockAsync(MedicineSearchResult? medicine)
+	{
+		if (_addStockDialog != null && (object)medicine != null && await _addStockDialog.ShowAsync(new AddStockRequest(null, medicine.CatalogMedicineId, medicine.Name, medicine.Composition, medicine.Manufacturer)))
+		{
+			StockChanged?.Invoke(this, EventArgs.Empty);
+			await SearchAsync(null);
+		}
+	}
+
+	private async Task AddManualAsync()
+	{
+		if (_addStockDialog != null && await _addStockDialog.ShowAsync(new AddStockRequest(null, null, Query.Trim(), null, null)))
+		{
+			StockChanged?.Invoke(this, EventArgs.Empty);
+			await SearchAsync(null);
+		}
+	}
+
+	private void ViewStock(MedicineSearchResult? medicine)
+	{
+		if ((object)medicine != null)
+		{
+			ViewStockRequested?.Invoke(this, medicine.Name);
+		}
+	}
+
+	private async Task SearchAsync(object? mode)
+	{
+		_searchCancellation?.Cancel();
+		_searchCancellation?.Dispose();
+		_searchCancellation = new CancellationTokenSource();
+		CancellationToken token = _searchCancellation.Token;
+		ErrorMessage = string.Empty;
+		bool flag = mode == "debounce";
+		if (Query.Trim().Length < 2)
+		{
+			IsSearching = false;
+			InStockResults.Clear();
+			CatalogResults.Clear();
+			SubstituteResults.Clear();
+			OnPropertyChanged("HasSubstitutes");
+			RefreshHint(searched: false);
+			return;
+		}
+		try
+		{
+			if (flag)
+			{
+				await Task.Delay(180, token);
+			}
+			IsSearching = true;
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			MedicineSearchResults medicineSearchResults = await scope.ServiceProvider.GetRequiredService<CatalogSearchService>().SearchAsync(Query.Trim(), token);
+			token.ThrowIfCancellationRequested();
+			InStockResults.Clear();
+			CatalogResults.Clear();
+			SubstituteResults.Clear();
+			OnPropertyChanged("HasSubstitutes");
+			foreach (MedicineSearchResult item in medicineSearchResults.InStock)
+			{
+				InStockResults.Add(item);
+			}
+			foreach (MedicineSearchResult item2 in medicineSearchResults.FromCatalog)
+			{
+				CatalogResults.Add(item2);
+			}
+			RefreshHint(searched: true);
+		}
+		catch (OperationCanceledException) when (token.IsCancellationRequested)
+		{
+		}
+		catch (Exception exception)
+		{
+			_logger.LogError(exception, "Medicine catalogue search failed.");
+			ErrorMessage = "Search could not be completed. Please try again.";
+		}
+		finally
+		{
+			if (!token.IsCancellationRequested)
+			{
+				IsSearching = false;
+			}
+		}
+	}
+
+	private async Task ShowSubstitutesAsync(MedicineSearchResult? medicine)
+	{
+		if ((object)medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
+		{
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			List<SubstituteStockResult> list = await scope.ServiceProvider.GetRequiredService<CatalogSearchService>().FindSubstitutesAsync(medicine.CompositionKey, medicine.CatalogMedicineId);
+			SubstituteResults.Clear();
+			foreach (SubstituteStockResult item in list)
+			{
+				SubstituteResults.Add(CatalogSearchService.ToMedicineSearchResult(item));
+			}
+			OnPropertyChanged("HasSubstitutes");
+		}
+		catch (Exception exception)
+		{
+			_logger.LogError(exception, "Medicine substitute search failed.");
+			ErrorMessage = "Substitutes could not be loaded.";
+		}
+	}
+
+	public void Dispose()
+	{
+		_searchCancellation?.Cancel();
+		_searchCancellation?.Dispose();
+	}
+
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	private void OnQueryChanged(string value)
+	{
+		SearchCommand.ExecuteAsync("debounce");
+	}
 }

@@ -1,0 +1,251 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.InitialSetupWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:behaviors="clr-namespace:PharmaBill.App.Behaviors" Icon="/Assets/Icons/app.ico" Title="PharmaBill - Initial Setup" Width="920" Height="800" MinWidth="760" MinHeight="600" WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" xmlns:app="clr-namespace:PharmaBill.App">
+  <FrameworkElement.Resources>
+    <ResourceDictionary>
+      <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </ResourceDictionary>
+  </FrameworkElement.Resources>
+  <DockPanel Margin="24">
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
+      <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding PageTitle}" />
+      <TextBlock Text="Enter store details and create the master Admin account. You can add Cashier and Pharmacist users later in Settings → Users &amp; Operators." Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" />
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+      <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding ErrorMessage}" />
+      <Button Content="Complete Setup &amp; Launch" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" MinWidth="240" Padding="22,12" FontWeight="Bold" IsDefault="True" Command="{Binding CompleteSetupCommand}" />
+    </StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" PanningMode="VerticalOnly">
+      <StackPanel Margin="0,0,8,8">
+        <GroupBox Header="Sign in with Google (optional)" Padding="14" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Text="Use Google sign-in to pre-fill your admin name and email, then complete store details below." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10" />
+            <TextBlock Text="─── OR CONTINUE WITH ───" HorizontalAlignment="Center" Foreground="#94A3B8" FontSize="11" Margin="0,0,0,10" />
+            <Button Style="{StaticResource GoogleSignInButton}" Content="Continue with Google" HorizontalAlignment="Stretch" Command="{Binding SignInWithGoogleCommand}" IsEnabled="{Binding CanUseSocialSignIn}" />
+          </StackPanel>
+        </GroupBox>
+        <GroupBox Header="Store type" Padding="14" Margin="0,0,0,12">
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Content="Retail Pharmacy" GroupName="StoreType" Margin="0,0,20,0" IsChecked="{Binding IsRetailStoreSelected, Mode=TwoWay}" />
+            <RadioButton Content="Wholesale Distributor" GroupName="StoreType" Margin="0,0,20,0" IsChecked="{Binding IsWholesaleStoreSelected, Mode=TwoWay}" />
+            <RadioButton Content="Both" GroupName="StoreType" IsChecked="{Binding IsBothStoreSelected, Mode=TwoWay}" />
+          </StackPanel>
+        </GroupBox>
+        <GroupBox Padding="14" Margin="0,0,0,12" Header="{Binding DetailsGroupHeader}">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Margin="0,0,10,0">
+              <TextBlock FontWeight="SemiBold" Text="{Binding NameFieldLabel}" />
+              <TextBox Margin="0,5,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.Hints="Your store or firm name" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding PharmacyName, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+              <TextBlock Text="Phone number" FontWeight="SemiBold" />
+              <TextBox Margin="0,5,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.Hints="10-digit mobile" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding Phone, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+        <GroupBox Header="Drug licences" Padding="14" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding Licence20Label}" />
+            <Grid Margin="0,0,0,14">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="Licence number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding DrugLicence20B, UpdateSourceTrigger=PropertyChanged}" behaviors:CyclingPlaceholder.Hints="{Binding Licence20Placeholder}" ToolTip="{Binding Licence20Placeholder}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="4,0,8,0">
+                <TextBlock Text="Issue Date (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence20IssueDate}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                <TextBlock Text="Valid Up To (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence20ExpiryDate}" />
+              </StackPanel>
+            </Grid>
+            <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding Licence21Label}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="Licence number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding DrugLicence21B, UpdateSourceTrigger=PropertyChanged}" behaviors:CyclingPlaceholder.Hints="{Binding Licence21Placeholder}" ToolTip="{Binding Licence21Placeholder}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Margin="4,0,8,0">
+                <TextBlock Text="Issue Date (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence21IssueDate}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                <TextBlock Text="Valid Up To (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence21ExpiryDate}" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </GroupBox>
+        <GroupBox Header="GSTIN &amp; Address" Padding="14" Margin="0,0,0,12">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Margin="0,0,10,10">
+              <TextBlock Text="GSTIN" FontWeight="SemiBold" />
+              <TextBox Margin="0,5,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.Hints="22AAAAA0000A1Z5" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding Gstin, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,10">
+              <TextBlock Text="Email (optional)" FontWeight="SemiBold" />
+              <TextBox Margin="0,5,0,0" Padding="7" MinHeight="36" Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="2">
+              <TextBlock Text="Address" FontWeight="SemiBold" />
+              <TextBox Margin="0,5,0,0" Padding="7" MinHeight="36" TextWrapping="Wrap" AcceptsReturn="True" Height="64" Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+        <GroupBox Header="Master Admin account" Padding="14" Margin="0,0,0,12">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Margin="0,0,10,10">
+              <TextBlock Text="Admin full name *" FontWeight="SemiBold" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding AdminFullName, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSocialOnboarding}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="10,0,0,10">
+              <TextBlock Text="Username *" FontWeight="SemiBold" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding AdminUsername, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="{Binding IsSocialOnboarding}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Margin="0,0,10,10">
+              <TextBlock Text="Offline fallback PIN or password * (minimum 4 characters)" FontWeight="SemiBold" />
+              <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Used when the PC is offline or for quick billing unlock." />
+              <PasswordBox Name="SecretBox" Margin="0,5,0,0" Padding="6" MinHeight="36" PasswordChanged="SecretBox_OnPasswordChanged" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Margin="10,0,0,10">
+              <TextBlock Text="Confirm offline PIN or password *" FontWeight="SemiBold" />
+              <PasswordBox Name="ConfirmSecretBox" Margin="0,5,0,0" Padding="6" MinHeight="36" PasswordChanged="ConfirmSecretBox_OnPasswordChanged" />
+            </StackPanel>
+            <StackPanel Grid.Row="2">
+              <TextBlock Text="Role" FontWeight="SemiBold" />
+              <TextBlock Margin="0,5,0,0" FontWeight="SemiBold" Text="Admin (full access)" />
+              <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Visibility="{Binding IsSocialOnboarding, Converter={StaticResource BooleanToVisibilityConverter}}" Text="{Binding Email, StringFormat=Signed in with social account: {0}}" />
+              <TextBlock Margin="0,8,0,0" Text="Lock after idle (minutes)" />
+              <TextBox Margin="0,5,10,0" Padding="6" Width="120" HorizontalAlignment="Left" MinHeight="36" Text="{Binding IdleLockMinutes}" />
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+        <GroupBox Header="Additional licences (wholesale / advanced)" Padding="14" Margin="0,0,0,12">
+          <StackPanel>
+            <TextBlock Text="Retail needs licence 20 or 21 above. Wholesale or Both also needs a wholesale licence row below." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <WrapPanel Margin="0,12,0,8">
+              <TextBox Width="170" Padding="6" MinHeight="36" Text="{Binding NewLicenceType, UpdateSourceTrigger=PropertyChanged}" />
+              <Button Content="Add licence type" Style="{StaticResource SecondaryButton}" Margin="8,0" Padding="12,5" Command="{Binding AddLicenceTypeCommand}" />
+              <ComboBox Width="150" Padding="6" MinHeight="36" ItemsSource="{Binding LicenceTypeOptions}" SelectedItem="{Binding WholesaleLicenceType}" />
+              <Button Content="Add wholesale licence" Style="{StaticResource SecondaryButton}" Margin="8,0" Padding="12,5" Command="{Binding AddLicenceCommand}" />
+              <Button Content="Add retail 20" Style="{StaticResource SecondaryButton}" Padding="12,5" Margin="0,0,8,0" Command="{Binding AddRetail20Command}" />
+              <Button Content="Add retail 21" Style="{StaticResource SecondaryButton}" Padding="12,5" Command="{Binding AddRetail21Command}" />
+            </WrapPanel>
+            <ItemsControl ItemsSource="{Binding Licences}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBox Padding="5" MinHeight="32" Text="{Binding LicenceType}" />
+                      <TextBox Grid.Column="1" Margin="6,0" Padding="5" MinHeight="32" Text="{Binding LicenceNumber}" />
+                      <DatePicker Grid.Column="2" Margin="0,0,6,0" ToolTip="Issue Date (DD/MM/YYYY)" SelectedDate="{Binding IssueDate}" />
+                      <DatePicker Grid.Column="3" Margin="0,0,6,0" ToolTip="Valid Up To (DD/MM/YYYY)" SelectedDate="{Binding ExpiryDate}" />
+                      <Button Grid.Column="4" Content="Choose copy" Style="{StaticResource SecondaryButton}" Command="{Binding DataContext.SelectDocumentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                      <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis" Text="{Binding DocumentPath}" />
+                      <Button Grid.Column="6" Content="Remove" Style="{StaticResource SecondaryButton}" Command="{Binding DataContext.RemoveLicenceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </GroupBox>
+        <GroupBox Header="Tax, competent person and payments (optional)" Padding="14" Margin="0,0,0,12">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Margin="0,0,8,10">
+              <TextBlock Text="Legal name" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding LegalName}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="8,0,8,10">
+              <TextBlock Text="PAN" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding Pan}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="8,0,0,10">
+              <TextBlock Text="Invoice prefix" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding InvoicePrefix}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Margin="0,0,8,10">
+              <TextBlock Text="Competent person / registered pharmacist" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding CompetentPersonName}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,8,10">
+              <TextBlock Text="Qualification" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding CompetentPersonQualification}" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,0,10">
+              <TextBlock Text="Registration number" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding CompetentPersonRegistrationNumber}" />
+            </StackPanel>
+            <StackPanel Grid.Row="2" Margin="0,0,8,0">
+              <TextBlock Text="Bank name" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankName}" />
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,0">
+              <TextBlock Text="Account name / number" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankAccountName}" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankAccountNumber}" />
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,0,0">
+              <TextBlock Text="IFSC / UPI ID" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankIfsc}" />
+              <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding UpiId}" />
+            </StackPanel>
+          </Grid>
+        </GroupBox>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

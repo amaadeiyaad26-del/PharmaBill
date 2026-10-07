@@ -1,20 +1,20 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>Assets\PharmaBill.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Icons\app.ico</ApplicationIcon>
     <Product>PharmaBill</Product>
     <Company>PharmaBill</Company>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <!-- Override with -p:BuildDateUtc=yyyy-MM-dd for reproducible builds. -->
     <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</BuildDateUtc>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -32,6 +32,10 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
@@ -44,12 +48,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Data\medicine_catalog.csv" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Data\medicine_info.csv" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="ReleaseNotes.md" CopyToOutputDirectory="PreserveNewest" />
-    <Resource Include="Assets\PharmaBill.ico" />
-    <EmbeddedResource Include="Assets\Fonts\*.ttf" />
+    <Content Include="Data\medicine_catalog.csv" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Data\medicine_catalog.csv')" />
+    <Content Include="Data\medicine_info.csv" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Data\medicine_info.csv')" />
+    <Content Include="ReleaseNotes.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('ReleaseNotes.md')" />
+    <Resource Include="Assets\Icons\app.ico" />
+    <Resource Include="Assets\Icons\pharma_bill_3d.ico" Condition="Exists('Assets\Icons\pharma_bill_3d.ico')" />
+    <Resource Include="Assets\Icons\pharma_bill_3d.png" Condition="Exists('Assets\Icons\pharma_bill_3d.png')" />
+    <Resource Include="Assets\Icons\pharma_bill_3d_watermark.png" Condition="Exists('Assets\Icons\pharma_bill_3d_watermark.png')" />
+    <Resource Include="Assets\PharmaBill.ico" Condition="Exists('Assets\PharmaBill.ico')" />
+    <EmbeddedResource Include="Assets\Fonts\*.ttf" Condition="Exists('Assets\Fonts')" />
   </ItemGroup>
 
 </Project>
-

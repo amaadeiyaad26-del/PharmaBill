@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.CriticalUpdateWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Required update" Width="520" SizeToContent="Height" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False" Background="#FFF8FAFC" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+  <Border Margin="20" Padding="22" CornerRadius="12" Background="#FFFFFFFF" BorderBrush="#FFFEC84B" BorderThickness="1">
+    <StackPanel>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="22" Foreground="#FFB54708" Margin="0,0,10,0" VerticalAlignment="Center" />
+        <TextBlock Text="Mandatory update required" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+      </StackPanel>
+      <TextBlock Name="MessageText" TextWrapping="Wrap" FontSize="13.5" Foreground="#FF334155" Text="A critical PharmaBill update is required before billing can continue." />
+      <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" FontSize="12.5" Foreground="#FF64748B" Text="This usually means a database, GST, or sync change that older builds cannot safely use. Update now, then reopen PharmaBill." />
+      <DockPanel Margin="0,20,0,0" LastChildFill="False">
+        <Button DockPanel.Dock="Right" Content="Update Now" MinWidth="120" Height="36" Margin="8,0,0,0" Style="{StaticResource PrimaryButton}" Background="#FF2563EB" BorderBrush="#FF2563EB" IsDefault="True" Click="UpdateNow_Click" />
+        <Button DockPanel.Dock="Right" Content="Exit PharmaBill" MinWidth="120" Height="36" Click="Exit_Click" />
+      </DockPanel>
+    </StackPanel>
+  </Border>
+</Window>

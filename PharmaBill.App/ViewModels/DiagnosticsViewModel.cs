@@ -1,9 +1,17 @@
-using System.Data;
-using System.IO;
+using System;
+using System.CodeDom.Compiler;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Data;
+using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Entities;
@@ -12,154 +20,165 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed record DiagnosticFile(string Name, string Path, long SizeBytes);
-
-public sealed record TableRowCount(string TableName, long Rows);
-
-public sealed class ImportStatusViewModel(CatalogImportState state)
+public class DiagnosticsViewModel(IServiceScopeFactory scopeFactory, IFilePickerService filePicker) : ObservableObject
 {
-    public string ImportKey { get; } = state.ImportKey;
-    public string FilePath { get; } = state.FilePath;
-    public string Status { get; } = state.Status;
-    public long ImportedRows { get; } = state.ImportedRows;
-    public long SkippedRows { get; } = state.SkippedRows;
-    public string? LastError { get; } = state.LastError;
-}
+	private string _errorMessage = string.Empty;
 
-public partial class DiagnosticsViewModel(
-    IServiceScopeFactory scopeFactory,
-    IFilePickerService filePicker) : ObservableObject
-{
-    [ObservableProperty]
-    private string _errorMessage = string.Empty;
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand? refreshCommand;
 
-    public ObservableCollection<DiagnosticFile> Files { get; } = [];
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand<ImportStatusViewModel?>? reimportCommand;
 
-    public ObservableCollection<TableRowCount> TableCounts { get; } = [];
+	public ObservableCollection<DiagnosticFile> Files { get; } = new ObservableCollection<DiagnosticFile>();
 
-    public ObservableCollection<ImportStatusViewModel> ImportStatuses { get; } = [];
+	public ObservableCollection<TableRowCount> TableCounts { get; } = new ObservableCollection<TableRowCount>();
 
-    [RelayCommand]
-    private async Task RefreshAsync()
-    {
-        ErrorMessage = string.Empty;
-        try
-        {
-            using var scope = scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-            var imports = await context.CatalogImportStates.AsNoTracking()
-                .OrderBy(state => state.ImportKey)
-                .ToListAsync();
-            Files.Clear();
-            var filePaths = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "Data", "medicine_catalog.csv"),
-                Path.Combine(AppContext.BaseDirectory, "Data", "medicine_info.csv")
-            }.Concat(imports.Select(import => import.FilePath))
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
-            foreach (var filePath in filePaths)
-            {
-                if (File.Exists(filePath))
-                {
-                    Files.Add(new DiagnosticFile(Path.GetFileName(filePath), filePath, new FileInfo(filePath).Length));
-                }
-            }
+	public ObservableCollection<ImportStatusViewModel> ImportStatuses { get; } = new ObservableCollection<ImportStatusViewModel>();
 
-            TableCounts.Clear();
-            foreach (var count in await ReadTableCountsAsync(context))
-            {
-                TableCounts.Add(count);
-            }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public string ErrorMessage
+	{
+		get
+		{
+			return _errorMessage;
+		}
+		[MemberNotNull("_errorMessage")]
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_errorMessage, value))
+			{
+				OnPropertyChanging(nameof(ErrorMessage));
+				_errorMessage = value;
+				OnPropertyChanged(nameof(ErrorMessage));
+			}
+		}
+	}
 
-            ImportStatuses.Clear();
-            foreach (var import in imports)
-            {
-                ImportStatuses.Add(new ImportStatusViewModel(import));
-            }
-        }
-        catch (Exception exception)
-        {
-            ErrorMessage = exception.Message;
-        }
-    }
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand RefreshCommand => refreshCommand ?? (refreshCommand = new AsyncRelayCommand(RefreshAsync));
 
-    private static async Task<IReadOnlyList<TableRowCount>> ReadTableCountsAsync(PharmaBillDbContext context)
-    {
-        var tables = context.Model.GetEntityTypes()
-            .Select(type => type.GetTableName())
-            .Where(name => name is not null)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .Cast<string>()
-            .ToList();
-        tables.Add("CatalogMedicineFts");
-        var query = string.Join(
-            " UNION ALL ",
-            tables.Select(name =>
-                $"SELECT '{name.Replace("'", "''", StringComparison.Ordinal)}' AS TableName, COUNT(*) AS RowCount FROM \"{name.Replace("\"", "\"\"", StringComparison.Ordinal)}\""));
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand<ImportStatusViewModel?> ReimportCommand => reimportCommand ?? (reimportCommand = new AsyncRelayCommand<ImportStatusViewModel>(ReimportAsync));
 
-        var connection = context.Database.GetDbConnection();
-        var closeConnection = connection.State != ConnectionState.Open;
-        if (closeConnection)
-        {
-            await connection.OpenAsync();
-        }
+	private async Task RefreshAsync()
+	{
+		ErrorMessage = string.Empty;
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			List<CatalogImportState> imports = await (from state in context.CatalogImportStates.AsNoTracking()
+				orderby state.ImportKey
+				select state).ToListAsync();
+			Files.Clear();
+			foreach (string item in (from path in new string[2]
+				{
+					Path.Combine(AppContext.BaseDirectory, "Data", "medicine_catalog.csv"),
+					Path.Combine(AppContext.BaseDirectory, "Data", "medicine_info.csv")
+				}.Concat(imports.Select((CatalogImportState import) => import.FilePath))
+				where !string.IsNullOrWhiteSpace(path)
+				select path).Distinct(StringComparer.OrdinalIgnoreCase))
+			{
+				if (File.Exists(item))
+				{
+					Files.Add(new DiagnosticFile(Path.GetFileName(item), item, new FileInfo(item).Length));
+				}
+			}
+			TableCounts.Clear();
+			foreach (TableRowCount item2 in await ReadTableCountsAsync(context))
+			{
+				TableCounts.Add(item2);
+			}
+			ImportStatuses.Clear();
+			foreach (CatalogImportState item3 in imports)
+			{
+				ImportStatuses.Add(new ImportStatusViewModel(item3));
+			}
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
 
-        try
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = query;
-            await using var reader = await command.ExecuteReaderAsync();
-            var result = new List<TableRowCount>(tables.Count);
-            while (await reader.ReadAsync())
-            {
-                result.Add(new TableRowCount(reader.GetString(0), reader.GetInt64(1)));
-            }
+	private static async Task<IReadOnlyList<TableRowCount>> ReadTableCountsAsync(PharmaBillDbContext context)
+	{
+		List<string> tables = (from type in context.Model.GetEntityTypes()
+			select type.GetTableName() into name
+			where name != null
+			select name).Distinct(StringComparer.Ordinal).OrderBy((string name) => name, StringComparer.Ordinal).Cast<string>()
+			.ToList();
+		tables.Add("CatalogMedicineFts");
+		string query = string.Join(" UNION ALL ", tables.Select((string name) => $"SELECT '{name.Replace("'", "''", StringComparison.Ordinal)}' AS TableName, COUNT(*) AS RowCount FROM \"{name.Replace("\"", "\"\"", StringComparison.Ordinal)}\""));
+		DbConnection connection = context.Database.GetDbConnection();
+		bool closeConnection = connection.State != ConnectionState.Open;
+		if (closeConnection)
+		{
+			await connection.OpenAsync();
+		}
+		IReadOnlyList<TableRowCount> result2;
+		try
+		{
+			IReadOnlyList<TableRowCount> readOnlyList2;
+			await using (DbCommand command = connection.CreateCommand())
+			{
+				command.CommandText = query;
+				IReadOnlyList<TableRowCount> readOnlyList;
+				await using (DbDataReader reader = await command.ExecuteReaderAsync())
+				{
+					List<TableRowCount> result = new List<TableRowCount>(tables.Count);
+					while (await reader.ReadAsync())
+					{
+						result.Add(new TableRowCount(reader.GetString(0), reader.GetInt64(1)));
+					}
+					readOnlyList = result;
+				}
+				readOnlyList2 = readOnlyList;
+			}
+			result2 = readOnlyList2;
+		}
+		finally
+		{
+			if (closeConnection)
+			{
+				await connection.CloseAsync();
+			}
+		}
+		return result2;
+	}
 
-            return result;
-        }
-        finally
-        {
-            if (closeConnection)
-            {
-                await connection.CloseAsync();
-            }
-        }
-    }
-
-    [RelayCommand]
-    private async Task ReimportAsync(ImportStatusViewModel? import)
-    {
-        if (import is null)
-        {
-            return;
-        }
-
-        var path = File.Exists(import.FilePath) ? import.FilePath : filePicker.PickCsvFile();
-        if (path is null)
-        {
-            return;
-        }
-
-        try
-        {
-            using var scope = scopeFactory.CreateScope();
-            var importer = scope.ServiceProvider.GetRequiredService<CatalogImportService>();
-            if (import.ImportKey == "catalog")
-            {
-                await importer.ImportCatalogAsync(path, forceReimport: true);
-            }
-            else
-            {
-                await importer.ImportInfoAsync(path, forceReimport: true);
-            }
-
-            await RefreshAsync();
-        }
-        catch (Exception exception)
-        {
-            ErrorMessage = exception.Message;
-        }
-    }
+	private async Task ReimportAsync(ImportStatusViewModel? import)
+	{
+		if (import == null)
+		{
+			return;
+		}
+		string text = (File.Exists(import.FilePath) ? import.FilePath : filePicker.PickCsvFile());
+		if (text == null)
+		{
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			CatalogImportService requiredService = scope.ServiceProvider.GetRequiredService<CatalogImportService>();
+			if (!(import.ImportKey == "catalog"))
+			{
+				await requiredService.ImportInfoAsync(text, default, forceReimport: true);
+			}
+			else
+			{
+				await requiredService.ImportCatalogAsync(text, default, forceReimport: true);
+			}
+			await RefreshAsync();
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
 }

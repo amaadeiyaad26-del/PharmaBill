@@ -208,7 +208,7 @@ public sealed class BackupAndReportsTests
         });
         await database.Context.SaveChangesAsync();
 
-        var reports = new ReportsDashboardService(database.Context);
+        var reports = new ReportsDashboardService(database.Context, database.CreateBranchService());
         var from = DateOnly.FromDateTime(now);
         var salesReport = await reports.GetReportAsync(ReportKind.Sales, from, from);
         var purchasesReport = await reports.GetReportAsync(ReportKind.Purchases, from, from);

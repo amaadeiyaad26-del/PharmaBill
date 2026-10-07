@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.CloudKeysWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Cloud API Credentials" Icon="/Assets/Icons/app.ico" Width="580" Height="380" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{DynamicResource ContentBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <StackPanel Grid.Row="0" Margin="20,20,20,0">
+      <TextBlock Text="Cloud API Credentials" FontSize="20" FontWeight="SemiBold" />
+      <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="Paste Google Desktop OAuth credentials. Saved encrypted to %LocalAppData%\PharmaBill\cloud_credentials.json (Windows DPAPI) and used by live Google Drive backup sync." />
+    </StackPanel>
+    <ScrollViewer Grid.Row="1" Margin="20,12,20,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel>
+        <TextBlock FontWeight="SemiBold" Text="Google Drive" />
+        <TextBlock Margin="0,2,0,4" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Google Cloud Console → APIs &amp; Services → Credentials → Desktop app. Redirect: http://localhost. Scope: Drive.file." />
+        <TextBlock Margin="0,6,0,2" Text="Google OAuth Client ID" />
+        <TextBox Name="GoogleClientIdBox" Padding="8" MinHeight="36" />
+        <TextBlock Margin="0,8,0,2" Text="Google OAuth Client Secret" />
+        <PasswordBox Name="GoogleClientSecretBox" Padding="8" MinHeight="36" />
+        <TextBlock Name="StatusText" Margin="0,12,0,8" TextWrapping="Wrap" Foreground="#FFB42318" />
+      </StackPanel>
+    </ScrollViewer>
+    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Grid.Row="2" Padding="16,12">
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button Name="SaveButton" Content="Save &amp; Apply" Height="36" Width="120" Margin="0,0,10,0" IsDefault="True" Style="{StaticResource PrimaryButton}" ToolTip="Save keys and close (Enter)" Click="Save_Click" />
+        <Button Content="Cancel" Height="36" Width="90" IsCancel="True" Style="{StaticResource SecondaryButton}" Click="Cancel_Click" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

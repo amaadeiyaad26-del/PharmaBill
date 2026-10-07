@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>PharmaBill.Core</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <TargetFramework>net10.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>14.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup />
+  <ItemGroup>
+    <Reference Include="Google.Apis.Auth">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Google.Apis.Auth.dll</HintPath>
+    </Reference>
+    <Reference Include="Google.Apis">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Google.Apis.dll</HintPath>
+    </Reference>
+    <Reference Include="Google.Apis.Core">
+      <HintPath>artifacts/publish/win-x64-appxprobe/Google.Apis.Core.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

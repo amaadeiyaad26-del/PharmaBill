@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.UserManualWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:PharmaBill.App.Controls" Icon="/Assets/Icons/app.ico" Title="PharmaBill User Manual &amp; Quick Guides" Width="980" Height="680" MinWidth="720" MinHeight="480" WindowStartupLocation="CenterOwner" Background="#FFF8FAFC" Foreground="#FF0F172A" xmlns:app="clr-namespace:PharmaBill.App">
+  <UIElement.InputBindings>
+    <KeyBinding Key="Escape" Command="{Binding CloseCommand}" />
+  </UIElement.InputBindings>
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <Border Grid.Row="0" Padding="20,14" Background="#FFFFFFFF" BorderBrush="#FFE2E8F0" BorderThickness="0,0,0,1">
+      <DockPanel>
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+          <Button Content="Print Guide" Padding="14,8" Margin="0,0,8,0" Command="{Binding PrintGuideCommand}" />
+          <Button Content="Close" Padding="14,8" IsCancel="True" Style="{StaticResource PrimaryButton}" Background="#FF2563EB" BorderBrush="#FF2563EB" Command="{Binding CloseCommand}" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="PharmaBill Quick Guides &amp; User Manual" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="Step-by-step instructions, shortcut keys, and workflow tutorials." Foreground="#FF64748B" FontSize="12" Margin="0,2,0,0" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+    <controls:DeveloperSupportBanner Grid.Row="1" Margin="16,12,16,0" />
+    <Grid Row="2" Margin="16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="280" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Border Grid.Column="0" Margin="0,0,12,0" Padding="12" CornerRadius="10" Background="#FFFFFFFF" BorderBrush="#FFE2E8F0" BorderThickness="1">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="Chapters" FontWeight="SemiBold" Margin="0,0,0,8" />
+          <Grid DockPanel.Dock="Top" Margin="0,0,0,10" Height="34">
+            <Border CornerRadius="6" BorderBrush="#FFCBD5E1" BorderThickness="1" Background="#FFF8FAFC" />
+            <TextBox Name="ChapterSearchBox" Margin="8,0" BorderThickness="0" Background="#00FFFFFF" VerticalContentAlignment="Center" Text="{Binding ChapterSearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock IsHitTestVisible="False" Margin="10,0" VerticalAlignment="Center" Foreground="#FF94A3B8" Text="Filter chapters...">
+              <FrameworkElement.Style>
+                <Style TargetType="{x:Type TextBlock}">
+                  <Setter Property="Visibility" Value="Visible" />
+                  <Style.Triggers>
+                    <DataTrigger Value="True" Binding="{Binding HasChapterSearch}">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </FrameworkElement.Style>
+            </TextBlock>
+          </Grid>
+          <ListBox BorderThickness="0" Background="#00FFFFFF" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ItemsSource="{Binding FilteredChapters}" SelectedItem="{Binding SelectedChapter}">
+            <ItemsControl.ItemContainerStyle>
+              <Style TargetType="{x:Type ListBoxItem}">
+                <Setter Property="Padding" Value="10,9" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+                <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+                <Setter Property="Template">
+                  <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                      <Border Name="Chrome" Background="#00FFFFFF" CornerRadius="8" Padding="{TemplateBinding Control.Padding}">
+                        <ContentPresenter />
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="UIElement.IsMouseOver" Value="True">
+                          <Setter TargetName="Chrome" Property="Border.Background" Value="#142563EB" />
+                        </Trigger>
+                        <Trigger Property="ListBoxItem.IsSelected" Value="True">
+                          <Setter TargetName="Chrome" Property="Border.Background" Value="#222563EB" />
+                        </Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Setter.Value>
+                </Setter>
+              </Style>
+            </ItemsControl.ItemContainerStyle>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock TextWrapping="Wrap" FontSize="13" Text="{Binding Title}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+      <Border Grid.Column="1" Padding="4" CornerRadius="10" Background="#FFFFFFFF" BorderBrush="#FFE2E8F0" BorderThickness="1">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Bottom" Margin="12,4,12,8" Foreground="#FF64748B" FontSize="12" Text="{Binding StatusMessage}" />
+          <FlowDocumentScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsToolBarVisible="False" Zoom="110" Padding="16,12" Document="{Binding Document}" />
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

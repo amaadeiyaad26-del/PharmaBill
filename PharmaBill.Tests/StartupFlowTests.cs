@@ -101,9 +101,7 @@ public sealed class StartupFlowTests
         await database.Context.SaveChangesAsync();
 
         var session = new CurrentSession();
-        var viewModel = new AuthenticationViewModel(
-            new AuthenticationService(database.Context),
-            session)
+        var viewModel = new AuthenticationViewModel(new AuthenticationService(database.Context), session, null!)
         {
             Username = "owner",
             Secret = "wrong-pin"
@@ -151,9 +149,7 @@ public sealed class StartupFlowTests
         });
         await database.Context.SaveChangesAsync();
 
-        var viewModel = new AuthenticationViewModel(
-            new AuthenticationService(database.Context),
-            new CurrentSession())
+        var viewModel = new AuthenticationViewModel(new AuthenticationService(database.Context), new CurrentSession(), null!)
         {
             Username = "owner",
             Secret = "wrong-pin"

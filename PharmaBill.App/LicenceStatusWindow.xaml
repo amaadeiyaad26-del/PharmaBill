@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.LicenceStatusWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Subscription and licence" SizeToContent="Height" Width="460" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{DynamicResource CanvasBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+  <Border Margin="20" Padding="24" CornerRadius="14" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+    <UIElement.Effect>
+      <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.08" Color="#FF0F172A" />
+    </UIElement.Effect>
+    <StackPanel>
+      <StackPanel Orientation="Horizontal">
+        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="22" Foreground="{DynamicResource AccentBrush}" Margin="0,0,10,0" />
+        <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding Headline}" />
+      </StackPanel>
+      <TextBlock Margin="0,6,0,0" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Text="{Binding Status}" />
+      <StackPanel Name="TrialPanel" Margin="0,18,0,0">
+        <TextBlock Name="DaysText" FontSize="30" FontWeight="Bold" />
+        <ProgressBar Name="DaysBar" Height="8" Margin="0,8,0,4" Foreground="{DynamicResource AccentBrush}" />
+        <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding TrialEndsOn, StringFormat=Trial ends {0}}" />
+      </StackPanel>
+      <TextBlock TextWrapping="Wrap" Margin="0,16,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Detail}" />
+      <Button Content="Close" IsDefault="True" IsCancel="True" Style="{StaticResource PrimaryButton}" MinWidth="100" HorizontalAlignment="Right" Margin="0,20,0,0" />
+    </StackPanel>
+  </Border>
+</Window>
