@@ -12,19 +12,41 @@ namespace PharmaBill.Sync;
 
 internal sealed class SyncClockInitializationHostedService(IServiceScopeFactory scopeFactory, HybridLogicalClock clock) : IHostedService
 {
-	public async Task StartAsync(CancellationToken cancellationToken)
+	public Task StartAsync(CancellationToken cancellationToken)
 	{
-		await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-		foreach (string item in await (from change in scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().ChangeLogs.AsNoTracking()
-			select change.HlcStamp).ToListAsync(cancellationToken))
+		// Warm the HLC from change logs without blocking MainWindow / host start.
+		_ = WarmClockAsync(cancellationToken);
+		return Task.CompletedTask;
+	}
+
+	private async Task WarmClockAsync(CancellationToken cancellationToken)
+	{
+		try
 		{
-			try
+			await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+			List<string> stamps = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().ChangeLogs
+				.AsNoTracking()
+				.Select(change => change.HlcStamp)
+				.ToListAsync(cancellationToken)
+				.ConfigureAwait(false);
+
+			foreach (string item in stamps)
 			{
-				clock.Observe(item);
+				try
+				{
+					clock.Observe(item);
+				}
+				catch (FormatException)
+				{
+				}
 			}
-			catch (FormatException)
-			{
-			}
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch
+		{
+			// Clock will catch up from subsequent observations.
 		}
 	}
 

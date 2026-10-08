@@ -106,6 +106,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private string _focusRequest = string.Empty;
 
+	private string _focusQtyRequest = string.Empty;
+
 	private RetailStockChoice? _selectedSearchResult;
 
 	private RetailBillLineViewModel? _selectedBillLine;
@@ -1041,6 +1043,17 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 	}
 
+	/// <summary>Bump token to focus Qty on the selected bill line (bound to DataGrid attached behavior).</summary>
+	public string FocusQtyRequest
+	{
+		get => _focusQtyRequest;
+		private set
+		{
+			_focusQtyRequest = value;
+			OnPropertyChanged(nameof(FocusQtyRequest));
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public RetailStockChoice? SelectedSearchResult
@@ -1218,6 +1231,9 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand FocusPatientCommand => focusPatientCommand ?? (focusPatientCommand = new RelayCommand(FocusPatient));
+
+	/// <summary>F4 — medicine / barcode search (alias of FocusSearch).</summary>
+	public IRelayCommand FocusMedicineCommand => FocusSearchCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -1754,6 +1770,16 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private void RemoveSelectedItem()
 	{
+		if (SelectedBillLine == null)
+		{
+			return;
+		}
+
+		if (!confirmationService.Confirm($"Remove {SelectedBillLine.DrugName} from the bill?", "Remove line"))
+		{
+			return;
+		}
+
 		if (SelectedBillLine != null)
 		{
 			BillItems.Remove(SelectedBillLine);
@@ -1896,6 +1922,13 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private void RequestFocus(string target)
 	{
+		if (string.Equals(target, "LineQty", StringComparison.Ordinal))
+		{
+			FocusQtyRequest = string.Empty;
+			FocusQtyRequest = "qty-" + Guid.NewGuid().ToString("N");
+			return;
+		}
+
 		FocusRequest = string.Empty;
 		FocusRequest = target;
 	}
@@ -2008,6 +2041,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				return;
 			}
 			retailBillLineViewModel.Quantity += quantity;
+			SelectedBillLine = retailBillLineViewModel;
 		}
 		else
 		{
@@ -2028,7 +2062,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		OnPropertyChanged("HasControlledItems");
 		OnPropertyChanged("HasHabitFormingItems");
 		UpdateTotals();
-		RequestFocus("ItemSearch");
+		RequestFocus("LineQty");
 	}
 
 	private void OnBillLineChanged(object? sender, PropertyChangedEventArgs e)

@@ -10,7 +10,7 @@ public sealed class DatabaseEncryptionKeyProvider
 
 	public DatabaseEncryptionKeyProvider(string? keyFilePath = null)
 	{
-		_keyFilePath = keyFilePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "database.key");
+		_keyFilePath = keyFilePath ?? AppDataPaths.DatabaseKeyPath;
 	}
 
 	public byte[] GetOrCreateKey()

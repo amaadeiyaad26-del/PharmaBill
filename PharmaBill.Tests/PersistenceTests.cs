@@ -97,9 +97,30 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_WholesaleInvoices",
+            "_BranchIdColumns",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
-        Assert.Equal(44, database.Context.Model.GetEntityTypes().Count());
+        Assert.Equal(49, database.Context.Model.GetEntityTypes().Count());
+
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var command = database.Connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA table_info(\"AuditLogs\");";
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                columns.Add(reader.GetString(1));
+            }
+        }
+
+        Assert.Contains("BranchId", columns);
+
+        database.Context.AuditLogs.Add(new AuditLog
+        {
+            Action = "SchemaSmokeTest",
+            EntityName = "AuditLogs",
+            BranchId = null,
+        });
+        await database.Context.SaveChangesAsync();
     }
 
     [Fact]

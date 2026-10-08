@@ -8,13 +8,20 @@ namespace PharmaBill.Sync;
 
 public sealed class LocalSyncHostedService(ZeroConfigSyncCoordinator zeroConfig, ILogger<LocalSyncHostedService> logger) : IHostedService
 {
-	public async Task StartAsync(CancellationToken cancellationToken)
+	public Task StartAsync(CancellationToken cancellationToken)
+	{
+		// Do not block host/UI startup on firewall, Kestrel bind, or cloud fallback.
+		_ = InitializeInBackgroundAsync(cancellationToken);
+		return Task.CompletedTask;
+	}
+
+	private async Task InitializeInBackgroundAsync(CancellationToken cancellationToken)
 	{
 		try
 		{
-			await zeroConfig.InitializeAsync(cancellationToken);
+			await zeroConfig.InitializeAsync(cancellationToken).ConfigureAwait(false);
 		}
-		catch (Exception ex) when (!(ex is OperationCanceledException))
+		catch (Exception ex) when (ex is not OperationCanceledException)
 		{
 			logger.LogWarning(ex, "Zero-config LAN / cloud sync failed to start.");
 		}

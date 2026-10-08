@@ -480,3 +480,13 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Licensing private keys — never commit
+tools/licensing/*-private.pem
+tools/licensing/*.key
+
+
+# Licensing private keys — never commit
+tools/licensing/*-private.pem
+tools/licensing/*.key
+

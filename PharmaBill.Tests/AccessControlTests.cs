@@ -111,6 +111,24 @@ public sealed class AccessControlTests
                 ExpiresOn = today.AddDays(-1)
             }],
             today));
+        Assert.Empty(ModeGuard.GetMissingLicenceTypes(
+            BusinessMode.Retail,
+            [new LicenceRecord
+            {
+                LicenceType = "20",
+                LicenceNumber = "R-20-no-dates",
+                ExpiresOn = null
+            }],
+            today));
+        Assert.Empty(ModeGuard.GetMissingLicenceTypes(
+            BusinessMode.Wholesaler,
+            [new LicenceRecord
+            {
+                LicenceType = "20B",
+                LicenceNumber = "W-20B-no-dates",
+                ExpiresOn = null
+            }],
+            today));
     }
 
     [Fact]

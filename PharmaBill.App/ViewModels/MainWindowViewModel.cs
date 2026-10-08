@@ -230,6 +230,8 @@ public class MainWindowViewModel : ObservableObject
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? openLicenceCommand;
 
+	private RelayCommand? openRenewLicenseCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? openProfileCommand;
 
@@ -266,8 +268,14 @@ public class MainWindowViewModel : ObservableObject
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? shortcutNewBillCommand;
 
+	private AsyncRelayCommand? shortcutSaveAndPrintCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? shortcutSearchCommand;
+
+	private RelayCommand? shortcutFocusCustomerCommand;
+
+	private RelayCommand? shortcutFocusMedicineCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? focusSettingsSearchCommand;
@@ -300,7 +308,35 @@ public class MainWindowViewModel : ObservableObject
 
 	public bool HasFolderSyncWarning => !string.IsNullOrWhiteSpace(FolderSyncWarning);
 
-	public string ReadOnlyBanner => "READ-ONLY MODE — a required drug licence for the active mode is missing or expired. Viewing, searching, printing, exporting and backup are still available.";
+	public string ReadOnlyBanner
+	{
+		get
+		{
+			if (LicenseManager.IsClockTampered())
+			{
+				return "READ-ONLY MODE — " + LicenseManager.ClockTamperMessage + " Drug Records, past invoices, stock, GST and reports stay available.";
+			}
+
+			if (LicenseManager.IsHardwareMismatch())
+			{
+				return "READ-ONLY MODE — hardware fingerprint mismatch (anti-cloning). This data/license is bound to another PC. Records stay readable.";
+			}
+
+			if (!LicenseManager.HasFullAccess())
+			{
+				return "Annual License Expired. Enter renewal key to continue billing. Drug Records, past invoices, stock in hand, GST summaries and reports remain readable and exportable.";
+			}
+
+			return "READ-ONLY MODE — a required drug licence for the active mode is missing or expired. Viewing, searching, printing, exporting and backup are still available.";
+		}
+	}
+
+	public bool ShowAnnualLicenseWarning =>
+		LicenseManager.IsWithinExpiryWarningWindow() || LicenseManager.IsClockTampered();
+
+	public string AnnualLicenseWarningText =>
+		LicenseManager.GetExpiryWarningMessage()
+		?? "Your annual license is approaching expiry. Contact support to renew.";
 
 	public ObservableCollection<NavigationItem> NavigationItems { get; } = new ObservableCollection<NavigationItem>();
 
@@ -1128,6 +1164,8 @@ public class MainWindowViewModel : ObservableObject
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand OpenLicenceCommand => openLicenceCommand ?? (openLicenceCommand = new AsyncRelayCommand(OpenLicenceAsync));
 
+	public IRelayCommand OpenRenewLicenseCommand => openRenewLicenseCommand ?? (openRenewLicenseCommand = new RelayCommand(OpenRenewLicense));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand OpenProfileCommand => openProfileCommand ?? (openProfileCommand = new AsyncRelayCommand(OpenProfileAsync));
@@ -1176,9 +1214,17 @@ public class MainWindowViewModel : ObservableObject
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand ShortcutNewBillCommand => shortcutNewBillCommand ?? (shortcutNewBillCommand = new RelayCommand(ShortcutNewBill));
 
+	public IAsyncRelayCommand ShortcutSaveAndPrintCommand => shortcutSaveAndPrintCommand ?? (shortcutSaveAndPrintCommand = new AsyncRelayCommand(ShortcutSaveAndPrintAsync));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand ShortcutSearchCommand => shortcutSearchCommand ?? (shortcutSearchCommand = new RelayCommand(ShortcutSearch));
+
+	/// <summary>F3 — patient / retailer quick search.</summary>
+	public IRelayCommand ShortcutFocusCustomerCommand => shortcutFocusCustomerCommand ?? (shortcutFocusCustomerCommand = new RelayCommand(ShortcutFocusCustomer));
+
+	/// <summary>F4 — medicine search bar.</summary>
+	public IRelayCommand ShortcutFocusMedicineCommand => shortcutFocusMedicineCommand ?? (shortcutFocusMedicineCommand = new RelayCommand(ShortcutFocusMedicine));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -1659,19 +1705,62 @@ public class MainWindowViewModel : ObservableObject
 		}
 	}
 
+	private void OpenRenewLicense()
+	{
+		try
+		{
+			Window? owner = Application.Current?.MainWindow;
+			UpgradeWindow upgradeWindow = new UpgradeWindow();
+			if (owner != null)
+			{
+				upgradeWindow.Owner = owner;
+			}
+
+			if (upgradeWindow.ShowDialog() == true)
+			{
+				LicenseManager.InvalidateCache();
+				_ = RefreshAccessStatusAsync();
+			}
+		}
+		catch (Exception exception)
+		{
+			_logger.LogError(exception, "Opening the renew licence dialog failed.");
+		}
+	}
+
 	private async Task OpenLicenceAsync()
 	{
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			var (headline, detail) = await scope.ServiceProvider.GetRequiredService<AccessService>().GetStatusAsync() switch
+			EntitlementStatus entitlement = await scope.ServiceProvider.GetRequiredService<AccessService>().GetStatusAsync();
+			string offlineStatus = LicenseManager.GetStatusSummary();
+			string machineId = LicenseManager.GetMachineId();
+			int? trialLeft = LicenseManager.GetTrialDaysRemaining();
+			DateTime? licensedUntil = LicenseManager.GetLicensedUntilUtc();
+
+			var (headline, detail) = entitlement switch
 			{
-				EntitlementStatus.SUBSCRIBED => ("Full licence active", "PharmaBill is licensed for production use on this workstation. Entitlement is confirmed via Microsoft Store when packaged, or as a full install for portable distribution."), 
-				EntitlementStatus.GRACE_OFFLINE => ("Offline grace period", "Connect to the internet to refresh your Microsoft Store entitlement before the grace period ends."), 
-				EntitlementStatus.TRIAL => ("Full licence active", "Trial windows are disabled in this production release. Your workstation is fully unlocked."), 
-				_ => ("Billing is read-only", "A drug licence required for the active business mode is missing or expired. You can still view, search, export, print, back up and restore everything."), 
+				EntitlementStatus.SUBSCRIBED when LicenseManager.IsAppActivated() => (
+					offlineStatus,
+					$"Annual offline licence is active on this Win32 workstation.\nMachine ID: {machineId}\nShare this ID to renew (PBILL-XXXX-XXXX-XXXX-XXXX). Renewal extends ValidUntil by 365 days — no reinstall."),
+				EntitlementStatus.SUBSCRIBED => (
+					offlineStatus,
+					$"7-Day Free Trial is running on this PC.\nMachine ID: {machineId}\nUse Copy ID on Upgrade, then email pharma.bill26@gmail.com for an annual key."),
+				EntitlementStatus.GRACE_OFFLINE => (
+					"Offline grace period",
+					"Connect when possible so backups and sync can refresh. Local offline licence status: " + offlineStatus),
+				_ when !LicenseManager.HasFullAccess() => (
+					"Annual License Expired — read-only",
+					$"New retail/wholesale invoices and stock inward are blocked until you renew.\nMachine ID: {machineId}\nPast invoices, Drug Records, stock, GST and reports stay readable.\n{offlineStatus}"),
+				_ => (
+					"Billing is read-only",
+					"A drug licence required for the active business mode is missing or expired. You can still view, search, export, print, back up and restore everything.\n" + offlineStatus),
 			};
-			_accountDialogs.ShowLicence(new LicenceSummary(TrialStatus, headline, detail, 0, null, null));
+
+			string? endsOn = licensedUntil?.ToString("dd-MMM-yyyy")
+				?? (trialLeft is > 0 ? DateTime.Today.AddDays(trialLeft.Value).ToString("dd-MMM-yyyy") : null);
+			_accountDialogs.ShowLicence(new LicenceSummary(offlineStatus, headline, detail, LicenseManager.AnnualGrantDays, trialLeft, endsOn));
 		}
 		catch (Exception exception)
 		{
@@ -1752,7 +1841,21 @@ public class MainWindowViewModel : ObservableObject
 				ScannedItemPopover = null;
 				return;
 			}
-			bool flag = string.Equals(_navigationService.CurrentSectionKey, "Billing", StringComparison.OrdinalIgnoreCase);
+			string preferredBilling = PreferredBillingSection() ?? "Billing";
+			bool onRetailBilling = string.Equals(_navigationService.CurrentSectionKey, "Billing", StringComparison.OrdinalIgnoreCase);
+			bool onWholesaleBilling = string.Equals(_navigationService.CurrentSectionKey, "WholesaleBilling", StringComparison.OrdinalIgnoreCase);
+			if (onWholesaleBilling || (preferredBilling == "WholesaleBilling" && CanUseWholesaleBilling && _retailBillingPage.BillItems.Count == 0))
+			{
+				if (!onWholesaleBilling)
+				{
+					Navigate("WholesaleBilling");
+				}
+				ShowBarcodeToast("Scanned: " + choice.DrugName + " — add from Wholesale Invoice stock picker.");
+				ScannedItemPopover = choice;
+				return;
+			}
+
+			bool flag = onRetailBilling;
 			if (flag || _retailBillingPage.BillItems.Count > 0)
 			{
 				if (!flag)
@@ -1801,7 +1904,15 @@ public class MainWindowViewModel : ObservableObject
 		if ((object)ScannedItemPopover != null)
 		{
 			string barcode = ((!string.IsNullOrWhiteSpace(ScannedItemPopover.Barcode)) ? ScannedItemPopover.Barcode : ScannedItemPopover.BatchNo);
-			Navigate("Billing");
+			string billingSection = PreferredBillingSection() ?? "Billing";
+			Navigate(billingSection);
+			if (billingSection == "WholesaleBilling")
+			{
+				ShowBarcodeToast("Opened Wholesale Invoice — select batch for " + ScannedItemPopover.DrugName + ".");
+				ScannedItemPopover = null;
+				return;
+			}
+
 			if (await _retailBillingPage.TryAddByBarcodeAsync(barcode))
 			{
 				ShowBarcodeToast("Added to bill: " + ScannedItemPopover.DrugName);
@@ -1832,10 +1943,14 @@ public class MainWindowViewModel : ObservableObject
 		{
 			throw new ArgumentException("A navigation section must be provided.", "sectionKey");
 		}
+
+		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
+		string resolvedKey = ResolveBillingNavigation(sectionKey);
+
 		bool flag = IsCriticalUpdateRequired;
 		if (flag)
 		{
-			bool flag2 = ((sectionKey == "Billing" || sectionKey == "WholesaleBilling") ? true : false);
+			bool flag2 = ((resolvedKey == "Billing" || resolvedKey == "WholesaleBilling") ? true : false);
 			flag = flag2;
 		}
 		if (flag)
@@ -1844,8 +1959,27 @@ public class MainWindowViewModel : ObservableObject
 		}
 		else
 		{
-			_navigationService.Navigate(sectionKey);
+			_navigationService.Navigate(resolvedKey);
 		}
+	}
+
+	private string ResolveBillingNavigation(string sectionKey)
+	{
+		// Exclusive desk modes always land on that mode's billing surface (no duplicate entry points).
+		if (sectionKey is "Billing" or "WholesaleBilling")
+		{
+			if (_activeBillingDeskMode == ActiveBillingDeskMode.Wholesale && CanUseWholesaleBilling)
+			{
+				return "WholesaleBilling";
+			}
+
+			if (_activeBillingDeskMode == ActiveBillingDeskMode.Retail && CanUseRetailBilling)
+			{
+				return "Billing";
+			}
+		}
+
+		return sectionKey;
 	}
 
 	public Task CheckForAppUpdatesAsync(bool force = false)
@@ -1949,6 +2083,7 @@ public class MainWindowViewModel : ObservableObject
 	{
 		if (CanUseCombinedDeskMode)
 		{
+			// Sidebar shows both Retail Billing and Wholesale Invoice; keep the current page.
 			SetActiveBillingDeskMode(ActiveBillingDeskMode.Combined);
 		}
 	}
@@ -1960,11 +2095,33 @@ public class MainWindowViewModel : ObservableObject
 
 	private void ShortcutNewBill()
 	{
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
+		{
+			if (wholesale.NewBillCommand.CanExecute(null))
+			{
+				wholesale.NewBillCommand.Execute(null);
+			}
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail)
+		{
+			if (retail.NewBillCommand.CanExecute(null))
+			{
+				retail.NewBillCommand.Execute(null);
+			}
+			return;
+		}
+
 		if (_activeBillingDeskMode == ActiveBillingDeskMode.Wholesale || (!CanUseRetailBilling && CanUseWholesaleBilling))
 		{
 			if (CanUseWholesaleBilling)
 			{
 				Navigate("WholesaleBilling");
+				if (_wholesaleBillingPage.NewBillCommand.CanExecute(null))
+				{
+					_wholesaleBillingPage.NewBillCommand.Execute(null);
+				}
 			}
 		}
 		else if (CanUseRetailBilling)
@@ -1977,31 +2134,90 @@ public class MainWindowViewModel : ObservableObject
 		}
 	}
 
+	private async Task ShortcutSaveAndPrintAsync()
+	{
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
+		{
+			if (wholesale.SaveAndPrintCommand.CanExecute(null))
+			{
+				await wholesale.SaveAndPrintCommand.ExecuteAsync(null);
+			}
+
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail && retail.SaveAndPrintCommand.CanExecute(null))
+		{
+			await retail.SaveAndPrintCommand.ExecuteAsync(null);
+			return;
+		}
+
+		// Desk mode may have focus elsewhere — route to the preferred billing page first.
+		string? billing = PreferredBillingSection();
+		if (billing == "WholesaleBilling" && CanUseWholesaleBilling)
+		{
+			Navigate("WholesaleBilling");
+			if (_wholesaleBillingPage.SaveAndPrintCommand.CanExecute(null))
+			{
+				await _wholesaleBillingPage.SaveAndPrintCommand.ExecuteAsync(null);
+			}
+		}
+		else if (CanUseRetailBilling && _retailBillingPage.SaveAndPrintCommand.CanExecute(null))
+		{
+			Navigate("Billing");
+			await _retailBillingPage.SaveAndPrintCommand.ExecuteAsync(null);
+		}
+	}
+
 	private void ShortcutSearch()
 	{
+		// Legacy alias: F3 historically focused medicine search; now routes to customer, F4 to medicine.
+		ShortcutFocusCustomer();
+	}
+
+	private void ShortcutFocusCustomer()
+	{
+		EnsureBillingSectionForShortcuts();
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
+		{
+			wholesale.FocusCustomerCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail)
+		{
+			retail.FocusPatientCommand.Execute(null);
+		}
+	}
+
+	private void ShortcutFocusMedicine()
+	{
+		EnsureBillingSectionForShortcuts();
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
+		{
+			wholesale.FocusMedicineCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail)
+		{
+			retail.FocusMedicineCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is PurchasePageViewModel purchase)
+		{
+			purchase.RequestFocusMedicineSearch();
+		}
+	}
+
+	private void EnsureBillingSectionForShortcuts()
+	{
 		string text = _navigationService.CurrentSectionKey;
-		bool flag;
-		switch (text)
+		bool onBillingSurface = text is "Billing" or "WholesaleBilling" or "Stock" or "Purchases" or "StockTransfer";
+		if (!onBillingSurface)
 		{
-		case "Billing":
-		case "WholesaleBilling":
-		case "Stock":
-		case "Purchases":
-		case "StockTransfer":
-			flag = true;
-			break;
-		default:
-			flag = false;
-			break;
-		}
-		if (!flag)
-		{
-			text = PreferredBillingSection() ?? "Stock";
-			Navigate(text);
-		}
-		if (text == "Billing" && _retailBillingPage.FocusSearchCommand.CanExecute(null))
-		{
-			_retailBillingPage.FocusSearchCommand.Execute(null);
+			Navigate(PreferredBillingSection() ?? "Billing");
 		}
 	}
 
@@ -2058,9 +2274,10 @@ public class MainWindowViewModel : ObservableObject
 	private void OnLanguageChanged(object? sender, EventArgs e)
 	{
 		FlowDirection = _languageService.FlowDirection;
+		RebuildNavigationItems(_businessMode);
 		if (CurrentPage is SectionPageViewModel sectionPageViewModel && !(CurrentPage is SettingsPageViewModel))
 		{
-			sectionPageViewModel.Title = _languageService.GetString("Nav" + _navigationService.CurrentSectionKey);
+			sectionPageViewModel.Title = ResolveNavTitle(_navigationService.CurrentSectionKey);
 		}
 	}
 
@@ -2091,6 +2308,14 @@ public class MainWindowViewModel : ObservableObject
 
 	private async Task RefreshAccessStatusAsync()
 	{
+		try
+		{
+			LicenseManager.RecordRunTimestamp();
+		}
+		catch
+		{
+		}
+
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		EntitlementStatus entitlementStatus = await scope.ServiceProvider.GetRequiredService<AccessService>().GetStatusAsync();
 		TrialStatus = entitlementStatus switch
@@ -2106,16 +2331,21 @@ public class MainWindowViewModel : ObservableObject
 		{
 		case EntitlementStatus.TRIAL:
 		case EntitlementStatus.SUBSCRIBED:
-			trialStatusToolTip = "Full licence active";
+			trialStatusToolTip = LicenseManager.GetStatusSummary();
 			break;
 		case EntitlementStatus.GRACE_OFFLINE:
-			trialStatusToolTip = "Offline grace — connect to refresh Store entitlement";
+			trialStatusToolTip = "Offline grace — connect when possible to refresh backups/sync";
 			break;
 		default:
-			trialStatusToolTip = "Drug licence for the active mode is missing or expired — billing is read-only";
+			trialStatusToolTip = LicenseManager.HasFullAccess()
+				? "Drug licence for the active mode is missing or expired — billing is read-only"
+				: "Annual license expired — enter renewal key to create new bills (existing records stay readable)";
 			break;
 		}
 		TrialStatusToolTip = trialStatusToolTip;
+		OnPropertyChanged(nameof(ReadOnlyBanner));
+		OnPropertyChanged(nameof(ShowAnnualLicenseWarning));
+		OnPropertyChanged(nameof(AnnualLicenseWarningText));
 	}
 
 	private void ApplyMode(BusinessMode mode)
@@ -2125,8 +2355,6 @@ public class MainWindowViewModel : ObservableObject
 		_activeBillingDeskMode = ActiveBillingDeskModeStore.Clamp(_activeBillingDeskMode, mode);
 		RefreshModeBadge();
 		OnPropertyChanged("CanUseCombinedDeskMode");
-		NavigationItems.Clear();
-		NavigationItems.Add(new NavigationItem("Dashboard", "Dashboard"));
 		bool flag = mode == BusinessMode.Wholesaler;
 		if (flag)
 		{
@@ -2148,14 +2376,36 @@ public class MainWindowViewModel : ObservableObject
 		{
 			_navigationService.Navigate("WholesaleBilling");
 		}
-		if (mode != BusinessMode.Wholesaler)
+		else if (mode == BusinessMode.Retail
+		         && string.Equals(_navigationService.CurrentSectionKey, "WholesaleBilling", StringComparison.OrdinalIgnoreCase))
 		{
-			NavigationItems.Add(new NavigationItem("Billing", _languageService.GetString("NavBilling")));
+			_navigationService.Navigate("Billing");
 		}
-		if (mode != BusinessMode.Retail)
+		else if (_activeBillingDeskMode == ActiveBillingDeskMode.Wholesale
+		         && string.Equals(_navigationService.CurrentSectionKey, "Billing", StringComparison.OrdinalIgnoreCase)
+		         && CanUseWholesaleBilling)
 		{
-			NavigationItems.Add(new NavigationItem("WholesaleBilling", _languageService.GetString("NavWholesaleSales")));
+			_navigationService.Navigate("WholesaleBilling");
 		}
+		else if (_activeBillingDeskMode == ActiveBillingDeskMode.Retail
+		         && string.Equals(_navigationService.CurrentSectionKey, "WholesaleBilling", StringComparison.OrdinalIgnoreCase)
+		         && CanUseRetailBilling)
+		{
+			_navigationService.Navigate("Billing");
+		}
+
+		RebuildNavigationItems(mode);
+	}
+
+	/// <summary>
+	/// Option A: one primary billing sidebar entry that matches the active desk mode.
+	/// Combined (2-in-1) exposes both Retail Billing and Wholesale Invoice as distinct entries.
+	/// </summary>
+	private void RebuildNavigationItems(BusinessMode mode)
+	{
+		NavigationItems.Clear();
+		NavigationItems.Add(new NavigationItem("Dashboard", "Dashboard"));
+		AddPrimaryBillingNavigationItems();
 		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
 		NavigationItems.Add(new NavigationItem("StockTransfer", "Stock transfer"));
 		NavigationItems.Add(new NavigationItem("Purchases", _languageService.GetString("NavPurchases")));
@@ -2181,11 +2431,48 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Inspector", _languageService.GetString("NavInspector")));
 	}
 
+	private void AddPrimaryBillingNavigationItems()
+	{
+		bool showRetail = CanUseRetailBilling;
+		bool showWholesale = CanUseWholesaleBilling;
+
+		switch (_activeBillingDeskMode)
+		{
+		case ActiveBillingDeskMode.Retail:
+			showWholesale = false;
+			break;
+		case ActiveBillingDeskMode.Wholesale:
+			showRetail = false;
+			break;
+		}
+
+		if (showRetail)
+		{
+			NavigationItems.Add(new NavigationItem("Billing", _languageService.GetString("NavRetailBilling")));
+		}
+
+		if (showWholesale)
+		{
+			NavigationItems.Add(new NavigationItem("WholesaleBilling", _languageService.GetString("NavWholesaleInvoice")));
+		}
+	}
+
+	private string ResolveNavTitle(string sectionKey)
+	{
+		return sectionKey switch
+		{
+			"Billing" => _languageService.GetString("NavRetailBilling"),
+			"WholesaleBilling" => _languageService.GetString("NavWholesaleInvoice"),
+			_ => _languageService.GetString("Nav" + sectionKey),
+		};
+	}
+
 	private void SetActiveBillingDeskMode(ActiveBillingDeskMode mode)
 	{
 		ActiveBillingDeskMode mode2 = (_activeBillingDeskMode = ActiveBillingDeskModeStore.Clamp(mode, _businessMode));
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
+		RebuildNavigationItems(_businessMode);
 	}
 
 	private void RefreshModeBadge()
@@ -2247,7 +2534,7 @@ public class MainWindowViewModel : ObservableObject
 			"DrugRecords" => new DrugRecordsPageViewModel(_drugRecordsService, _filePickerService, _tabularExportService, _sensitiveAccessService, _confirmationService, _currentSession), 
 			"Registers" => new StatutoryRegistersPageViewModel(_statutoryRegisterService, _sensitiveAccessService, _confirmationService, _filePickerService, _tabularExportService, _currentSession), 
 			"Inspector" => new InspectorPageViewModel(_scopeFactory, _sensitiveAccessService), 
-			_ => new SectionPageViewModel(_languageService.GetString((sectionKey == "WholesaleBilling") ? "NavWholesaleSales" : ("Nav" + sectionKey))), 
+			_ => new SectionPageViewModel(ResolveNavTitle(sectionKey)), 
 		};
 	}
 

@@ -44,7 +44,9 @@ public sealed class AccessService(PharmaBillDbContext context, ProtectedAccessSt
 		{
 			return EntitlementStatus.GRACE_OFFLINE;
 		}
-		return EntitlementStatus.SUBSCRIBED;
+
+		// Offline trial expired / no activation key — keep viewing existing records, block CreateBill / EnterStock.
+		return EntitlementStatus.EXPIRED;
 	}
 
 	public async Task<bool> IsReadOnlyAsync(CancellationToken cancellationToken = default(CancellationToken))

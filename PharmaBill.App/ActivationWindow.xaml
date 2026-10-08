@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.ActivationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/Assets/Icons/app.ico"
+        Title="PharmaBill Activation"
+        Width="520"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{DynamicResource ContentBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+  <StackPanel Margin="28">
+    <TextBlock Text="PharmaBill Activation"
+               FontSize="22"
+               FontWeight="SemiBold"
+               Margin="0,0,0,6" />
+    <TextBlock Text="Annual License Expired. Enter a renewal key to continue billing, or continue in read-only mode to view Drug Records, past invoices, stock, GST and reports."
+               Foreground="{DynamicResource SecondaryTextBrush}"
+               TextWrapping="Wrap"
+               Margin="0,0,0,20" />
+
+    <TextBlock x:Name="CurrentStatusText"
+               FontWeight="SemiBold"
+               Foreground="{DynamicResource AccentBrush}"
+               TextWrapping="Wrap"
+               Margin="0,0,0,16" />
+
+    <TextBlock Text="Machine ID / Device ID"
+               FontWeight="SemiBold"
+               Margin="0,0,0,6" />
+    <Grid Margin="0,0,0,16">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBox x:Name="MachineIdBox"
+               Grid.Column="0"
+               IsReadOnly="True"
+               Padding="10,8"
+               VerticalContentAlignment="Center"
+               Background="{DynamicResource FieldReadOnlyBrush}"
+               BorderBrush="{DynamicResource FieldBorderBrush}" />
+      <Button Grid.Column="1"
+              Content="Copy ID"
+              Margin="8,0,0,0"
+              MinWidth="90"
+              Padding="12,8"
+              Style="{StaticResource SecondaryButton}"
+              ToolTip="Copy Machine ID to clipboard for the field agent / pharmacy owner"
+              Click="CopyMachineId_Click" />
+    </Grid>
+
+    <TextBlock Text="To purchase an annual activation key (₹2,500/year), email your Machine ID to: pharma.bill26@gmail.com"
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource SecondaryTextBrush}"
+               Margin="0,0,0,16" />
+
+    <TextBlock Text="Enter Activation Key"
+               FontWeight="SemiBold"
+               Margin="0,0,0,6" />
+    <TextBox x:Name="LicenseKeyBox"
+             Padding="10,8"
+             Margin="0,0,0,8"
+             BorderBrush="{DynamicResource FieldBorderBrush}" />
+
+    <TextBlock x:Name="StatusText"
+               TextWrapping="Wrap"
+               Foreground="#FFB42318"
+               MinHeight="20"
+               Margin="0,0,0,16" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Continue Read-Only"
+              MinWidth="150"
+              Padding="14,8"
+              Margin="0,0,8,0"
+              Style="{StaticResource SecondaryButton}"
+              IsCancel="True"
+              ToolTip="View existing bills and stock without creating new sales until you activate"
+              Click="ContinueReadOnly_Click" />
+      <Button Content="Activate License"
+              IsDefault="True"
+              MinWidth="140"
+              Padding="14,8"
+              Style="{StaticResource PrimaryButton}"
+              Click="Activate_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>

@@ -5,6 +5,7 @@
       <TextBlock Text="Diagnostics" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
       <Button Content="Refresh" Margin="16,0,0,0" Padding="12,6" Command="{Binding RefreshCommand}" />
       <Button Content="⚙ Configure Cloud Keys" Margin="8,0,0,0" Padding="12,6" ToolTip="Paste Google Drive OAuth client credentials" Click="ConfigureCloudKeys_Click" />
+      <Button Content="Key Generator" Margin="8,0,0,0" Padding="12,6" Opacity="0.55" ToolTip="Admin: generate 1 Month / 1 Year / Lifetime keys (Ctrl+Shift+K)" Click="OpenKeyGenerator_Click" />
     </StackPanel>
     <TextBlock DockPanel.Dock="Bottom" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,10,0,0" Text="{Binding ErrorMessage}" />
     <TabControl>

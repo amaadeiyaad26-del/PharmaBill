@@ -5,15 +5,17 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using PharmaBill.App.Services;
 using PharmaBill.Data.Services;
 using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSyncServer localSync) : ObservableObject, ILoadablePage
+public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSyncServer localSync, LicenceViewModel licence) : ObservableObject, ILoadablePage
 {
 	private DashboardSnapshot _snapshot = new DashboardSnapshot(0m, 0m, 0, 0, 0m, 0);
 
@@ -53,11 +55,23 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 
 	private string _highlightSyncSub = "Host status unavailable";
 
+	private string _licenseBadgeText = "Subscribe / Activate";
+
+	private bool _showLicenseUpgrade;
+
+	private bool _showLicensedBadge;
+
+	private string _licenseBannerText = string.Empty;
+
+	private bool _showLicenseBanner;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand<string?>? drillDownCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? refreshCommand;
+
+	private RelayCommand? openUpgradeCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -434,6 +448,78 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 		}
 	}
 
+	public string LicenseBadgeText
+	{
+		get => _licenseBadgeText;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_licenseBadgeText, value))
+			{
+				OnPropertyChanging(nameof(LicenseBadgeText));
+				_licenseBadgeText = value;
+				OnPropertyChanged(nameof(LicenseBadgeText));
+			}
+		}
+	}
+
+	public bool ShowLicenseUpgrade
+	{
+		get => _showLicenseUpgrade;
+		set
+		{
+			if (_showLicenseUpgrade != value)
+			{
+				OnPropertyChanging(nameof(ShowLicenseUpgrade));
+				_showLicenseUpgrade = value;
+				OnPropertyChanged(nameof(ShowLicenseUpgrade));
+			}
+		}
+	}
+
+	public bool ShowLicensedBadge
+	{
+		get => _showLicensedBadge;
+		set
+		{
+			if (_showLicensedBadge != value)
+			{
+				OnPropertyChanging(nameof(ShowLicensedBadge));
+				_showLicensedBadge = value;
+				OnPropertyChanged(nameof(ShowLicensedBadge));
+			}
+		}
+	}
+
+	public string LicenseBannerText
+	{
+		get => _licenseBannerText;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_licenseBannerText, value))
+			{
+				OnPropertyChanging(nameof(LicenseBannerText));
+				_licenseBannerText = value;
+				OnPropertyChanged(nameof(LicenseBannerText));
+			}
+		}
+	}
+
+	public bool ShowLicenseBanner
+	{
+		get => _showLicenseBanner;
+		set
+		{
+			if (_showLicenseBanner != value)
+			{
+				OnPropertyChanging(nameof(ShowLicenseBanner));
+				_showLicenseBanner = value;
+				OnPropertyChanged(nameof(ShowLicenseBanner));
+			}
+		}
+	}
+
+	public LicenceViewModel Licence => licence;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand<string?> DrillDownCommand => drillDownCommand ?? (drillDownCommand = new RelayCommand<string>(DrillDown));
@@ -441,6 +527,8 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand RefreshCommand => refreshCommand ?? (refreshCommand = new AsyncRelayCommand(RefreshAsync));
+
+	public IRelayCommand OpenUpgradeCommand => openUpgradeCommand ?? (openUpgradeCommand = new RelayCommand(OpenUpgrade));
 
 	public event Action<DashboardTarget>? DrillDownRequested;
 
@@ -454,7 +542,29 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
+		RefreshLicenseBadge();
 		await RefreshAsync(cancellationToken);
+	}
+
+	private void OpenUpgrade()
+	{
+		licence.OpenRenewCommand.Execute(null);
+		RefreshLicenseBadge();
+		Window? owner = Application.Current?.MainWindow;
+		if (owner != null && LicenseManager.HasFullAccess())
+		{
+			owner.Title = "PharmaBill";
+		}
+	}
+
+	public void RefreshLicenseBadge()
+	{
+		licence.Refresh();
+		LicenseBadgeText = licence.BadgeText;
+		ShowLicenseUpgrade = licence.ShowUpgradeButton;
+		ShowLicensedBadge = licence.ShowLicensedBadge;
+		LicenseBannerText = licence.BannerText;
+		ShowLicenseBanner = licence.ShowAnyBanner && !string.IsNullOrWhiteSpace(licence.BannerText);
 	}
 
 	private async Task RefreshAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -480,6 +590,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 			DailyAxisMax = $"₹{num:N0}";
 			DailyAxisMid = $"₹{num / 2m:N0}";
 			UpdateHighlightSlides(snapshot);
+			RefreshLicenseBadge();
 			LastUpdated = DateTime.Now;
 			ErrorMessage = string.Empty;
 		}

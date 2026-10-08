@@ -51,46 +51,58 @@
         </GroupBox>
         <GroupBox Header="Drug licences" Padding="14" Margin="0,0,0,12">
           <StackPanel>
-            <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding Licence20Label}" />
-            <Grid Margin="0,0,0,14">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <StackPanel Margin="0,0,8,0">
-                <TextBlock Text="Licence number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding DrugLicence20B, UpdateSourceTrigger=PropertyChanged}" behaviors:CyclingPlaceholder.Hints="{Binding Licence20Placeholder}" ToolTip="{Binding Licence20Placeholder}" />
-              </StackPanel>
-              <StackPanel Grid.Column="1" Margin="4,0,8,0">
-                <TextBlock Text="Issue Date (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence20IssueDate}" />
-              </StackPanel>
-              <StackPanel Grid.Column="2" Margin="4,0,0,0">
-                <TextBlock Text="Valid Up To (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence20ExpiryDate}" />
-              </StackPanel>
-            </Grid>
-            <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding Licence21Label}" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <StackPanel Margin="0,0,8,0">
-                <TextBlock Text="Licence number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="30" Text="{Binding DrugLicence21B, UpdateSourceTrigger=PropertyChanged}" behaviors:CyclingPlaceholder.Hints="{Binding Licence21Placeholder}" ToolTip="{Binding Licence21Placeholder}" />
-              </StackPanel>
-              <StackPanel Grid.Column="1" Margin="4,0,8,0">
-                <TextBlock Text="Issue Date (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence21IssueDate}" />
-              </StackPanel>
-              <StackPanel Grid.Column="2" Margin="4,0,0,0">
-                <TextBlock Text="Valid Up To (DD/MM/YYYY)" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                <DatePicker Margin="0,4,0,0" Padding="4" MinHeight="36" ToolTip="DD/MM/YYYY" SelectedDate="{Binding DrugLicence21ExpiryDate}" />
-              </StackPanel>
-            </Grid>
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10"
+                       Text="Enter at least one licence number for your store type. Issue/expiry dates and document copies can be added later under Settings → Organization." />
+            <StackPanel Visibility="{Binding ShowRetailLicenceFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="Retail licences" />
+              <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Text="Drug Licence Form 20 Number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36"
+                           behaviors:CyclingPlaceholder.Enabled="True"
+                           behaviors:CyclingPlaceholder.Hints="DL No. 20/..."
+                           behaviors:CyclingPlaceholder.IntervalSeconds="30"
+                           Text="{Binding DrugLicence20, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                  <TextBlock Text="Drug Licence Form 21 Number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36"
+                           behaviors:CyclingPlaceholder.Enabled="True"
+                           behaviors:CyclingPlaceholder.Hints="DL No. 21/..."
+                           behaviors:CyclingPlaceholder.IntervalSeconds="30"
+                           Text="{Binding DrugLicence21, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+            <StackPanel Visibility="{Binding ShowWholesaleLicenceFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="Wholesale licences" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Text="Drug Licence Form 20B Number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36"
+                           behaviors:CyclingPlaceholder.Enabled="True"
+                           behaviors:CyclingPlaceholder.Hints="DL No. 20B/..."
+                           behaviors:CyclingPlaceholder.IntervalSeconds="30"
+                           Text="{Binding DrugLicence20B, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                  <TextBlock Text="Drug Licence Form 21B Number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBox Margin="0,4,0,0" Padding="7" MinHeight="36"
+                           behaviors:CyclingPlaceholder.Enabled="True"
+                           behaviors:CyclingPlaceholder.Hints="DL No. 21B/..."
+                           behaviors:CyclingPlaceholder.IntervalSeconds="30"
+                           Text="{Binding DrugLicence21B, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
           </StackPanel>
         </GroupBox>
         <GroupBox Header="GSTIN &amp; Address" Padding="14" Margin="0,0,0,12">
@@ -153,45 +165,6 @@
               <TextBox Margin="0,5,10,0" Padding="6" Width="120" HorizontalAlignment="Left" MinHeight="36" Text="{Binding IdleLockMinutes}" />
             </StackPanel>
           </Grid>
-        </GroupBox>
-        <GroupBox Header="Additional licences (wholesale / advanced)" Padding="14" Margin="0,0,0,12">
-          <StackPanel>
-            <TextBlock Text="Retail needs licence 20 or 21 above. Wholesale or Both also needs a wholesale licence row below." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" />
-            <WrapPanel Margin="0,12,0,8">
-              <TextBox Width="170" Padding="6" MinHeight="36" Text="{Binding NewLicenceType, UpdateSourceTrigger=PropertyChanged}" />
-              <Button Content="Add licence type" Style="{StaticResource SecondaryButton}" Margin="8,0" Padding="12,5" Command="{Binding AddLicenceTypeCommand}" />
-              <ComboBox Width="150" Padding="6" MinHeight="36" ItemsSource="{Binding LicenceTypeOptions}" SelectedItem="{Binding WholesaleLicenceType}" />
-              <Button Content="Add wholesale licence" Style="{StaticResource SecondaryButton}" Margin="8,0" Padding="12,5" Command="{Binding AddLicenceCommand}" />
-              <Button Content="Add retail 20" Style="{StaticResource SecondaryButton}" Padding="12,5" Margin="0,0,8,0" Command="{Binding AddRetail20Command}" />
-              <Button Content="Add retail 21" Style="{StaticResource SecondaryButton}" Padding="12,5" Command="{Binding AddRetail21Command}" />
-            </WrapPanel>
-            <ItemsControl ItemsSource="{Binding Licences}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="80" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="150" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                      </Grid.ColumnDefinitions>
-                      <TextBox Padding="5" MinHeight="32" Text="{Binding LicenceType}" />
-                      <TextBox Grid.Column="1" Margin="6,0" Padding="5" MinHeight="32" Text="{Binding LicenceNumber}" />
-                      <DatePicker Grid.Column="2" Margin="0,0,6,0" ToolTip="Issue Date (DD/MM/YYYY)" SelectedDate="{Binding IssueDate}" />
-                      <DatePicker Grid.Column="3" Margin="0,0,6,0" ToolTip="Valid Up To (DD/MM/YYYY)" SelectedDate="{Binding ExpiryDate}" />
-                      <Button Grid.Column="4" Content="Choose copy" Style="{StaticResource SecondaryButton}" Command="{Binding DataContext.SelectDocumentCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
-                      <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis" Text="{Binding DocumentPath}" />
-                      <Button Grid.Column="6" Content="Remove" Style="{StaticResource SecondaryButton}" Command="{Binding DataContext.RemoveLicenceCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
-                    </Grid>
-                  </Border>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
         </GroupBox>
         <GroupBox Header="Tax, competent person and payments (optional)" Padding="14" Margin="0,0,0,12">
           <Grid>

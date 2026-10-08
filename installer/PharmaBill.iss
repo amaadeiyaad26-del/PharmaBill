@@ -16,32 +16,40 @@
 #endif
 
 #define AppName "PharmaBill"
+#define AppPublisher "SAER"
 #define AppExe "PharmaBill.App.exe"
+; Four-part PE version resource (Defender / SmartScreen metadata).
+#define VersionInfoVersion AppVersion + ".0"
 
 [Setup]
-; Keep this GUID constant forever: it is how upgrades find the previous install.
+; Permanent AppId — never change. Keeps Windows uninstall identity and Defender
+; reputation continuous across PharmaBill updates (do not regenerate this GUID).
 AppId={{6F0B9C1E-3A52-4D8B-9E47-5B1D2C7A8F31}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
-AppPublisher=PharmaBill
-VersionInfoVersion={#AppVersion}
+AppPublisher={#AppPublisher}
+VersionInfoVersion={#VersionInfoVersion}
+VersionInfoCompany={#AppPublisher}
+VersionInfoDescription=PharmaBill Pharmacy Billing and Inventory Setup
+VersionInfoCopyright=Copyright (C) 2026 SAER
+VersionInfoProductName={#AppName}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
-SetupIconFile=..\PharmaBill.App\Assets\PharmaBill.ico
+SetupIconFile=..\PharmaBill.App\Assets\Icons\app.ico
 OutputDir={#OutputDir}
-OutputBaseFilename=PharmaBill-Setup-{#AppVersion}
-Compression=lzma2/max
+OutputBaseFilename=PharmaBill_Setup
+Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ; Windows 10 or later.
 MinVersion=10.0
-; Per-user install ({localappdata}\Programs\PharmaBill) by default; the user may choose "all users"
-; (Program Files) in the install-mode dialog.
+; Per-user install ({localappdata}\Programs\PharmaBill) by default — no UAC elevation.
+; PrivilegesRequiredOverridesAllowed=dialog lets the user opt into all-users (Program Files).
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=yes
@@ -49,24 +57,24 @@ DisableProgramGroupPage=yes
 CloseApplications=no
 RestartApplications=no
 UsePreviousAppDir=yes
+AllowNoIcons=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"
+Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: checkedonce
 
 [Files]
 ; Application files only. Never list anything under {localappdata}\PharmaBill here.
+; Uninstall must NEVER delete {localappdata}\PharmaBill (chemist DB / bills / stock).
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\{#AppExe}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\{#AppExe}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#AppExe}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "Launch PharmaBill"; Flags: nowait postinstall skipifsilent
 
-; No [UninstallDelete] entries for user data on purpose.
-[UninstallRun]
-; (none)
+; Intentionally no [UninstallDelete] for {localappdata}\PharmaBill — data survives uninstall/update.

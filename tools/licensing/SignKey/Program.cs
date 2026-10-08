@@ -1,0 +1,10 @@
+﻿using System.Security.Cryptography;
+using System.Text;
+var pemPath = args[0];
+var payloadText = args[1];
+using var rsa = RSA.Create();
+rsa.ImportFromPem(File.ReadAllText(pemPath));
+var payload = Encoding.UTF8.GetBytes(payloadText);
+var sig = rsa.SignData(payload, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+static string B64Url(byte[] d) => Convert.ToBase64String(d).TrimEnd('=').Replace('+','-').Replace('/','_');
+Console.WriteLine("PBILL2." + B64Url(payload) + "." + B64Url(sig));

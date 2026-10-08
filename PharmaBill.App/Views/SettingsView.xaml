@@ -161,6 +161,22 @@
                   <ComboBox Padding="8" ItemsSource="{Binding LanguageOptions}" SelectedItem="{Binding SelectedLanguage}" />
                 </StackPanel>
               </Grid>
+              <Border Margin="0,14,0,0" Padding="12" CornerRadius="8" Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" BorderThickness="1">
+                <StackPanel>
+                  <TextBlock Text="Preferences / General" FontWeight="SemiBold" Margin="0,0,0,8" />
+                  <CheckBox IsChecked="{Binding EnableUiSounds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            VerticalContentAlignment="Center">
+                    <StackPanel>
+                      <TextBlock Text="Enable UI Sound Effects (Clicks &amp; Alerts)" FontWeight="SemiBold" TextWrapping="Wrap" />
+                      <TextBlock Text="Play audio feedback when navigating or clicking buttons"
+                                 Foreground="{DynamicResource SecondaryTextBrush}"
+                                 FontSize="12"
+                                 TextWrapping="Wrap"
+                                 Margin="0,2,0,0" />
+                    </StackPanel>
+                  </CheckBox>
+                </StackPanel>
+              </Border>
             </StackPanel>
           </Border>
           <Border Visibility="{Binding ShowBusinessModeSection, Converter={StaticResource BooleanToVisibilityConverter}}">

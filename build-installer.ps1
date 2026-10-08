@@ -1,10 +1,10 @@
 ﻿<#
 .SYNOPSIS
-  Builds PharmaBill in Release, runs all tests, publishes the app and compiles the installer.
+  Builds PharmaBill in Release, optionally runs tests, publishes the app, and compiles the installer.
 .PARAMETER SkipTests
-  Skip the unit tests (not recommended for a release).
+  Skip unit tests and proceed directly to publish + Inno Setup packaging.
 .PARAMETER SkipInstaller
-  Stop after publishing.
+  Stop after publishing (do not compile Inno Setup).
 .PARAMETER InnoSetupPath
   Full path to ISCC.exe if Inno Setup is not in a standard location.
 #>
@@ -22,12 +22,15 @@ $appProject = Join-Path $root 'PharmaBill.App\PharmaBill.App.csproj'
 $testProject = Join-Path $root 'PharmaBill.Tests\PharmaBill.Tests.csproj'
 $publishDir = Join-Path $root 'artifacts\publish\win-x64'
 $installerDir = Join-Path $root 'artifacts\installer'
+$issScript = Join-Path $root 'installer\PharmaBill.iss'
 $buildDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 
 function Invoke-Step([string]$Name, [scriptblock]$Action) {
     Write-Host "==> $Name" -ForegroundColor Cyan
     & $Action
-    if ($LASTEXITCODE -ne 0) { throw "$Name failed (exit code $LASTEXITCODE)." }
+    if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        throw "$Name failed (exit code $LASTEXITCODE)."
+    }
 }
 
 [xml]$csproj = Get-Content $appProject
@@ -36,22 +39,46 @@ if (-not $version) { throw 'No <Version> found in PharmaBill.App.csproj.' }
 Write-Host "PharmaBill $version (build date $buildDate)"
 
 Invoke-Step 'Restore' { dotnet restore $solution }
-Invoke-Step 'Build (Release)' { dotnet build $solution -c Release --no-restore "-p:BuildDateUtc=$buildDate" }
+Invoke-Step 'Build (Release)' {
+    # Do not pass RuntimeIdentifier at solution scope (NETSDK1134). RID is set on publish below.
+    dotnet build $solution -c Release --no-restore "-p:BuildDateUtc=$buildDate"
+}
 
 if ($SkipTests) {
-    Write-Warning 'Tests skipped.'
+    Write-Warning 'Tests skipped (-SkipTests). Proceeding to publish and installer packaging.'
 } else {
-    Invoke-Step 'Unit tests (Release)' { dotnet test $testProject -c Release --no-build }
+    Invoke-Step 'Unit tests (Release)' {
+        dotnet test $testProject -c Release --no-build
+    }
 }
 
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
-Invoke-Step 'Publish (self-contained, ReadyToRun, win-x64)' {
-    dotnet publish $appProject -c Release -p:PublishProfile=Release-win-x64 "-p:BuildDateUtc=$buildDate"
+New-Item -ItemType Directory -Force $publishDir | Out-Null
+
+Invoke-Step 'Publish (self-contained, single-file, win-x64)' {
+    dotnet publish $appProject `
+        -c Release `
+        -r win-x64 `
+        --self-contained true `
+        -p:PublishSingleFile=true `
+        -p:EnableCompressionInSingleFile=true `
+        -p:DebugType=none `
+        -p:DebugSymbols=false `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        "-p:BuildDateUtc=$buildDate" `
+        -o $publishDir
 }
-if (-not (Test-Path (Join-Path $publishDir 'PharmaBill.App.exe'))) { throw "Publish output not found in $publishDir." }
+
+$exePath = Join-Path $publishDir 'PharmaBill.App.exe'
+if (-not (Test-Path $exePath)) {
+    throw "Publish output not found: $exePath"
+}
 Write-Host "Published to $publishDir"
 
-if ($SkipInstaller) { return }
+if ($SkipInstaller) {
+    Write-Host 'Installer compilation skipped (-SkipInstaller).'
+    return
+}
 
 $candidates = @(
     $InnoSetupPath,
@@ -68,8 +95,30 @@ if (-not $iscc) {
     throw 'Inno Setup 6 (ISCC.exe) was not found. Install it (winget install JRSoftware.InnoSetup) or pass -InnoSetupPath.'
 }
 
+if (-not (Test-Path $issScript)) {
+    throw "Inno script not found: $issScript"
+}
+
 New-Item -ItemType Directory -Force $installerDir | Out-Null
 Invoke-Step 'Compile installer' {
-    & $iscc (Join-Path $root 'installer\PharmaBill.iss') "/DAppVersion=$version" "/DPublishDir=$publishDir" "/DOutputDir=$installerDir"
+    & $iscc $issScript `
+        "/DAppVersion=$version" `
+        "/DPublishDir=$publishDir" `
+        "/DOutputDir=$installerDir"
 }
-Write-Host "Installer: $(Join-Path $installerDir "PharmaBill-Setup-$version.exe")" -ForegroundColor Green
+
+$setupPath = Join-Path $installerDir 'PharmaBill_Setup.exe'
+if (-not (Test-Path $setupPath)) {
+    # Fallback: older naming PharmaBill-Setup-{version}.exe
+    $legacy = Join-Path $installerDir "PharmaBill-Setup-$version.exe"
+    if (Test-Path $legacy) {
+        Copy-Item $legacy $setupPath -Force
+    }
+}
+
+if (-not (Test-Path $setupPath)) {
+    throw "Installer EXE was not produced under $installerDir"
+}
+
+Write-Host "Installer: $setupPath" -ForegroundColor Green
+Get-Item $setupPath | Format-List FullName, Length, LastWriteTime

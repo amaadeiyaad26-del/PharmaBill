@@ -9,12 +9,42 @@
     <ApplicationIcon>Assets\Icons\app.ico</ApplicationIcon>
     <Product>PharmaBill</Product>
     <Company>PharmaBill</Company>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</BuildDateUtc>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Microsoft Store / MSIX packaging (Method 2). Enable package generation with:
+         /p:GenerateAppxPackageOnBuild=true /p:RuntimeIdentifier=win-x64 -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- Enable MSIX tooling only when explicitly packaging; keeps test/app builds ProcessorArchitecture-safe. -->
+    <EnableMsixTooling Condition="'$(GenerateAppxPackageOnBuild)' == 'true' or '$(PublishAppxPackage)' == 'true'">true</EnableMsixTooling>
+    <EnableMsixTooling Condition="'$(EnableMsixTooling)' == ''">false</EnableMsixTooling>
+    <WindowsPackageType Condition="'$(GenerateAppxPackageOnBuild)' == 'true' or '$(PublishAppxPackage)' == 'true'">MSIX</WindowsPackageType>
+    <WindowsPackageType Condition="'$(WindowsPackageType)' == ''">None</WindowsPackageType>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxBundle>Never</AppxBundle>
+    <UapAppxPackageBuildMode Condition="'$(UapAppxPackageBuildMode)' == ''">SideloadOnly</UapAppxPackageBuildMode>
+    <AppxPackageDir>$(MSBuildProjectDirectory)\..\artifacts\msix\</AppxPackageDir>
+  </PropertyGroup>
+
+  <!-- Admin key signing (RSA private key load) — Debug by default; never enable for customer Release publishes. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' OR '$(MasterAdminBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);MASTER_ADMIN_BUILD</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Production Win32 publish hardening (dotnet publish -c Release -r win-x64). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -39,24 +69,34 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.6584" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260930100" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="QuestPDF" Version="2025.7.4" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
+    <PackageReference Include="System.Management" Version="9.0.10" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Data\medicine_catalog.csv" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Data\medicine_catalog.csv')" />
     <Content Include="Data\medicine_info.csv" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Data\medicine_info.csv')" />
     <Content Include="ReleaseNotes.md" CopyToOutputDirectory="PreserveNewest" Condition="Exists('ReleaseNotes.md')" />
+    <!-- Keep icons as WPF Resources only — do not flow as Content into referencing projects (tests). -->
+    <Content Remove="Assets\Icons\**" />
+    <None Remove="Assets\Icons\**" />
     <Resource Include="Assets\Icons\app.ico" />
     <Resource Include="Assets\Icons\pharma_bill_3d.ico" Condition="Exists('Assets\Icons\pharma_bill_3d.ico')" />
     <Resource Include="Assets\Icons\pharma_bill_3d.png" Condition="Exists('Assets\Icons\pharma_bill_3d.png')" />
     <Resource Include="Assets\Icons\pharma_bill_3d_watermark.png" Condition="Exists('Assets\Icons\pharma_bill_3d_watermark.png')" />
     <Resource Include="Assets\PharmaBill.ico" Condition="Exists('Assets\PharmaBill.ico')" />
     <EmbeddedResource Include="Assets\Fonts\*.ttf" Condition="Exists('Assets\Fonts')" />
+    <Content Include="Assets\Store\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\ui-click.wav" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\ui-click.wav')" />
+    <Content Include="Assets\tick.wav" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\tick.wav')" />
+    <None Include="Package.appxmanifest" />
   </ItemGroup>
 
 </Project>

@@ -10,8 +10,8 @@ public sealed class NavIconConverter : IValueConverter
 	private static readonly Dictionary<string, string> Glyphs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
 	{
 		["Dashboard"] = "\ue80f",
-		["Billing"] = "\ue719",
-		["WholesaleBilling"] = "\ue7bf",
+		["Billing"] = "\ue719", // Shopping cart / register
+		["WholesaleBilling"] = "\ue8a5", // Document / invoice
 		["Stock"] = "\ue7b8",
 		["Purchases"] = "\ue7b8",
 		["Customers"] = "\ue716",

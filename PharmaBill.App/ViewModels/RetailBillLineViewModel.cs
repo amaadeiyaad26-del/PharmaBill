@@ -15,6 +15,8 @@ public sealed class RetailBillLineViewModel : ObservableObject
 
 	private decimal _discountAmount;
 
+	private decimal _discountPercent;
+
 	private decimal _unitPrice;
 
 	public RetailStockChoice Choice { get; }
@@ -89,6 +91,27 @@ public sealed class RetailBillLineViewModel : ObservableObject
 		}
 	}
 
+	/// <summary>Discount percent of (Qty × Rate). Drives <see cref="DiscountAmount"/>.</summary>
+	public decimal DiscountPercent
+	{
+		get
+		{
+			return _discountPercent;
+		}
+		set
+		{
+			decimal clamped = value < 0m ? 0m : (value > 100m ? 100m : value);
+			if (!EqualityComparer<decimal>.Default.Equals(_discountPercent, clamped))
+			{
+				OnPropertyChanging(nameof(DiscountPercent));
+				_discountPercent = clamped;
+				SyncDiscountFromPercent();
+				OnDiscountAmountChanged(_discountAmount);
+				OnPropertyChanged(nameof(DiscountPercent));
+			}
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public decimal DiscountAmount
@@ -102,9 +125,12 @@ public sealed class RetailBillLineViewModel : ObservableObject
 			if (!EqualityComparer<decimal>.Default.Equals(_discountAmount, value))
 			{
 				OnPropertyChanging(nameof(DiscountAmount));
-				_discountAmount = value;
+				_discountAmount = value < 0m ? 0m : value;
+				decimal gross = Quantity * UnitPrice;
+				_discountPercent = gross <= 0m ? 0m : decimal.Round(_discountAmount * 100m / gross, 2, MidpointRounding.AwayFromZero);
 				OnDiscountAmountChanged(value);
 				OnPropertyChanged(nameof(DiscountAmount));
+				OnPropertyChanged(nameof(DiscountPercent));
 			}
 		}
 	}
@@ -194,9 +220,17 @@ public sealed class RetailBillLineViewModel : ObservableObject
 		OnPropertyChanged("NetAmount");
 	}
 
+	private void SyncDiscountFromPercent()
+	{
+		decimal gross = Quantity * UnitPrice;
+		_discountAmount = gross <= 0m ? 0m : decimal.Round(gross * _discountPercent / 100m, 2, MidpointRounding.AwayFromZero);
+		OnPropertyChanged(nameof(DiscountAmount));
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnQuantityChanged(decimal value)
 	{
+		SyncDiscountFromPercent();
 		UpdateAmounts();
 	}
 
@@ -209,6 +243,7 @@ public sealed class RetailBillLineViewModel : ObservableObject
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnUnitPriceChanged(decimal value)
 	{
+		SyncDiscountFromPercent();
 		UpdateAmounts();
 	}
 }

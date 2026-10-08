@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap rescap desktop">
+
+  <Identity
+    Name="S.A.E.R.PharmaBill"
+    Publisher="CN=98F7DD11-200C-4195-8EC3-8E273AD8AF49"
+    Version="1.0.1.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>PharmaBill</DisplayName>
+    <PublisherDisplayName>S.A.E.R</PublisherDisplayName>
+    <Logo>Assets\Store\StoreLogo.png</Logo>
+    <Description>Pharmacy billing and inventory for India.</Description>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="PharmaBill"
+                 Executable="PharmaBill.App.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="PharmaBill"
+        Description="Pharmacy billing and inventory for India."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Store\Square150x150Logo.png"
+        Square44x44Logo="Assets\Store\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Store\Wide310x150Logo.png" ShortName="PharmaBill" />
+        <uap:SplashScreen Image="Assets\Store\SplashScreen.png" BackgroundColor="#0F172A" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

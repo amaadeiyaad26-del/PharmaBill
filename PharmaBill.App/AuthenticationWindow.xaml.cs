@@ -187,8 +187,9 @@ public partial class AuthenticationWindow : Window
                 MessageBoxImage.Information);
 
             using var scope = _scopeFactory.CreateScope();
-            var setup = scope.ServiceProvider.GetRequiredService<FirstRunWizardWindow>();
+            var setup = scope.ServiceProvider.GetRequiredService<InitialSetupWindow>();
             setup.Owner = this;
+            setup.PrefillSocial(profile);
             if (setup.ShowDialog() == true)
             {
                 Authenticated?.Invoke(this, EventArgs.Empty);
@@ -251,7 +252,7 @@ public partial class AuthenticationWindow : Window
             }
 
             _viewModel.ErrorMessage = string.Empty;
-            var setup = scope.ServiceProvider.GetRequiredService<FirstRunWizardWindow>();
+            var setup = scope.ServiceProvider.GetRequiredService<InitialSetupWindow>();
             setup.Owner = this;
             if (setup.ShowDialog() == true)
             {

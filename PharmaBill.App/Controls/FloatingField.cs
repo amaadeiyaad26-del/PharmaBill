@@ -151,6 +151,7 @@ public class FloatingField : ContentControl
 			Refresh();
 		};
 		PreviewKeyDown += OnPreviewKeyDown;
+		AddHandler(UIElement.GotKeyboardFocusEvent, (KeyboardFocusChangedEventHandler)OnInnerGotKeyboardFocus, true);
 	}
 
 	protected override void OnContentChanged(object oldContent, object newContent)
@@ -236,15 +237,48 @@ public class FloatingField : ContentControl
 
 	private void OnPreviewKeyDown(object sender, KeyEventArgs e)
 	{
-		if (e.Key == Key.Return && EnterMovesNext && Keyboard.Modifiers == ModifierKeys.None)
+		if (!EnterMovesNext || (e.Key != Key.Return && e.Key != Key.Enter))
 		{
-			object originalSource = e.OriginalSource;
-			bool flag = ((originalSource is TextBox textBox) ? (!textBox.AcceptsReturn) : (originalSource is PasswordBox || (originalSource is ComboBox comboBox && !comboBox.IsDropDownOpen)));
-			if (flag && Keyboard.FocusedElement is UIElement uIElement)
+			return;
+		}
+
+		ModifierKeys modifiers = Keyboard.Modifiers;
+		if ((modifiers & ModifierKeys.Control) == ModifierKeys.Control ||
+		    (modifiers & ModifierKeys.Alt) == ModifierKeys.Alt)
+		{
+			return;
+		}
+
+		object originalSource = e.OriginalSource;
+		bool isNavigable = originalSource switch
+		{
+			TextBox textBox => !textBox.AcceptsReturn,
+			PasswordBox => true,
+			ComboBox comboBox => !comboBox.IsDropDownOpen,
+			DatePicker => true,
+			_ => false
+		};
+		if (!isNavigable || Keyboard.FocusedElement is not UIElement focused)
+		{
+			return;
+		}
+
+		bool reverse = (modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+		focused.MoveFocus(new TraversalRequest(reverse ? FocusNavigationDirection.Previous : FocusNavigationDirection.Next));
+		e.Handled = true;
+	}
+
+	private void OnInnerGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+	{
+		if (e.NewFocus is TextBox { IsReadOnly: false } textBox)
+		{
+			Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () =>
 			{
-				uIElement.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
-				e.Handled = true;
-			}
+				if (textBox.IsKeyboardFocusWithin)
+				{
+					textBox.SelectAll();
+				}
+			});
 		}
 	}
 }

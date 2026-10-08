@@ -4,6 +4,7 @@
     <ResourceDictionary Source="/PharmaBill.App;component/Resources/Premium.xaml" />
   </ResourceDictionary.MergedDictionaries>
   <BooleanToVisibilityConverter x:Key="FieldBoolToVisibility" />
+  <local:ComboSelectionDisplayConverter x:Key="ComboSelectionDisplayConverter" />
   <Style x:Key="{x:Type controls:FloatingField}" TargetType="{x:Type controls:FloatingField}">
     <Setter Property="IsTabStop" Value="False" />
     <Setter Property="Margin" Value="2" />
@@ -134,7 +135,16 @@
                 </ControlTemplate>
               </Control.Template>
             </ToggleButton>
-            <ContentPresenter Margin="0,16,26,2" IsHitTestVisible="False" VerticalAlignment="Center" Content="{TemplateBinding ComboBox.SelectionBoxItem}" ContentTemplate="{TemplateBinding ComboBox.SelectionBoxItemTemplate}" ContentStringFormat="{TemplateBinding ComboBox.SelectionBoxItemStringFormat}" />
+            <!-- Resolve Name via DisplayMemberPath so entity ToString() (raw type) never shows. -->
+            <TextBlock Margin="0,16,26,2" VerticalAlignment="Center" IsHitTestVisible="False"
+                       Foreground="{DynamicResource PrimaryTextBrush}">
+              <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource ComboSelectionDisplayConverter}">
+                  <Binding Path="SelectionBoxItem" RelativeSource="{RelativeSource TemplatedParent}" />
+                  <Binding Path="DisplayMemberPath" RelativeSource="{RelativeSource TemplatedParent}" />
+                </MultiBinding>
+              </TextBlock.Text>
+            </TextBlock>
             <Popup IsOpen="{TemplateBinding ComboBox.IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
               <Border MaxHeight="{TemplateBinding ComboBox.MaxDropDownHeight}" Background="{DynamicResource FieldBackgroundBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" BorderThickness="1" CornerRadius="10" Margin="0,4,8,8" Padding="2" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
                 <ScrollViewer>
@@ -451,6 +461,45 @@
       </Trigger>
     </Style.Triggers>
   </Style>
+  <!-- Segmented period tabs for Drug Records (inactive = transparent inside gray track). -->
+  <Style x:Key="DrugRecordsPeriodSegmentButton" TargetType="{x:Type Button}">
+    <Setter Property="Background" Value="#00FFFFFF" />
+    <Setter Property="BorderBrush" Value="#00FFFFFF" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="#FF334155" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="14,6" />
+    <Setter Property="Margin" Value="0,0,2,0" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border Name="Face" CornerRadius="6" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" Padding="{TemplateBinding Control.Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Control.Foreground}" TextElement.FontWeight="{TemplateBinding Control.FontWeight}" TextElement.FontSize="{TemplateBinding Control.FontSize}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="UIElement.IsMouseOver" Value="True">
+              <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.88" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.82" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <!-- Soft hover for inactive segments; active DataTriggers on each button override this. -->
+      <Trigger Property="UIElement.IsMouseOver" Value="True">
+        <Setter Property="Background" Value="#FFE2E8F0" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
   <Style x:Key="ReportToolbarComboBox" TargetType="{x:Type ComboBox}">
     <Setter Property="Height" Value="36" />
     <Setter Property="MinHeight" Value="36" />
@@ -555,6 +604,26 @@
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="MinHeight" Value="36" />
     <Setter Property="Padding" Value="12,6" />
+    <Style.Triggers>
+      <Trigger Property="UIElement.IsMouseOver" Value="True">
+        <Setter Property="Background" Value="#FFF1F5F9" />
+        <Setter Property="BorderBrush" Value="#FF94A3B8" />
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter Property="Background" Value="#FFE2E8F0" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <!-- Outlined tool buttons for Drug Records export/print/share. -->
+  <Style x:Key="DrugRecordsOutlineButton" TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}">
+    <Setter Property="Background" Value="#FFF8FAFC" />
+    <Setter Property="BorderBrush" Value="#FFCBD5E1" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="#FF0F172A" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="38" />
+    <Setter Property="Padding" Value="14,7" />
+    <Setter Property="Margin" Value="0,0,8,0" />
     <Style.Triggers>
       <Trigger Property="UIElement.IsMouseOver" Value="True">
         <Setter Property="Background" Value="#FFF1F5F9" />
@@ -824,6 +893,48 @@
       </Trigger>
     </Style.Triggers>
   </Style>
+  <!-- Always-visible inline editors for billing line grids (no double-click to edit). -->
+  <Style x:Key="BillingLineDataGrid" TargetType="{x:Type DataGrid}" BasedOn="{StaticResource {x:Type DataGrid}}">
+    <Setter Property="IsReadOnly" Value="True" />
+    <Setter Property="CanUserAddRows" Value="False" />
+    <Setter Property="CanUserDeleteRows" Value="False" />
+    <Setter Property="SelectionUnit" Value="FullRow" />
+    <Setter Property="HeadersVisibility" Value="Column" />
+    <Setter Property="KeyboardNavigation.TabNavigation" Value="Continue" />
+    <Setter Property="RowHeaderWidth" Value="0" />
+  </Style>
+  <Style x:Key="BillingInlineEditBox" TargetType="{x:Type TextBox}">
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="Margin" Value="1" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="HorizontalContentAlignment" Value="Right" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="#FFCBD5E1" />
+    <Setter Property="Background" Value="#FFFFFFFF" />
+    <Setter Property="Foreground" Value="#FF0F172A" />
+    <Setter Property="CaretBrush" Value="#FF0F172A" />
+    <Style.Triggers>
+      <Trigger Property="IsKeyboardFocusWithin" Value="True">
+        <Setter Property="BorderBrush" Value="#FF3B82F6" />
+        <Setter Property="Background" Value="#FFF8FAFC" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="BillingInlineComboBox" TargetType="{x:Type ComboBox}">
+    <Setter Property="Padding" Value="4,2" />
+    <Setter Property="Margin" Value="1" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="#FFCBD5E1" />
+    <Setter Property="Background" Value="#FFFFFFFF" />
+  </Style>
+  <Style x:Key="BillingInlineReadonlyText" TargetType="{x:Type TextBlock}">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="6,0" />
+    <Setter Property="Foreground" Value="#FF334155" />
+  </Style>
   <Style x:Key="StockPickerComboBoxItem" TargetType="{x:Type ComboBoxItem}">
     <Setter Property="Foreground" Value="#FF1E293B" />
     <Setter Property="Background" Value="#FFFFFFFF" />
@@ -849,6 +960,17 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+  <!-- Keeps the default ComboBox template so IsEditable / search-as-you-type works inside FloatingField. -->
+  <Style x:Key="PurchaseMedicineSearchComboBox" TargetType="{x:Type ComboBox}">
+    <Setter Property="FontSize" Value="14pt" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="Background" Value="#00FFFFFF" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0,14,22,0" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="MaxDropDownHeight" Value="280" />
   </Style>
   <Style x:Key="StockPickerComboBox" TargetType="{x:Type ComboBox}">
     <Setter Property="Foreground" Value="#FF1E293B" />

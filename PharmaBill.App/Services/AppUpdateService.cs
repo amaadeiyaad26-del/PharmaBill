@@ -156,35 +156,13 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 		});
 	}
 
-	private async Task<AppUpdateAvailability?> TryStoreChannelAsync(CancellationToken cancellationToken)
+	private Task<AppUpdateAvailability?> TryStoreChannelAsync(CancellationToken cancellationToken)
 	{
-		try
-		{
-			if ((object)_storeContext == null)
-			{
-				_storeContext = StoreContext.GetDefault();
-			}
-			IReadOnlyList<StorePackageUpdate> readOnlyList = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync().AsTask(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
-			if (readOnlyList == null || readOnlyList.Count == 0)
-			{
-				_pendingStoreUpdates = null;
-				return null;
-			}
-			_pendingStoreUpdates = readOnlyList.ToList();
-			string text = (from item in readOnlyList
-				select item.Package?.Id?.Version into version
-				where version.HasValue
-				select new Version(version.Value.Major, version.Value.Minor, version.Value.Build, version.Value.Revision)).DefaultIfEmpty(ParseVersion(_versionInfo.Version)).Max().ToString(3);
-			string text2 = (string.IsNullOrWhiteSpace("") ? null : "");
-			string downloadOrStoreUrl = (string.IsNullOrWhiteSpace(text2) ? null : ("ms-windows-store://pdp/?productid=" + text2));
-			return new AppUpdateAvailability(IsUpdateAvailable: true, _versionInfo.Version, text, IsCritical: false, UpdateChannel.MicrosoftStore, downloadOrStoreUrl, "A new version of PharmaBill (v" + text + ") is available from the Microsoft Store.", "Install from the Store to keep billing and sync compatible.");
-		}
-		catch (Exception exception)
-		{
-			_logger.LogDebug(exception, "Microsoft Store update query unavailable; using remote manifest.");
-			_pendingStoreUpdates = null;
-			return null;
-		}
+		// Direct Win32 / USB installs are not Store-packaged — skip StoreContext entirely.
+		_pendingStoreUpdates = null;
+		_storeContext = null;
+		cancellationToken.ThrowIfCancellationRequested();
+		return Task.FromResult<AppUpdateAvailability?>(null);
 	}
 
 	private async Task<AppUpdateAvailability> TryManifestChannelAsync(CancellationToken cancellationToken)

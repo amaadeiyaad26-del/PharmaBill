@@ -1,0 +1,20 @@
+namespace PharmaBill.App.Licensing;
+
+/// <summary>
+/// Embedded RSA-2048 public key only. The matching private key is never shipped in client builds.
+/// </summary>
+internal static class LicensePublicKey
+{
+	/// <summary>SubjectPublicKeyInfo PEM used to verify activation signatures.</summary>
+	internal const string Pem = @"
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz6LDS/E4eMVnuz7Xyu55
+q9J7HK1fyqOzKHVzZ7i7BioHjEywnIO64i0sCN7jhXPob8E0yTisJtpwlL6HjMGK
+Ujl389tdYIAB0SEMsozjuTJyAYRxKzaelLXyFVb7Q8Rw8qRqg+CMK1LdYVFrQVRp
+k8FSK6g0eeOdo+CKrjpwDvfbC8xihLdGPhdMYs/DM/GGbLE/6w9fcaAxF6KWhqPY
+fDUDWndqD1YkYTggzda8LKU6b2DWiIzF9i1QuNtUGbGbfymxaX93beRbpBRSxsB7
+IgLNNqLwMhcm0DqIp7Rq/mX2hn0/dyWNksJQGPY6uauzau+44cFOrbaFaMrZStO9
+WQIDAQAB
+-----END PUBLIC KEY-----
+";
+}

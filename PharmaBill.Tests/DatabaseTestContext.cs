@@ -47,7 +47,7 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
     }
 
     public DbInitializer CreateDbInitializer() =>
-        new(Context, CreateStorageLocations(), CreateBranchService());
+        new(Context, CreateStorageLocations(), CreateBranchService(), Storage);
 
     public static async Task<DatabaseTestContext> CreateAsync(bool createSchema = true)
     {

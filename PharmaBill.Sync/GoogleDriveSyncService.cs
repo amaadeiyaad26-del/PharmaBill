@@ -99,7 +99,14 @@ public sealed class GoogleDriveSyncService
 			string user = (string.IsNullOrWhiteSpace(preferredEmail) ? "user" : preferredEmail.Trim());
 			string text = Path.Combine(_storage.RootDirectory, "google-oauth-tokens");
 			Directory.CreateDirectory(text);
-			UserCredential credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(clientSecrets, Scopes, user, cancellationToken, new FileDataStore(text, fullPath: true));
+			// Desktop loopback receiver — opens the system browser; no Store / package identity required.
+			UserCredential credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+				clientSecrets,
+				Scopes,
+				user,
+				cancellationToken,
+				new FileDataStore(text, fullPath: true),
+				new LocalServerCodeReceiver());
 			string email = await TryReadAccountEmailAsync(credential, preferredEmail, cancellationToken);
 			string refreshToken = credential.Token.RefreshToken;
 			if (string.IsNullOrWhiteSpace(refreshToken))

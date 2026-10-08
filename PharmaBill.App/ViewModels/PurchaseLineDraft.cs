@@ -13,6 +13,8 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 {
 	private Drug? _drug = drug;
 
+	private string _medicineName = drug?.Name?.Trim() ?? string.Empty;
+
 	private string _batchNo = string.Empty;
 
 	private string _expiry = string.Empty;
@@ -51,7 +53,33 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 			{
 				OnPropertyChanging(nameof(Drug));
 				_drug = value;
+				_medicineName = value?.Name?.Trim() ?? string.Empty;
 				OnPropertyChanged(nameof(Drug));
+				OnPropertyChanged(nameof(MedicineName));
+			}
+		}
+	}
+
+	/// <summary>Flattened display name for the purchases grid (ComboBox column cannot reliably show Drug.Name).</summary>
+	public string MedicineName
+	{
+		get
+		{
+			if (!string.IsNullOrWhiteSpace(_medicineName))
+			{
+				return _medicineName;
+			}
+
+			return Drug?.Name?.Trim() ?? string.Empty;
+		}
+		set
+		{
+			string next = value?.Trim() ?? string.Empty;
+			if (!EqualityComparer<string>.Default.Equals(_medicineName, next))
+			{
+				OnPropertyChanging(nameof(MedicineName));
+				_medicineName = next;
+				OnPropertyChanged(nameof(MedicineName));
 			}
 		}
 	}

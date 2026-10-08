@@ -96,6 +96,17 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 		return BuildInvoicePrefix(branch.Code);
 	}
 
+	/// <summary>
+	/// B2B wholesale tax-invoice series (e.g. WS/2026-27/000001). Kept separate from retail cash-memo numbering.
+	/// </summary>
+	public Task<string> ResolveWholesaleInvoiceSeriesPrefixAsync(CancellationToken cancellationToken = default(CancellationToken))
+	{
+		_ = cancellationToken;
+		return Task.FromResult(WholesaleInvoicePrefix);
+	}
+
+	public const string WholesaleInvoicePrefix = "WS";
+
 	public static string BuildInvoicePrefix(string branchCode)
 	{
 		string text = (string.IsNullOrWhiteSpace(branchCode) ? "BR01-MAIN" : branchCode.Trim().ToUpperInvariant());

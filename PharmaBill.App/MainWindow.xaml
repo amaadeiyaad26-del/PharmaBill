@@ -5,6 +5,13 @@
       <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:DashboardPageViewModel}}" DataType="{x:Type vm:DashboardPageViewModel}">
         <DockPanel Margin="20">
+          <Border DockPanel.Dock="Top" Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12"
+                  Visibility="{Binding ShowLicenseBanner, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Renew" MinWidth="88" Height="32" Margin="12,0,0,0" Style="{StaticResource PrimaryButton}" Command="{Binding OpenUpgradeCommand}" />
+              <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold" Text="{Binding LicenseBannerText}" />
+            </DockPanel>
+          </Border>
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,14">
             <StackPanel>
               <TextBlock Text="PharmaBill dashboard" FontSize="26" FontWeight="Bold" />
@@ -12,6 +19,54 @@
             </StackPanel>
             <Button Content="Refresh" Padding="14,7" Margin="20,4" behaviors:HoverTickSound.Enabled="True" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" />
             <Button Content="Sync Station" Height="40" Margin="4,4,0,4" ToolTip="Open Android LAN sync station (QR + listener)" behaviors:HoverTickSound.Enabled="True" CommandParameter="Sync" Style="{StaticResource PulsingButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Button Content="{Binding LicenseBadgeText}"
+                    Height="40"
+                    Margin="8,4,0,4"
+                    Padding="14,8"
+                    FontWeight="SemiBold"
+                    Cursor="Hand"
+                    ToolTip="Upgrade to a lifetime PharmaBill license"
+                    Visibility="{Binding ShowLicenseUpgrade, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    behaviors:HoverTickSound.Enabled="True"
+                    Command="{Binding OpenUpgradeCommand}"
+                    Background="#FFF59E0B"
+                    BorderBrush="#FFD97706"
+                    Foreground="White">
+              <Button.Template>
+                <ControlTemplate TargetType="Button">
+                  <Border x:Name="Bd"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="8"
+                          Padding="{TemplateBinding Padding}">
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Bd" Property="Background" Value="#FFD97706" />
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                      <Setter TargetName="Bd" Property="Opacity" Value="0.92" />
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Button.Template>
+            </Button>
+            <Border Height="40"
+                    Margin="8,4,0,4"
+                    Padding="14,0"
+                    CornerRadius="8"
+                    Background="#FFECFDF5"
+                    BorderBrush="#FF10B981"
+                    BorderThickness="1"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding ShowLicensedBadge, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Text="Licensed"
+                         FontWeight="SemiBold"
+                         Foreground="#FF047857"
+                         VerticalAlignment="Center" />
+            </Border>
           </StackPanel>
           <TextBlock DockPanel.Dock="Top" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding ErrorMessage}" />
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -1345,31 +1400,157 @@
               <controls:BindingProxy x:Key="WholesaleBillingProxy" Data="{Binding}" />
             </ResourceDictionary>
           </FrameworkElement.Resources>
-          <StackPanel Margin="18">
+          <StackPanel Margin="18" behaviors:KeyNavigationBehavior.Enabled="True">
+            <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10"
+                    Visibility="{Binding DataContext.ShowAnnualLicenseWarning, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold"
+                         Text="{Binding DataContext.AnnualLicenseWarningText, RelativeSource={RelativeSource AncestorType=Window}}" />
+            </Border>
             <DockPanel Margin="0,0,0,12">
-              <TextBlock Text="Wholesale tax invoice" FontSize="24" FontWeight="SemiBold" />
-              <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding InvoiceNoPreview, StringFormat=Invoice no: {0}}" />
+              <StackPanel>
+                <TextBlock Text="Wholesale Invoice / B2B Sale" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Text="B2B tax invoice to retailers / hospitals / pharmacies — not patient retail billing" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" />
+                <WrapPanel Margin="0,6,0,0">
+                  <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F2 New" />
+                  </Border>
+                  <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F3 Retailer" />
+                  </Border>
+                  <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F4 Medicine" />
+                  </Border>
+                  <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F9 Payment" />
+                  </Border>
+                  <Border Background="#FFECFDF5" BorderBrush="#FFA7F3D0" BorderThickness="1" CornerRadius="4" Padding="6,2">
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF047857" Text="F10 Save &amp; Print" />
+                  </Border>
+                </WrapPanel>
+              </StackPanel>
+              <StackPanel DockPanel.Dock="Right" VerticalAlignment="Top" Orientation="Horizontal">
+                <Button Margin="0,0,8,0" MinHeight="36" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding NewBillCommand}" ToolTip="Clear form and start a new invoice (F2)">
+                  <TextBlock FontWeight="SemiBold" Text="F2 New Invoice" />
+                </Button>
+                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding InvoiceNoPreview, StringFormat=Invoice no: {0}}" />
+              </StackPanel>
             </DockPanel>
-            <TextBlock Text="Customer" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
-            <ComboBox Width="420" HorizontalAlignment="Left" DisplayMemberPath="Name" SelectedValuePath="Id" Padding="7" ToolTip="Active wholesale customer; patients and walk-ins are not allowed" ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" />
-            <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
-              <TextBlock Text="Medicine / batch" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
-              <controls:InfoHelper Title="Drug / batch / expiry / stock" Body="Batches are listed FEFO (earliest expiry first). Remaining stock is movement-derived. Choosing a batch locks its MRP as the rate ceiling and deducts that batch on save." />
+            <Border Padding="14" Margin="0,0,0,12" CornerRadius="8" Background="{DynamicResource ContentBackgroundBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" BorderThickness="1">
+              <StackPanel>
+                <TextBlock Text="Buyer / Retailer (B2B) — F3" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock Text="Retailer / Pharmacy Business Name *" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBlock Text="Select from Saved Customer list — Enter moves to medicine search" FontSize="12" Margin="0,0,0,6" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <DockPanel Margin="0,0,0,6" LastChildFill="True">
+                  <Button DockPanel.Dock="Right"
+                          Margin="8,0,0,0"
+                          MinHeight="36"
+                          Padding="12,6"
+                          VerticalAlignment="Top"
+                          Style="{StaticResource SecondaryButton}"
+                          Visibility="{Binding ShowAddNewRetailerOption, Converter={StaticResource BooleanToVisibilityConverter}}"
+                          Content="{Binding AddNewRetailerCaption}"
+                          ToolTip="Save this typed name as a new retailer in Customers master"
+                          Command="{Binding AddNewRetailerCommand}" />
+                  <Grid MaxWidth="520" HorizontalAlignment="Left">
+                    <ComboBox x:Name="WholesaleRetailerSearchBox"
+                              MinHeight="36"
+                              Padding="8,6"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="Id"
+                              IsEditable="True"
+                              IsTextSearchEnabled="False"
+                              StaysOpenOnEdit="True"
+                              MaxDropDownHeight="240"
+                              ToolTip="Type to search saved retailers by name, GSTIN, or phone (F3). Enter advances to medicine."
+                              PreviewKeyDown="WholesaleRetailerSearchBox_PreviewKeyDown"
+                              ItemsSource="{Binding FilteredCustomers}"
+                              SelectedItem="{Binding SelectedCustomer, UpdateSourceTrigger=PropertyChanged}"
+                              Text="{Binding CustomerSearchText, UpdateSourceTrigger=PropertyChanged}"
+                              IsDropDownOpen="{Binding IsCustomerDropDownOpen, Mode=TwoWay}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Margin="2,1">
+                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                            <TextBlock FontSize="11" Foreground="#FF64748B">
+                              <Run Text="{Binding Gstin, TargetNullValue=No GSTIN}" />
+                              <Run Text=" · " />
+                              <Run Text="{Binding Phone, TargetNullValue=No phone}" />
+                            </TextBlock>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Margin="12,0,28,0"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Foreground="#FF64748B"
+                               Text="Search or select saved retailer / pharmacy..."
+                               Visibility="{Binding ShowRetailerSearchPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  </Grid>
+                </DockPanel>
+                <TextBlock Margin="0,0,0,8"
+                           FontSize="12"
+                           Foreground="{DynamicResource AccentBrush}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding ShowAddNewRetailerOption, Converter={StaticResource BooleanToVisibilityConverter}}"
+                           Text="No exact match in Customers master. Use + Add as New Retailer to save DL / GSTIN / address for autofill." />
+                <UniformGrid Columns="2" Margin="0,4,0,0">
+                  <StackPanel Margin="0,0,12,8">
+                    <TextBlock Text="Drug License (DL) Number *" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBox IsReadOnly="True" Padding="8,6" Text="{Binding BuyerDrugLicence, Mode=OneWay}"
+                             ToolTip="Auto-filled from party master (Form 20B / 21B)."
+                             Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,0,0,8">
+                    <TextBlock Text="GSTIN (15 chars, optional if unregistered)" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBox IsReadOnly="True" Padding="8,6" Text="{Binding BuyerGstin, Mode=OneWay}"
+                             Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Phone Number" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBox IsReadOnly="True" Padding="8,6" Text="{Binding BuyerPhone, Mode=OneWay}"
+                             Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Text="Credit Period / Due Date" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBox IsReadOnly="True" Padding="8,6" Text="{Binding BuyerDueDateDisplay, Mode=OneWay}"
+                             Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                  </StackPanel>
+                </UniformGrid>
+                <TextBlock Text="Billing Address" FontWeight="SemiBold" Margin="0,8,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBox IsReadOnly="True" Padding="8,6" TextWrapping="Wrap" MinHeight="40" Text="{Binding BuyerAddress, Mode=OneWay}"
+                         Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+              </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+              <TextBlock Text="Medicine / batch (F4)" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
+              <controls:InfoHelper Title="Unified medicine search" Body="Type a brand or molecule. In-stock batches appear first (FEFO with PTR/MRP). Catalogue / out-of-stock hits open Quick Inward so you can add a batch before billing — zero-stock lines cannot be billed. Enter selects and focuses Qty; Ctrl+Enter also adds the line." />
             </StackPanel>
             <DockPanel Margin="0,0,0,4" LastChildFill="True">
-              <Button DockPanel.Dock="Right" Content="Add line" Padding="14,8" Margin="8,0,0,0" MinHeight="36" Style="{StaticResource PrimaryButton}" Command="{Binding AddLineCommand}" IsEnabled="{Binding HasStockChoices}" />
+              <Button DockPanel.Dock="Right" Content="Add line" Padding="14,8" Margin="8,0,0,0" MinHeight="36" Style="{StaticResource PrimaryButton}" Command="{Binding AddLineCommand}" ToolTip="Add selected medicine line (or Ctrl+Enter)" />
               <Grid>
-                <ComboBox ToolTip="Name, batch, expiry, and current stock (FEFO order)" Style="{StaticResource StockPickerComboBox}" ItemsSource="{Binding StockChoices}" SelectedItem="{Binding SelectedStockToAdd, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding HasStockChoices}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleStockChoice}}" DataType="{x:Type vm:WholesaleStockChoice}">
-                      <StackPanel Orientation="Horizontal">
-                        <TextBlock FontWeight="SemiBold" Foreground="#FF1E293B" Text="{Binding DrugName}" />
-                        <TextBlock Foreground="#FF334155" Text="{Binding BatchNo, StringFormat=·  Batch {0}}" />
-                        <TextBlock Foreground="#FF475569" Text="{Binding ExpiryDate, StringFormat=·  Exp {0:MM/yyyy}}" />
-                        <TextBlock Foreground="#FF047857" FontWeight="SemiBold" Text="{Binding Available, StringFormat=·  Stock {0:0.##}}" />
+                <ComboBox x:Name="WholesaleMedicineSearchBox"
+                          MinHeight="36"
+                          Padding="8,6"
+                          IsEditable="True"
+                          IsTextSearchEnabled="False"
+                          StaysOpenOnEdit="True"
+                          MaxDropDownHeight="320"
+                          ToolTip="Search in-stock batches and master Drug Bank catalogue (F4). Arrows navigate; Enter selects."
+                          PreviewKeyDown="WholesaleMedicineSearchBox_PreviewKeyDown"
+                          ItemsSource="{Binding MedicinePickerItems}"
+                          SelectedItem="{Binding SelectedMedicineItem, UpdateSourceTrigger=PropertyChanged}"
+                          Text="{Binding MedicineSearchText, UpdateSourceTrigger=PropertyChanged}"
+                          IsDropDownOpen="{Binding IsMedicineDropDownOpen, Mode=TwoWay}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                      <StackPanel Margin="2,3">
+                        <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF64748B" Text="{Binding GroupKey}" />
+                        <TextBlock FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding DisplayTitle}" />
+                        <TextBlock FontSize="11" Foreground="#FF334155" TextWrapping="Wrap" Text="{Binding DisplayDetail}" />
                       </StackPanel>
                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
+                  </ComboBox.ItemTemplate>
                 </ComboBox>
                 <TextBlock Margin="12,0,28,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="#FF64748B" Text="{Binding StockPickerPlaceholder}" Visibility="{Binding ShowStockPickerPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}" />
               </Grid>
@@ -1377,9 +1558,28 @@
             <Border Margin="0,8,0,4" Padding="12,8" CornerRadius="8" Background="#FFFFF1F0" BorderBrush="#FFFDA29B" BorderThickness="1" Visibility="{Binding HasCreditLockAlert, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock Foreground="#FFB42318" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding CreditLockAlert}" />
             </Border>
-            <DataGrid behaviors:RowFlash.Enabled="True" AutoGenerateColumns="False" CanUserAddRows="False" MinHeight="180" Margin="0,10,0,6" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedLine}">
+            <DataGrid x:Name="WholesaleBillGrid"
+                      Style="{StaticResource BillingLineDataGrid}"
+                      behaviors:RowFlash.Enabled="True"
+                      behaviors:BillingInlineEdit.SearchElementName="WholesaleMedicineSearchBox"
+                      behaviors:BillingInlineEdit.FocusQtyRequest="{Binding FocusQtyRequest}"
+                      AutoGenerateColumns="False"
+                      MinHeight="180"
+                      Margin="0,10,0,6"
+                      ItemsSource="{Binding Items}"
+                      SelectedItem="{Binding SelectedLine}">
+              <UIElement.InputBindings>
+                <KeyBinding Key="Delete" Command="{Binding RemoveSelectedLineCommand}" />
+              </UIElement.InputBindings>
+              <DataGrid.Resources>
+                <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                  <Setter Property="Focusable" Value="False" />
+                  <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+                  <Setter Property="Padding" Value="4,2" />
+                </Style>
+              </DataGrid.Resources>
               <DataGrid.Columns>
-                <DataGridTemplateColumn Width="3*">
+                <DataGridTemplateColumn Width="3*" IsReadOnly="True">
                   <DataGridColumn.Header>
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="Drug / batch / expiry / stock" VerticalAlignment="Center" />
@@ -1388,7 +1588,10 @@
                   </DataGridColumn.Header>
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
-                      <ComboBox Style="{StaticResource StockPickerComboBox}" ItemsSource="{Binding Data.StockChoices, Source={StaticResource WholesaleBillingProxy}}" SelectedItem="{Binding StockChoice, UpdateSourceTrigger=PropertyChanged}">
+                      <ComboBox Style="{StaticResource StockPickerComboBox}"
+                                IsTabStop="False"
+                                ItemsSource="{Binding Data.StockChoices, Source={StaticResource WholesaleBillingProxy}}"
+                                SelectedItem="{Binding StockChoice, UpdateSourceTrigger=PropertyChanged}">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleStockChoice}}" DataType="{x:Type vm:WholesaleStockChoice}">
                             <StackPanel Orientation="Horizontal">
@@ -1403,28 +1606,94 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Qty" Width="*" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
-                <DataGridTextColumn Width="*" Binding="{Binding FreeQuantity, UpdateSourceTrigger=PropertyChanged}">
+                <DataGridTemplateColumn Header="Unit" Width="86">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox Style="{StaticResource BillingInlineComboBox}"
+                                behaviors:BillingInlineEdit.Field="Unit"
+                                ItemsSource="{Binding Data.SaleUnits, Source={StaticResource WholesaleBillingProxy}}"
+                                SelectedItem="{Binding SaleUnit, UpdateSourceTrigger=PropertyChanged}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Qty" Width="72">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBox Style="{StaticResource BillingInlineEditBox}"
+                               behaviors:BillingInlineEdit.Field="Qty"
+                               Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="64">
                   <DataGridColumn.Header>
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="Free" VerticalAlignment="Center" />
-                      <controls:InfoHelper Title="Free quantity (bonus / scheme)" Body="Enter free trade-sample or scheme units (e.g. buy 10 get 1). Free qty deducts from the same batch inventory with zero taxable value — GST applies only to billed Qty × Rate." />
+                      <controls:InfoHelper Title="Free quantity (bonus / scheme)" Body="Scheme/free units in the selected sale unit. Inventory deduction uses Qty × pack conversion. GST applies only to billed Qty × Rate." />
                     </StackPanel>
                   </DataGridColumn.Header>
-                </DataGridTextColumn>
-                <DataGridTextColumn Width="*" Binding="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}">
-                  <DataGridColumn.Header>
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock Text="Rate (≤ MRP)" VerticalAlignment="Center" />
-                      <controls:InfoHelper Title="Trade rate vs MRP" Body="Selling (trade) rate must not exceed the packaging MRP for the selected batch. PharmaBill blocks rates above MRP to stay compliant with price control rules." />
-                    </StackPanel>
-                  </DataGridColumn.Header>
-                </DataGridTextColumn>
-                <DataGridTextColumn Header="Discount" Width="*" Binding="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged}" />
-                <DataGridTemplateColumn Header="Remove" Width="80">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
-                      <Button Content="Remove" Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                      <TextBox Style="{StaticResource BillingInlineEditBox}"
+                               behaviors:BillingInlineEdit.Field="Free"
+                               Text="{Binding FreeQuantity, UpdateSourceTrigger=PropertyChanged}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="MRP" Width="72" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Style="{StaticResource BillingInlineReadonlyText}"
+                                 Text="{Binding Mrp, Mode=OneWay, StringFormat=₹{0:N2}}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="88">
+                  <DataGridColumn.Header>
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="Rate / PTR" VerticalAlignment="Center" />
+                      <controls:InfoHelper Title="Wholesale rate (PTR)" Body="Defaults to Price to Retailer (PTR). Must not exceed MRP. Amount = (Rate × base qty after pack conversion) − Discount %, then GST." />
+                    </StackPanel>
+                  </DataGridColumn.Header>
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBox Style="{StaticResource BillingInlineEditBox}"
+                               behaviors:BillingInlineEdit.Field="Rate"
+                               Text="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Disc %" Width="68">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBox Style="{StaticResource BillingInlineEditBox}"
+                               behaviors:BillingInlineEdit.Field="Discount"
+                               Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Amount" Width="92" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Style="{StaticResource BillingInlineReadonlyText}"
+                                 FontWeight="SemiBold"
+                                 Text="{Binding LineAmount, Mode=OneWay, StringFormat=₹{0:N2}}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Pack" Width="70" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding PackLabel, Mode=OneWay}" />
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" Width="52">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <Button Content="Remove" ToolTip="Remove line" Padding="6,2" IsTabStop="False"
+                              Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                              CommandParameter="{Binding}" />
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -1443,9 +1712,9 @@
               <TextBlock Grid.Column="2" FontSize="18" FontWeight="Bold" Margin="0,4,16,4" VerticalAlignment="Center" HorizontalAlignment="Left" TextWrapping="NoWrap" TextTrimming="None" Text="{Binding EstimatedTotal, StringFormat=Estimated total: ₹{0:N2}, ConverterCulture=en-IN}" />
               <Button Grid.Column="3" Content="Show Payment QR" Height="34" MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center" Background="#FF2563EB" BorderBrush="#FF2563EB" ToolTip="Open dynamic UPI QR for the estimated total" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
             </Grid>
-            <TextBlock Text="Payment" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,4" />
+            <TextBlock Text="Payment (F9)" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,4" />
             <WrapPanel>
-              <ComboBox Width="180" Padding="6" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" />
+              <ComboBox x:Name="WholesalePaymentMethodBox" Width="180" Padding="6" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" ToolTip="Payment mode (F9)" />
               <TextBox Width="150" ToolTip="Amount received" Padding="6" Margin="6,0" Text="{Binding Path=PaidAmount, UpdateSourceTrigger=PropertyChanged}" />
               <TextBox Width="210" ToolTip="Payment reference / auth / cheque details" Padding="6" Text="{Binding Path=PaymentReference, UpdateSourceTrigger=PropertyChanged}" />
             </WrapPanel>
@@ -1468,6 +1737,13 @@
             <TextBox ToolTip="Invoice notes" Padding="6" Margin="0,5" Text="{Binding Path=Notes, UpdateSourceTrigger=PropertyChanged}" />
             <WrapPanel Margin="0,8,0,0">
               <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" />
+              <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
+                      ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
+                <StackPanel>
+                  <TextBlock Text="F10 Print &amp; Save" FontWeight="Bold" HorizontalAlignment="Center" />
+                  <TextBlock Text="Tax Invoice" FontSize="11" HorizontalAlignment="Center" Opacity="0.9" />
+                </StackPanel>
+              </Button>
               <Button Content="Tax invoice PDF" Padding="12,8" Margin="8,0,0,0" Command="{Binding ExportTaxInvoiceCommand}" />
               <Button Content="Delivery challan PDF" Padding="12,8" Margin="8,0,0,0" Command="{Binding ExportDeliveryChallanCommand}" />
             </WrapPanel>
@@ -1507,8 +1783,9 @@
             </ListBox>
           </Grid>
           <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
+            <StackPanel behaviors:KeyNavigationBehavior.Enabled="True">
               <TextBlock Text="Buyer details" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
+              <TextBlock FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" Text="Enter advances fields · Shift+Enter goes back · text selects on focus" />
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
@@ -1635,14 +1912,22 @@
         </Grid>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:RetailBillingViewModel}}" DataType="{x:Type vm:RetailBillingViewModel}">
-        <Grid>
+        <Grid behaviors:KeyNavigationBehavior.Enabled="True">
           <DockPanel Margin="16" AllowDrop="True">
             <StackPanel DockPanel.Dock="Top">
+              <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10"
+                      Visibility="{Binding DataContext.ShowAnnualLicenseWarning, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold"
+                           Text="{Binding DataContext.AnnualLicenseWarningText, RelativeSource={RelativeSource AncestorType=Window}}" />
+              </Border>
               <StackPanel Margin="0,0,0,12">
                 <TextBlock Text="Retail billing" FontSize="24" FontWeight="SemiBold" />
                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                   <TextBlock Margin="0,0,16,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding BillNumber, StringFormat=Bill no: {0}}" />
                   <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding BillDate, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
+                  <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="16,0,6,0" VerticalAlignment="Center">
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F3 Patient · F4 Medicine · F5 Subs · F8 Hold · F9 Pay · F10 Save" />
+                  </Border>
                 </StackPanel>
               </StackPanel>
               <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="8">
@@ -1657,7 +1942,7 @@
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <controls:FloatingField Grid.Row="0" Grid.Column="0" TabIndex="0" Label="Patient name" IsRequired="True" ToolTip="Patient name (required)" ErrorText="{Binding PatientNameError}">
+                    <controls:FloatingField Grid.Row="0" Grid.Column="0" TabIndex="0" Label="Patient name (F3)" IsRequired="True" ToolTip="Patient name (required). Shortcut: F3" ErrorText="{Binding PatientNameError}">
                       <TextBox Name="PatientNameBox" Text="{Binding Path=PatientName, UpdateSourceTrigger=PropertyChanged}" />
                     </controls:FloatingField>
                     <controls:FloatingField Grid.Row="0" Grid.Column="1" TabIndex="1" Label="Phone number" IsRequired="True" ToolTip="Patient phone (required)" ErrorText="{Binding PatientPhoneError}">
@@ -1696,7 +1981,7 @@
               <DockPanel Margin="0,8,0,6">
                 <Button DockPanel.Dock="Right" Content="F5 Substitutes" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="9" ToolTip="Find salt / composition substitutes for the searched medicine" Style="{StaticResource SecondaryButton}" Command="{Binding ShowSubstitutesCommand}" />
                 <Button DockPanel.Dock="Right" Content="Add first FEFO match" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="8" Style="{StaticResource PrimaryButton}" Command="{Binding SearchItemsCommand}" />
-                <controls:FloatingField Label="Search medicine, salt or scan barcode (F3)" EnterMovesNext="False" TabIndex="7" ToolTip="Scan barcode or search medicine; Enter adds the first FEFO batch. F5 opens salt substitutes." behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="2.5" behaviors:CyclingPlaceholder.Hints="Search 'Paracetamol 650mg'...|Search 'Amoxicillin 500mg'...|Search 'Azithromycin'...">
+                <controls:FloatingField Label="Search medicine, salt or scan barcode (F4)" EnterMovesNext="False" TabIndex="7" ToolTip="Scan barcode or search medicine; Enter adds the first FEFO batch. F4 focuses this field. F5 opens salt substitutes." behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="2.5" behaviors:CyclingPlaceholder.Hints="Search 'Paracetamol 650mg'...|Search 'Amoxicillin 500mg'...|Search 'Azithromycin'...">
                   <Grid>
                     <TextBox Name="RetailItemSearchBox" Padding="0,0,22,0" Text="{Binding Path=ItemSearch, UpdateSourceTrigger=PropertyChanged}">
                       <UIElement.InputBindings>
@@ -1776,10 +2061,26 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
               </Grid.RowDefinitions>
-              <DataGrid Name="RetailBillGrid" behaviors:RowFlash.Enabled="True" Grid.Row="0" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" SelectionUnit="FullRow" IsReadOnly="False" TabIndex="10" ItemsSource="{Binding BillItems}" SelectedItem="{Binding SelectedBillLine}">
+              <DataGrid Name="RetailBillGrid"
+                        Style="{StaticResource BillingLineDataGrid}"
+                        behaviors:RowFlash.Enabled="True"
+                        behaviors:BillingInlineEdit.SearchElementName="RetailItemSearchBox"
+                        behaviors:BillingInlineEdit.FocusQtyRequest="{Binding FocusQtyRequest}"
+                        Grid.Row="0"
+                        AutoGenerateColumns="False"
+                        TabIndex="10"
+                        ItemsSource="{Binding BillItems}"
+                        SelectedItem="{Binding SelectedBillLine}">
                 <UIElement.InputBindings>
                   <KeyBinding Key="Delete" Command="{Binding RemoveSelectedItemCommand}" />
                 </UIElement.InputBindings>
+                <DataGrid.Resources>
+                  <Style TargetType="{x:Type DataGridCell}" BasedOn="{StaticResource {x:Type DataGridCell}}">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="KeyboardNavigation.IsTabStop" Value="False" />
+                    <Setter Property="Padding" Value="4,2" />
+                  </Style>
+                </DataGrid.Resources>
                 <DataGrid.Columns>
                   <DataGridTemplateColumn Header="Drug / schedule" IsReadOnly="True" Width="2*">
                     <DataGridTemplateColumn.CellTemplate>
@@ -1800,16 +2101,84 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTextColumn Header="Batch" IsReadOnly="True" Width="100" Binding="{Binding BatchNo, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Expiry" IsReadOnly="True" Width="100" Binding="{Binding ExpiryDate, StringFormat=d, Mode=OneWay}" />
-                  <DataGridTextColumn Header="MRP" IsReadOnly="True" Width="80" Binding="{Binding Mrp, StringFormat=F2, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Qty (units)" Width="85" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
-                  <DataGridTextColumn Header="Stock" IsReadOnly="True" Width="75" Binding="{Binding StockQuantity, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Price" Width="80" Binding="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}" />
-                  <DataGridTextColumn Header="Discount" Width="80" Binding="{Binding DiscountAmount, UpdateSourceTrigger=PropertyChanged}" />
-                  <DataGridTextColumn Header="GST %" IsReadOnly="True" Width="70" Binding="{Binding GstRate, StringFormat=F2, Mode=OneWay}" />
-                  <DataGridTextColumn Header="GST split" IsReadOnly="True" Width="85" Binding="{Binding TaxAmount, StringFormat=F2, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Amount" IsReadOnly="True" Width="90" Binding="{Binding GrossAmount, StringFormat=F2, Mode=OneWay}" />
+                  <DataGridTemplateColumn Header="Batch" Width="90" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding BatchNo, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Expiry" Width="90" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding ExpiryDate, StringFormat=d, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="MRP" Width="72" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding Mrp, StringFormat=₹{0:N2}, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Qty" Width="72">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBox Style="{StaticResource BillingInlineEditBox}"
+                                 behaviors:BillingInlineEdit.Field="Qty"
+                                 Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Stock" Width="70" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding StockQuantity, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Rate" Width="80">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBox Style="{StaticResource BillingInlineEditBox}"
+                                 behaviors:BillingInlineEdit.Field="Rate"
+                                 Text="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Disc %" Width="68">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBox Style="{StaticResource BillingInlineEditBox}"
+                                 behaviors:BillingInlineEdit.Field="Discount"
+                                 Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="GST %" Width="64" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding GstRate, StringFormat=F2, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="GST" Width="72" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding TaxAmount, StringFormat=₹{0:N2}, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="Amount" Width="88" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding GrossAmount, StringFormat=₹{0:N2}, Mode=OneWay}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
               <Grid Row="1" Margin="0,8,0,0">
@@ -1861,7 +2230,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
-                  <controls:FloatingField Grid.Row="0" Grid.Column="0" Label="Payment mode" IsRequired="True">
+                  <controls:FloatingField Grid.Row="0" Grid.Column="0" Label="Payment mode (F9)" IsRequired="True" ToolTip="Switch payment mode (F9)">
                     <ComboBox ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" />
                   </controls:FloatingField>
                   <controls:FloatingField Grid.Row="0" Grid.Column="1" Label="Amount received (₹)" ToolTip="Amount received (partial payment allowed)" Visibility="{Binding IsPaymentAmountVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -2187,11 +2556,17 @@
               <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
               <TextBlock Text="Purchases" FontSize="28" FontWeight="SemiBold" />
               <TextBlock Text="Manual purchase entry" FontSize="16" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,14" />
-              <WrapPanel Margin="0,0,0,12">
+              <WrapPanel Margin="0,0,0,12" behaviors:KeyNavigationBehavior.Enabled="True">
                 <DockPanel Width="360" Margin="0,0,8,8">
                   <Button DockPanel.Dock="Right" Content="Add new supplier" Height="48" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding AddSupplierCommand}" />
                   <controls:FloatingField Label="Supplier" IsRequired="True" ErrorText="{Binding SupplierError}">
-                    <ComboBox DisplayMemberPath="Name" IsEditable="False" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}" />
+                    <ComboBox x:Name="PurchaseSupplierBox" DisplayMemberPath="Name" IsEditable="False" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
                   </controls:FloatingField>
                 </DockPanel>
                 <controls:FloatingField Label="Supplier invoice no." IsRequired="True" Width="220" Margin="0,0,8,8" ErrorText="{Binding InvoiceNoError}">
@@ -2201,7 +2576,13 @@
                   <DatePicker SelectedDate="{Binding InvoiceDate}" />
                 </controls:FloatingField>
                 <controls:FloatingField Label="Receive into godown" Width="220" Margin="0,0,8,8" ToolTip="Where purchased goods are stored. Defaults to Shop Front (retail counter).">
-                  <ComboBox DisplayMemberPath="Name" IsEditable="False" ItemsSource="{Binding StorageLocations}" SelectedItem="{Binding SelectedStorageLocation}" />
+                  <ComboBox x:Name="PurchaseGodownBox" DisplayMemberPath="Name" IsEditable="False" ItemsSource="{Binding StorageLocations}" SelectedItem="{Binding SelectedStorageLocation}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                 </controls:FloatingField>
                 <controls:FloatingField Label="Remarks" Width="260" Margin="0,0,8,8">
                   <TextBox Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}" />
@@ -2232,37 +2613,111 @@
               </TextBlock>
               <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
               <TextBlock Foreground="#FF027A48" Margin="0,4,0,6" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
-              <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12" Visibility="{Binding IsAddItemOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12" Visibility="{Binding IsAddItemOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                      behaviors:KeyNavigationBehavior.Enabled="True"
+                      behaviors:KeyNavigationBehavior.SubmitCommand="{Binding ConfirmAddItemCommand}"
+                      behaviors:KeyNavigationBehavior.CycleFocusElementName="PurchaseMedicineSearchBox">
                 <Decorator.Child>
                   <StackPanel>
                     <TextBlock Text="Add item" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
+                    <TextBlock Text="Enter advances fields · Ctrl+Enter adds line · Esc closes suggestions · F4 focuses medicine"
+                               Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap" />
                     <WrapPanel>
-                      <controls:FloatingField Label="Medicine" IsRequired="True" Width="300" Margin="0,0,8,8">
-                        <ComboBox DisplayMemberPath="Name" ItemsSource="{Binding Drugs}" SelectedItem="{Binding NewItemDrug}" />
+                      <controls:FloatingField Label="Medicine" IsRequired="True" Width="340" Margin="0,0,8,8" EnterMovesNext="False">
+                        <Grid>
+                          <!-- TextBox autosuggest (ComboBox IsEditable was non-responsive inside FloatingField). -->
+                          <TextBox x:Name="PurchaseMedicineSearchBox"
+                                   IsReadOnly="False"
+                                   IsHitTestVisible="True"
+                                   AcceptsReturn="False"
+                                   VerticalContentAlignment="Bottom"
+                                   ToolTip="Type 2+ letters to search Drug Bank / medicine master"
+                                   Text="{Binding MedicineSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                   PreviewKeyDown="PurchaseMedicineSearchBox_PreviewKeyDown">
+                            <UIElement.InputBindings>
+                              <KeyBinding Key="Down" Command="{Binding OpenMedicineSuggestionsCommand}" />
+                            </UIElement.InputBindings>
+                          </TextBox>
+                          <TextBlock Margin="0,16,8,2" VerticalAlignment="Bottom" IsHitTestVisible="False" Foreground="#FF64748B"
+                                     Text="Search catalogue or type a new name…"
+                                     Visibility="{Binding ShowMedicineSearchPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                          <Popup Placement="Bottom"
+                                 PlacementTarget="{Binding ElementName=PurchaseMedicineSearchBox}"
+                                 StaysOpen="False"
+                                 AllowsTransparency="True"
+                                 PopupAnimation="Fade"
+                                 IsOpen="{Binding IsMedicineDropDownOpen, Mode=TwoWay}">
+                            <Border MinWidth="340" MaxHeight="280" Margin="0,4,0,0" Padding="4" CornerRadius="8"
+                                    Background="#FFFFFFFF" BorderBrush="#FFCBD5E1" BorderThickness="1">
+                              <UIElement.Effect>
+                                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.18" Color="#FF0F172A" />
+                              </UIElement.Effect>
+                              <ListBox x:Name="PurchaseMedicineSuggestionList"
+                                       BorderThickness="0"
+                                       Background="#00FFFFFF"
+                                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                       ItemsSource="{Binding MedicinePickerItems}"
+                                       SelectedItem="{Binding SelectedMedicineItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                       PreviewMouseLeftButtonUp="PurchaseMedicineSuggestionList_PreviewMouseLeftButtonUp"
+                                       PreviewKeyDown="PurchaseMedicineSuggestionList_PreviewKeyDown">
+                                <ListBox.ItemTemplate>
+                                  <DataTemplate>
+                                    <StackPanel Margin="4,4">
+                                      <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF64748B" Text="{Binding Kind}" />
+                                      <TextBlock FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding DisplayTitle}" TextWrapping="Wrap" />
+                                      <TextBlock FontSize="11" Foreground="#FF334155" Text="{Binding DisplayDetail}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                  </DataTemplate>
+                                </ListBox.ItemTemplate>
+                              </ListBox>
+                            </Border>
+                          </Popup>
+                        </Grid>
+                      </controls:FloatingField>
+                      <controls:FloatingField Label="Formulation / form" Width="150" Margin="0,0,8,8"
+                                              Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBox x:Name="PurchaseNewItemFormulation" Text="{Binding Path=NewItemFormulation, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="e.g. Tab, Syr, Inj, Cap" />
+                      </controls:FloatingField>
+                      <controls:FloatingField Label="HSN code" Width="120" Margin="0,0,8,8"
+                                              Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBox x:Name="PurchaseNewItemHsn" Text="{Binding Path=NewItemHsn, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
                       <controls:FloatingField Label="Batch no." IsRequired="True" Width="150" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemBatch, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="PurchaseNewItemBatch" Text="{Binding Path=NewItemBatch, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
                       <controls:FloatingField Label="Expiry (month/year)" IsRequired="True" Width="170" Margin="0,0,8,8" HelperText="MM/YYYY">
-                        <TextBox Text="{Binding Path=NewItemExpiry, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="PurchaseNewItemExpiry" Text="{Binding Path=NewItemExpiry, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
-                      <controls:FloatingField Label="Quantity (packs)" IsRequired="True" Width="150" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemQuantity, UpdateSourceTrigger=PropertyChanged}" />
+                      <controls:FloatingField Label="Pack size (Drug Bank)" Width="180" Margin="0,0,8,8" HelperText="From catalogue — editable">
+                        <TextBox x:Name="PurchaseNewItemPack" Text="{Binding Path=NewItemPackLabel, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Packaging from Drug Bank (e.g. 10 Tablets / Strip, 100ml Bottle)" />
+                      </controls:FloatingField>
+                      <controls:FloatingField Label="Quantity (packs)" IsRequired="True" Width="150" Margin="0,0,8,8" HelperText="Defaults to 1">
+                        <TextBox x:Name="PurchaseNewItemQuantity" Text="{Binding Path=NewItemQuantity, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
                       <controls:FloatingField Label="Free quantity" Width="130" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemFree, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="PurchaseNewItemFree" Text="{Binding Path=NewItemFree, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
                       <controls:FloatingField Label="MRP per pack (₹)" IsRequired="True" Width="160" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemMrp, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="PurchaseNewItemMrp" Text="{Binding Path=NewItemMrp, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
-                      <controls:FloatingField Label="Rate (₹)" IsRequired="True" Width="130" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemRate, UpdateSourceTrigger=PropertyChanged}" />
+                      <controls:FloatingField Label="Purchase Rate (₹)" IsRequired="True" Width="140" Margin="0,0,8,8">
+                        <TextBox x:Name="PurchaseNewItemRate" Text="{Binding Path=NewItemRate, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
-                      <controls:FloatingField Label="GST %" Width="100" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemGst, UpdateSourceTrigger=PropertyChanged}" />
+                      <controls:FloatingField Label="GST %" Width="100" Margin="0,0,8,8" EnterMovesNext="False">
+                        <TextBox x:Name="PurchaseNewItemGst" Text="{Binding Path=NewItemGst, UpdateSourceTrigger=PropertyChanged}">
+                          <UIElement.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding ConfirmAddItemCommand}" />
+                          </UIElement.InputBindings>
+                        </TextBox>
                       </controls:FloatingField>
                       <controls:FloatingField Label="Rack / location" Width="150" Margin="0,0,8,8">
-                        <TextBox Text="{Binding Path=NewItemRack, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="PurchaseNewItemRack" Text="{Binding Path=NewItemRack, UpdateSourceTrigger=PropertyChanged}">
+                          <UIElement.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding ConfirmAddItemCommand}" />
+                          </UIElement.InputBindings>
+                        </TextBox>
                       </controls:FloatingField>
                     </WrapPanel>
                     <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,6" Text="{Binding NewItemError}" />
@@ -2314,7 +2769,7 @@
             <Grid MinHeight="260">
               <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column" HorizontalScrollBarVisibility="Auto" ItemsSource="{Binding Lines}">
                 <DataGrid.Columns>
-                  <DataGridComboBoxColumn Header="Medicine" DisplayMemberPath="Name" Width="220" ItemsSource="{Binding DataContext.Drugs, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItemBinding="{Binding Drug, UpdateSourceTrigger=PropertyChanged}" />
+                  <DataGridTextColumn Header="Medicine" IsReadOnly="True" Width="220" Binding="{Binding MedicineName, Mode=OneWay}" />
                   <DataGridTextColumn Header="Batch" Width="90" Binding="{Binding BatchNo, UpdateSourceTrigger=PropertyChanged}" />
                   <DataGridTextColumn Header="Expiry (yyyy-mm-dd)" Width="100" Binding="{Binding Expiry, UpdateSourceTrigger=PropertyChanged}" />
                   <DataGridTextColumn Header="Qty" Width="65" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
@@ -2399,76 +2854,229 @@
         <DockPanel Margin="20">
           <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="Drug Records" FontSize="26" FontWeight="SemiBold" />
-            <DockPanel Margin="0,8">
-              <Button Content="Find brand or salt" DockPanel.Dock="Right" Padding="14,7" Margin="8,0,0,0" Command="{Binding SearchDrugsCommand}" />
-              <TextBox Padding="8" ToolTip="Search a brand or composition/salt; enter at least 2 letters" Text="{Binding Path=SearchText, UpdateSourceTrigger=PropertyChanged}">
-                <UIElement.InputBindings>
-                  <KeyBinding Key="Enter" Command="{Binding SearchDrugsCommand}" />
-                </UIElement.InputBindings>
-              </TextBox>
-            </DockPanel>
-            <DataGrid MaxHeight="130" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" ItemsSource="{Binding SearchResults}">
+            <TextBlock Margin="0,2,0,10" Foreground="{DynamicResource SecondaryTextBrush}" Text="Select medicines, choose a period, then run the statutory movement report." />
+
+            <!-- TOP: drug selection -->
+            <Border Padding="12" Margin="0,0,0,14" CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+              <StackPanel>
+                <TextBlock Text="Drug selection" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" />
+                <DockPanel Margin="0,0,0,8">
+                  <Button Content="Find brand or salt" DockPanel.Dock="Right" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" MinHeight="38" Padding="14,7" Command="{Binding SearchDrugsCommand}" />
+                  <TextBox Padding="10,8" VerticalContentAlignment="Center" MinHeight="38" ToolTip="Search a brand or composition/salt; enter at least 2 letters" Text="{Binding Path=SearchText, UpdateSourceTrigger=PropertyChanged}">
+                    <UIElement.InputBindings>
+                      <KeyBinding Key="Enter" Command="{Binding SearchDrugsCommand}" />
+                    </UIElement.InputBindings>
+                  </TextBox>
+                </DockPanel>
+                <DataGrid MaxHeight="130" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" ItemsSource="{Binding SearchResults}">
+                  <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Select" Width="65" Binding="{Binding IsSelected}" />
+                    <DataGridTextColumn Header="Medicine" IsReadOnly="True" Width="*" Binding="{Binding Name, Mode=OneWay}" />
+                    <DataGridTextColumn Header="Brand" IsReadOnly="True" Width="180" Binding="{Binding BrandName, Mode=OneWay}" />
+                    <DataGridTextColumn Header="Salt / composition" IsReadOnly="True" Width="2*" Binding="{Binding Composition, Mode=OneWay}" />
+                  </DataGrid.Columns>
+                </DataGrid>
+              </StackPanel>
+            </Border>
+
+            <!-- MIDDLE: filters + metrics + actions -->
+            <Border Padding="12" Margin="0,0,0,14" CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+              <StackPanel>
+                <TextBlock Text="Period filter" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" />
+                <Border Background="#FFF1F5F9" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="8" Padding="4" Margin="0,0,0,10" HorizontalAlignment="Left">
+                  <WrapPanel>
+                    <Button Content="Today" CommandParameter="Today" Command="{Binding SetPeriodCommand}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.Today}">
+                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Foreground" Value="#FFFFFFFF" />
+                              <Setter Property="FontWeight" Value="Bold" />
+                              <Setter Property="UIElement.Effect">
+                                <Setter.Value>
+                                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.22" Color="#FF1D4ED8" />
+                                </Setter.Value>
+                              </Setter>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </Button>
+                    <Button Content="This month" CommandParameter="ThisMonth" Command="{Binding SetPeriodCommand}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.ThisMonth}">
+                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Foreground" Value="#FFFFFFFF" />
+                              <Setter Property="FontWeight" Value="Bold" />
+                              <Setter Property="UIElement.Effect">
+                                <Setter.Value>
+                                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.22" Color="#FF1D4ED8" />
+                                </Setter.Value>
+                              </Setter>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </Button>
+                    <Button Content="Last month" CommandParameter="LastMonth" Command="{Binding SetPeriodCommand}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.LastMonth}">
+                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Foreground" Value="#FFFFFFFF" />
+                              <Setter Property="FontWeight" Value="Bold" />
+                              <Setter Property="UIElement.Effect">
+                                <Setter.Value>
+                                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.22" Color="#FF1D4ED8" />
+                                </Setter.Value>
+                              </Setter>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </Button>
+                    <Button Content="Last 3 months" CommandParameter="LastThreeMonths" Command="{Binding SetPeriodCommand}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.LastThreeMonths}">
+                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Foreground" Value="#FFFFFFFF" />
+                              <Setter Property="FontWeight" Value="Bold" />
+                              <Setter Property="UIElement.Effect">
+                                <Setter.Value>
+                                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.22" Color="#FF1D4ED8" />
+                                </Setter.Value>
+                              </Setter>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </Button>
+                    <Button Content="This year" CommandParameter="ThisYear" Command="{Binding SetPeriodCommand}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.ThisYear}">
+                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Foreground" Value="#FFFFFFFF" />
+                              <Setter Property="FontWeight" Value="Bold" />
+                              <Setter Property="UIElement.Effect">
+                                <Setter.Value>
+                                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.22" Color="#FF1D4ED8" />
+                                </Setter.Value>
+                              </Setter>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </Button>
+                    <Button Content="Custom" CommandParameter="Custom" Command="{Binding SetPeriodCommand}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.Custom}">
+                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Foreground" Value="#FFFFFFFF" />
+                              <Setter Property="FontWeight" Value="Bold" />
+                              <Setter Property="UIElement.Effect">
+                                <Setter.Value>
+                                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.22" Color="#FF1D4ED8" />
+                                </Setter.Value>
+                              </Setter>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </Button>
+                  </WrapPanel>
+                </Border>
+
+                <WrapPanel Margin="0,0,0,10">
+                  <TextBlock Text="Month" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FF475569" />
+                  <ComboBox Width="100" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding MonthOptions}" SelectedItem="{Binding SelectedMonth}" />
+                  <TextBlock Text="Year" VerticalAlignment="Center" Margin="12,0,6,0" Foreground="#FF475569" />
+                  <ComboBox Width="100" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding YearOptions}" SelectedItem="{Binding SelectedYear}" />
+                  <TextBlock Text="Record type" VerticalAlignment="Center" Margin="12,0,6,0" Foreground="#FF475569" />
+                  <ComboBox Width="130" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding RecordTypeOptions}" SelectedItem="{Binding RecordType}" />
+                  <DatePicker Margin="12,0,0,0" VerticalAlignment="Center" SelectedDate="{Binding CustomStartDate}" Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  <TextBlock Text="through" VerticalAlignment="Center" Margin="8,0" Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  <DatePicker VerticalAlignment="Center" SelectedDate="{Binding CustomEndDate}" Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  <Button Margin="12,0,0,0" Style="{StaticResource ReportRunPeriodButton}" Command="{Binding RunReportCommand}" ToolTip="Generate Drug Records for the selected medicines and period">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,8,0" VerticalAlignment="Center" />
+                      <TextBlock Text="Run Drug Records" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                </WrapPanel>
+
+                <Border Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
+                  <WrapPanel>
+                    <TextBlock Margin="0,0,18,0" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding OpeningBalance, StringFormat=Opening: {0:N2}}" />
+                    <TextBlock Margin="0,0,18,0" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding Purchased, StringFormat=Purchased: {0:N2}}" />
+                    <TextBlock Margin="0,0,18,0" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding Sold, StringFormat=Sold (net of returns): {0:N2}}" />
+                    <TextBlock Margin="0,0,18,0" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding ClosingBalance, StringFormat=Closing: {0:N2}}" />
+                    <TextBlock Margin="0,0,18,0" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding CurrentStock, StringFormat=Current stock: {0:N2}}" />
+                    <TextBlock FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding UniquePatients, StringFormat=Unique patients: {0}}" />
+                  </WrapPanel>
+                </Border>
+                <TextBlock Text="Warning: report closing balance differs from current stock." Foreground="#FFB54708" FontWeight="SemiBold" Margin="0,0,0,8" Visibility="{Binding StockMismatch, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <WrapPanel>
+                  <CheckBox Content="Hide patient phone number" VerticalAlignment="Center" Margin="0,0,14,0" IsChecked="{Binding HidePatientPhoneNumber}" />
+                  <Button Style="{StaticResource DrugRecordsOutlineButton}" ToolTip="Export PDF" Command="{Binding ExportPdfCommand}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="#FFDC2626" Margin="0,0,6,0" VerticalAlignment="Center" />
+                      <TextBlock Text="Export PDF" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                  <Button Style="{StaticResource DrugRecordsOutlineButton}" ToolTip="Export Excel" Command="{Binding ExportExcelCommand}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="#FF16A34A" Margin="0,0,6,0" VerticalAlignment="Center" />
+                      <TextBlock Text="Export Excel" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                  <Button Style="{StaticResource DrugRecordsOutlineButton}" ToolTip="Print PDF" Command="{Binding PrintPdfCommand}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="#FF475569" Margin="0,0,6,0" VerticalAlignment="Center" />
+                      <TextBlock Text="Print PDF" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                  <Button Style="{StaticResource DrugRecordsOutlineButton}" ToolTip="Show PDF to share" Command="{Binding ShowPdfForSharingCommand}">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="#FF2563EB" Margin="0,0,6,0" VerticalAlignment="Center" />
+                      <TextBlock Text="Show PDF to share" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                  <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding StatusMessage}" />
+                </WrapPanel>
+                <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding ErrorMessage}" />
+              </StackPanel>
+            </Border>
+
+            <TextBlock Text="Transaction records" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,8" />
+          </StackPanel>
+          <Border CornerRadius="10" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" Background="{DynamicResource CardBackgroundBrush}" Padding="2">
+            <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" ItemsSource="{Binding Records}">
               <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="Select" Width="65" Binding="{Binding IsSelected}" />
-                <DataGridTextColumn Header="Medicine" IsReadOnly="True" Width="*" Binding="{Binding Name, Mode=OneWay}" />
-                <DataGridTextColumn Header="Brand" IsReadOnly="True" Width="180" Binding="{Binding BrandName, Mode=OneWay}" />
-                <DataGridTextColumn Header="Salt / composition" IsReadOnly="True" Width="2*" Binding="{Binding Composition, Mode=OneWay}" />
+                <DataGridTextColumn Header="Date/time" Width="145" Binding="{Binding AtUtc, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
+                <DataGridTextColumn Header="Record" Width="100" Binding="{Binding RecordType}" />
+                <DataGridTextColumn Header="Document no." Width="145" Binding="{Binding DocumentNo}" />
+                <DataGridTextColumn Header="Patient / supplier" Width="150" Binding="{Binding PatientName}" />
+                <DataGridTextColumn Header="Address" Width="150" Binding="{Binding Address}" />
+                <DataGridTextColumn Header="Phone" Width="105" Binding="{Binding Phone}" />
+                <DataGridTextColumn Header="Doctor" Width="120" Binding="{Binding DoctorName}" />
+                <DataGridTextColumn Header="Doctor registration" Width="120" Binding="{Binding DoctorRegistrationNo}" />
+                <DataGridTextColumn Header="Batch" Width="90" Binding="{Binding BatchNo}" />
+                <DataGridTextColumn Header="Qty change" Width="80" Binding="{Binding Quantity}" />
+                <DataGridTextColumn Header="Running balance" Width="100" Binding="{Binding RunningBalance}" />
               </DataGrid.Columns>
             </DataGrid>
-            <WrapPanel Margin="0,8,0,8">
-              <Button Content="Today" CommandParameter="Today" Padding="10,5" Margin="0,0,5,0" Command="{Binding SetPeriodCommand}" />
-              <Button Content="This month" CommandParameter="ThisMonth" Padding="10,5" Margin="0,0,5,0" Command="{Binding SetPeriodCommand}" />
-              <Button Content="Last month" CommandParameter="LastMonth" Padding="10,5" Margin="0,0,5,0" Command="{Binding SetPeriodCommand}" />
-              <Button Content="Last 3 months" CommandParameter="LastThreeMonths" Padding="10,5" Margin="0,0,5,0" Command="{Binding SetPeriodCommand}" />
-              <Button Content="This year" CommandParameter="ThisYear" Padding="10,5" Margin="0,0,5,0" Command="{Binding SetPeriodCommand}" />
-              <Button Content="Custom" CommandParameter="Custom" Padding="10,5" Command="{Binding SetPeriodCommand}" />
-            </WrapPanel>
-            <WrapPanel Margin="0,0,0,8">
-              <TextBlock Text="Month" VerticalAlignment="Center" Margin="0,0,6,0" />
-              <ComboBox Width="100" Padding="5" ItemsSource="{Binding MonthOptions}" SelectedItem="{Binding SelectedMonth}" />
-              <TextBlock Text="Year" VerticalAlignment="Center" Margin="12,0,6,0" />
-              <ComboBox Width="100" Padding="5" ItemsSource="{Binding YearOptions}" SelectedItem="{Binding SelectedYear}" />
-              <TextBlock Text="Record type" VerticalAlignment="Center" Margin="12,0,6,0" />
-              <ComboBox Width="120" Padding="5" ItemsSource="{Binding RecordTypeOptions}" SelectedItem="{Binding RecordType}" />
-              <DatePicker Margin="12,0" SelectedDate="{Binding CustomStartDate}" Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
-              <TextBlock Text="through" VerticalAlignment="Center" Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
-              <DatePicker Margin="6,0" SelectedDate="{Binding CustomEndDate}" Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}" />
-              <Button Content="Run Drug Records" Padding="14,6" Margin="12,0,0,0" Command="{Binding RunReportCommand}" />
-            </WrapPanel>
-            <WrapPanel Margin="0,0,0,8">
-              <TextBlock Margin="0,0,16,0" Text="{Binding OpeningBalance, StringFormat=Opening: {0:N2}}" />
-              <TextBlock Margin="0,0,16,0" Text="{Binding Purchased, StringFormat=Purchased: {0:N2}}" />
-              <TextBlock Margin="0,0,16,0" Text="{Binding Sold, StringFormat=Sold (net of returns): {0:N2}}" />
-              <TextBlock Margin="0,0,16,0" Text="{Binding ClosingBalance, StringFormat=Closing: {0:N2}}" />
-              <TextBlock Margin="0,0,16,0" Text="{Binding CurrentStock, StringFormat=Current stock: {0:N2}}" />
-              <TextBlock Text="{Binding UniquePatients, StringFormat=Unique patients: {0}}" />
-            </WrapPanel>
-            <TextBlock Text="Warning: report closing balance differs from current stock." Foreground="#FFB54708" FontWeight="SemiBold" Visibility="{Binding StockMismatch, Converter={StaticResource BooleanToVisibilityConverter}}" />
-            <WrapPanel Margin="0,6,0,8">
-              <CheckBox Content="Hide patient phone number" VerticalAlignment="Center" Margin="0,0,12,0" IsChecked="{Binding HidePatientPhoneNumber}" />
-              <Button Content="Export PDF" Padding="12,6" Margin="0,0,8,0" Command="{Binding ExportPdfCommand}" />
-              <Button Content="Export Excel" Padding="12,6" Command="{Binding ExportExcelCommand}" />
-              <Button Content="Print PDF" Padding="12,6" Margin="8,0,0,0" Command="{Binding PrintPdfCommand}" />
-              <Button Content="Show PDF to share" Padding="12,6" Margin="8,0,0,0" Command="{Binding ShowPdfForSharingCommand}" />
-              <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" Text="{Binding StatusMessage}" />
-            </WrapPanel>
-            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
-          </StackPanel>
-          <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" ItemsSource="{Binding Records}">
-            <DataGrid.Columns>
-              <DataGridTextColumn Header="Date/time" Width="145" Binding="{Binding AtUtc, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
-              <DataGridTextColumn Header="Record" Width="100" Binding="{Binding RecordType}" />
-              <DataGridTextColumn Header="Document no." Width="145" Binding="{Binding DocumentNo}" />
-              <DataGridTextColumn Header="Patient / supplier" Width="150" Binding="{Binding PatientName}" />
-              <DataGridTextColumn Header="Address" Width="150" Binding="{Binding Address}" />
-              <DataGridTextColumn Header="Phone" Width="105" Binding="{Binding Phone}" />
-              <DataGridTextColumn Header="Doctor" Width="120" Binding="{Binding DoctorName}" />
-              <DataGridTextColumn Header="Doctor registration" Width="120" Binding="{Binding DoctorRegistrationNo}" />
-              <DataGridTextColumn Header="Batch" Width="90" Binding="{Binding BatchNo}" />
-              <DataGridTextColumn Header="Qty change" Width="80" Binding="{Binding Quantity}" />
-              <DataGridTextColumn Header="Running balance" Width="100" Binding="{Binding RunningBalance}" />
-            </DataGrid.Columns>
-          </DataGrid>
+          </Border>
         </DockPanel>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:InspectorPageViewModel}}" DataType="{x:Type vm:InspectorPageViewModel}">
@@ -2528,12 +3136,12 @@
   <UIElement.InputBindings>
     <KeyBinding Key="F1" Command="{Binding OpenUserManualCommand}" />
     <KeyBinding Key="F2" Command="{Binding ShortcutNewBillCommand}" />
-    <KeyBinding Key="F3" Command="{Binding ShortcutSearchCommand}" />
-    <KeyBinding Key="F4" Command="{Binding CurrentPage.FocusPatientCommand}" />
+    <KeyBinding Key="F3" Command="{Binding ShortcutFocusCustomerCommand}" />
+    <KeyBinding Key="F4" Command="{Binding ShortcutFocusMedicineCommand}" />
     <KeyBinding Key="F5" Command="{Binding CurrentPage.ShowSubstitutesCommand}" />
     <KeyBinding Key="F8" Command="{Binding CurrentPage.HoldBillCommand}" />
     <KeyBinding Key="F9" Command="{Binding CurrentPage.FocusPaymentCommand}" />
-    <KeyBinding Key="F10" Command="{Binding CurrentPage.SaveAndPrintCommand}" />
+    <KeyBinding Key="F10" Command="{Binding ShortcutSaveAndPrintCommand}" />
     <KeyBinding Key="P" Modifiers="Control" Command="{Binding CurrentPage.PreviewOrPickPrintFormatCommand}" />
     <KeyBinding Key="F" Modifiers="Control" Command="{Binding FocusSettingsSearchCommand}" />
     <KeyBinding Key="Escape" Command="{Binding CurrentPage.CancelBillCommand}" />
@@ -2890,6 +3498,12 @@
                 <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="16" Foreground="#FF1D4ED8" Margin="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FF1E3A8A" FontWeight="SemiBold" Text="{Binding UpdateBannerText}" />
               </StackPanel>
+            </DockPanel>
+          </Border>
+          <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="{Binding ShowAnnualLicenseWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="Renew" MinWidth="88" Height="32" Margin="12,0,0,0" Style="{StaticResource PrimaryButton}" Command="{Binding OpenRenewLicenseCommand}" />
+              <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold" Text="{Binding AnnualLicenseWarningText}" />
             </DockPanel>
           </Border>
           <Border Background="#FFFFF1F0" BorderBrush="#FFFDA29B" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="{Binding IsReadOnly, Converter={StaticResource BooleanToVisibilityConverter}}">

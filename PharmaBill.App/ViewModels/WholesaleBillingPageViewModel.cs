@@ -4,10 +4,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -85,17 +87,64 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	private string _creditLockAlert = string.Empty;
 
+	private string _customerSearchText = string.Empty;
+
+	private bool _isCustomerDropDownOpen;
+
+	private bool _suppressCustomerSearchSync;
+
+	private string _medicineSearchText = string.Empty;
+
+	private bool _isMedicineDropDownOpen;
+
+	private bool _suppressMedicineSearchSync;
+
+	private WholesaleMedicinePickerItem? _selectedMedicineItem;
+
+	private string _focusQtyRequest = string.Empty;
+
+	private string _focusRequest = string.Empty;
+
+	private RelayCommand? newBillCommand;
+
+	private RelayCommand? focusCustomerCommand;
+
+	private RelayCommand? focusMedicineCommand;
+
+	private RelayCommand? focusPaymentCommand;
+
+	private RelayCommand? removeSelectedLineCommand;
+
+	private CancellationTokenSource? _medicineSearchCts;
+
+	private string _buyerDrugLicence = string.Empty;
+
+	private string _buyerGstin = string.Empty;
+
+	private string _buyerPhone = string.Empty;
+
+	private string _buyerAddress = string.Empty;
+
+	private int _buyerCreditDays;
+
+	private string _buyerDueDateDisplay = string.Empty;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? showPaymentQrCommand;
 
+	private AsyncRelayCommand? addNewRetailerCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? addLineCommand;
+	private AsyncRelayCommand? addLineCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand<WholesaleInvoiceLineDraft?>? removeLineCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? saveInvoiceCommand;
+
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	private AsyncRelayCommand? saveAndPrintCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? exportTaxInvoiceCommand;
@@ -105,11 +154,17 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public string[] PaymentMethods { get; } = new string[5] { "Cash", "UPI / QR", "Card / POS", "Cheque / Bank Transfer", "Credit / Ledger" };
 
+	public string[] SaleUnits { get; } = new string[3] { "Unit", "Strip", "Box" };
+
 	public bool IsUpiPayment => UpiPaymentPayload.IsUpi(PaymentMethod);
 
 	public ObservableCollection<Customer> Customers { get; } = new ObservableCollection<Customer>();
 
+	public ObservableCollection<Customer> FilteredCustomers { get; } = new ObservableCollection<Customer>();
+
 	public ObservableCollection<WholesaleStockChoice> StockChoices { get; } = new ObservableCollection<WholesaleStockChoice>();
+
+	public ObservableCollection<WholesaleMedicinePickerItem> MedicinePickerItems { get; } = new ObservableCollection<WholesaleMedicinePickerItem>();
 
 	public ObservableCollection<WholesaleInvoiceLineDraft> Items { get; } = new ObservableCollection<WholesaleInvoiceLineDraft>();
 
@@ -117,29 +172,263 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public bool HasStockChoices => StockChoices.Count > 0;
 
+	public bool HasMedicinePickerItems => MedicinePickerItems.Count > 0;
+
+	public bool ShowMedicineSearchPlaceholder => string.IsNullOrWhiteSpace(MedicineSearchText) && SelectedMedicineItem == null;
+
+	public bool HasSelectedCustomer => SelectedCustomer != null;
+
+	public bool ShowRetailerSearchPlaceholder => SelectedCustomer == null && string.IsNullOrWhiteSpace(CustomerSearchText);
+
+	public bool ShowAddNewRetailerOption
+	{
+		get
+		{
+			string needle = CustomerSearchText?.Trim() ?? string.Empty;
+			if (needle.Length < 2)
+			{
+				return false;
+			}
+
+			return !Customers.Any(c => string.Equals(c.Name?.Trim(), needle, StringComparison.OrdinalIgnoreCase));
+		}
+	}
+
+	public string AddNewRetailerCaption
+	{
+		get
+		{
+			string needle = CustomerSearchText?.Trim() ?? string.Empty;
+			if (needle.Length == 0)
+			{
+				return "+ Add New Retailer";
+			}
+
+			string shortName = needle.Length > 28 ? needle[..28] + "…" : needle;
+			return $"+ Add '{shortName}' as New Retailer";
+		}
+	}
+
 	public string StockPickerPlaceholder
 	{
 		get
 		{
 			if (!IsStockChoicesLoading)
 			{
-				if (!HasStockChoices)
+				if (!HasMedicinePickerItems && string.IsNullOrWhiteSpace(MedicineSearchText))
 				{
-					return "No stocked batches available";
+					return "Search medicine name, brand, or molecule…";
 				}
-				return "Select medicine to add…";
+				return "Search or select medicine / batch…";
 			}
 			return "Loading stocked batches…";
 		}
 	}
 
-	public bool ShowStockPickerPlaceholder => (object)SelectedStockToAdd == null;
+	public bool ShowStockPickerPlaceholder => ShowMedicineSearchPlaceholder;
 
-	public decimal Subtotal => Items.Sum((WholesaleInvoiceLineDraft item) => item.Quantity * item.UnitPrice - item.DiscountAmount);
+	public string MedicineSearchText
+	{
+		get => _medicineSearchText;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_medicineSearchText, value))
+			{
+				OnPropertyChanging(nameof(MedicineSearchText));
+				_medicineSearchText = value ?? string.Empty;
+				OnPropertyChanged(nameof(MedicineSearchText));
+				OnPropertyChanged(nameof(ShowMedicineSearchPlaceholder));
+				OnPropertyChanged(nameof(ShowStockPickerPlaceholder));
+				OnPropertyChanged(nameof(StockPickerPlaceholder));
+				if (!_suppressMedicineSearchSync)
+				{
+					_ = DebouncedMedicineSearchAsync();
+				}
+			}
+		}
+	}
 
-	public decimal EstimatedTax => Items.Sum((WholesaleInvoiceLineDraft item) => decimal.Round((item.Quantity * item.UnitPrice - item.DiscountAmount) * (item.StockChoice?.GstRate ?? 0m) / 100m, 2, MidpointRounding.AwayFromZero));
+	public bool IsMedicineDropDownOpen
+	{
+		get => _isMedicineDropDownOpen;
+		set
+		{
+			if (_isMedicineDropDownOpen != value)
+			{
+				OnPropertyChanging(nameof(IsMedicineDropDownOpen));
+				_isMedicineDropDownOpen = value;
+				OnPropertyChanged(nameof(IsMedicineDropDownOpen));
+			}
+		}
+	}
+
+	public WholesaleMedicinePickerItem? SelectedMedicineItem
+	{
+		get => _selectedMedicineItem;
+		set
+		{
+			if (!EqualityComparer<WholesaleMedicinePickerItem>.Default.Equals(_selectedMedicineItem, value))
+			{
+				OnPropertyChanging(nameof(SelectedMedicineItem));
+				_selectedMedicineItem = value;
+				OnPropertyChanged(nameof(SelectedMedicineItem));
+				OnPropertyChanged(nameof(ShowMedicineSearchPlaceholder));
+				OnPropertyChanged(nameof(ShowStockPickerPlaceholder));
+				if (value != null)
+				{
+					_ = OnMedicineItemSelectedAsync(value);
+				}
+			}
+		}
+	}
+
+	public decimal Subtotal => Items.Sum((WholesaleInvoiceLineDraft item) => item.LineAmount);
+
+	public decimal EstimatedTax => Items.Sum((WholesaleInvoiceLineDraft item) => decimal.Round(item.LineAmount * (item.StockChoice?.GstRate ?? 0m) / 100m, 2, MidpointRounding.AwayFromZero));
 
 	public decimal EstimatedTotal => decimal.Round(Subtotal + EstimatedTax, 0, MidpointRounding.AwayFromZero);
+
+	/// <summary>Bump token to focus Qty on the selected invoice line.</summary>
+	public string FocusQtyRequest
+	{
+		get => _focusQtyRequest;
+		private set
+		{
+			_focusQtyRequest = value;
+			OnPropertyChanged(nameof(FocusQtyRequest));
+		}
+	}
+
+	/// <summary>Bump token to focus a named wholesale control (CustomerSearch / MedicineSearch / Payment).</summary>
+	public string FocusRequest
+	{
+		get => _focusRequest;
+		private set
+		{
+			_focusRequest = value;
+			OnPropertyChanged(nameof(FocusRequest));
+		}
+	}
+
+	public string CustomerSearchText
+	{
+		get => _customerSearchText;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_customerSearchText, value))
+			{
+				OnPropertyChanging(nameof(CustomerSearchText));
+				_customerSearchText = value ?? string.Empty;
+				OnPropertyChanged(nameof(CustomerSearchText));
+				OnPropertyChanged(nameof(ShowRetailerSearchPlaceholder));
+				OnPropertyChanged(nameof(ShowAddNewRetailerOption));
+				OnPropertyChanged(nameof(AddNewRetailerCaption));
+				if (!_suppressCustomerSearchSync)
+				{
+					ApplyCustomerFilter(openDropDown: true);
+					TrySelectExactCustomerMatch();
+				}
+			}
+		}
+	}
+
+	public bool IsCustomerDropDownOpen
+	{
+		get => _isCustomerDropDownOpen;
+		set
+		{
+			if (_isCustomerDropDownOpen != value)
+			{
+				OnPropertyChanging(nameof(IsCustomerDropDownOpen));
+				_isCustomerDropDownOpen = value;
+				OnPropertyChanged(nameof(IsCustomerDropDownOpen));
+			}
+		}
+	}
+
+	public string BuyerDrugLicence
+	{
+		get => _buyerDrugLicence;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_buyerDrugLicence, value))
+			{
+				OnPropertyChanging(nameof(BuyerDrugLicence));
+				_buyerDrugLicence = value;
+				OnPropertyChanged(nameof(BuyerDrugLicence));
+			}
+		}
+	}
+
+	public string BuyerGstin
+	{
+		get => _buyerGstin;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_buyerGstin, value))
+			{
+				OnPropertyChanging(nameof(BuyerGstin));
+				_buyerGstin = value;
+				OnPropertyChanged(nameof(BuyerGstin));
+			}
+		}
+	}
+
+	public string BuyerPhone
+	{
+		get => _buyerPhone;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_buyerPhone, value))
+			{
+				OnPropertyChanging(nameof(BuyerPhone));
+				_buyerPhone = value;
+				OnPropertyChanged(nameof(BuyerPhone));
+			}
+		}
+	}
+
+	public string BuyerAddress
+	{
+		get => _buyerAddress;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_buyerAddress, value))
+			{
+				OnPropertyChanging(nameof(BuyerAddress));
+				_buyerAddress = value;
+				OnPropertyChanged(nameof(BuyerAddress));
+			}
+		}
+	}
+
+	public int BuyerCreditDays
+	{
+		get => _buyerCreditDays;
+		private set
+		{
+			if (_buyerCreditDays != value)
+			{
+				OnPropertyChanging(nameof(BuyerCreditDays));
+				_buyerCreditDays = value;
+				OnPropertyChanged(nameof(BuyerCreditDays));
+			}
+		}
+	}
+
+	public string BuyerDueDateDisplay
+	{
+		get => _buyerDueDateDisplay;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_buyerDueDateDisplay, value))
+			{
+				OnPropertyChanging(nameof(BuyerDueDateDisplay));
+				_buyerDueDateDisplay = value;
+				OnPropertyChanged(nameof(BuyerDueDateDisplay));
+			}
+		}
+	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -541,9 +830,11 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ShowPaymentQrCommand => showPaymentQrCommand ?? (showPaymentQrCommand = new AsyncRelayCommand(ShowPaymentQrAsync));
 
+	public IAsyncRelayCommand AddNewRetailerCommand => addNewRetailerCommand ?? (addNewRetailerCommand = new AsyncRelayCommand(AddNewRetailerAsync));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IRelayCommand AddLineCommand => addLineCommand ?? (addLineCommand = new RelayCommand(AddLine));
+	public IAsyncRelayCommand AddLineCommand => addLineCommand ?? (addLineCommand = new AsyncRelayCommand(AddLineAsync));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -552,6 +843,22 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand SaveInvoiceCommand => saveInvoiceCommand ?? (saveInvoiceCommand = new AsyncRelayCommand(SaveInvoiceAsync));
+
+	public IAsyncRelayCommand SaveAndPrintCommand => saveAndPrintCommand ?? (saveAndPrintCommand = new AsyncRelayCommand(SaveAndPrintAsync));
+
+	public IRelayCommand NewBillCommand => newBillCommand ?? (newBillCommand = new RelayCommand(NewBill));
+
+	public IRelayCommand FocusCustomerCommand => focusCustomerCommand ?? (focusCustomerCommand = new RelayCommand(FocusCustomer));
+
+	public IRelayCommand FocusMedicineCommand => focusMedicineCommand ?? (focusMedicineCommand = new RelayCommand(FocusMedicine));
+
+	public IRelayCommand FocusPaymentCommand => focusPaymentCommand ?? (focusPaymentCommand = new RelayCommand(FocusPayment));
+
+	public IRelayCommand FocusPatientCommand => FocusCustomerCommand;
+
+	public IRelayCommand FocusSearchCommand => FocusMedicineCommand;
+
+	public IRelayCommand RemoveSelectedLineCommand => removeSelectedLineCommand ?? (removeSelectedLineCommand = new RelayCommand(RemoveSelectedLine));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -616,6 +923,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			{
 				Customers.Add(item);
 			}
+			ApplyCustomerFilter();
 			List<Drug> drugs = await (from drug in context.Drugs.AsNoTracking()
 				where drug.IsActive
 				select drug).ToListAsync(cancellationToken);
@@ -624,6 +932,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				where drugIds.Contains(batch.DrugId)
 				select batch).ToListAsync(cancellationToken);
 			Guid[] batchIds = batches.Select((Batch batch) => batch.Id).ToArray();
+			List<DrugPackLevel> packLevels = await (from pack in context.DrugPackLevels.AsNoTracking()
+				where drugIds.Contains(pack.DrugId)
+				select pack).ToListAsync(cancellationToken);
+			Dictionary<Guid, List<DrugPackLevel>> packsByDrug = packLevels.GroupBy(p => p.DrugId).ToDictionary(g => g.Key, g => g.ToList());
 			Dictionary<Guid, decimal> stock = await (from movement in context.StockMovements.AsNoTracking()
 				where batchIds.Contains(movement.BatchId)
 				group movement by movement.BatchId into @group
@@ -637,7 +949,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				let available = stock.GetValueOrDefault(batch.Id)
 				where available > 0m && (!batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= DateOnly.FromDateTime(DateTime.Today))
 				orderby batch.ExpiryDate ?? DateOnly.MaxValue, drug.Name
-				select new WholesaleStockChoice(drug.Id, batch.Id, drug.Name, batch.BatchNo, batch.ExpiryDate, available, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), drug.Schedule, drug.GstRate.GetValueOrDefault())).ToList();
+				select BuildStockChoice(drug, batch, available, packsByDrug.GetValueOrDefault(drug.Id))).ToList();
 			StockChoices.Clear();
 			foreach (WholesaleStockChoice item2 in list2)
 			{
@@ -649,17 +961,332 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			}
 			OnPropertyChanged("HasStockChoices");
 			OnPropertyChanged("StockPickerPlaceholder");
+			SeedMedicinePickerFromStock();
 			NumberSeriesService series = scope.ServiceProvider.GetRequiredService<NumberSeriesService>();
 			PharmacyProfile pharmacyProfile = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
 			_pharmacyName = pharmacyProfile.Name;
 			_upiId = pharmacyProfile.UpiId ?? string.Empty;
-			InvoiceNoPreview = await series.PreviewNextAsync(pharmacyProfile.InvoicePrefix, null, cancellationToken);
+			InvoiceNoPreview = await series.PreviewNextAsync(BranchService.WholesaleInvoicePrefix, null, cancellationToken);
+			await RefreshBuyerHeaderAsync(cancellationToken);
 		}
 		finally
 		{
 			IsStockChoicesLoading = false;
 			OnPropertyChanged("StockPickerPlaceholder");
+			OnPropertyChanged(nameof(HasMedicinePickerItems));
 		}
+	}
+
+	private void SeedMedicinePickerFromStock()
+	{
+		MedicinePickerItems.Clear();
+		foreach (WholesaleStockChoice choice in StockChoices.Take(40))
+		{
+			MedicinePickerItems.Add(WholesaleMedicinePickerItem.FromInStock(choice));
+		}
+		OnPropertyChanged(nameof(HasMedicinePickerItems));
+		OnPropertyChanged(nameof(StockPickerPlaceholder));
+	}
+
+	private async Task DebouncedMedicineSearchAsync()
+	{
+		_medicineSearchCts?.Cancel();
+		CancellationTokenSource cts = new CancellationTokenSource();
+		_medicineSearchCts = cts;
+		try
+		{
+			await Task.Delay(220, cts.Token);
+			await SearchMedicinesAsync(MedicineSearchText, cts.Token);
+		}
+		catch (OperationCanceledException)
+		{
+		}
+	}
+
+	private async Task SearchMedicinesAsync(string query, CancellationToken cancellationToken)
+	{
+		string needle = query?.Trim() ?? string.Empty;
+		if (needle.Length < 2)
+		{
+			SeedMedicinePickerFromStock();
+			IsMedicineDropDownOpen = MedicinePickerItems.Count > 0 && !string.IsNullOrWhiteSpace(needle);
+			return;
+		}
+
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+
+		List<Drug> drugs = await context.Drugs.AsNoTracking()
+			.Where(d => d.IsActive && (
+				d.Name.Contains(needle)
+				|| (d.GenericName != null && d.GenericName.Contains(needle))
+				|| (d.BrandName != null && d.BrandName.Contains(needle))))
+			.OrderBy(d => d.Name)
+			.Take(40)
+			.ToListAsync(cancellationToken);
+		Guid[] drugIds = drugs.Select(d => d.Id).ToArray();
+		List<Batch> batches = drugIds.Length == 0
+			? new List<Batch>()
+			: await context.Batches.AsNoTracking().Where(b => drugIds.Contains(b.DrugId)).ToListAsync(cancellationToken);
+		Guid[] batchIds = batches.Select(b => b.Id).ToArray();
+		Dictionary<Guid, decimal> stock = batchIds.Length == 0
+			? new Dictionary<Guid, decimal>()
+			: await (from movement in context.StockMovements.AsNoTracking()
+				where batchIds.Contains(movement.BatchId)
+				group movement by movement.BatchId into g
+				select new { BatchId = g.Key, Quantity = g.Sum(m => m.QuantityChange) })
+				.ToDictionaryAsync(x => x.BatchId, x => x.Quantity, cancellationToken);
+		List<DrugPackLevel> packLevels = drugIds.Length == 0
+			? new List<DrugPackLevel>()
+			: await context.DrugPackLevels.AsNoTracking().Where(p => drugIds.Contains(p.DrugId)).ToListAsync(cancellationToken);
+		Dictionary<Guid, List<DrugPackLevel>> packsByDrug = packLevels.GroupBy(p => p.DrugId).ToDictionary(g => g.Key, g => g.ToList());
+
+		List<WholesaleMedicinePickerItem> inStock = new();
+		List<WholesaleMedicinePickerItem> outOfStock = new();
+		HashSet<Guid> drugsWithBatchRows = new();
+		foreach (Batch batch in batches.OrderBy(b => b.ExpiryDate ?? DateOnly.MaxValue))
+		{
+			Drug? drug = drugs.FirstOrDefault(d => d.Id == batch.DrugId);
+			if (drug == null)
+			{
+				continue;
+			}
+
+			if (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < today)
+			{
+				continue;
+			}
+
+			drugsWithBatchRows.Add(drug.Id);
+			decimal available = stock.GetValueOrDefault(batch.Id);
+			WholesaleStockChoice choice = BuildStockChoice(drug, batch, available, packsByDrug.GetValueOrDefault(drug.Id));
+			if (available > 0m)
+			{
+				inStock.Add(WholesaleMedicinePickerItem.FromInStock(choice));
+			}
+			else
+			{
+				outOfStock.Add(WholesaleMedicinePickerItem.FromOutOfStock(choice));
+			}
+		}
+
+		// Local drugs with no batches at all → treat as needing inward.
+		foreach (Drug drug in drugs.Where(d => !drugsWithBatchRows.Contains(d.Id)).Take(15))
+		{
+			outOfStock.Add(new WholesaleMedicinePickerItem
+			{
+				GroupKey = "Out of stock",
+				DisplayTitle = drug.Name,
+				DisplayDetail = "Out of Stock - Click to Add Stock / Batch",
+				Display = $"[Out of stock] {drug.Name} — Out of Stock - Click to Add Stock / Batch",
+				DrugId = drug.Id,
+				MedicineName = drug.Name,
+				Composition = drug.GenericName,
+				SuggestedMrp = drug.Mrp
+			});
+		}
+
+		List<WholesaleMedicinePickerItem> catalogue = new();
+		try
+		{
+			MedicineSearchResults catalogResults = await scope.ServiceProvider.GetRequiredService<CatalogSearchService>()
+				.SearchAsync(needle, cancellationToken);
+			HashSet<Guid> shownCatalog = drugs.Where(d => d.CatalogMedicineId.HasValue).Select(d => d.CatalogMedicineId!.Value).ToHashSet();
+			foreach (MedicineSearchResult row in catalogResults.FromCatalog.Take(20))
+			{
+				if (shownCatalog.Contains(row.CatalogMedicineId))
+				{
+					continue;
+				}
+
+				catalogue.Add(WholesaleMedicinePickerItem.FromCatalogue(
+					row.CatalogMedicineId,
+					row.Name,
+					row.Composition,
+					row.Manufacturer,
+					row.Mrp ?? row.ReferencePrice,
+					row.DrugId));
+			}
+		}
+		catch
+		{
+			// Catalogue search is best-effort; local stock results still show.
+		}
+
+		MedicinePickerItems.Clear();
+		foreach (WholesaleMedicinePickerItem item in inStock.Take(25))
+		{
+			MedicinePickerItems.Add(item);
+		}
+		foreach (WholesaleMedicinePickerItem item in outOfStock.Take(15))
+		{
+			MedicinePickerItems.Add(item);
+		}
+		foreach (WholesaleMedicinePickerItem item in catalogue)
+		{
+			MedicinePickerItems.Add(item);
+		}
+
+		OnPropertyChanged(nameof(HasMedicinePickerItems));
+		OnPropertyChanged(nameof(StockPickerPlaceholder));
+		IsMedicineDropDownOpen = MedicinePickerItems.Count > 0;
+	}
+
+	private async Task OnMedicineItemSelectedAsync(WholesaleMedicinePickerItem item)
+	{
+		ErrorMessage = string.Empty;
+		if (item.IsInStock && item.StockChoice != null)
+		{
+			SelectedStockToAdd = item.StockChoice;
+			_suppressMedicineSearchSync = true;
+			try
+			{
+				MedicineSearchText = item.DisplayTitle;
+			}
+			finally
+			{
+				_suppressMedicineSearchSync = false;
+			}
+			IsMedicineDropDownOpen = false;
+			await AddLineAsync();
+			return;
+		}
+
+		IsMedicineDropDownOpen = false;
+		await OpenQuickInwardAsync(item);
+	}
+
+	private async Task OpenQuickInwardAsync(WholesaleMedicinePickerItem item)
+	{
+		QuickInwardWindow dialog = new QuickInwardWindow(
+			_scopeFactory,
+			_session,
+			item.MedicineName,
+			item.DrugId,
+			item.CatalogMedicineId,
+			item.Composition,
+			item.Manufacturer,
+			item.SuggestedMrp ?? item.StockChoice?.Mrp);
+		try
+		{
+			Window? owner = Application.Current?.MainWindow;
+			if (owner != null)
+			{
+				dialog.Owner = owner;
+			}
+		}
+		catch
+		{
+		}
+
+		if (dialog.ShowDialog() != true || dialog.Result == null)
+		{
+			_suppressMedicineSearchSync = true;
+			try
+			{
+				SelectedMedicineItem = null;
+			}
+			finally
+			{
+				_suppressMedicineSearchSync = false;
+			}
+			return;
+		}
+
+		AddStockResult result = dialog.Result;
+		await ReloadStockChoicesAsync();
+		WholesaleStockChoice? created = StockChoices.FirstOrDefault(c => c.BatchId == result.BatchId)
+			?? await BuildStockChoiceByBatchIdAsync(result.BatchId);
+		if (created == null)
+		{
+			ErrorMessage = "Batch was saved but could not be loaded into the billing picker.";
+			return;
+		}
+
+		SelectedStockToAdd = created;
+		_suppressMedicineSearchSync = true;
+		try
+		{
+			MedicineSearchText = created.DrugName;
+			SelectedMedicineItem = WholesaleMedicinePickerItem.FromInStock(created);
+		}
+		finally
+		{
+			_suppressMedicineSearchSync = false;
+		}
+
+		decimal qty = dialog.QuantityEntered > 0m ? dialog.QuantityEntered : 1m;
+		decimal unitPrice = dialog.PtrEntered > 0m ? dialog.PtrEntered : created.DefaultWholesaleRate;
+		WholesaleInvoiceLineDraft draft = new WholesaleInvoiceLineDraft
+		{
+			StockChoice = created,
+			Quantity = qty,
+			FreeQuantity = 0m,
+			UnitPrice = unitPrice,
+			SaleUnit = "Unit"
+		};
+		Items.Add(draft);
+		SelectedLine = draft;
+		NotifyTotalsChanged();
+		ClearMedicinePickerAfterAdd();
+		RequestFocusQty();
+		StatusMessage = $"Batch {created.BatchNo} inwarded for {created.DrugName} and added to the invoice.";
+		ErrorMessage = string.Empty;
+	}
+
+	private async Task ReloadStockChoicesAsync()
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+		List<Drug> drugs = await context.Drugs.AsNoTracking().Where(d => d.IsActive).ToListAsync();
+		Guid[] drugIds = drugs.Select(d => d.Id).ToArray();
+		List<Batch> batches = await context.Batches.AsNoTracking().Where(b => drugIds.Contains(b.DrugId)).ToListAsync();
+		Guid[] batchIds = batches.Select(b => b.Id).ToArray();
+		List<DrugPackLevel> packLevels = await context.DrugPackLevels.AsNoTracking().Where(p => drugIds.Contains(p.DrugId)).ToListAsync();
+		Dictionary<Guid, List<DrugPackLevel>> packsByDrug = packLevels.GroupBy(p => p.DrugId).ToDictionary(g => g.Key, g => g.ToList());
+		Dictionary<Guid, decimal> stock = await (from movement in context.StockMovements.AsNoTracking()
+			where batchIds.Contains(movement.BatchId)
+			group movement by movement.BatchId into g
+			select new { BatchId = g.Key, Quantity = g.Sum(m => m.QuantityChange) })
+			.ToDictionaryAsync(x => x.BatchId, x => x.Quantity);
+		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		List<WholesaleStockChoice> list = (from batch in batches
+			join drug in drugs on batch.DrugId equals drug.Id
+			let available = stock.GetValueOrDefault(batch.Id)
+			where available > 0m && (!batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= today)
+			orderby batch.ExpiryDate ?? DateOnly.MaxValue, drug.Name
+			select BuildStockChoice(drug, batch, available, packsByDrug.GetValueOrDefault(drug.Id))).ToList();
+		StockChoices.Clear();
+		foreach (WholesaleStockChoice choice in list)
+		{
+			StockChoices.Add(choice);
+		}
+		OnPropertyChanged(nameof(HasStockChoices));
+		SeedMedicinePickerFromStock();
+	}
+
+	private async Task<WholesaleStockChoice?> BuildStockChoiceByBatchIdAsync(Guid batchId)
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+		Batch? batch = await context.Batches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batchId);
+		if (batch == null)
+		{
+			return null;
+		}
+
+		Drug? drug = await context.Drugs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == batch.DrugId);
+		if (drug == null)
+		{
+			return null;
+		}
+
+		decimal available = await context.StockMovements.AsNoTracking()
+			.Where(m => m.BatchId == batchId)
+			.SumAsync(m => (decimal?)m.QuantityChange) ?? 0m;
+		List<DrugPackLevel> packs = await context.DrugPackLevels.AsNoTracking().Where(p => p.DrugId == drug.Id).ToListAsync();
+		return BuildStockChoice(drug, batch, available, packs);
 	}
 
 	private async Task ShowPaymentQrAsync()
@@ -723,21 +1350,172 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
-	private void AddLine()
+	private async Task AddLineAsync()
 	{
+		if (SelectedMedicineItem is { NeedsInward: true })
+		{
+			await OpenQuickInwardAsync(SelectedMedicineItem);
+			return;
+		}
+
 		WholesaleStockChoice wholesaleStockChoice = SelectedStockToAdd ?? StockChoices.FirstOrDefault();
 		if ((object)wholesaleStockChoice == null)
 		{
-			ErrorMessage = "No stocked medicine batches are available to add.";
+			ErrorMessage = "Search and select an in-stock batch, or add a batch from the Drug Bank catalogue first.";
 			return;
 		}
-		Items.Add(new WholesaleInvoiceLineDraft
+
+		if (wholesaleStockChoice.Available <= 0m)
+		{
+			ErrorMessage = "Out of stock — add a batch via Quick Inward before billing this medicine.";
+			await OpenQuickInwardAsync(WholesaleMedicinePickerItem.FromOutOfStock(wholesaleStockChoice));
+			return;
+		}
+
+		decimal unitPrice = wholesaleStockChoice.DefaultWholesaleRate;
+		decimal freeQuantity = 0m;
+		if (SelectedCustomer != null)
+		{
+			try
+			{
+				using IServiceScope scope = _scopeFactory.CreateScope();
+				PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+				Drug? drug = await context.Drugs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == wholesaleStockChoice.DrugId);
+				Batch? batch = await context.Batches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == wholesaleStockChoice.BatchId);
+				if (drug != null && batch != null)
+				{
+					WholesalePriceQuote quote = await scope.ServiceProvider.GetRequiredService<WholesalePricingService>()
+						.GetQuoteAsync(SelectedCustomer, drug, batch, 1m, DateOnly.FromDateTime(DateTime.Today));
+					unitPrice = quote.UnitRate;
+					freeQuantity = quote.FreeQuantity;
+				}
+			}
+			catch
+			{
+				// Fall back to batch PTR/MRP when category pricing is unavailable.
+			}
+		}
+
+		WholesaleInvoiceLineDraft draft = new WholesaleInvoiceLineDraft
 		{
 			StockChoice = wholesaleStockChoice,
 			Quantity = 1m,
-			UnitPrice = wholesaleStockChoice.Mrp
-		});
+			FreeQuantity = freeQuantity,
+			UnitPrice = unitPrice,
+			SaleUnit = "Unit"
+		};
+		Items.Add(draft);
+		SelectedLine = draft;
 		NotifyTotalsChanged();
+		ClearMedicinePickerAfterAdd();
+		RequestFocusQty();
+	}
+
+	private void ClearMedicinePickerAfterAdd()
+	{
+		_suppressMedicineSearchSync = true;
+		try
+		{
+			SelectedMedicineItem = null;
+			MedicineSearchText = string.Empty;
+			SelectedStockToAdd = null;
+			IsMedicineDropDownOpen = false;
+		}
+		finally
+		{
+			_suppressMedicineSearchSync = false;
+		}
+	}
+
+	private void RequestFocusQty()
+	{
+		FocusQtyRequest = string.Empty;
+		FocusQtyRequest = "qty-" + Guid.NewGuid().ToString("N");
+	}
+
+	private void RequestFocus(string target)
+	{
+		FocusRequest = string.Empty;
+		FocusRequest = target;
+	}
+
+	private void FocusCustomer() => RequestFocus("CustomerSearch");
+
+	private void FocusMedicine() => RequestFocus("MedicineSearch");
+
+	private void FocusPayment() => RequestFocus("Payment");
+
+	private void NewBill()
+	{
+		if (Items.Count > 0 && !_confirmation.Confirm("Clear the current unsaved wholesale invoice?", "New invoice"))
+		{
+			return;
+		}
+
+		Items.Clear();
+		SelectedCustomer = null;
+		CustomerSearchText = string.Empty;
+		ClearMedicinePickerAfterAdd();
+		PaidAmount = 0m;
+		PaymentReference = string.Empty;
+		PaymentMethod = "Cash";
+		ConfirmNearExpiry = false;
+		OverrideCreditOrOverdue = false;
+		OverrideReason = string.Empty;
+		TransportDetails = string.Empty;
+		VehicleNumber = string.Empty;
+		EWayBillNumber = string.Empty;
+		Irn = string.Empty;
+		Notes = string.Empty;
+		ErrorMessage = string.Empty;
+		StatusMessage = "New wholesale invoice — select a retailer to begin.";
+		NotifyTotalsChanged();
+		RequestFocus("CustomerSearch");
+	}
+
+	private void RemoveSelectedLine()
+	{
+		if (SelectedLine == null)
+		{
+			return;
+		}
+
+		if (!_confirmation.Confirm($"Remove {SelectedLine.StockChoice?.DrugName ?? "this line"} from the invoice?", "Remove line"))
+		{
+			return;
+		}
+
+		RemoveLine(SelectedLine);
+		SelectedLine = null;
+		StatusMessage = "Line removed. Press Ctrl+Z is not available — re-add from medicine search if needed.";
+	}
+
+	private static WholesaleStockChoice BuildStockChoice(Drug drug, Batch batch, decimal available, List<DrugPackLevel>? packs)
+	{
+		decimal unitsPerStrip = packs?.FirstOrDefault(p => p.Level == PackLevel.Strip)?.UnitsPerPack
+			?? packs?.FirstOrDefault(p => p.Level == PackLevel.Unit)?.UnitsPerPack
+			?? 0m;
+		decimal unitsPerBox = packs?.FirstOrDefault(p => p.Level is PackLevel.Box or PackLevel.Carton)?.UnitsPerPack ?? 0m;
+		string? packLabel = packs?.OrderByDescending(p => p.UnitsPerPack).Select(p => p.Label).FirstOrDefault();
+		if (string.IsNullOrWhiteSpace(packLabel))
+		{
+			packLabel = unitsPerBox > 0m ? $"Box={unitsPerBox}" : (unitsPerStrip > 0m ? $"Strip={unitsPerStrip}" : "Unit");
+		}
+
+		return new WholesaleStockChoice(
+			drug.Id,
+			batch.Id,
+			drug.Name,
+			batch.BatchNo,
+			batch.ExpiryDate,
+			available,
+			batch.Mrp ?? drug.Mrp.GetValueOrDefault(),
+			batch.Ptr,
+			packLabel,
+			unitsPerStrip,
+			unitsPerBox,
+			drug.Schedule,
+			drug.GstRate.GetValueOrDefault());
 	}
 
 	private void RemoveLine(WholesaleInvoiceLineDraft? line)
@@ -755,7 +1533,12 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		AppUser appUser = _session.User ?? throw new UnauthorizedAccessException("Sign in before creating invoices.");
 		if (SelectedCustomer == null || Items.Count == 0 || Items.Any((WholesaleInvoiceLineDraft item) => (object)item.StockChoice == null))
 		{
-			ErrorMessage = "Choose an active customer and at least one stocked item.";
+			ErrorMessage = "Choose an active retailer / pharmacy and at least one stocked item.";
+			return;
+		}
+		if (string.IsNullOrWhiteSpace(BuyerDrugLicence))
+		{
+			ErrorMessage = "Buyer Drug License (DL) Number is required for wholesale B2B invoices (Form 20B / 21B).";
 			return;
 		}
 		WholesaleInvoiceLineDraft[] array = Items.Where((WholesaleInvoiceLineDraft item) =>
@@ -774,7 +1557,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.Quantity, item.FreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes), appUser.Id, appUser.Role);
+			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes), appUser.Id, appUser.Role);
 			LastInvoiceId = wholesaleInvoiceResult.Invoice.Id;
 			StatusMessage = $"Invoice {wholesaleInvoiceResult.Invoice.InvoiceNo} saved. Total {MoneyFormat.Rupees(wholesaleInvoiceResult.Invoice.TotalAmount)}; outstanding {MoneyFormat.Rupees(wholesaleInvoiceResult.OutstandingAfterPosting)}.";
 			ErrorMessage = string.Empty;
@@ -784,6 +1567,30 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException) ? true : false)
 		{
 			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task SaveAndPrintAsync()
+	{
+		await SaveInvoiceAsync();
+		if (LastInvoiceId.HasValue && string.IsNullOrWhiteSpace(ErrorMessage))
+		{
+			try
+			{
+				string path = await _documents.ExportAsync(LastInvoiceId.Value, deliveryChallan: false);
+				StatusMessage = "Tax invoice saved and exported: " + path;
+				try
+				{
+					Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+				}
+				catch
+				{
+				}
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = "Invoice saved but tax invoice PDF failed: " + ex.Message;
+			}
 		}
 	}
 
@@ -842,7 +1649,186 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnSelectedCustomerChanged(Customer? value)
 	{
+		OnPropertyChanged(nameof(HasSelectedCustomer));
+		OnPropertyChanged(nameof(ShowRetailerSearchPlaceholder));
+		OnPropertyChanged(nameof(ShowAddNewRetailerOption));
+		OnPropertyChanged(nameof(AddNewRetailerCaption));
+		if (value != null)
+		{
+			_suppressCustomerSearchSync = true;
+			try
+			{
+				CustomerSearchText = value.Name ?? string.Empty;
+			}
+			finally
+			{
+				_suppressCustomerSearchSync = false;
+			}
+
+			IsCustomerDropDownOpen = false;
+		}
+
 		RefreshCreditGateAsync();
+		_ = RefreshBuyerHeaderAsync();
+	}
+
+	private void ApplyCustomerFilter(bool openDropDown = false)
+	{
+		string needle = CustomerSearchText?.Trim() ?? string.Empty;
+		IEnumerable<Customer> source = Customers;
+		if (!string.IsNullOrWhiteSpace(needle))
+		{
+			source = Customers.Where(c =>
+				(!string.IsNullOrWhiteSpace(c.Name) && c.Name.Contains(needle, StringComparison.OrdinalIgnoreCase))
+				|| (!string.IsNullOrWhiteSpace(c.Gstin) && c.Gstin.Contains(needle, StringComparison.OrdinalIgnoreCase))
+				|| (!string.IsNullOrWhiteSpace(c.Phone) && c.Phone.Contains(needle, StringComparison.OrdinalIgnoreCase)));
+		}
+
+		FilteredCustomers.Clear();
+		foreach (Customer customer in source.Take(200))
+		{
+			FilteredCustomers.Add(customer);
+		}
+
+		OnPropertyChanged(nameof(ShowAddNewRetailerOption));
+		OnPropertyChanged(nameof(AddNewRetailerCaption));
+
+		if (openDropDown && !string.IsNullOrWhiteSpace(needle) && (FilteredCustomers.Count > 0 || ShowAddNewRetailerOption))
+		{
+			IsCustomerDropDownOpen = FilteredCustomers.Count > 0;
+		}
+	}
+
+	private void TrySelectExactCustomerMatch()
+	{
+		string needle = CustomerSearchText?.Trim() ?? string.Empty;
+		if (needle.Length == 0)
+		{
+			if (SelectedCustomer != null)
+			{
+				SelectedCustomer = null;
+			}
+
+			return;
+		}
+
+		Customer? exact = Customers.FirstOrDefault(c => string.Equals(c.Name?.Trim(), needle, StringComparison.OrdinalIgnoreCase));
+		if (exact != null)
+		{
+			if (!ReferenceEquals(SelectedCustomer, exact) && SelectedCustomer?.Id != exact.Id)
+			{
+				SelectedCustomer = exact;
+			}
+		}
+		else if (SelectedCustomer != null
+		         && !string.Equals(SelectedCustomer.Name?.Trim(), needle, StringComparison.OrdinalIgnoreCase))
+		{
+			// User is editing away from the selected retailer — clear selection until they pick again.
+			SelectedCustomer = null;
+		}
+	}
+
+	private async Task AddNewRetailerAsync()
+	{
+		ErrorMessage = string.Empty;
+		string suggestedName = CustomerSearchText?.Trim() ?? string.Empty;
+		QuickAddRetailerWindow dialog = new QuickAddRetailerWindow(suggestedName);
+		try
+		{
+			Window? owner = Application.Current?.MainWindow;
+			if (owner != null)
+			{
+				dialog.Owner = owner;
+			}
+		}
+		catch
+		{
+		}
+
+		if (dialog.ShowDialog() != true)
+		{
+			return;
+		}
+
+		AppUser appUser = _session.User ?? throw new UnauthorizedAccessException("Sign in before adding retailers.");
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			WholesaleCustomerService service = scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>();
+			Customer customer = new Customer
+			{
+				Name = dialog.RetailerName,
+				BuyerType = "Retailer",
+				Gstin = dialog.Gstin,
+				Phone = dialog.Phone,
+				Address = dialog.Address,
+				CreditDays = dialog.CreditDays,
+				IsActive = true
+			};
+			CustomerLicence licence = new CustomerLicence
+			{
+				LicenceType = dialog.LicenceType,
+				LicenceNumber = dialog.LicenceNumber,
+				IssuedOn = dialog.IssuedOn,
+				ExpiresOn = dialog.ExpiresOn
+			};
+			await service.SaveAsync(customer, new[] { licence }, new[] { dialog.LicenceType }, appUser.Id);
+
+			Customers.Insert(0, customer);
+			ApplyCustomerFilter();
+			SelectedCustomer = customer;
+			StatusMessage = $"Retailer '{customer.Name}' saved to Customers master with DL {dialog.LicenceType} {dialog.LicenceNumber}.";
+			ErrorMessage = string.Empty;
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or UnauthorizedAccessException)
+		{
+			ErrorMessage = ex.Message;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = "Could not save retailer: " + ex.Message;
+		}
+	}
+
+	private async Task RefreshBuyerHeaderAsync(CancellationToken cancellationToken = default)
+	{
+		Customer? customer = SelectedCustomer;
+		if (customer == null)
+		{
+			BuyerDrugLicence = string.Empty;
+			BuyerGstin = string.Empty;
+			BuyerPhone = string.Empty;
+			BuyerAddress = string.Empty;
+			BuyerCreditDays = 0;
+			BuyerDueDateDisplay = string.Empty;
+			return;
+		}
+
+		BuyerGstin = string.IsNullOrWhiteSpace(customer.Gstin) ? "Unregistered / composite (optional)" : customer.Gstin.Trim();
+		BuyerPhone = customer.Phone?.Trim() ?? string.Empty;
+		BuyerAddress = customer.Address?.Trim() ?? string.Empty;
+		BuyerCreditDays = customer.CreditDays;
+		BuyerDueDateDisplay = customer.CreditDays > 0
+			? $"Due {DateTime.Today.AddDays(customer.CreditDays):dd-MMM-yyyy} ({customer.CreditDays} days credit)"
+			: "Cash / immediate";
+
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			List<CustomerLicence> licences = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().CustomerLicences
+				.AsNoTracking()
+				.Where(item => item.CustomerId == customer.Id)
+				.OrderBy(item => item.LicenceType)
+				.ThenBy(item => item.LicenceNumber)
+				.ToListAsync(cancellationToken);
+			BuyerDrugLicence = licences.Count == 0
+				? string.Empty
+				: string.Join("; ", licences.Select(item => $"{item.LicenceType} {item.LicenceNumber}".Trim()));
+		}
+		catch
+		{
+			BuyerDrugLicence = string.Empty;
+		}
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]

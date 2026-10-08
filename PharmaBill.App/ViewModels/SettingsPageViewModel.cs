@@ -52,6 +52,8 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 
 	private readonly IAppUpdateService _appUpdates;
 
+	private readonly UiSoundPreferencesStore _uiSoundPreferencesStore;
+
 	private DocumentOutputSettings _documentOutputSettings;
 
 	private readonly AppVersionInfo _versionInfo;
@@ -289,6 +291,8 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 	private string _selectedAccent;
 
 	private string _selectedLanguage;
+
+	private bool _enableUiSounds = true;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? saveBranchCommand;
@@ -2562,6 +2566,24 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 	}
 
+	public bool EnableUiSounds
+	{
+		get
+		{
+			return _enableUiSounds;
+		}
+		set
+		{
+			if (!EqualityComparer<bool>.Default.Equals(_enableUiSounds, value))
+			{
+				OnPropertyChanging(nameof(EnableUiSounds));
+				_enableUiSounds = value;
+				_uiSoundPreferencesStore.Save(new UiSoundPreferences(value));
+				OnPropertyChanged(nameof(EnableUiSounds));
+			}
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public string SelectedTheme
@@ -2731,7 +2753,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 
 	public event EventHandler? BusinessModeChanged;
 
-	public SettingsPageViewModel(IThemeService themeService, ILanguageService languageService, IServiceScopeFactory scopeFactory, CurrentSession currentSession, IUserSessionService userSession, IConfirmationService confirmationService, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, GeminiApiKeyStore geminiApiKeyStore, DocumentOutputSettingsStore documentOutputSettingsStore, DataRetentionSettingsStore retentionSettingsStore, RegistrationNotificationService registrationNotifications, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, AppVersionInfo versionInfo)
+	public SettingsPageViewModel(IThemeService themeService, ILanguageService languageService, IServiceScopeFactory scopeFactory, CurrentSession currentSession, IUserSessionService userSession, IConfirmationService confirmationService, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, GeminiApiKeyStore geminiApiKeyStore, DocumentOutputSettingsStore documentOutputSettingsStore, DataRetentionSettingsStore retentionSettingsStore, RegistrationNotificationService registrationNotifications, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, AppVersionInfo versionInfo, UiSoundPreferencesStore uiSoundPreferencesStore)
 		: base(languageService.GetString("NavSettings"))
 	{
 		_themeService = themeService;
@@ -2749,9 +2771,12 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		_userManualDialogs = userManualDialogs;
 		_appUpdates = appUpdates;
 		_versionInfo = versionInfo;
+		_uiSoundPreferencesStore = uiSoundPreferencesStore;
 		_settingsIndex = BuildSettingsIndex();
 		ApplySettingsSearchFilter(string.Empty);
 		_documentOutputSettings = documentOutputSettingsStore.Load();
+		_enableUiSounds = uiSoundPreferencesStore.Load().EnableUiSounds;
+		SoundHelper.SetEnabled(_enableUiSounds);
 		ThemeOptions = themeService.ThemeOptions;
 		AccentOptions = themeService.AccentOptions;
 		LanguageOptions = languageService.LanguageOptions;
@@ -3406,7 +3431,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 	{
 		return new _003C_003Ez__ReadOnlyArray<SettingsSearchEntry>(new SettingsSearchEntry[15]
 		{
-			new SettingsSearchEntry("appearance", "Appearance", "Theme, accent and language", "appearance theme accent language dark light ui colour color", "General"),
+			new SettingsSearchEntry("appearance", "Appearance", "Theme, accent, language and UI sounds", "appearance theme accent language dark light ui colour color sound click tick alert preferences general", "General"),
 			new SettingsSearchEntry("businessMode", "Licensing & Mode", "Business mode and drug-licence posture", "licensing mode retail wholesale both 2-in-1 license licence subscription business production store", "General"),
 			new SettingsSearchEntry("branch", "Branch identity", "Branch code, GSTIN and drug licence", "branch identity code gstin drug licence license head office invoice series", "General"),
 			new SettingsSearchEntry("firmProfile", "Firm Profile", "Pharmacy name, email, DL 20/21, GSTIN and address", "firm profile pharmacy name store dl 20b 21b 20 21 fssai gstin address phone contact email billing branding gmail", "General"),

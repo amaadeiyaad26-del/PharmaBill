@@ -1,6 +1,5 @@
-using System.CodeDom.Compiler;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PharmaBill.App.ViewModels;
@@ -17,14 +16,13 @@ public class WholesaleInvoiceLineDraft : ObservableObject
 
 	private decimal _discountAmount;
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
+	private decimal _discountPercent;
+
+	private string _saleUnit = "Unit";
+
 	public WholesaleStockChoice? StockChoice
 	{
-		get
-		{
-			return _stockChoice;
-		}
+		get => _stockChoice;
 		set
 		{
 			if (!EqualityComparer<WholesaleStockChoice>.Default.Equals(_stockChoice, value))
@@ -33,92 +31,151 @@ public class WholesaleInvoiceLineDraft : ObservableObject
 				_stockChoice = value;
 				OnStockChoiceChanged(value);
 				OnPropertyChanged(nameof(StockChoice));
+				OnPropertyChanged(nameof(Mrp));
+				OnPropertyChanged(nameof(PackLabel));
+				SyncDiscountFromPercent();
+				RaiseComputed();
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
 	public decimal Quantity
 	{
-		get
-		{
-			return _quantity;
-		}
+		get => _quantity;
 		set
 		{
 			if (!EqualityComparer<decimal>.Default.Equals(_quantity, value))
 			{
 				OnPropertyChanging(nameof(Quantity));
-				_quantity = value;
+				_quantity = value < 0m ? 0m : value;
 				OnPropertyChanged(nameof(Quantity));
+				SyncDiscountFromPercent();
+				RaiseComputed();
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
 	public decimal FreeQuantity
 	{
-		get
-		{
-			return _freeQuantity;
-		}
+		get => _freeQuantity;
 		set
 		{
 			if (!EqualityComparer<decimal>.Default.Equals(_freeQuantity, value))
 			{
 				OnPropertyChanging(nameof(FreeQuantity));
-				_freeQuantity = value;
+				_freeQuantity = value < 0m ? 0m : value;
 				OnPropertyChanged(nameof(FreeQuantity));
+				OnPropertyChanged(nameof(InventoryFreeQuantity));
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
+	/// <summary>Trade rate / PTR per base unit (must not exceed MRP).</summary>
 	public decimal UnitPrice
 	{
-		get
-		{
-			return _unitPrice;
-		}
+		get => _unitPrice;
 		set
 		{
 			if (!EqualityComparer<decimal>.Default.Equals(_unitPrice, value))
 			{
 				OnPropertyChanging(nameof(UnitPrice));
-				_unitPrice = value;
+				_unitPrice = value < 0m ? 0m : value;
 				OnPropertyChanged(nameof(UnitPrice));
+				SyncDiscountFromPercent();
+				RaiseComputed();
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
+	/// <summary>Discount percent of (Qty × Rate). Drives <see cref="DiscountAmount"/>.</summary>
+	public decimal DiscountPercent
+	{
+		get => _discountPercent;
+		set
+		{
+			decimal clamped = value < 0m ? 0m : (value > 100m ? 100m : value);
+			if (!EqualityComparer<decimal>.Default.Equals(_discountPercent, clamped))
+			{
+				OnPropertyChanging(nameof(DiscountPercent));
+				_discountPercent = clamped;
+				OnPropertyChanged(nameof(DiscountPercent));
+				SyncDiscountFromPercent();
+				RaiseComputed();
+			}
+		}
+	}
+
 	public decimal DiscountAmount
 	{
-		get
-		{
-			return _discountAmount;
-		}
+		get => _discountAmount;
 		set
 		{
 			if (!EqualityComparer<decimal>.Default.Equals(_discountAmount, value))
 			{
 				OnPropertyChanging(nameof(DiscountAmount));
-				_discountAmount = value;
+				_discountAmount = value < 0m ? 0m : value;
+				decimal gross = InventoryQuantity * UnitPrice;
+				_discountPercent = gross <= 0m ? 0m : decimal.Round(_discountAmount * 100m / gross, 2, MidpointRounding.AwayFromZero);
 				OnPropertyChanged(nameof(DiscountAmount));
+				OnPropertyChanged(nameof(DiscountPercent));
+				OnPropertyChanged(nameof(LineAmount));
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	/// <summary>Sale unit for pack conversion: Unit, Strip, or Box.</summary>
+	public string SaleUnit
+	{
+		get => _saleUnit;
+		set
+		{
+			string normalized = string.IsNullOrWhiteSpace(value) ? "Unit" : value.Trim();
+			if (!EqualityComparer<string>.Default.Equals(_saleUnit, normalized))
+			{
+				OnPropertyChanging(nameof(SaleUnit));
+				_saleUnit = normalized;
+				OnPropertyChanged(nameof(SaleUnit));
+				SyncDiscountFromPercent();
+				RaiseComputed();
+			}
+		}
+	}
+
+	public decimal Mrp => StockChoice?.Mrp ?? 0m;
+
+	public string PackLabel => StockChoice?.PackLabel ?? "Unit";
+
+	/// <summary>Base/inventory units = Qty × units-per-sale-unit (strip/box conversion).</summary>
+	public decimal InventoryQuantity => Quantity * (StockChoice?.GetUnitsPerSaleUnit(SaleUnit) ?? 1m);
+
+	public decimal InventoryFreeQuantity => FreeQuantity * (StockChoice?.GetUnitsPerSaleUnit(SaleUnit) ?? 1m);
+
+	/// <summary>Taxable line amount before GST: (Rate × base qty) − discount.</summary>
+	public decimal LineAmount => decimal.Round(InventoryQuantity * UnitPrice - DiscountAmount, 2, MidpointRounding.AwayFromZero);
+
 	private void OnStockChoiceChanged(WholesaleStockChoice? value)
 	{
-		if ((object)value != null)
+		if (value != null)
 		{
-			UnitPrice = value.Mrp;
+			UnitPrice = value.DefaultWholesaleRate;
 		}
+	}
+
+	private void SyncDiscountFromPercent()
+	{
+		decimal gross = InventoryQuantity * UnitPrice;
+		decimal amount = gross <= 0m ? 0m : decimal.Round(gross * _discountPercent / 100m, 2, MidpointRounding.AwayFromZero);
+		if (!EqualityComparer<decimal>.Default.Equals(_discountAmount, amount))
+		{
+			_discountAmount = amount;
+			OnPropertyChanged(nameof(DiscountAmount));
+		}
+	}
+
+	private void RaiseComputed()
+	{
+		OnPropertyChanged(nameof(InventoryQuantity));
+		OnPropertyChanged(nameof(InventoryFreeQuantity));
+		OnPropertyChanged(nameof(LineAmount));
 	}
 }

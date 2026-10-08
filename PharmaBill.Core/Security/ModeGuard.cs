@@ -9,8 +9,11 @@ public static class ModeGuard
 {
 	public static IReadOnlyList<string> GetMissingLicenceTypes(BusinessMode mode, IEnumerable<LicenceRecord> licences, DateOnly today)
 	{
+		// Numbers without expiry still count (onboarding may defer dates to Settings).
+		// Explicitly expired licences do not.
 		HashSet<string> hashSet = (from licence in licences
-			where !string.IsNullOrWhiteSpace(licence.LicenceNumber) && licence.ExpiresOn.HasValue && licence.ExpiresOn.Value >= today
+			where !string.IsNullOrWhiteSpace(licence.LicenceNumber)
+				&& (!licence.ExpiresOn.HasValue || licence.ExpiresOn.Value >= today)
 			select licence.LicenceType.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
 		List<string> list = new List<string>();
 		bool flag = ((mode == BusinessMode.Retail || mode == BusinessMode.Both) ? true : false);

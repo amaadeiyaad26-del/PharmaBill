@@ -84,6 +84,28 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private string _newItemError = string.Empty;
 
+	private string _newItemFormulation = string.Empty;
+
+	private string _newItemHsn = string.Empty;
+
+	private string _newItemPackLabel = string.Empty;
+
+	private CancellationTokenSource? _defaultsEnrichCts;
+
+	private string _medicineSearchText = string.Empty;
+
+	private PurchaseMedicinePickerItem? _selectedMedicineItem;
+
+	private bool _isMedicineDropDownOpen;
+
+	private bool _showManualDrugFields;
+
+	private bool _suppressMedicineSearchSync;
+
+	private string _focusRequest = string.Empty;
+
+	private CancellationTokenSource? _medicineSearchCts;
+
 	private decimal? _importedExpectedGrandTotal;
 
 	private PurchaseSpreadsheetData? _spreadsheet;
@@ -94,11 +116,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? addLineCommand;
 
+	private RelayCommand? openMedicineSuggestionsCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? cancelAddItemCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? confirmAddItemCommand;
+	private AsyncRelayCommand? confirmAddItemCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand<PurchaseLineDraft?>? deleteLineCommand;
@@ -126,6 +150,8 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	public ObservableCollection<StorageLocation> StorageLocations { get; } = new ObservableCollection<StorageLocation>();
 
 	public ObservableCollection<Drug> Drugs { get; } = new ObservableCollection<Drug>();
+
+	public ObservableCollection<PurchaseMedicinePickerItem> MedicinePickerItems { get; } = new ObservableCollection<PurchaseMedicinePickerItem>();
 
 	public ObservableCollection<BatchReturnOption> ReturnBatches { get; } = new ObservableCollection<BatchReturnOption>();
 
@@ -584,6 +610,123 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 	}
 
+	public string MedicineSearchText
+	{
+		get => _medicineSearchText;
+		set
+		{
+			string next = value ?? string.Empty;
+			if (!EqualityComparer<string>.Default.Equals(_medicineSearchText, next))
+			{
+				OnPropertyChanging(nameof(MedicineSearchText));
+				_medicineSearchText = next;
+				OnPropertyChanged(nameof(MedicineSearchText));
+				OnPropertyChanged(nameof(ShowMedicineSearchPlaceholder));
+				if (!_suppressMedicineSearchSync)
+				{
+					_ = SearchMedicinesAsync(next);
+				}
+			}
+		}
+	}
+
+	public bool ShowMedicineSearchPlaceholder => string.IsNullOrWhiteSpace(MedicineSearchText) && SelectedMedicineItem == null;
+
+	public bool IsMedicineDropDownOpen
+	{
+		get => _isMedicineDropDownOpen;
+		set
+		{
+			if (_isMedicineDropDownOpen != value)
+			{
+				_isMedicineDropDownOpen = value;
+				OnPropertyChanged(nameof(IsMedicineDropDownOpen));
+			}
+		}
+	}
+
+	public PurchaseMedicinePickerItem? SelectedMedicineItem
+	{
+		get => _selectedMedicineItem;
+		set
+		{
+			if (!EqualityComparer<PurchaseMedicinePickerItem>.Default.Equals(_selectedMedicineItem, value))
+			{
+				OnPropertyChanging(nameof(SelectedMedicineItem));
+				_selectedMedicineItem = value;
+				OnPropertyChanged(nameof(SelectedMedicineItem));
+				OnPropertyChanged(nameof(ShowMedicineSearchPlaceholder));
+				if (value != null)
+				{
+					ApplyMedicineSelection(value);
+				}
+			}
+		}
+	}
+
+	public bool ShowManualDrugFields
+	{
+		get => _showManualDrugFields;
+		private set
+		{
+			if (_showManualDrugFields != value)
+			{
+				_showManualDrugFields = value;
+				OnPropertyChanged(nameof(ShowManualDrugFields));
+			}
+		}
+	}
+
+	public string NewItemFormulation
+	{
+		get => _newItemFormulation;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_newItemFormulation, value))
+			{
+				_newItemFormulation = value ?? string.Empty;
+				OnPropertyChanged(nameof(NewItemFormulation));
+			}
+		}
+	}
+
+	public string NewItemHsn
+	{
+		get => _newItemHsn;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_newItemHsn, value))
+			{
+				_newItemHsn = value ?? string.Empty;
+				OnPropertyChanged(nameof(NewItemHsn));
+			}
+		}
+	}
+
+	/// <summary>Drug Bank pack / packaging description (e.g. "100ml Bottle", "10 Tablets / Strip").</summary>
+	public string NewItemPackLabel
+	{
+		get => _newItemPackLabel;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_newItemPackLabel, value))
+			{
+				_newItemPackLabel = value ?? string.Empty;
+				OnPropertyChanged(nameof(NewItemPackLabel));
+			}
+		}
+	}
+
+	public string FocusRequest
+	{
+		get => _focusRequest;
+		private set
+		{
+			_focusRequest = value;
+			OnPropertyChanged(nameof(FocusRequest));
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public string NewItemBatch
@@ -772,13 +915,15 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand AddLineCommand => addLineCommand ?? (addLineCommand = new RelayCommand(AddLine));
 
+	public IRelayCommand OpenMedicineSuggestionsCommand => openMedicineSuggestionsCommand ?? (openMedicineSuggestionsCommand = new RelayCommand(OpenMedicineSuggestions));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand CancelAddItemCommand => cancelAddItemCommand ?? (cancelAddItemCommand = new RelayCommand(CancelAddItem));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IRelayCommand ConfirmAddItemCommand => confirmAddItemCommand ?? (confirmAddItemCommand = new RelayCommand(ConfirmAddItem));
+	public IAsyncRelayCommand ConfirmAddItemCommand => confirmAddItemCommand ?? (confirmAddItemCommand = new AsyncRelayCommand(ConfirmAddItemAsync));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -935,6 +1080,36 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	{
 		NewItemError = string.Empty;
 		IsAddItemOpen = true;
+		RequestFocus("NewItemMedicine");
+	}
+
+	private void OpenMedicineSuggestions()
+	{
+		if (MedicinePickerItems.Count > 0)
+		{
+			IsMedicineDropDownOpen = true;
+		}
+		else if (!string.IsNullOrWhiteSpace(MedicineSearchText) && MedicineSearchText.Trim().Length >= 2)
+		{
+			_ = SearchMedicinesAsync(MedicineSearchText);
+		}
+	}
+
+	public void SelectMedicineSuggestion(PurchaseMedicinePickerItem? item)
+	{
+		if (item == null)
+		{
+			return;
+		}
+
+		if (!EqualityComparer<PurchaseMedicinePickerItem>.Default.Equals(_selectedMedicineItem, item))
+		{
+			SelectedMedicineItem = item;
+			return;
+		}
+
+		// Same item clicked again — still close the popup and advance focus to Batch.
+		ApplyMedicineSelection(item);
 	}
 
 	private void CancelAddItem()
@@ -943,37 +1118,55 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		ClearNewItem();
 	}
 
-	private void ConfirmAddItem()
+	private async Task ConfirmAddItemAsync()
 	{
 		NewItemError = string.Empty;
-		if (NewItemDrug == null)
+		Drug? drug;
+		try
 		{
-			NewItemError = "Medicine is required. To add a medicine that is not listed, use the search box above.";
+			drug = await EnsureDrugForNewItemAsync();
+		}
+		catch (Exception ex)
+		{
+			NewItemError = ex.Message;
 			return;
 		}
+
+		if (drug == null)
+		{
+			NewItemError = "Search and select a medicine from the Drug Bank catalogue, or choose + Add Manually.";
+			RequestFocus("NewItemMedicine");
+			return;
+		}
+
 		if (string.IsNullOrWhiteSpace(NewItemBatch))
 		{
 			NewItemError = "Batch no. is required";
+			RequestFocus("NewItemBatch");
 			return;
 		}
 		if (!AddStockViewModel.TryParseExpiry(NewItemExpiry, out var lastDay))
 		{
 			NewItemError = "Expiry (month/year) is required, for example 08/2027";
+			RequestFocus("NewItemExpiry");
 			return;
 		}
 		if (lastDay < DateOnly.FromDateTime(DateTime.Today))
 		{
 			NewItemError = "This date has expired; expired stock cannot be purchased";
+			RequestFocus("NewItemExpiry");
 			return;
 		}
 		if (!TryDecimal(NewItemQuantity, out var result) || result <= 0m)
 		{
 			NewItemError = "Quantity must be more than 0";
+			RequestFocus("NewItemQuantity");
 			return;
 		}
 		if (!TryDecimal(NewItemMrp, out var result2) || result2 < 0m || !TryDecimal(NewItemRate, out var result3) || result3 < 0m)
 		{
 			NewItemError = "MRP and Rate are required numbers";
+			RequestFocus("NewItemMrp");
 			return;
 		}
 		decimal num = OptionalDecimal(NewItemFree);
@@ -981,10 +1174,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		if (num < 0m || num2 < 0m || num2 > 100m)
 		{
 			NewItemError = "Free quantity and GST % must be valid numbers";
+			RequestFocus("NewItemGst");
 			return;
 		}
-		PurchaseLineDraft line = new PurchaseLineDraft(NewItemDrug)
+
+		PurchaseLineDraft line = new PurchaseLineDraft(drug)
 		{
+			MedicineName = string.IsNullOrWhiteSpace(drug.Name) ? MedicineSearchText.Trim() : drug.Name.Trim(),
 			BatchNo = NewItemBatch.Trim(),
 			Expiry = lastDay.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
 			Quantity = result,
@@ -996,7 +1192,411 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		};
 		AddDraftLine(line);
 		ClearNewItem();
-		IsAddItemOpen = false;
+		IsAddItemOpen = true;
+		StatusMessage = $"{line.MedicineName} added to the purchase bill. Enter the next medicine.";
+		RequestFocus("NewItemMedicine");
+	}
+
+	private void ApplyMedicineSelection(PurchaseMedicinePickerItem item)
+	{
+		ShowManualDrugFields = item.IsAddManually;
+		IsMedicineDropDownOpen = false;
+		_suppressMedicineSearchSync = true;
+		try
+		{
+			MedicineSearchText = item.IsAddManually ? item.SearchText : item.DisplayTitle;
+		}
+		finally
+		{
+			_suppressMedicineSearchSync = false;
+		}
+
+		NewItemDrug = item.Drug;
+		ApplyImmediateDefaults(item);
+
+		if (item.IsAddManually)
+		{
+			RequestFocus("NewItemFormulation");
+			return;
+		}
+
+		_ = EnrichDefaultsFromMasterAsync(item);
+		RequestFocus("NewItemBatch");
+	}
+
+	private void ApplyImmediateDefaults(PurchaseMedicinePickerItem item)
+	{
+		if (item.SuggestedGst is > 0m)
+		{
+			NewItemGst = FormatAmount(item.SuggestedGst.Value);
+		}
+		else if (item.Drug?.GstRate is > 0m)
+		{
+			NewItemGst = FormatAmount(item.Drug.GstRate.Value);
+		}
+
+		if (!string.IsNullOrWhiteSpace(item.SuggestedHsn))
+		{
+			NewItemHsn = item.SuggestedHsn!;
+		}
+		else if (!string.IsNullOrWhiteSpace(item.Drug?.HsnCode))
+		{
+			NewItemHsn = item.Drug!.HsnCode!;
+		}
+
+		if (!string.IsNullOrWhiteSpace(item.DosageForm))
+		{
+			NewItemFormulation = item.DosageForm!;
+		}
+		else if (!string.IsNullOrWhiteSpace(item.Drug?.DosageForm))
+		{
+			NewItemFormulation = item.Drug!.DosageForm!;
+		}
+		else if (!string.IsNullOrWhiteSpace(item.Composition) && item.IsAddManually)
+		{
+			NewItemFormulation = item.Composition!;
+		}
+
+		decimal? mrp = item.SuggestedMrp is > 0m
+			? item.SuggestedMrp
+			: (item.Drug?.Mrp is > 0m ? item.Drug.Mrp : null);
+		if (mrp is > 0m)
+		{
+			NewItemMrp = FormatAmount(mrp.Value);
+		}
+
+		if (!string.IsNullOrWhiteSpace(item.PackSizeLabel))
+		{
+			NewItemPackLabel = item.PackSizeLabel!;
+		}
+		else if (!string.IsNullOrWhiteSpace(item.Drug?.Unit))
+		{
+			NewItemPackLabel = item.Drug!.Unit!;
+		}
+
+		if (item.SuggestedPurchaseRate is > 0m)
+		{
+			NewItemRate = FormatAmount(item.SuggestedPurchaseRate.Value);
+		}
+
+		// Default packs received to 1 so the operator only overtypes the count.
+		if (string.IsNullOrWhiteSpace(NewItemQuantity) && !item.IsAddManually)
+		{
+			NewItemQuantity = "1";
+		}
+	}
+
+	private async Task EnrichDefaultsFromMasterAsync(PurchaseMedicinePickerItem item)
+	{
+		_defaultsEnrichCts?.Cancel();
+		CancellationTokenSource cts = new CancellationTokenSource();
+		_defaultsEnrichCts = cts;
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			AddStockService addStock = scope.ServiceProvider.GetRequiredService<AddStockService>();
+			Guid? drugId = item.Drug?.Id;
+			Guid? catalogId = item.CatalogMedicineId ?? item.Drug?.CatalogMedicineId;
+
+			var catalogDefaults = await addStock.SuggestCatalogDefaultsAsync(drugId, catalogId, cts.Token);
+			if (cts.IsCancellationRequested)
+			{
+				return;
+			}
+
+			if (string.IsNullOrWhiteSpace(NewItemPackLabel) && !string.IsNullOrWhiteSpace(catalogDefaults.PackSizeLabel))
+			{
+				NewItemPackLabel = catalogDefaults.PackSizeLabel!;
+			}
+			if (string.IsNullOrWhiteSpace(NewItemFormulation) && !string.IsNullOrWhiteSpace(catalogDefaults.DosageForm))
+			{
+				NewItemFormulation = catalogDefaults.DosageForm!;
+			}
+			if (string.IsNullOrWhiteSpace(NewItemGst) && catalogDefaults.GstRate is > 0m)
+			{
+				NewItemGst = FormatAmount(catalogDefaults.GstRate.Value);
+			}
+			if (string.IsNullOrWhiteSpace(NewItemHsn) && !string.IsNullOrWhiteSpace(catalogDefaults.HsnCode))
+			{
+				NewItemHsn = catalogDefaults.HsnCode!;
+			}
+
+			decimal? suggestedMrp = await addStock.SuggestMrpAsync(drugId, catalogId, cts.Token);
+			if (cts.IsCancellationRequested)
+			{
+				return;
+			}
+
+			if (suggestedMrp is > 0m)
+			{
+				NewItemMrp = FormatAmount(suggestedMrp.Value);
+			}
+			else if (string.IsNullOrWhiteSpace(NewItemMrp) && catalogDefaults.ReferencePrice is > 0m)
+			{
+				NewItemMrp = FormatAmount(catalogDefaults.ReferencePrice.Value);
+			}
+
+			decimal? suggestedRate = await addStock.SuggestPurchaseRateAsync(drugId, catalogId, cts.Token);
+			if (cts.IsCancellationRequested)
+			{
+				return;
+			}
+
+			if (suggestedRate is > 0m && string.IsNullOrWhiteSpace(NewItemRate))
+			{
+				NewItemRate = FormatAmount(suggestedRate.Value);
+			}
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch
+		{
+			// Keep immediate picker defaults if enrichment fails (offline / missing catalog row).
+		}
+	}
+
+	private static string FormatAmount(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+	private async Task SearchMedicinesAsync(string query)
+	{
+		_medicineSearchCts?.Cancel();
+		CancellationTokenSource cts = new CancellationTokenSource();
+		_medicineSearchCts = cts;
+		string term = query.Trim();
+		if (term.Length < 2)
+		{
+			MedicinePickerItems.Clear();
+			IsMedicineDropDownOpen = false;
+			return;
+		}
+
+		try
+		{
+			await Task.Delay(180, cts.Token);
+		}
+		catch (OperationCanceledException)
+		{
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
+
+			List<PurchaseMedicinePickerItem> results = new List<PurchaseMedicinePickerItem>();
+			foreach (Drug drug in Drugs.Where(d =>
+				         d.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+				         || (d.BrandName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+				         || (d.GenericName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))
+			         .Take(12))
+			{
+				results.Add(PurchaseMedicinePickerItem.FromLocalDrug(drug));
+			}
+
+			MedicineSearchResults catalogResults = await catalog.SearchAsync(term, cts.Token);
+			HashSet<Guid> localCatalogIds = results
+				.Where(r => r.CatalogMedicineId.HasValue)
+				.Select(r => r.CatalogMedicineId!.Value)
+				.ToHashSet();
+
+			foreach (MedicineSearchResult row in catalogResults.InStock.Concat(catalogResults.FromCatalog).Take(25))
+			{
+				if (localCatalogIds.Contains(row.CatalogMedicineId))
+				{
+					continue;
+				}
+
+				if (results.Any(r => r.Drug != null && row.DrugId.HasValue && r.Drug.Id == row.DrugId.Value))
+				{
+					continue;
+				}
+
+				if (row.DrugId is Guid linkedId)
+				{
+					Drug? linked = Drugs.FirstOrDefault(d => d.Id == linkedId)
+						?? await context.Drugs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == linkedId, cts.Token);
+					if (linked != null)
+					{
+						results.Add(PurchaseMedicinePickerItem.FromLocalDrug(linked));
+						continue;
+					}
+				}
+
+				decimal? gstHint = await context.Drugs.AsNoTracking()
+					.Where(d => d.CatalogMedicineId == row.CatalogMedicineId && d.GstRate != null)
+					.Select(d => d.GstRate)
+					.FirstOrDefaultAsync(cts.Token);
+				string? hsnHint = await context.Drugs.AsNoTracking()
+					.Where(d => d.CatalogMedicineId == row.CatalogMedicineId && d.HsnCode != null && d.HsnCode != "")
+					.Select(d => d.HsnCode)
+					.FirstOrDefaultAsync(cts.Token);
+				results.Add(PurchaseMedicinePickerItem.FromCatalogue(row, gstHint, hsnHint));
+			}
+
+			results.Insert(0, PurchaseMedicinePickerItem.AddManually(term));
+
+			if (cts.IsCancellationRequested)
+			{
+				return;
+			}
+
+			MedicinePickerItems.Clear();
+			foreach (PurchaseMedicinePickerItem item in results.Take(30))
+			{
+				MedicinePickerItems.Add(item);
+			}
+			IsMedicineDropDownOpen = MedicinePickerItems.Count > 0;
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception ex)
+		{
+			NewItemError = ex.Message;
+		}
+	}
+
+	private async Task<Drug?> EnsureDrugForNewItemAsync()
+	{
+		if (NewItemDrug != null)
+		{
+			return NewItemDrug;
+		}
+
+		PurchaseMedicinePickerItem? selected = SelectedMedicineItem;
+		if (selected == null)
+		{
+			return null;
+		}
+
+		if (currentSession.User == null)
+		{
+			throw new UnauthorizedAccessException("Sign in before adding medicines.");
+		}
+
+		using IServiceScope scope = scopeFactory.CreateScope();
+		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+
+		if (selected.IsCatalogue && selected.CatalogMedicineId is Guid catalogId)
+		{
+			Drug? existing = await context.Drugs.FirstOrDefaultAsync(d => d.CatalogMedicineId == catalogId && d.IsActive);
+			if (existing != null)
+			{
+				if (Drugs.All(d => d.Id != existing.Id))
+				{
+					Drugs.Add(existing);
+				}
+				NewItemDrug = existing;
+				return existing;
+			}
+
+			CatalogMedicine catalog = await context.CatalogMedicines.AsNoTracking()
+				.FirstAsync(m => m.Id == catalogId);
+			decimal gst = OptionalDecimal(NewItemGst);
+			if (gst < 0m || gst > 100m)
+			{
+				gst = selected.SuggestedGst ?? 12m;
+			}
+
+			Drug created = new Drug
+			{
+				Name = catalog.Name.Trim(),
+				BrandName = catalog.BrandName,
+				GenericName = catalog.GenericName ?? catalog.CompositionKey,
+				Strength = catalog.Strength,
+				DosageForm = string.IsNullOrWhiteSpace(NewItemFormulation) ? catalog.DosageForm : NewItemFormulation.Trim(),
+				HsnCode = string.IsNullOrWhiteSpace(NewItemHsn) ? selected.SuggestedHsn : NewItemHsn.Trim(),
+				GstRate = gst,
+				Mrp = catalog.ReferencePrice,
+				SalePrice = catalog.ReferencePrice,
+				CatalogMedicineId = catalog.Id,
+				IsActive = true
+			};
+			context.Drugs.Add(created);
+			context.AuditLogs.Add(new AuditLog
+			{
+				UserId = currentSession.User.Id,
+				Action = "DrugCreatedFromPurchase",
+				EntityName = "Drug",
+				EntityId = created.Id,
+				Details = created.Name + " from Drug Bank catalogue"
+			});
+			await context.SaveChangesAsync();
+			Drugs.Add(created);
+			NewItemDrug = created;
+			return created;
+		}
+
+		if (selected.IsAddManually)
+		{
+			string name = string.IsNullOrWhiteSpace(MedicineSearchText) ? selected.SearchText : MedicineSearchText.Trim();
+			if (string.IsNullOrWhiteSpace(name))
+			{
+				throw new InvalidOperationException("Enter the new medicine name.");
+			}
+			if (string.IsNullOrWhiteSpace(NewItemFormulation))
+			{
+				throw new InvalidOperationException("Formulation / form is required for a new medicine (e.g. Tab, Syr, Inj).");
+			}
+			if (!TryDecimal(NewItemGst, out var gst) || gst < 0m || gst > 100m)
+			{
+				throw new InvalidOperationException("Enter a valid GST % for the new medicine.");
+			}
+
+			Drug? byName = await context.Drugs.FirstOrDefaultAsync(d => d.IsActive && d.Name.ToLower() == name.ToLower());
+			if (byName != null)
+			{
+				if (Drugs.All(d => d.Id != byName.Id))
+				{
+					Drugs.Add(byName);
+				}
+				NewItemDrug = byName;
+				return byName;
+			}
+
+			Drug manual = new Drug
+			{
+				Name = name,
+				DosageForm = NewItemFormulation.Trim(),
+				HsnCode = string.IsNullOrWhiteSpace(NewItemHsn) ? null : NewItemHsn.Trim(),
+				GstRate = gst,
+				IsActive = true
+			};
+			context.Drugs.Add(manual);
+			context.AuditLogs.Add(new AuditLog
+			{
+				UserId = currentSession.User.Id,
+				Action = "DrugCreatedManuallyFromPurchase",
+				EntityName = "Drug",
+				EntityId = manual.Id,
+				Details = manual.Name + "; form " + manual.DosageForm
+			});
+			await context.SaveChangesAsync();
+			Drugs.Add(manual);
+			NewItemDrug = manual;
+			return manual;
+		}
+
+		return null;
+	}
+
+	private void RequestFocus(string target)
+	{
+		FocusRequest = string.Empty;
+		FocusRequest = target;
+	}
+
+	/// <summary>F4 — focus medicine search in the Add Item panel (opens panel if needed).</summary>
+	public void RequestFocusMedicineSearch()
+	{
+		if (!IsAddItemOpen)
+		{
+			IsAddItemOpen = true;
+		}
+		RequestFocus("NewItemMedicine");
 	}
 
 	private void DeleteLine(PurchaseLineDraft? line)
@@ -1026,6 +1626,19 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private void ClearNewItem()
 	{
+		_suppressMedicineSearchSync = true;
+		try
+		{
+			SelectedMedicineItem = null;
+			MedicineSearchText = string.Empty;
+		}
+		finally
+		{
+			_suppressMedicineSearchSync = false;
+		}
+		MedicinePickerItems.Clear();
+		IsMedicineDropDownOpen = false;
+		ShowManualDrugFields = false;
 		NewItemDrug = null;
 		NewItemBatch = string.Empty;
 		NewItemExpiry = string.Empty;
@@ -1035,7 +1648,11 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		NewItemRate = string.Empty;
 		NewItemGst = string.Empty;
 		NewItemRack = string.Empty;
+		NewItemFormulation = string.Empty;
+		NewItemHsn = string.Empty;
+		NewItemPackLabel = string.Empty;
 		NewItemError = string.Empty;
+		_defaultsEnrichCts?.Cancel();
 	}
 
 	private void NotifyTotals()

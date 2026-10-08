@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.IO;
-using System.Media;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -49,6 +48,10 @@ public partial class MainWindow : Window
 
 	private RetailBillingViewModel? _attachedRetailPage;
 
+	private PurchasePageViewModel? _attachedPurchasePage;
+
+	private WholesaleBillingPageViewModel? _attachedWholesalePage;
+
 	public MainWindow(MainWindowViewModel viewModel, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogueService catalogueService)
 	{
 		_viewModel = viewModel;
@@ -69,7 +72,9 @@ public partial class MainWindow : Window
 		_barcodeListener.BarcodeScanned += OnBarcodeScanned;
 		PreviewKeyDown += (object _, KeyEventArgs e) =>
 		{
-			if (e.Key == Key.B && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+			// Ctrl+Shift+K is handled globally in App (admin key generator).
+			ModifierKeys mods = Keyboard.Modifiers;
+			if (e.Key == Key.B && (mods & ModifierKeys.Control) == ModifierKeys.Control && (mods & ModifierKeys.Shift) != ModifierKeys.Shift)
 			{
 				OpenBarcodeSimulator();
 				e.Handled = true;
@@ -138,7 +143,7 @@ public partial class MainWindow : Window
 		_ = 1;
 		try
 		{
-			SystemSounds.Beep.Play();
+			SoundHelper.PlayTick();
 			CatalogueBarcodeMatch catalogueBarcodeMatch = await _catalogueService.FindByBarcodeAsync(barcode);
 			if ((object)catalogueBarcodeMatch != null)
 			{
@@ -228,6 +233,8 @@ public partial class MainWindow : Window
 		if (e.PropertyName == "CurrentPage")
 		{
 			AttachRetailPage(_viewModel.CurrentPage);
+			AttachPurchasePage(_viewModel.CurrentPage);
+			AttachWholesalePage(_viewModel.CurrentPage);
 		}
 		else if (e.PropertyName == "IsBusy" && _viewModel.IsBusy)
 		{
@@ -249,6 +256,81 @@ public partial class MainWindow : Window
 		{
 			_attachedRetailPage.PropertyChanged += OnRetailPagePropertyChanged;
 			FocusRetailControl("PatientNameBox");
+		}
+	}
+
+	private void AttachPurchasePage(object? page)
+	{
+		if (_attachedPurchasePage != null)
+		{
+			_attachedPurchasePage.PropertyChanged -= OnPurchasePagePropertyChanged;
+		}
+		_attachedPurchasePage = page as PurchasePageViewModel;
+		if (_attachedPurchasePage != null)
+		{
+			_attachedPurchasePage.PropertyChanged += OnPurchasePagePropertyChanged;
+		}
+	}
+
+	private void AttachWholesalePage(object? page)
+	{
+		if (_attachedWholesalePage != null)
+		{
+			_attachedWholesalePage.PropertyChanged -= OnWholesalePagePropertyChanged;
+		}
+		_attachedWholesalePage = page as WholesaleBillingPageViewModel;
+		if (_attachedWholesalePage != null)
+		{
+			_attachedWholesalePage.PropertyChanged += OnWholesalePagePropertyChanged;
+			FocusRetailControl("WholesaleRetailerSearchBox");
+		}
+	}
+
+	private void OnWholesalePagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName != "FocusRequest" || sender is not WholesaleBillingPageViewModel wholesale)
+		{
+			return;
+		}
+
+		string? controlName = wholesale.FocusRequest switch
+		{
+			"CustomerSearch" => "WholesaleRetailerSearchBox",
+			"MedicineSearch" => "WholesaleMedicineSearchBox",
+			"Payment" => "WholesalePaymentMethodBox",
+			_ => null
+		};
+		if (controlName != null)
+		{
+			FocusRetailControl(controlName);
+		}
+	}
+
+	private void OnPurchasePagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName != "FocusRequest" || sender is not PurchasePageViewModel purchase)
+		{
+			return;
+		}
+
+		string? controlName = purchase.FocusRequest switch
+		{
+			"NewItemMedicine" => "PurchaseMedicineSearchBox",
+			"NewItemFormulation" => "PurchaseNewItemFormulation",
+			"NewItemHsn" => "PurchaseNewItemHsn",
+			"NewItemBatch" => "PurchaseNewItemBatch",
+			"NewItemExpiry" => "PurchaseNewItemExpiry",
+			"NewItemQuantity" => "PurchaseNewItemQuantity",
+			"NewItemFree" => "PurchaseNewItemFree",
+			"NewItemMrp" => "PurchaseNewItemMrp",
+			"NewItemRate" => "PurchaseNewItemRate",
+			"NewItemGst" => "PurchaseNewItemGst",
+			"NewItemRack" => "PurchaseNewItemRack",
+			_ => null
+		};
+		if (controlName != null)
+		{
+			FocusRetailControl(controlName);
 		}
 	}
 
@@ -281,9 +363,19 @@ public partial class MainWindow : Window
 		{
 			FrameworkElement? frameworkElement = FindVisualChildByName(this, name);
 			frameworkElement?.Focus();
+			Keyboard.Focus(frameworkElement);
 			if (frameworkElement is TextBox textBox)
 			{
 				textBox.SelectAll();
+			}
+			else if (frameworkElement is ComboBox { IsEditable: true } combo)
+			{
+				combo.Focus();
+				if (combo.Template?.FindName("PART_EditableTextBox", combo) is TextBox editable)
+				{
+					editable.Focus();
+					editable.SelectAll();
+				}
 			}
 		}));
 	}
@@ -548,6 +640,143 @@ public partial class MainWindow : Window
 			{
 				await purchasePageViewModel.ImportDocumentFromPathAsync(array[0]);
 			}
+		}
+	}
+
+	private void PurchaseMedicineSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+	{
+		if (_viewModel.CurrentPage is not PurchasePageViewModel purchase)
+		{
+			return;
+		}
+
+		if (e.Key == Key.Escape)
+		{
+			purchase.IsMedicineDropDownOpen = false;
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key == Key.Down)
+		{
+			purchase.OpenMedicineSuggestionsCommand.Execute(null);
+			if (FindVisualChildByName(this, "PurchaseMedicineSuggestionList") is ListBox list && list.Items.Count > 0)
+			{
+				list.Focus();
+				list.SelectedIndex = Math.Max(0, list.SelectedIndex);
+				if (list.SelectedItem != null)
+				{
+					list.ScrollIntoView(list.SelectedItem);
+				}
+			}
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key == Key.Up && purchase.IsMedicineDropDownOpen)
+		{
+			if (FindVisualChildByName(this, "PurchaseMedicineSuggestionList") is ListBox upList && upList.Items.Count > 0)
+			{
+				upList.Focus();
+				upList.SelectedIndex = upList.SelectedIndex <= 0 ? 0 : upList.SelectedIndex - 1;
+				if (upList.SelectedItem != null)
+				{
+					upList.ScrollIntoView(upList.SelectedItem);
+				}
+			}
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key == Key.Enter)
+		{
+			if (purchase.IsMedicineDropDownOpen && purchase.MedicinePickerItems.Count > 0)
+			{
+				PurchaseMedicinePickerItem? pick = purchase.SelectedMedicineItem ?? purchase.MedicinePickerItems[0];
+				purchase.SelectMedicineSuggestion(pick);
+				e.Handled = true;
+			}
+		}
+	}
+
+	private void PurchaseMedicineSuggestionList_PreviewKeyDown(object sender, KeyEventArgs e)
+	{
+		if (_viewModel.CurrentPage is not PurchasePageViewModel purchase || sender is not ListBox list)
+		{
+			return;
+		}
+
+		if (e.Key == Key.Escape)
+		{
+			purchase.IsMedicineDropDownOpen = false;
+			FocusRetailControl("PurchaseMedicineSearchBox");
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key == Key.Enter && list.SelectedItem is PurchaseMedicinePickerItem item)
+		{
+			purchase.SelectMedicineSuggestion(item);
+			e.Handled = true;
+		}
+	}
+
+	private void WholesaleRetailerSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.Key != Key.Enter && e.Key != Key.Return)
+		{
+			return;
+		}
+
+		if (sender is ComboBox { IsDropDownOpen: true })
+		{
+			return;
+		}
+
+		e.Handled = true;
+		FocusRetailControl("WholesaleMedicineSearchBox");
+	}
+
+	private void WholesaleMedicineSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+	{
+		if (_viewModel.CurrentPage is not WholesaleBillingPageViewModel wholesale)
+		{
+			return;
+		}
+
+		if (e.Key == Key.Escape)
+		{
+			wholesale.IsMedicineDropDownOpen = false;
+			e.Handled = true;
+			return;
+		}
+
+		if ((e.Key == Key.Enter || e.Key == Key.Return) && sender is ComboBox combo)
+		{
+			if (combo.IsDropDownOpen)
+			{
+				return;
+			}
+
+			if (wholesale.SelectedMedicineItem != null && wholesale.AddLineCommand.CanExecute(null))
+			{
+				_ = wholesale.AddLineCommand.ExecuteAsync(null);
+				e.Handled = true;
+			}
+		}
+	}
+
+	private void PurchaseMedicineSuggestionList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+	{
+		if (_viewModel.CurrentPage is not PurchasePageViewModel purchase)
+		{
+			return;
+		}
+
+		if (sender is ListBox list && list.SelectedItem is PurchaseMedicinePickerItem item)
+		{
+			purchase.SelectMedicineSuggestion(item);
+			e.Handled = true;
 		}
 	}
 }

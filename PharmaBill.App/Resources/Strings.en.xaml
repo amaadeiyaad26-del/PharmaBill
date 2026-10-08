@@ -1,8 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <system:String x:Key="PharmacyBilling" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns:system="clr-namespace:System;assembly=System.Private.CoreLib">Pharmacy billing and inventory</system:String>
-  <String x:Key="NavBilling" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Billing</String>
-  <String x:Key="NavWholesaleSales" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Wholesale sales</String>
+  <String x:Key="NavBilling" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Retail Billing</String>
+  <String x:Key="NavRetailBilling" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Retail Billing</String>
+  <String x:Key="NavWholesaleSales" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Wholesale Invoice (B2B)</String>
+  <String x:Key="NavWholesaleInvoice" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Wholesale Invoice (B2B)</String>
   <String x:Key="NavStock" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Stock</String>
   <String x:Key="NavPurchases" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Purchases</String>
   <String x:Key="NavCustomers" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Customers</String>

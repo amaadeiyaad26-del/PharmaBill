@@ -122,7 +122,8 @@ public partial class FirstRunWizardViewModel : ObservableObject
         var value = NewLicenceType.Trim();
         if (value.Length == 0)
         {
-            throw new InvalidOperationException("Enter a licence type before adding it.");
+            ErrorMessage = "Enter a licence type before adding it.";
+            return;
         }
 
         if (!LicenceTypeOptions.Contains(value, StringComparer.OrdinalIgnoreCase))
@@ -132,6 +133,7 @@ public partial class FirstRunWizardViewModel : ObservableObject
 
         WholesaleLicenceType = value;
         NewLicenceType = string.Empty;
+        ErrorMessage = string.Empty;
     }
 
     [RelayCommand]
@@ -140,10 +142,12 @@ public partial class FirstRunWizardViewModel : ObservableObject
         var type = WholesaleLicenceType;
         if (string.IsNullOrWhiteSpace(type))
         {
-            throw new InvalidOperationException("Select an editable wholesale licence type first.");
+            ErrorMessage = "Select a wholesale licence type first, or use the Retail Form 20 / 21 buttons.";
+            return;
         }
 
         Licences.Add(new LicenceDraftViewModel { LicenceType = type });
+        ErrorMessage = string.Empty;
     }
 
     [RelayCommand]

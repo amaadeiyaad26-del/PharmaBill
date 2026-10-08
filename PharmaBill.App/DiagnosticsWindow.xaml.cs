@@ -30,4 +30,13 @@ public partial class DiagnosticsWindow : Window
 		cloudKeysWindow.Owner = this;
 		cloudKeysWindow.ShowDialog();
 	}
+
+	private void OpenKeyGenerator_Click(object sender, RoutedEventArgs e)
+	{
+		DeveloperKeyGeneratorWindow window = new DeveloperKeyGeneratorWindow
+		{
+			Owner = this
+		};
+		window.ShowDialog();
+	}
 }

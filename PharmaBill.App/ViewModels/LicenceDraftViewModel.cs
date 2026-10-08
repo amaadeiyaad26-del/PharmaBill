@@ -123,11 +123,7 @@ public class LicenceDraftViewModel : ObservableObject
 		{
 			throw new InvalidOperationException("Enter the licence number.");
 		}
-		if (!IssueDate.HasValue || !ExpiryDate.HasValue)
-		{
-			throw new InvalidOperationException("Enter both the licence issue date and expiry date.");
-		}
-		if (IssueDate.Value.Date > DateTime.Today)
+		if (IssueDate.HasValue && IssueDate.Value.Date > DateTime.Today)
 		{
 			throw new InvalidOperationException("The licence issue date cannot be in the future.");
 		}
@@ -135,13 +131,13 @@ public class LicenceDraftViewModel : ObservableObject
 		{
 			throw new InvalidOperationException("The licence expiry date cannot be earlier than its issue date.");
 		}
-		string documentPath = CopyDocument(DocumentPath);
+		string? documentPath = CopyDocument(DocumentPath);
 		return new LicenceRecord
 		{
 			LicenceType = LicenceType.Trim(),
 			LicenceNumber = LicenceNumber.Trim(),
-			IssuedOn = (IssueDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(IssueDate.Value)) : ((DateOnly?)null)),
-			ExpiresOn = (ExpiryDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(ExpiryDate.Value)) : ((DateOnly?)null)),
+			IssuedOn = IssueDate.HasValue ? DateOnly.FromDateTime(IssueDate.Value) : null,
+			ExpiresOn = ExpiryDate.HasValue ? DateOnly.FromDateTime(ExpiryDate.Value) : null,
 			DocumentPath = documentPath
 		};
 	}

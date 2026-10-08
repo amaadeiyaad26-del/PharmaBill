@@ -61,6 +61,8 @@ public sealed class PharmacySetupService(IUnitOfWork unitOfWork, ProtectedAccess
 				Action = "FirstRunSetupCompleted",
 				EntityName = "PharmacyProfile",
 				EntityId = profile.Id,
+				// Branch may not exist yet during first-run setup; leave null.
+				BranchId = null,
 				Details = $"Business mode: {profile.BusinessMode}"
 			});
 			await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -110,6 +112,7 @@ public sealed class PharmacySetupService(IUnitOfWork unitOfWork, ProtectedAccess
 			Action = "PharmacyProfileReconfigured",
 			EntityName = "PharmacyProfile",
 			EntityId = existing.Id,
+			BranchId = null,
 			Details = $"Business mode: {existing.BusinessMode}; admin: {owner.UserName}"
 		});
 		AppUser result;

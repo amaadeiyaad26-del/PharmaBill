@@ -46,17 +46,41 @@ public sealed class ZeroConfigSyncCoordinator
 
 	public async Task InitializeAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		if (OperatingSystem.IsWindows())
-		{
-			WindowsFirewallPortOpener.Result result = WindowsFirewallPortOpener.EnsureAllowRule();
-			WindowsFirewallPortOpener.LogResult(_logger, result);
-		}
+		// Start the LAN listener first so Sync Station is available quickly.
 		if (_localSync.Status.State == LocalSyncState.Stopped)
 		{
-			await _localSync.StartAsync(5055, cancellationToken);
+			await _localSync.StartAsync(5055, cancellationToken).ConfigureAwait(false);
 		}
 		ApplyTransportForStatus(_localSync.Status);
-		await MaybeRunCloudFallbackAsync(triggeredByBillSave: false, cancellationToken);
+
+		// Firewall + cloud/folder fallback are deferred so they never stall app startup.
+		_ = Task.Run(() =>
+		{
+			try
+			{
+				if (OperatingSystem.IsWindows())
+				{
+					WindowsFirewallPortOpener.Result result = WindowsFirewallPortOpener.EnsureAllowRule();
+					WindowsFirewallPortOpener.LogResult(_logger, result);
+				}
+			}
+			catch (Exception exception)
+			{
+				_logger.LogDebug(exception, "Deferred firewall rule check skipped.");
+			}
+		}, CancellationToken.None);
+
+		_ = Task.Run(async () =>
+		{
+			try
+			{
+				await MaybeRunCloudFallbackAsync(triggeredByBillSave: false, CancellationToken.None).ConfigureAwait(false);
+			}
+			catch (Exception exception)
+			{
+				_logger.LogDebug(exception, "Deferred cloud/folder fallback skipped.");
+			}
+		}, CancellationToken.None);
 	}
 
 	public async Task OnBillOrLedgerSavedAsync(CancellationToken cancellationToken = default(CancellationToken))

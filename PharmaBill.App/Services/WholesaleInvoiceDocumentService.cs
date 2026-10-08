@@ -23,6 +23,13 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		WholesaleInvoice invoice = (await context.WholesaleInvoices.AsNoTracking().SingleOrDefaultAsync((WholesaleInvoice item) => item.Id == invoiceId, cancellationToken)) ?? throw new InvalidOperationException("Wholesale invoice was not found.");
 		PharmacyProfile profile = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
+		Branch? branch = invoice.BranchId.HasValue
+			? await context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == invoice.BranchId.Value, cancellationToken)
+			: await context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.IsActive, cancellationToken);
+		List<LicenceRecord> sellerLicences = await context.LicenceRecords.AsNoTracking()
+			.OrderBy(item => item.LicenceType)
+			.ThenBy(item => item.LicenceNumber)
+			.ToListAsync(cancellationToken);
 		Customer customer = await context.Customers.AsNoTracking().SingleAsync((Customer item) => item.Id == invoice.CustomerId, cancellationToken);
 		List<CustomerLicence> licences = await (from item in context.CustomerLicences.AsNoTracking()
 			where item.CustomerId == customer.Id
@@ -35,46 +42,73 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 			select new
 			{
 				drug.Name, drug.HsnCode, line.Quantity, line.FreeQuantity, line.UnitPrice, line.TaxRate, line.TaxableAmount, line.CgstAmount, line.SgstAmount, line.IgstAmount,
-				line.LineTotal, batch.BatchNo, batch.ExpiryDate
+				line.LineTotal, batch.BatchNo, batch.ExpiryDate, batch.Mrp
 			}).ToListAsync(cancellationToken);
+
+		string sellerDl = string.Join("; ", sellerLicences.Select(item => $"{item.LicenceType} {item.LicenceNumber}".Trim()).Where(s => !string.IsNullOrWhiteSpace(s)));
+		if (string.IsNullOrWhiteSpace(sellerDl) && !string.IsNullOrWhiteSpace(branch?.DrugLicenseNo))
+		{
+			sellerDl = branch.DrugLicenseNo.Trim();
+		}
+
+		string sellerGstin = !string.IsNullOrWhiteSpace(branch?.Gstin) ? branch.Gstin.Trim() : (profile.Gstin ?? "Not provided");
+		string buyerDl = licences.Count == 0
+			? "Not recorded"
+			: string.Join("; ", licences.Select(item => $"{item.LicenceType} {item.LicenceNumber} (expires {item.ExpiresOn?.ToString("dd-MMM-yyyy") ?? "not recorded"})"));
+
+		var hsnGroups = lines
+			.GroupBy(item => string.IsNullOrWhiteSpace(item.HsnCode) ? "—" : item.HsnCode!)
+			.Select(g => new
+			{
+				Hsn = g.Key,
+				Taxable = g.Sum(x => x.TaxableAmount),
+				Cgst = g.Sum(x => x.CgstAmount),
+				Sgst = g.Sum(x => x.SgstAmount),
+				Igst = g.Sum(x => x.IgstAmount),
+				Rate = g.Select(x => x.TaxRate).FirstOrDefault()
+			})
+			.OrderBy(g => g.Hsn)
+			.ToList();
+
 		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "wholesale-documents");
 		Directory.CreateDirectory(text);
-		string value = (deliveryChallan ? "delivery-challan" : "tax-invoice");
+		string value = deliveryChallan ? "delivery-challan" : "tax-invoice";
 		string text2 = Path.Combine(text, $"{invoice.Id:N}-{value}.pdf");
-		Document.Create((IDocumentContainer container) =>
+		Document.Create(container =>
 		{
-			container.Page((PageDescriptor page) =>
+			container.Page(page =>
 			{
 				page.Size(PageSizes.A4);
 				page.Margin(28f);
-				page.DefaultTextStyle((TextStyle style) => style.FontFamily(PdfFonts.Family).FontSize(9f));
+				page.DefaultTextStyle(style => style.FontFamily(PdfFonts.Family).FontSize(9f));
 				PdfBrandWatermark.Apply(page);
-				page.Header().Column((ColumnDescriptor column) =>
+				page.Header().Column(column =>
 				{
-					column.Item().Text(profile.Name).FontSize(18f)
-						.Bold();
+					column.Item().Text(profile.Name).FontSize(18f).Bold();
 					if (!string.IsNullOrWhiteSpace(profile.Address))
 					{
 						column.Item().Text(profile.Address);
 					}
-					column.Item().Text(deliveryChallan ? "DELIVERY CHALLAN" : "TAX INVOICE").FontSize(15f)
-						.Bold()
-						.AlignCenter();
+					column.Item().Text("Seller GSTIN: " + sellerGstin);
+					column.Item().Text("Seller DL No: " + (string.IsNullOrWhiteSpace(sellerDl) ? "Not recorded" : sellerDl));
+					column.Item().Text(deliveryChallan ? "DELIVERY CHALLAN" : "TAX INVOICE (B2B)").FontSize(15f).Bold().AlignCenter();
 				});
-				page.Content().Column((ColumnDescriptor column) =>
+				page.Content().Column(column =>
 				{
 					column.Spacing(8f);
-					column.Item().Row((RowDescriptor row) =>
+					column.Item().Row(row =>
 					{
-						row.RelativeItem().Column((ColumnDescriptor details) =>
+						row.RelativeItem().Column(details =>
 						{
 							details.Item().Text("Invoice no: " + invoice.InvoiceNo).Bold();
 							details.Item().Text($"Date: {invoice.InvoiceAtUtc.ToLocalTime():dd-MMM-yyyy}");
 							details.Item().Text("Buyer: " + customer.Name).Bold();
 							details.Item().Text(customer.Address ?? string.Empty);
-							details.Item().Text("GSTIN: " + (customer.Gstin ?? "Not provided"));
+							details.Item().Text("Buyer GSTIN: " + (customer.Gstin ?? "Not provided / unregistered"));
+							details.Item().Text("Buyer DL No: " + buyerDl);
+							details.Item().Text("Buyer phone: " + (customer.Phone ?? "—"));
 						});
-						row.RelativeItem().Column((ColumnDescriptor details) =>
+						row.RelativeItem().Column(details =>
 						{
 							details.Item().Text("Buyer state: " + (customer.State ?? "Not recorded"));
 							details.Item().Text("Transport: " + (invoice.TransportDetails ?? "—"));
@@ -83,51 +117,87 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 							details.Item().Text("IRN: " + (invoice.Irn ?? "Not configured"));
 						});
 					});
-					column.Item().Text("Buyer drug licences: " + string.Join("; ", licences.Select((CustomerLicence item) => $"{item.LicenceType} {item.LicenceNumber} (expires {item.ExpiresOn?.ToString("dd-MMM-yyyy") ?? "not recorded"})")));
-					column.Item().Table((TableDescriptor table) =>
+					column.Item().Table(table =>
 					{
-						table.ColumnsDefinition((TableColumnsDefinitionDescriptor columns) =>
+						table.ColumnsDefinition(columns =>
 						{
-							columns.RelativeColumn(4f);
+							columns.RelativeColumn(3.6f);
+							columns.RelativeColumn(1.1f);
+							columns.RelativeColumn(1.1f);
+							columns.RelativeColumn(1.1f);
 							columns.RelativeColumn(1.1f);
 							columns.RelativeColumn(1.2f);
-							columns.RelativeColumn(1.2f);
-							columns.RelativeColumn(1.4f);
-							columns.RelativeColumn(1.4f);
+							columns.RelativeColumn(1.3f);
 						});
-						table.Header((TableCellDescriptor header) =>
+						table.Header(header =>
 						{
-							((IContainer)header.Cell()).Element((Func<IContainer, IContainer>)HeaderCell, "HeaderCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 115).Text("Medicine / HSN");
-							((IContainer)header.Cell()).Element((Func<IContainer, IContainer>)HeaderCell, "HeaderCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 116).Text("Batch");
-							((IContainer)header.Cell()).Element((Func<IContainer, IContainer>)HeaderCell, "HeaderCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 117).Text("Expiry");
-							((IContainer)header.Cell()).Element((Func<IContainer, IContainer>)HeaderCell, "HeaderCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 118).AlignRight().Text("Qty + free");
-							((IContainer)header.Cell()).Element((Func<IContainer, IContainer>)HeaderCell, "HeaderCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 119).AlignRight().Text("Rate");
-							((IContainer)header.Cell()).Element((Func<IContainer, IContainer>)HeaderCell, "HeaderCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 120).AlignRight().Text("Amount");
+							header.Cell().Element(HeaderCell).Text("Medicine / HSN");
+							header.Cell().Element(HeaderCell).Text("Batch");
+							header.Cell().Element(HeaderCell).Text("Expiry");
+							header.Cell().Element(HeaderCell).AlignRight().Text("Qty + free");
+							header.Cell().Element(HeaderCell).AlignRight().Text("MRP");
+							header.Cell().Element(HeaderCell).AlignRight().Text("Rate/PTR");
+							header.Cell().Element(HeaderCell).AlignRight().Text("Amount");
 						});
 						foreach (var item in lines)
 						{
-							((IContainer)table.Cell()).Element((Func<IContainer, IContainer>)BodyCell, "BodyCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 124).Text(item.Name + " / " + (item.HsnCode ?? "—"));
-							((IContainer)table.Cell()).Element((Func<IContainer, IContainer>)BodyCell, "BodyCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 125).Text(item.BatchNo);
-							((IContainer)table.Cell()).Element((Func<IContainer, IContainer>)BodyCell, "BodyCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 126).Text(item.ExpiryDate?.ToString("MM/yyyy") ?? "—");
-							((IContainer)table.Cell()).Element((Func<IContainer, IContainer>)BodyCell, "BodyCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 127).AlignRight().Text($"{item.Quantity:0.##} + {item.FreeQuantity:0.##}");
-							((IContainer)table.Cell()).Element((Func<IContainer, IContainer>)BodyCell, "BodyCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 128).AlignRight().Text(MoneyFormat.Rupees(item.UnitPrice) ?? "");
-							((IContainer)table.Cell()).Element((Func<IContainer, IContainer>)BodyCell, "BodyCell", "ExportAsync", "C:\\Users\\newth\\PharmaBill\\PharmaBill.App\\Services\\WholesaleInvoiceDocumentService.cs", 129).AlignRight().Text(MoneyFormat.Rupees(item.LineTotal) ?? "");
+							table.Cell().Element(BodyCell).Text(item.Name + " / " + (item.HsnCode ?? "—"));
+							table.Cell().Element(BodyCell).Text(item.BatchNo);
+							table.Cell().Element(BodyCell).Text(item.ExpiryDate?.ToString("MM/yyyy") ?? "—");
+							table.Cell().Element(BodyCell).AlignRight().Text($"{item.Quantity:0.##} + {item.FreeQuantity:0.##}");
+							table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(item.Mrp.GetValueOrDefault()) ?? "—");
+							table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(item.UnitPrice) ?? "");
+							table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(item.LineTotal) ?? "");
 						}
 					});
+
+					if (!deliveryChallan && hsnGroups.Count > 0)
+					{
+						column.Item().Text("HSN-wise tax breakdown").SemiBold();
+						column.Item().Table(table =>
+						{
+							table.ColumnsDefinition(columns =>
+							{
+								columns.RelativeColumn(1.4f);
+								columns.RelativeColumn(1.2f);
+								columns.RelativeColumn(1.6f);
+								columns.RelativeColumn(1.4f);
+								columns.RelativeColumn(1.4f);
+								columns.RelativeColumn(1.4f);
+							});
+							table.Header(header =>
+							{
+								header.Cell().Element(HeaderCell).Text("HSN");
+								header.Cell().Element(HeaderCell).AlignRight().Text("GST %");
+								header.Cell().Element(HeaderCell).AlignRight().Text("Taxable");
+								header.Cell().Element(HeaderCell).AlignRight().Text("CGST");
+								header.Cell().Element(HeaderCell).AlignRight().Text("SGST");
+								header.Cell().Element(HeaderCell).AlignRight().Text("IGST");
+							});
+							foreach (var group in hsnGroups)
+							{
+								table.Cell().Element(BodyCell).Text(group.Hsn);
+								table.Cell().Element(BodyCell).AlignRight().Text($"{group.Rate:0.##}%");
+								table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(group.Taxable) ?? "");
+								table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(group.Cgst) ?? "");
+								table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(group.Sgst) ?? "");
+								table.Cell().Element(BodyCell).AlignRight().Text(MoneyFormat.Rupees(group.Igst) ?? "");
+							}
+						});
+					}
+
 					column.Item().AlignRight().Text("Taxable: " + MoneyFormat.Rupees(invoice.Subtotal));
 					column.Item().AlignRight().Text($"CGST: {MoneyFormat.Rupees(invoice.CgstAmount)}    SGST: {MoneyFormat.Rupees(invoice.SgstAmount)}    IGST: {MoneyFormat.Rupees(invoice.IgstAmount)}");
 					column.Item().AlignRight().Text("Round-off: " + MoneyFormat.Rupees(invoice.RoundOff));
-					column.Item().AlignRight().Text("Grand total: " + MoneyFormat.Rupees(invoice.TotalAmount))
-						.FontSize(13f)
-						.Bold();
+					column.Item().AlignRight().Text("Grand total: " + MoneyFormat.Rupees(invoice.TotalAmount)).FontSize(13f).Bold();
 					column.Item().Text("Amount in words: " + IndianNumberWords.Convert(invoice.TotalAmount)).Bold();
 					if (!deliveryChallan)
 					{
 						column.Item().Text($"Bank: {profile.BankName ?? "Not configured"}; account: {profile.BankAccountName ?? "Not configured"}; IFSC: {profile.BankIfsc ?? "Not configured"}");
-						column.Item().Text("Terms: As per the seller's recorded terms of sale.");
+						column.Item().Text("Terms: As per the seller's recorded terms of sale. This is a B2B tax invoice — not a patient cash memo.");
 					}
 				});
-				page.Footer().Row((RowDescriptor row) =>
+				page.Footer().Row(row =>
 				{
 					row.RelativeItem().Text("Competent person: " + (profile.CompetentPersonName ?? "Not recorded"));
 					row.RelativeItem().AlignRight().Text("Authorised signatory ____________________");
@@ -139,12 +209,11 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 
 	private static IContainer HeaderCell(IContainer container)
 	{
-		return container.Background(Colors.Grey.Lighten2).Padding(4f).BorderBottom(1f)
-			.BorderColor(Colors.Grey.Medium);
+		return container.DefaultTextStyle(style => style.SemiBold()).PaddingVertical(3f).BorderBottom(1f).BorderColor(Colors.Grey.Medium);
 	}
 
 	private static IContainer BodyCell(IContainer container)
 	{
-		return container.BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(4f);
+		return container.PaddingVertical(2f);
 	}
 }
