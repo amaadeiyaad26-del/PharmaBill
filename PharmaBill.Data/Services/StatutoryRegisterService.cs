@@ -94,7 +94,11 @@ public sealed class StatutoryRegisterService(IServiceScopeFactory scopeFactory)
 			Prescription prescription;
 			Drug drug;
 			Batch batch;
-			for (; enumerator.MoveNext(); balance = num, documentNo = obj?.InvoiceNo ?? ExtractDocumentNumber(entry.Notes), results.Add(new StatutoryRegisterRow(entry.Id, entry.EntryAtUtc, entry.RegisterType, documentNo, patient?.Name ?? customer?.Name ?? supplier?.Name ?? entry.PatientName ?? string.Empty, patient?.Address ?? customer?.Address ?? supplier?.Address ?? string.Empty, patient?.Phone ?? customer?.Phone ?? supplier?.Phone ?? string.Empty, buyerLicenceNo, prescription?.PrescriberName ?? entry.PrescriberName ?? string.Empty, prescription?.PrescriberRegistrationNumber ?? entry.PrescriberRegistrationNumber ?? string.Empty, drug?.Name ?? string.Empty, batch?.BatchNo ?? entry.BatchNo ?? string.Empty, entry.Quantity.GetValueOrDefault(), balance, entry.Notes ?? string.Empty)))
+			for (; enumerator.MoveNext(); balance = num, documentNo = obj?.InvoiceNo ?? ExtractDocumentNumber(entry.Notes), results.Add(new StatutoryRegisterRow(entry.Id, entry.EntryAtUtc, entry.RegisterType, documentNo, patient?.Name ?? customer?.Name ?? supplier?.Name ?? entry.PatientName ?? string.Empty, patient?.Address ?? customer?.Address ?? supplier?.Address ?? string.Empty, patient?.Phone ?? customer?.Phone ?? supplier?.Phone ?? string.Empty, buyerLicenceNo, prescription?.PrescriberName ?? entry.PrescriberName ?? string.Empty, prescription?.PrescriberRegistrationNumber ?? entry.PrescriberRegistrationNumber ?? string.Empty, drug?.Name ?? string.Empty, batch?.BatchNo ?? entry.BatchNo ?? string.Empty, entry.Quantity.GetValueOrDefault(), balance, entry.Notes ?? string.Empty)
+			{
+				Composition = drug?.GenericName ?? string.Empty,
+				ExpiryLabel = batch?.ExpiryDate is DateOnly expiryDate ? $"{expiryDate.Month:00}/{expiryDate.Year}" : string.Empty
+			}))
 			{
 				entry = enumerator.Current;
 				obj = (entry.SaleId.HasValue ? saleIdMap.GetValueOrDefault(entry.SaleId.Value) : null);

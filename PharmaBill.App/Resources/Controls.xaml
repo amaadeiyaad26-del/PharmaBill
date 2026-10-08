@@ -251,6 +251,45 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <Style x:Key="FrostedMintPillButton" TargetType="{x:Type Button}">
+    <Setter Property="Foreground" Value="#0D4A2B" />
+    <Setter Property="Background" Value="#DDEEE2" />
+    <Setter Property="BorderBrush" Value="#A3C9AE" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="MinWidth" Value="72" />
+    <Setter Property="Padding" Value="14,8" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="border" CornerRadius="10" SnapsToDevicePixels="True" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+            <Border.Effect>
+              <DropShadowEffect Color="#0D4A2B" Opacity="0.08" BlurRadius="8" ShadowDepth="1" Direction="270" />
+            </Border.Effect>
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.FontSize="{TemplateBinding FontSize}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="border" Property="Background" Value="#D1E8D7" />
+              <Setter TargetName="border" Property="BorderBrush" Value="#82B591" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="border" Property="Background" Value="#C4DFCB" />
+              <Setter TargetName="border" Property="BorderBrush" Value="#6B9E7B" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="border" Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
   <Style x:Key="PrimaryButton" TargetType="{x:Type Button}">
     <Setter Property="Foreground" Value="#FFFFFFFF" />
     <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
