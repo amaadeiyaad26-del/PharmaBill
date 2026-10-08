@@ -13,7 +13,7 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, CatalogSearchService catalogSearchService, StorageLocationService storageLocations, BranchService branchService, string? prescriptionStorageDirectory = null)
+public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, CatalogSearchService catalogSearchService, StorageLocationService storageLocations, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard, string? prescriptionStorageDirectory = null)
 {
 	private sealed record PreparedSaleLine(RetailSaleLineInput Input, Drug Drug, Batch Batch, string? Schedule, bool RequiresPrescription, bool IsHabitForming, string? RegisterType, InclusiveTaxLine Tax);
 
@@ -387,6 +387,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				});
 				await unitOfWork.SaveChangesAsync(cancellationToken);
 				await transaction.CommitAsync(cancellationToken);
+				if (!licenseRuntimeGuard.OnTransactionCommitted())
+				{
+					throw new InvalidOperationException("System clock manipulation detected. Please set your system time correctly to resume.");
+				}
 				shouldKeepAttachment = attachmentPath != null;
 				result = new RetailSaleResult(sale, subtotal, taxAmount, discountAmount, totalAmount, paidAmount, changeDue, invoiceNo);
 			}

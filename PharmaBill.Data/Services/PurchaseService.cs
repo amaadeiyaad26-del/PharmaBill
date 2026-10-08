@@ -11,7 +11,7 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService entitlementService, StorageLocationService storageLocations, BranchService branchService)
+public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService entitlementService, StorageLocationService storageLocations, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard)
 {
 	private sealed record ValidatedLine(PurchaseLineInput Input, decimal BaseAmount, decimal TaxAmount, decimal LineTotal);
 
@@ -205,6 +205,10 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 			if (ownedTransaction != null)
 			{
 				await ownedTransaction.CommitAsync(cancellationToken);
+			}
+			if (!licenseRuntimeGuard.OnTransactionCommitted())
+			{
+				throw new InvalidOperationException("System clock manipulation detected. Please set your system time correctly to resume.");
 			}
 			result = invoice;
 		}

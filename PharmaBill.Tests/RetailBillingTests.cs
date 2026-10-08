@@ -442,6 +442,7 @@ public sealed class RetailBillingTests
             database.CreateCatalogSearch(),
             database.CreateStorageLocations(),
             database.CreateBranchService(unitOfWork),
+            new NullLicenseRuntimeGuard(),
             prescriptionStorageDirectory);
         return (service, drug, batch);
     }

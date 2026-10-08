@@ -12,7 +12,7 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, BranchService branchService)
+public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard)
 {
 	private sealed record PreparedLine(WholesaleInvoiceLineInput Input, Drug Drug, Batch Batch, string? Schedule, decimal TaxableAmount, decimal TaxAmount, decimal CgstAmount, decimal SgstAmount, decimal IgstAmount);
 
@@ -151,7 +151,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
 			Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
-			string seriesPrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
+			string seriesPrefix = await branchService.ResolveWholesaleInvoiceSeriesPrefixAsync(cancellationToken);
 			string text2 = await numberSeriesService.AllocateAsync(seriesPrefix, invoiceDate, cancellationToken);
 			WholesaleInvoice invoice = new WholesaleInvoice
 			{
@@ -295,6 +295,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			});
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
+			if (!licenseRuntimeGuard.OnTransactionCommitted())
+			{
+				throw new InvalidOperationException("System clock manipulation detected. Please set your system time correctly to resume.");
+			}
 			result = new WholesaleInvoiceResult(invoice, cgstTotal, sgstTotal, igstTotal, roundOff, outstandingAfter, hasOverdue);
 		}
 		return result;

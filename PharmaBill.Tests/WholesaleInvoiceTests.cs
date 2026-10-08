@@ -363,7 +363,8 @@ public sealed class WholesaleInvoiceTests
             unitOfWork,
             new NumberSeriesService(unitOfWork),
             new AllowedEntitlement(),
-            database.CreateBranchService(unitOfWork));
+            database.CreateBranchService(unitOfWork),
+            new NullLicenseRuntimeGuard());
     }
 
     private static async Task<Scenario> CreateScenarioAsync(

@@ -43,7 +43,7 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
     public PurchaseService CreatePurchaseService(IEntitlementService entitlements, IUnitOfWork? unitOfWork = null)
     {
         var uow = unitOfWork ?? CreateUnitOfWork();
-        return new PurchaseService(uow, entitlements, CreateStorageLocations(), CreateBranchService(uow));
+        return new PurchaseService(uow, entitlements, CreateStorageLocations(), CreateBranchService(uow), new NullLicenseRuntimeGuard());
     }
 
     public DbInitializer CreateDbInitializer() =>

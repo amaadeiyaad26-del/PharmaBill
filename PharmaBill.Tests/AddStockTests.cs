@@ -22,7 +22,7 @@ public sealed class AddStockTests
     {
         var uow = new UnitOfWork(database.Context);
         var ent = new Entitlements(readOnly);
-        return new AddStockService(uow, database.CreatePurchaseService(ent, uow), ent);
+        return new AddStockService(uow, database.CreatePurchaseService(ent, uow), ent, new NullLicenseRuntimeGuard());
     }
 
     private static AddStockInput Input(Guid supplierId, string schedule = "H", string invoice = "INV-1", string batch = "B1", decimal qty = 10m) =>

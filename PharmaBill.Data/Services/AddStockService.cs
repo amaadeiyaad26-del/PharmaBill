@@ -11,7 +11,7 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purchaseService, IEntitlementService entitlementService)
+public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purchaseService, IEntitlementService entitlementService, ILicenseRuntimeGuard licenseRuntimeGuard)
 {
 	public static readonly IReadOnlyList<string> Schedules = new _003C_003Ez__ReadOnlyArray<string>(new string[6] { "OTC", "G", "H", "H1", "X", "NDPS" });
 
@@ -115,6 +115,95 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 		return ((mrp.GetValueOrDefault() > 0m) & mrp.HasValue) ? num : ((decimal?)null);
 	}
 
+	/// <summary>
+	/// Suggests last purchase / PTR rate for a drug (purchase line, then batch purchase price / PTR).
+	/// </summary>
+	public async Task<decimal?> SuggestPurchaseRateAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		PharmaBillDbContext context = unitOfWork.Context;
+		Guid? resolvedDrugId = drugId ?? (await FindDrugIdAsync(catalogMedicineId, cancellationToken));
+		if (!resolvedDrugId.HasValue)
+		{
+			return null;
+		}
+
+		decimal? fromPurchase = await (from item in context.PurchaseItems.AsNoTracking()
+			where item.DrugId == resolvedDrugId && !item.IsDeleted && (item.UnitPrice > 0m || (item.Ptr != null && item.Ptr > 0m))
+			orderby item.CreatedAtUtc descending
+			select (decimal?)(item.UnitPrice > 0m ? item.UnitPrice : item.Ptr!.Value)).FirstOrDefaultAsync(cancellationToken);
+		if (fromPurchase is > 0m)
+		{
+			return fromPurchase;
+		}
+
+		decimal? fromBatch = await (from batch in context.Batches.AsNoTracking()
+			where batch.DrugId == resolvedDrugId && !batch.IsDeleted
+			orderby batch.CreatedAtUtc descending
+			select (decimal?)(batch.PurchasePrice > 0m
+				? batch.PurchasePrice
+				: (batch.Ptr != null && batch.Ptr > 0m ? batch.Ptr.Value : 0m))).FirstOrDefaultAsync(cancellationToken);
+		return fromBatch is > 0m ? fromBatch : null;
+	}
+
+	/// <summary>
+	/// Returns Drug Bank pack size label / dosage form for auto-fill on purchase entry.
+	/// </summary>
+	public async Task<(string? PackSizeLabel, string? DosageForm, decimal? ReferencePrice, decimal? GstRate, string? HsnCode)> SuggestCatalogDefaultsAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		PharmaBillDbContext context = unitOfWork.Context;
+		Guid? resolvedCatalogId = catalogMedicineId;
+		if (!resolvedCatalogId.HasValue && drugId.HasValue)
+		{
+			resolvedCatalogId = await context.Drugs.AsNoTracking()
+				.Where(d => d.Id == drugId)
+				.Select(d => d.CatalogMedicineId)
+				.FirstOrDefaultAsync(cancellationToken);
+		}
+
+		string? pack = null;
+		string? form = null;
+		decimal? refPrice = null;
+		if (resolvedCatalogId.HasValue)
+		{
+			var catalog = await context.CatalogMedicines.AsNoTracking()
+				.Where(c => c.Id == resolvedCatalogId)
+				.Select(c => new { c.PackSizeLabel, c.DosageForm, c.ReferencePrice })
+				.FirstOrDefaultAsync(cancellationToken);
+			if (catalog != null)
+			{
+				pack = string.IsNullOrWhiteSpace(catalog.PackSizeLabel) ? null : catalog.PackSizeLabel.Trim();
+				form = string.IsNullOrWhiteSpace(catalog.DosageForm) ? null : catalog.DosageForm.Trim();
+				refPrice = catalog.ReferencePrice is > 0m ? catalog.ReferencePrice : null;
+			}
+		}
+
+		decimal? gst = null;
+		string? hsn = null;
+		Guid? resolvedDrugId = drugId ?? (await FindDrugIdAsync(resolvedCatalogId, cancellationToken));
+		if (resolvedDrugId.HasValue)
+		{
+			var drug = await context.Drugs.AsNoTracking()
+				.Where(d => d.Id == resolvedDrugId)
+				.Select(d => new { d.GstRate, d.HsnCode, d.DosageForm, d.Unit })
+				.FirstOrDefaultAsync(cancellationToken);
+			if (drug != null)
+			{
+				gst = drug.GstRate is > 0m ? drug.GstRate : null;
+				hsn = string.IsNullOrWhiteSpace(drug.HsnCode) ? null : drug.HsnCode;
+				if (string.IsNullOrWhiteSpace(form) && !string.IsNullOrWhiteSpace(drug.DosageForm))
+				{
+					form = drug.DosageForm.Trim();
+				}
+				if (string.IsNullOrWhiteSpace(pack) && !string.IsNullOrWhiteSpace(drug.Unit))
+				{
+					pack = drug.Unit.Trim();
+				}
+			}
+		}
+
+		return (pack, form, refPrice, gst, hsn);
+	}
+
 	public async Task<bool> BatchExistsAsync(Guid? drugId, Guid? catalogMedicineId, Guid supplierId, string batchNo, DateOnly expiryDate, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		Guid? guid = drugId ?? (await FindDrugIdAsync(catalogMedicineId, cancellationToken));
@@ -205,6 +294,10 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 			decimal num2 = Round(num * input.GstRate / 100m);
 			await purchaseService.SavePurchaseAsync(new SavePurchaseInput(input.SupplierId, input.SupplierInvoiceNo, input.InvoiceDate, num, 0m, num2, num + num2, new _003C_003Ez__ReadOnlySingleElementList<PurchaseLineInput>(new PurchaseLineInput(drug.Id, batchNo, input.ExpiryDate, input.Quantity, input.FreeQuantity, input.Mrp, input.PurchaseRate, input.GstRate, 0m, num, input.Rack))), actingUserId, role, cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
+			if (!licenseRuntimeGuard.OnTransactionCommitted())
+			{
+				throw new InvalidOperationException("System clock manipulation detected. Please set your system time correctly to resume.");
+			}
 			Batch batch = await context.Batches.AsNoTracking().FirstAsync((Batch item) => item.DrugId == drug.Id && item.SupplierId == input.SupplierId && item.BatchNo == batchNo && item.ExpiryDate == input.ExpiryDate, cancellationToken);
 			decimal valueOrDefault = (await (from movement in context.StockMovements.AsNoTracking()
 				where movement.DrugId == drug.Id

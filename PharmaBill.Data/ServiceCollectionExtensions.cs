@@ -20,8 +20,8 @@ public static class ServiceCollectionExtensions
 	public static IServiceCollection AddPharmaBillData(this IServiceCollection services)
 	{
 		Batteries_V2.Init();
-		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill");
-		Directory.CreateDirectory(text);
+		AppDataPaths.EnsureCreatedAndMigrateLegacyLayout();
+		string text = AppDataPaths.RootDirectory;
 		Guid value = LoadOrCreateDeviceId(Path.Combine(text, "device.id"));
 		DatabaseStorageOptions databaseStorageOptions = new DatabaseStorageOptions(text);
 		DatabaseEncryptionKeyProvider databaseEncryptionKeyProvider = new DatabaseEncryptionKeyProvider(databaseStorageOptions.KeyPath);
@@ -48,6 +48,7 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<DbInitializer>();
 		services.AddSingleton<ProtectedAccessStateStore>();
 		services.AddSingleton<ISubscriptionProvider, StubSubscriptionProvider>();
+		services.AddSingleton<ILicenseRuntimeGuard, NullLicenseRuntimeGuard>();
 		services.AddScoped<AccessService>();
 		services.AddScoped((Func<IServiceProvider, IEntitlementService>)((IServiceProvider provider) => provider.GetRequiredService<AccessService>()));
 		services.AddScoped<AuthorizationService>();
