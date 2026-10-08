@@ -8,6 +8,8 @@ public interface IFilePickerService
 
 	string? PickPurchaseDocument();
 
+	IReadOnlyList<string> PickInvoiceDocuments();
+
 	string? PickPurchaseSpreadsheet();
 
 	string? PickCustomerExcel();

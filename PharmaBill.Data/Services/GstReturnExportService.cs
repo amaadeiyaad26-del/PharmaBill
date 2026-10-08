@@ -382,7 +382,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 	private async Task<(decimal Taxable, decimal Cgst, decimal Sgst, decimal Igst)> LoadPurchaseTaxBreakupAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
 	{
 		List<PurchaseInvoice> invoices = await (from invoice in context.PurchaseInvoices.AsNoTracking()
-			where invoice.Status == "Posted" && invoice.InvoiceDate >= @from && invoice.InvoiceDate <= to
+			where (invoice.Status == PurchaseInvoice.PostedStatus || invoice.Status == PurchaseInvoice.CommittedStatus) && invoice.InvoiceDate >= @from && invoice.InvoiceDate <= to
 			select invoice).ToListAsync(cancellationToken);
 		Guid[] invoiceIds = invoices.Select((PurchaseInvoice invoice) => invoice.Id).ToArray();
 		List<PurchaseItem> items = await (from purchaseItem in context.PurchaseItems.AsNoTracking()

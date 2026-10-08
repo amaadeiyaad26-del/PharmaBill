@@ -1,0 +1,79 @@
+<Window x:Class="PharmaBill.App.QuickAddMedicineWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/Assets/Icons/app.ico"
+        Title="Add Medicine"
+        Width="680"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource ContentBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+  <StackPanel Margin="24">
+    <TextBlock Text="Add new medicine" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBlock Text="Saved to the medicine master and search index so Purchases, billing, and Stock can find it immediately."
+               TextWrapping="Wrap"
+               Foreground="{DynamicResource SecondaryTextBrush}"
+               Margin="0,0,0,16" />
+
+    <TextBlock Text="Brand name / item name *" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <Grid Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBox x:Name="BrandBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" />
+      <Button x:Name="SearchOnlineButton" Grid.Column="1" Margin="8,0,0,0" MinWidth="190" MinHeight="36" Padding="12,8" Style="{StaticResource SecondaryButton}" Click="SearchOnline_Click" Content="🔍 Search Online / AI" ToolTip="Look up this brand with Gemini or OpenRouter when a key is saved, otherwise the public OpenFDA index." />
+    </Grid>
+
+    <TextBlock Text="Barcode / EAN / GTIN" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="BarcodeBox" Padding="10,8" Margin="0,0,0,12" BorderBrush="{DynamicResource FieldBorderBrush}" />
+
+    <TextBlock Text="Generic / salt composition" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="GenericBox" Padding="10,8" Margin="0,0,0,12" BorderBrush="{DynamicResource FieldBorderBrush}" />
+
+    <TextBlock Text="Manufacturer / company" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="ManufacturerBox" Padding="10,8" Margin="0,0,0,12" BorderBrush="{DynamicResource FieldBorderBrush}" />
+
+    <TextBlock Text="Packaging / unit type" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="PackBox" Padding="10,8" Margin="0,0,0,12" ToolTip="Strip of 10, Bottle, Box, Vial" BorderBrush="{DynamicResource FieldBorderBrush}" />
+
+    <Grid Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,8,0">
+        <TextBlock Text="HSN code" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="HsnBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1">
+        <TextBlock Text="GST %" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="GstBox" Padding="10,8" Text="12" BorderBrush="{DynamicResource FieldBorderBrush}" />
+      </StackPanel>
+    </Grid>
+
+    <Grid Margin="0,0,0,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,8,0">
+        <TextBlock Text="Default MRP" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="MrpBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" />
+      </StackPanel>
+      <StackPanel Grid.Column="1">
+        <TextBlock Text="Purchase rate" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="RateBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" />
+      </StackPanel>
+    </Grid>
+
+    <TextBlock x:Name="NoticeText" TextWrapping="Wrap" Margin="0,0,0,12" Foreground="#FFB54708" Visibility="Collapsed" />
+    <TextBlock x:Name="StatusText" TextWrapping="Wrap" MinHeight="20" Foreground="#FFB42318" Margin="0,0,0,12" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Cancel" IsCancel="True" MinWidth="100" Padding="14,8" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" />
+      <Button x:Name="SaveButton" Content="Save &amp; Add to Bill" IsDefault="True" MinWidth="160" Padding="14,8" Style="{StaticResource PrimaryButton}" Click="Save_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>

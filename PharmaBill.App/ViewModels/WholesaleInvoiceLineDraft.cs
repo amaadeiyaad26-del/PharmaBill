@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PharmaBill.App.ViewModels;
@@ -19,6 +22,37 @@ public class WholesaleInvoiceLineDraft : ObservableObject
 	private decimal _discountPercent;
 
 	private string _saleUnit = "Unit";
+
+	public ObservableCollection<WholesaleStockChoice> BatchOptions { get; } = new ObservableCollection<WholesaleStockChoice>();
+
+	public void SetBatchOptions(IEnumerable<WholesaleStockChoice> options)
+	{
+		Guid? selected = _stockChoice?.BatchId;
+		BatchOptions.Clear();
+		foreach (WholesaleStockChoice option in options.OrderBy(choice => choice.ExpiryDate ?? DateOnly.MaxValue).ThenBy(choice => choice.BatchNo, StringComparer.OrdinalIgnoreCase))
+		{
+			if (BatchOptions.All(choice => choice.BatchId != option.BatchId))
+			{
+				BatchOptions.Add(option);
+			}
+		}
+
+		if (_stockChoice != null && BatchOptions.All(choice => choice.BatchId != _stockChoice.BatchId))
+		{
+			BatchOptions.Insert(0, _stockChoice);
+		}
+		else if (selected.HasValue)
+		{
+			WholesaleStockChoice? same = BatchOptions.FirstOrDefault(choice => choice.BatchId == selected.Value);
+			if (same != null)
+			{
+				_stockChoice = same;
+			}
+		}
+
+		OnPropertyChanged(nameof(BatchOptions));
+		OnPropertyChanged(nameof(StockChoice));
+	}
 
 	public WholesaleStockChoice? StockChoice
 	{
@@ -141,7 +175,47 @@ public class WholesaleInvoiceLineDraft : ObservableObject
 		}
 	}
 
+	public event Action<WholesaleInvoiceLineDraft, decimal>? MrpCommitted;
+
 	public decimal Mrp => StockChoice?.Mrp ?? 0m;
+
+	public bool RequiresMrp => Mrp <= 0m;
+
+	public string MrpText
+	{
+		get => Mrp.ToString("0.00", CultureInfo.CurrentCulture);
+		set
+		{
+			if (StockChoice == null || !MrpAmount.TryParse(value, out decimal parsed) || parsed < 0m || parsed == Mrp)
+			{
+				return;
+			}
+
+			ApplySavedMrp(parsed);
+			MrpCommitted?.Invoke(this, parsed);
+		}
+	}
+
+	public void ApplySavedMrp(decimal mrp)
+	{
+		if (_stockChoice == null)
+		{
+			return;
+		}
+
+		_stockChoice = _stockChoice with { Mrp = mrp };
+		if (_unitPrice <= 0m)
+		{
+			_unitPrice = mrp;
+			OnPropertyChanged(nameof(UnitPrice));
+		}
+
+		OnPropertyChanged(nameof(StockChoice));
+		OnPropertyChanged(nameof(Mrp));
+		OnPropertyChanged(nameof(RequiresMrp));
+		OnPropertyChanged(nameof(MrpText));
+		RaiseComputed();
+	}
 
 	public string PackLabel => StockChoice?.PackLabel ?? "Unit";
 

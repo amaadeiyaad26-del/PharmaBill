@@ -25,7 +25,7 @@
   <SolidColorBrush x:Key="GridHeaderBrush" Color="#FFF1F5F9" />
   <SolidColorBrush x:Key="GridAlternateRowBrush" Color="#FFFAFAFA" />
   <SolidColorBrush x:Key="GridSelectionBrush" Color="#FFDBEAFE" />
-  <SolidColorBrush x:Key="SummaryBackgroundBrush" Color="#FF0F172A" />
+  <SolidColorBrush x:Key="SummaryBackgroundBrush" Color="#D9111827" />
   <SolidColorBrush x:Key="SummaryTextBrush" Color="#FFE2E8F0" />
   <SolidColorBrush x:Key="SummaryTotalBrush" Color="#FF34D399" />
   <SolidColorBrush x:Key="BadgeGreenBackgroundBrush" Color="#FFD1FAE5" />

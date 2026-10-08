@@ -51,6 +51,10 @@ public sealed class DbInitializer(
 		await EnsureUserManualEmailColumnsAsync(cancellationToken);
 		await EnsureStockMovementLocationColumnAsync(cancellationToken);
 		await EnsureBranchIdColumnsAsync(cancellationToken);
+		await EnsureCatalogMedicineIsCustomColumnAsync(cancellationToken);
+		await EnsurePurchaseAttachmentColumnsAsync(cancellationToken);
+		await EnsureDrugStockQuantityColumnAsync(cancellationToken);
+		await EnsureAuditComplianceColumnsAsync(cancellationToken);
 
 		// 4) SEED ONLY AFTER TABLES EXIST — skip cleanly when defaults already present.
 		try
@@ -192,6 +196,59 @@ public sealed class DbInitializer(
 			"IX_StockMovements_LocationId_BatchId",
 			"""CREATE INDEX IF NOT EXISTS "IX_StockMovements_LocationId_BatchId" ON "StockMovements" ("LocationId", "BatchId");""",
 			cancellationToken);
+	}
+
+	private async Task EnsureCatalogMedicineIsCustomColumnAsync(CancellationToken cancellationToken)
+	{
+		if (!await TableExistsAsync("CatalogMedicines", cancellationToken))
+		{
+			return;
+		}
+
+		HashSet<string> columns = await GetTableColumnsAsync("CatalogMedicines", cancellationToken);
+		if (columns.Contains("IsCustom"))
+		{
+			return;
+		}
+
+		await context.Database.ExecuteSqlRawAsync(
+			"""ALTER TABLE "CatalogMedicines" ADD COLUMN "IsCustom" INTEGER NOT NULL DEFAULT 0;""",
+			cancellationToken);
+	}
+
+	private async Task EnsureDrugStockQuantityColumnAsync(CancellationToken cancellationToken)
+	{
+		if (!await TableExistsAsync("Drugs", cancellationToken))
+		{
+			return;
+		}
+
+		HashSet<string> columns = await GetTableColumnsAsync("Drugs", cancellationToken);
+		if (columns.Contains("StockQuantity"))
+		{
+			return;
+		}
+
+		await context.Database.ExecuteSqlRawAsync(
+			"""ALTER TABLE "Drugs" ADD COLUMN "StockQuantity" decimal(18,2) NOT NULL DEFAULT 0;""",
+			cancellationToken);
+	}
+
+	private async Task EnsureAuditComplianceColumnsAsync(CancellationToken cancellationToken)
+	{
+		await TryAddNullableTextColumnAsync("AuditLogs", "EntityType", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("AuditLogs", "AuthorizedBy", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("AuditLogs", "Reason", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("AuditLogs", "OldSnapshotJson", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("AuditLogs", "NewSnapshotJson", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("AuditLogs", "RecordHash", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("AuditLogs", "Timestamp", indexName: null, cancellationToken);
+	}
+
+	private async Task EnsurePurchaseAttachmentColumnsAsync(CancellationToken cancellationToken)
+	{
+		await TryAddNullableTextColumnAsync("PurchaseInvoices", "AttachedInvoicePath", indexName: null, cancellationToken);
+		await TryAddNullableTextColumnAsync("PurchaseInvoices", "OriginalFileName", indexName: null, cancellationToken);
 	}
 
 	private async Task EnsureBranchIdColumnsAsync(CancellationToken cancellationToken)

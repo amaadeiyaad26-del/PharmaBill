@@ -18,7 +18,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class PrescriptionOcrService(PharmaBillDbContext context, HttpClient httpClient, GeminiApiKeyStore apiKeyStore, IOcrTextRecognizer? textRecognizer = null, ILogger<PrescriptionOcrService>? logger = null) : IPrescriptionOcrService
 {
-	public const string GeminiModel = "gemini-2.5-flash";
+	public const string GeminiModel = "gemini-3.8-flash";
 
 	private const int MaximumImageBytes = 15728640;
 
@@ -132,7 +132,7 @@ public sealed class PrescriptionOcrService(PharmaBillDbContext context, HttpClie
 				responseMimeType = "application/json"
 			}
 		};
-		using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
+		using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://generativelanguage.googleapis.com/v1beta/models/" + GeminiModel + ":generateContent")
 		{
 			Content = JsonContent.Create(inputValue)
 		};

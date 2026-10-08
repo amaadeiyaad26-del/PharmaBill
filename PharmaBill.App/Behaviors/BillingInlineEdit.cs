@@ -31,6 +31,12 @@ public static class BillingInlineEdit
 		typeof(BillingInlineEdit),
 		new PropertyMetadata(null, OnFocusQtyRequestChanged));
 
+	public static readonly DependencyProperty FocusTargetFieldProperty = DependencyProperty.RegisterAttached(
+		"FocusTargetField",
+		typeof(string),
+		typeof(BillingInlineEdit),
+		new PropertyMetadata("Qty"));
+
 	public static string GetField(DependencyObject element) => (string)element.GetValue(FieldProperty);
 
 	public static void SetField(DependencyObject element, string value) => element.SetValue(FieldProperty, value);
@@ -42,6 +48,10 @@ public static class BillingInlineEdit
 	public static string GetFocusQtyRequest(DependencyObject element) => (string)element.GetValue(FocusQtyRequestProperty);
 
 	public static void SetFocusQtyRequest(DependencyObject element, string value) => element.SetValue(FocusQtyRequestProperty, value);
+
+	public static string GetFocusTargetField(DependencyObject element) => (string)element.GetValue(FocusTargetFieldProperty);
+
+	public static void SetFocusTargetField(DependencyObject element, string value) => element.SetValue(FocusTargetFieldProperty, value);
 
 	private static void OnFieldChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
 	{
@@ -119,10 +129,20 @@ public static class BillingInlineEdit
 			return;
 		}
 
+		if (string.Equals(field, "Qty", StringComparison.OrdinalIgnoreCase))
+		{
+			string? searchFromQty = GetSearchElementName(grid);
+			if (!string.IsNullOrWhiteSpace(searchFromQty))
+			{
+				FocusAndSelect(FindNamedDescendant(Window.GetWindow(grid) ?? (DependencyObject)grid, searchFromQty));
+			}
+
+			return;
+		}
+
 		string? next = field switch
 		{
 			"Unit" => "Qty",
-			"Qty" => HasField(row, "Free") ? "Free" : "Rate",
 			"Free" => "Rate",
 			"Rate" => HasField(row, "Discount") ? "Discount" : null,
 			"Discount" => null,
@@ -154,25 +174,35 @@ public static class BillingInlineEdit
 			return;
 		}
 
-		grid.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+		string field = GetFocusTargetField(grid);
+		grid.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => FocusSelectedField(grid, string.IsNullOrWhiteSpace(field) ? "Qty" : field, 0));
+	}
+
+	private static void FocusSelectedField(DataGrid grid, string field, int attempt)
+	{
+		grid.UpdateLayout();
+		object? selected = grid.SelectedItem;
+		if (selected == null)
 		{
-			grid.UpdateLayout();
-			object? selected = grid.SelectedItem;
-			if (selected == null)
+			return;
+		}
+
+		grid.ScrollIntoView(selected);
+		grid.UpdateLayout();
+		if (grid.ItemContainerGenerator.ContainerFromItem(selected) is DataGridRow row)
+		{
+			FrameworkElement? qty = FindFieldInRow(row, field);
+			if (qty != null)
 			{
+				FocusAndSelect(qty);
 				return;
 			}
+		}
 
-			grid.ScrollIntoView(selected);
-			grid.UpdateLayout();
-			if (grid.ItemContainerGenerator.ContainerFromItem(selected) is not DataGridRow row)
-			{
-				return;
-			}
-
-			FrameworkElement? qty = FindFieldInRow(row, "Qty");
-			FocusAndSelect(qty);
-		});
+		if (attempt < 5)
+		{
+			grid.Dispatcher.BeginInvoke(DispatcherPriority.Input, () => FocusSelectedField(grid, field, attempt + 1));
+		}
 	}
 
 	private static bool HasField(DataGridRow row, string field) => FindFieldInRow(row, field) != null;

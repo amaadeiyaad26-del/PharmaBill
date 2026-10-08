@@ -94,6 +94,9 @@ public partial class App : Application
 				services.AddSingleton<IConfirmationService, ConfirmationService>();
 				services.AddSingleton<IPromptService, PromptService>();
 				services.AddSingleton<IAddStockDialogService, AddStockDialogService>();
+				services.AddSingleton<IQuickAddMedicineDialog, QuickAddMedicineDialog>();
+				services.AddSingleton<ISmartDrugLookupService, SmartDrugLookupService>();
+				services.AddSingleton<IScannerService, SerialScannerService>();
 				services.AddSingleton<IInvoiceDetailDialogService, InvoiceDetailDialogService>();
 				services.AddTransient<AddStockViewModel>();
 				services.AddSingleton<IFilePickerService, FilePickerService>();
@@ -149,14 +152,18 @@ public partial class App : Application
 				services.AddSingleton<RegistrationNotificationService>();
 				services.AddSingleton<AppVersionInfo>();
 				services.AddSingleton<SensitiveAccessService>();
+				services.AddSingleton<RecordComplianceGate>();
 				services.AddSingleton<TabularExportService>();
 				services.AddSingleton<DrugRecordsService>();
 				services.AddSingleton<StatutoryRegisterService>();
 				services.AddTransient<RecentBillsViewModel>();
 				services.AddTransient<RecentBillsWindow>();
+				services.AddTransient<PurchaseInvoiceHistoryViewModel>();
+				services.AddTransient<PurchaseInvoiceHistoryWindow>();
 				services.AddSingleton<MainWindowViewModel>();
 				services.AddSingleton<MainWindow>();
 				services.AddPharmaBillData();
+				services.AddSingleton<InvoiceDocumentExtractor>();
 				// Direct Win32 offline licence (replaces Microsoft Store StoreContext provider).
 				services.AddSingleton<LicenseService>();
 				services.AddSingleton<LicenceViewModel>();

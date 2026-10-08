@@ -96,7 +96,7 @@ public sealed class SensitiveAccessService(IServiceScopeFactory scopeFactory, Cu
 		return (Success: false, Admin: null);
 	}
 
-	private async Task<AppUser?> AuthenticateAdminAsync(string? username, string pin, CancellationToken cancellationToken)
+	public async Task<AppUser?> AuthenticateAdminAsync(string? username, string pin, CancellationToken cancellationToken = default)
 	{
 		if (string.IsNullOrWhiteSpace(pin))
 		{

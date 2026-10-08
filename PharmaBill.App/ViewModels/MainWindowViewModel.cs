@@ -1304,8 +1304,23 @@ public class MainWindowViewModel : ObservableObject
 		_dashboardPage.DrillDownRequested += OnDashboardDrillDown;
 		_googleDrive.ProgressChanged += OnGoogleDriveProgress;
 		_retailBillingPage.BillSaved += OnRetailBillSaved;
+		_purchasePage.PurchasePosted += OnPurchasePosted;
 		_usbBackupSettings.SettingsChanged += OnUsbBackupSettingsChanged;
 		RefreshUsbBackupReminder();
+	}
+
+	private async Task OnPurchasePosted()
+	{
+		try
+		{
+			await _stockPage.LoadAsync();
+			await _wholesaleBillingPage.LoadAsync();
+			await _retailBillingPage.RefreshSearchResultsAsync();
+		}
+		catch (Exception exception)
+		{
+			_logger.LogError(exception, "Refreshing stock after a purchase save failed.");
+		}
 	}
 
 	private async void OnCatalogStockChanged(object? sender, EventArgs e)
@@ -1830,10 +1845,34 @@ public class MainWindowViewModel : ObservableObject
 		}
 		try
 		{
+			Gs1Scan scan = Gs1Scan.Parse(barcode);
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			RetailStockChoice choice = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().GetByBarcodeAsync(barcode);
+			RetailBillingService billing = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
+			RetailStockChoice? choice = null;
+			foreach (string key in scan.LookupKeys())
+			{
+				choice = await billing.GetByBarcodeAsync(key);
+				if (choice != null)
+				{
+					break;
+				}
+			}
+			bool onRetailBilling = string.Equals(_navigationService.CurrentSectionKey, "Billing", StringComparison.OrdinalIgnoreCase);
+			bool onWholesaleBilling = string.Equals(_navigationService.CurrentSectionKey, "WholesaleBilling", StringComparison.OrdinalIgnoreCase);
 			if ((object)choice == null)
 			{
+				if (onWholesaleBilling && await _wholesaleBillingPage.TryAddByBarcodeAsync(barcode))
+				{
+					ShowBarcodeToast("Added to wholesale invoice.");
+					return;
+				}
+
+				if (onRetailBilling && await _retailBillingPage.TryAddByBarcodeAsync(barcode))
+				{
+					ShowBarcodeToast("Added to bill.");
+					return;
+				}
+
 				if (showLookupToast)
 				{
 					ShowBarcodeToast("Barcode " + barcode.Trim() + " not found in inventory.");
@@ -1842,16 +1881,22 @@ public class MainWindowViewModel : ObservableObject
 				return;
 			}
 			string preferredBilling = PreferredBillingSection() ?? "Billing";
-			bool onRetailBilling = string.Equals(_navigationService.CurrentSectionKey, "Billing", StringComparison.OrdinalIgnoreCase);
-			bool onWholesaleBilling = string.Equals(_navigationService.CurrentSectionKey, "WholesaleBilling", StringComparison.OrdinalIgnoreCase);
 			if (onWholesaleBilling || (preferredBilling == "WholesaleBilling" && CanUseWholesaleBilling && _retailBillingPage.BillItems.Count == 0))
 			{
 				if (!onWholesaleBilling)
 				{
 					Navigate("WholesaleBilling");
 				}
-				ShowBarcodeToast("Scanned: " + choice.DrugName + " — add from Wholesale Invoice stock picker.");
-				ScannedItemPopover = choice;
+				if (await _wholesaleBillingPage.TryAddByBarcodeAsync(barcode))
+				{
+					ShowBarcodeToast("Added to wholesale invoice: " + choice.DrugName);
+					ScannedItemPopover = null;
+				}
+				else
+				{
+					ShowBarcodeToast("Scanned: " + choice.DrugName + " — pick a batch on the wholesale invoice.");
+					ScannedItemPopover = choice;
+				}
 				return;
 			}
 
@@ -1959,6 +2004,11 @@ public class MainWindowViewModel : ObservableObject
 		}
 		else
 		{
+			if (resolvedKey == "Stock" && _navigationService.CurrentSectionKey == "Stock")
+			{
+				_ = _stockPage.LoadAsync();
+			}
+
 			_navigationService.Navigate(resolvedKey);
 		}
 	}

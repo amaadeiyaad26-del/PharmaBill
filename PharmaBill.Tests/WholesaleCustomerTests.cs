@@ -350,6 +350,7 @@ public sealed class WholesaleCustomerTests
         public string? PickLicenceDocument() => null;
         public string? PickCsvFile() => null;
         public string? PickPurchaseDocument() => null;
+        public IReadOnlyList<string> PickInvoiceDocuments() => Array.Empty<string>();
         public string? PickPurchaseSpreadsheet() => null;
         public string? PickCustomerExcel() => path;
         public string? PickPrescriptionDocument() => null;

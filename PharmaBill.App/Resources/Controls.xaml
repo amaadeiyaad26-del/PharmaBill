@@ -843,10 +843,14 @@
   </Style>
   <Style x:Key="SummaryPanel" TargetType="{x:Type Border}">
     <Setter Property="Background" Value="{DynamicResource SummaryBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="#40FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Border.CornerRadius" Value="12" />
     <Setter Property="Border.Padding" Value="18,14" />
     <Setter Property="TextElement.Foreground" Value="{DynamicResource SummaryTextBrush}" />
     <Setter Property="TextElement.FontSize" Value="14" />
+    <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+    <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
   </Style>
   <Style x:Key="{x:Type DataGrid}" TargetType="{x:Type DataGrid}" BasedOn="{StaticResource {x:Type DataGrid}}">
     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />

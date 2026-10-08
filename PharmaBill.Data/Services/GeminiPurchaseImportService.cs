@@ -12,6 +12,10 @@ namespace PharmaBill.Data.Services;
 
 public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApiKeyStore apiKeyStore)
 {
+	public const string DefaultModel = "gemini-3.8-flash";
+
+	private static readonly string[] ModelCandidates = ["gemini-3.8-flash", "gemini-2.5-flash-latest", "gemini-flash"];
+
 	private const long MaximumDocumentBytes = 20971520L;
 
 	private static readonly JsonSerializerOptions StrictJsonOptions = new JsonSerializerOptions
@@ -84,16 +88,10 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 				responseMimeType = "application/json"
 			}
 		};
-		using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
-		{
-			Content = JsonContent.Create(inputValue)
-		};
-		request.Headers.Add("x-goog-api-key", apiKey);
-		using HttpResponseMessage response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+		using HttpResponseMessage response = await SendToAvailableModelAsync(inputValue, apiKey, cancellationToken);
 		if (!response.IsSuccessStatusCode)
 		{
-			string value = await response.Content.ReadAsStringAsync(cancellationToken);
-			throw new HttpRequestException($"Gemini purchase-document extraction failed ({(int)response.StatusCode}): {value}", null, response.StatusCode);
+			throw new HttpRequestException($"Gemini could not read this invoice (HTTP {(int)response.StatusCode}).", null, response.StatusCode);
 		}
 		using Stream responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
 		using JsonDocument jsonDocument = await JsonDocument.ParseAsync(responseStream, default, cancellationToken);
@@ -104,6 +102,27 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 		ExtractedPurchaseInvoice? extractedPurchaseInvoice = JsonSerializer.Deserialize<ExtractedPurchaseInvoice>(value5.GetString() ?? string.Empty, StrictJsonOptions) ?? throw new InvalidDataException("Gemini returned an empty purchase document.");
 		ValidateReviewData(extractedPurchaseInvoice);
 		return extractedPurchaseInvoice;
+	}
+
+	private async Task<HttpResponseMessage> SendToAvailableModelAsync(object inputValue, string apiKey, CancellationToken cancellationToken)
+	{
+		HttpResponseMessage? response = null;
+		foreach (string model in ModelCandidates)
+		{
+			response?.Dispose();
+			using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent")
+			{
+				Content = JsonContent.Create(inputValue)
+			};
+			request.Headers.Add("x-goog-api-key", apiKey);
+			response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+			if (response.IsSuccessStatusCode || (int)response.StatusCode != 404)
+			{
+				return response;
+			}
+		}
+
+		return response ?? throw new HttpRequestException("Gemini could not read this invoice (HTTP 404).", null, System.Net.HttpStatusCode.NotFound);
 	}
 
 	private static void ValidateReviewData(ExtractedPurchaseInvoice invoice)

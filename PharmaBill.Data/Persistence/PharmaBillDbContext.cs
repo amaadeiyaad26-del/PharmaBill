@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -208,6 +210,29 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<ScheduleRegisterEntry>().HasIndex((ScheduleRegisterEntry item) => item.EntryAtUtc);
 		modelBuilder.Entity<AuditLog>().HasIndex((AuditLog item) => item.ActionAtUtc);
 		modelBuilder.Entity<NumberSeries>().HasIndex((NumberSeries item) => new { item.SeriesPrefix, item.FinancialYear }).IsUnique();
+	}
+
+	public override int SaveChanges()
+	{
+		RejectAuditLogDeletion();
+		return base.SaveChanges();
+	}
+
+	public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+	{
+		RejectAuditLogDeletion();
+		return base.SaveChangesAsync(cancellationToken);
+	}
+
+	private void RejectAuditLogDeletion()
+	{
+		foreach (var entry in ChangeTracker.Entries<AuditLog>())
+		{
+			if (entry.State == EntityState.Deleted || (entry.State == EntityState.Modified && entry.Entity.IsDeleted))
+			{
+				throw new InvalidOperationException("Audit log rows cannot be deleted.");
+			}
+		}
 	}
 
 	private static LambdaExpression CreateSoftDeleteFilter(Type entityType)

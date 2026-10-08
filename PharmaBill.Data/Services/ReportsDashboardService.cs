@@ -556,7 +556,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	private async Task<ReportTable> SupplierWiseDetailAsync(DateOnly from, DateOnly to, string? filter, CancellationToken token)
 	{
 		List<PurchaseInvoice> invoices = await (from item in context.PurchaseInvoices.AsNoTracking()
-			where item.Status == "Posted" && item.InvoiceDate >= @from && item.InvoiceDate <= to
+			where (item.Status == PurchaseInvoice.PostedStatus || item.Status == PurchaseInvoice.CommittedStatus) && item.InvoiceDate >= @from && item.InvoiceDate <= to
 			select item).ToListAsync(token);
 		Dictionary<Guid, Supplier> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync((Supplier item) => item.Id, token);
 		List<IReadOnlyList<string>> list = (from entry in (from entry in invoices.Select((PurchaseInvoice invoice) =>
@@ -766,7 +766,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	{
 		Guid? currentBranchId = branchService.CurrentBranchId;
 		IQueryable<PurchaseInvoice> source = from item in context.PurchaseInvoices.AsNoTracking()
-			where item.Status == "Posted" && item.InvoiceDate >= @from && item.InvoiceDate <= to
+			where (item.Status == PurchaseInvoice.PostedStatus || item.Status == PurchaseInvoice.CommittedStatus) && item.InvoiceDate >= @from && item.InvoiceDate <= to
 			select item;
 		if (branchScope == ReportBranchScope.CurrentBranchOnly && currentBranchId.HasValue)
 		{
@@ -1140,7 +1140,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	private async Task<IEnumerable<string>> LoadSupplierNamesAsync(DateOnly from, DateOnly to, CancellationToken token)
 	{
 		List<Guid> invoices = await (from item in context.PurchaseInvoices.AsNoTracking()
-			where item.Status == "Posted" && item.InvoiceDate >= @from && item.InvoiceDate <= to
+			where (item.Status == PurchaseInvoice.PostedStatus || item.Status == PurchaseInvoice.CommittedStatus) && item.InvoiceDate >= @from && item.InvoiceDate <= to
 			select item.SupplierId).Distinct().ToListAsync(token);
 		return await (from item in context.Suppliers.AsNoTracking()
 			where invoices.Contains(item.Id)

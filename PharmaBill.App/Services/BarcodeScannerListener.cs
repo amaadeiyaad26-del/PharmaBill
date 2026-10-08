@@ -14,7 +14,7 @@ public sealed class BarcodeScannerListener
 
 	private bool _sawHardwareVelocity;
 
-	public const int MaxInterKeyIntervalMs = 50;
+	public const int MaxInterKeyIntervalMs = 30;
 
 	public const int MinBarcodeLength = 3;
 
@@ -67,7 +67,7 @@ public sealed class BarcodeScannerListener
 		}
 		if (_stopwatch.IsRunning)
 		{
-			if (_stopwatch.ElapsedMilliseconds > 50)
+			if (_stopwatch.ElapsedMilliseconds > MaxInterKeyIntervalMs)
 			{
 				_buffer.Clear();
 				_sawHardwareVelocity = false;

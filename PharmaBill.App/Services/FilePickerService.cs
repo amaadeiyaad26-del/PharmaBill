@@ -52,6 +52,24 @@ public sealed class FilePickerService : IFilePickerService
 		return openFileDialog.FileName;
 	}
 
+	public IReadOnlyList<string> PickInvoiceDocuments()
+	{
+		OpenFileDialog openFileDialog = new OpenFileDialog
+		{
+			Title = "Extract from invoice PDF or images",
+			Filter = "PDF Files (*.pdf)|*.pdf|Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|All Supported (*.pdf;*.jpg;*.png)|*.pdf;*.jpg;*.png",
+			FilterIndex = 3,
+			CheckFileExists = true,
+			Multiselect = true
+		};
+		if (openFileDialog.ShowDialog() != true)
+		{
+			return Array.Empty<string>();
+		}
+
+		return openFileDialog.FileNames;
+	}
+
 	public string? PickPurchaseSpreadsheet()
 	{
 		OpenFileDialog openFileDialog = new OpenFileDialog

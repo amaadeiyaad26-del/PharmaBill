@@ -4,6 +4,10 @@ namespace PharmaBill.Core.Entities;
 
 public sealed class PurchaseInvoice : EntityBase
 {
+	public const string PostedStatus = "Posted";
+
+	public const string CommittedStatus = "Committed / Inwarded";
+
 	public Guid SupplierId { get; set; }
 
 	public string InvoiceNo { get; set; } = string.Empty;
@@ -27,4 +31,8 @@ public sealed class PurchaseInvoice : EntityBase
 	public Guid? StorageLocationId { get; set; }
 
 	public Guid? BranchId { get; set; }
+
+	public string? AttachedInvoicePath { get; set; }
+
+	public string? OriginalFileName { get; set; }
 }

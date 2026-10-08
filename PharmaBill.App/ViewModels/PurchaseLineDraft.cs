@@ -33,6 +33,8 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 
 	private string? _rack;
 
+	public DateTime InwardDate { get; set; }
+
 	public decimal BaseAmount => Round(Quantity * Rate - DiscountAmount);
 
 	public decimal TaxAmount => Round(BaseAmount * GstRate / 100m);

@@ -52,12 +52,16 @@ public partial class MainWindow : Window
 
 	private WholesaleBillingPageViewModel? _attachedWholesalePage;
 
-	public MainWindow(MainWindowViewModel viewModel, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogueService catalogueService)
+	private readonly IScannerService _scanner;
+
+	public MainWindow(MainWindowViewModel viewModel, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogueService catalogueService, IScannerService scanner)
 	{
 		_viewModel = viewModel;
 		_scopeFactory = scopeFactory;
 		_currentSession = currentSession;
 		_catalogueService = catalogueService;
+		_scanner = scanner;
+		_scanner.BarcodeReceived += OnSerialBarcode;
 		InitializeComponent();
 		DataContext = viewModel;
 		Loaded += OnLoaded;
@@ -78,11 +82,72 @@ public partial class MainWindow : Window
 			{
 				OpenBarcodeSimulator();
 				e.Handled = true;
+				return;
 			}
-			else
+
+			if (IsPurchasePage(out PurchasePageViewModel? purchasePage))
 			{
-				_barcodeListener.ProcessKeyDown(e);
+				Key navKey = e.Key == Key.System ? e.SystemKey : e.Key;
+				bool alt = e.Key == Key.System || (mods & ModifierKeys.Alt) == ModifierKeys.Alt;
+				if (alt && navKey == Key.Left)
+				{
+					if (purchasePage.PreviousPageCommand.CanExecute(null))
+					{
+						purchasePage.PreviousPageCommand.Execute(null);
+					}
+
+					e.Handled = true;
+					return;
+				}
+
+				if (alt && navKey == Key.Right)
+				{
+					if (purchasePage.NextPageCommand.CanExecute(null))
+					{
+						purchasePage.NextPageCommand.Execute(null);
+					}
+
+					e.Handled = true;
+					return;
+				}
+
+				if (e.Key == Key.F2)
+				{
+					purchasePage.BeginNewEntry();
+					e.Handled = true;
+					return;
+				}
+
+				if (e.Key == Key.F4)
+				{
+					purchasePage.RequestFocusMedicineSearch();
+					e.Handled = true;
+					return;
+				}
+
+				if (e.Key == Key.F7)
+				{
+					_ = purchasePage.ScanInvoiceCommand.ExecuteAsync(null);
+					e.Handled = true;
+					return;
+				}
+
+				if (e.Key == Key.F10 || (e.Key == Key.S && (mods & ModifierKeys.Control) == ModifierKeys.Control))
+				{
+					_ = purchasePage.TransferToStockCommand.ExecuteAsync(null);
+					e.Handled = true;
+					return;
+				}
 			}
+
+			if (e.Key == Key.F7)
+			{
+				TogglePurchaseHardware();
+				e.Handled = true;
+				return;
+			}
+
+			_barcodeListener.ProcessKeyDown(e);
 		};
 		PreviewTextInput += (object _, TextCompositionEventArgs e) =>
 		{
@@ -115,6 +180,8 @@ public partial class MainWindow : Window
 		}
 		_barcodeListener.BarcodeScanned -= OnBarcodeScanned;
 		_barcodeListener.Reset();
+		_scanner.BarcodeReceived -= OnSerialBarcode;
+		_scanner.Stop();
 		InputManager.Current.PreProcessInput -= OnPreProcessInput;
 		_viewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
 		_viewModel.LockRequested -= OnLockRequested;
@@ -138,24 +205,71 @@ public partial class MainWindow : Window
 		_viewModel.ShowItemQuickToast(message);
 	}
 
+	private void OnSerialBarcode(object? sender, string barcode)
+	{
+		Dispatcher.InvokeAsync(() => _barcodeListener.SimulateScan(barcode));
+	}
+
+	private void TogglePurchaseHardware()
+	{
+		if (_scanner.IsListening)
+		{
+			_scanner.Stop();
+			if (IsPurchasePage(out PurchasePageViewModel? purchase))
+			{
+				purchase.NotifyHardwareStatus(_scanner.Status);
+			}
+
+			return;
+		}
+
+		_scanner.Start();
+		if (IsPurchasePage(out PurchasePageViewModel? purchasePage))
+		{
+			purchasePage.NotifyHardwareStatus(_scanner.Status);
+			_ = purchasePage.ScanInvoiceCommand.ExecuteAsync(null);
+		}
+	}
+
+	private bool IsPurchasePage(out PurchasePageViewModel? purchase)
+	{
+		purchase = _viewModel.CurrentPage as PurchasePageViewModel;
+		return purchase != null;
+	}
+
 	private async void OnBarcodeScanned(string barcode)
 	{
 		_ = 1;
 		try
 		{
 			SoundHelper.PlayTick();
-			CatalogueBarcodeMatch catalogueBarcodeMatch = await _catalogueService.FindByBarcodeAsync(barcode);
-			if ((object)catalogueBarcodeMatch != null)
+			if (IsPurchasePage(out PurchasePageViewModel? purchasePage))
 			{
-				string value = (string.IsNullOrWhiteSpace(catalogueBarcodeMatch.BrandName) ? catalogueBarcodeMatch.Name : catalogueBarcodeMatch.BrandName);
-				string value2 = (string.IsNullOrWhiteSpace(catalogueBarcodeMatch.Strength) ? "—" : catalogueBarcodeMatch.Strength);
+				await purchasePage.ApplyScannedBarcodeAsync(barcode);
+				return;
+			}
+
+			Gs1Scan scan = Gs1Scan.Parse(barcode);
+			CatalogueBarcodeMatch? catalogueBarcodeMatch = null;
+			foreach (string key in scan.LookupKeys())
+			{
+				catalogueBarcodeMatch = await _catalogueService.FindByBarcodeAsync(key);
+				if (catalogueBarcodeMatch != null)
+				{
+					break;
+				}
+			}
+
+			if (catalogueBarcodeMatch != null)
+			{
+				string value = string.IsNullOrWhiteSpace(catalogueBarcodeMatch.BrandName) ? catalogueBarcodeMatch.Name : catalogueBarcodeMatch.BrandName;
+				string value2 = string.IsNullOrWhiteSpace(catalogueBarcodeMatch.Strength) ? "—" : catalogueBarcodeMatch.Strength;
 				ShowItemQuickToast($"Scanned: {value} ({value2})");
 				await _viewModel.HandleBarcodeScannedAsync(barcode, showLookupToast: false);
 			}
 			else
 			{
-				ShowItemQuickToast("Barcode " + barcode + " not found in inventory.");
-				_viewModel.ClearScannedItemPopover();
+				await _viewModel.HandleBarcodeScannedAsync(barcode);
 			}
 		}
 		catch (Exception)
@@ -382,6 +496,20 @@ public partial class MainWindow : Window
 
 	private void RetailSubstitute_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
 	{
+		if (e.OriginalSource is DependencyObject source)
+		{
+			DependencyObject? current = source;
+			while (current != null)
+			{
+				if (current is Button)
+				{
+					return;
+				}
+
+				current = VisualTreeHelper.GetParent(current);
+			}
+		}
+
 		if (_viewModel.CurrentPage is RetailBillingViewModel { SelectedSubstitute: not null } retailBillingViewModel && retailBillingViewModel.AddFromSubstituteCommand.CanExecute(retailBillingViewModel.SelectedSubstitute))
 		{
 			retailBillingViewModel.AddFromSubstituteCommand.Execute(retailBillingViewModel.SelectedSubstitute);
@@ -638,7 +766,8 @@ public partial class MainWindow : Window
 			}
 			else if (_viewModel.CurrentPage is PurchasePageViewModel purchasePageViewModel)
 			{
-				await purchasePageViewModel.ImportDocumentFromPathAsync(array[0]);
+				string? stored = await purchasePageViewModel.AttachExistingDocumentAsync(array[0]);
+				await purchasePageViewModel.ImportDocumentFromPathAsync(stored ?? array[0]);
 			}
 		}
 	}
@@ -751,18 +880,115 @@ public partial class MainWindow : Window
 			return;
 		}
 
-		if ((e.Key == Key.Enter || e.Key == Key.Return) && sender is ComboBox combo)
+		if (e.Key == Key.Down && wholesale.MedicinePickerItems.Count > 0)
 		{
-			if (combo.IsDropDownOpen)
-			{
-				return;
-			}
+			wholesale.NoteExplicitMedicinePick();
+			wholesale.IsMedicineDropDownOpen = true;
+			int index = wholesale.SelectedMedicineItem == null ? -1 : wholesale.MedicinePickerItems.IndexOf(wholesale.SelectedMedicineItem);
+			int next = index < 0 ? 0 : Math.Min(wholesale.MedicinePickerItems.Count - 1, index + 1);
+			wholesale.SelectedMedicineItem = wholesale.MedicinePickerItems[next];
+			e.Handled = true;
+			return;
+		}
 
-			if (wholesale.SelectedMedicineItem != null && wholesale.AddLineCommand.CanExecute(null))
+		if (e.Key == Key.Up && wholesale.IsMedicineDropDownOpen && wholesale.MedicinePickerItems.Count > 0)
+		{
+			wholesale.NoteExplicitMedicinePick();
+			int index = wholesale.SelectedMedicineItem == null ? 0 : wholesale.MedicinePickerItems.IndexOf(wholesale.SelectedMedicineItem);
+			int next = index <= 0 ? 0 : index - 1;
+			wholesale.SelectedMedicineItem = wholesale.MedicinePickerItems[next];
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key == Key.Enter || e.Key == Key.Return)
+		{
+			WholesaleMedicinePickerItem? chosen = wholesale.TakeEnterPick();
+			if (chosen != null)
 			{
-				_ = wholesale.AddLineCommand.ExecuteAsync(null);
+				wholesale.CommitMedicinePick(chosen);
 				e.Handled = true;
 			}
+		}
+	}
+
+	private void WholesaleMedicineItem_Click(object sender, MouseButtonEventArgs e)
+	{
+		if (_viewModel.CurrentPage is not WholesaleBillingPageViewModel wholesale)
+		{
+			return;
+		}
+
+		if (sender is FrameworkElement { DataContext: WholesaleMedicinePickerItem item })
+		{
+			wholesale.NoteExplicitMedicinePick();
+			wholesale.CommitMedicinePick(item);
+			e.Handled = true;
+		}
+	}
+
+	private void RetailItemSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+	{
+		if (_viewModel.CurrentPage is not RetailBillingViewModel retail)
+		{
+			return;
+		}
+
+		if (e.Key == Key.Down && retail.SearchResults.Count > 0)
+		{
+			retail.MoveSearchHighlight(1);
+			ScrollRetailSuggestion(retail);
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key == Key.Up && retail.SearchResults.Count > 0)
+		{
+			retail.MoveSearchHighlight(-1);
+			ScrollRetailSuggestion(retail);
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key != Key.Enter && e.Key != Key.Return)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		if (retail.SearchResults.Count > 0)
+		{
+			retail.CommitSearchHighlight();
+			return;
+		}
+
+		if (retail.SearchItemsCommand.CanExecute(null))
+		{
+			_ = retail.SearchItemsCommand.ExecuteAsync(null);
+		}
+	}
+
+	private void ScrollRetailSuggestion(RetailBillingViewModel retail)
+	{
+		if (FindVisualChildByName(this, "RetailMedicineSuggestionList") is ListBox list && retail.SelectedSearchResult != null)
+		{
+			list.ScrollIntoView(retail.SelectedSearchResult);
+		}
+	}
+
+	private void PurchaseNewItemExpiry_LostFocus(object sender, RoutedEventArgs e)
+	{
+		if (_viewModel.CurrentPage is PurchasePageViewModel purchase)
+		{
+			purchase.NormalizeNewItemExpiry();
+		}
+	}
+
+	private void RetailMedicineSuggestionList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+	{
+		if (_viewModel.CurrentPage is RetailBillingViewModel retail)
+		{
+			retail.NoteExplicitBatchPick();
 		}
 	}
 

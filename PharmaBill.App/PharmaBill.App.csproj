@@ -15,8 +15,8 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</BuildDateUtc>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Microsoft Store / MSIX packaging (Method 2). Enable package generation with:
-         /p:GenerateAppxPackageOnBuild=true /p:RuntimeIdentifier=win-x64 -->
+    <!-- Store packages are produced by ..\build-msstore-package.ps1 (makeappx).
+         SDK packaging stays off unless GenerateAppxPackageOnBuild or PublishAppxPackage is set. -->
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
@@ -28,7 +28,7 @@
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <AppxBundle>Never</AppxBundle>
     <UapAppxPackageBuildMode Condition="'$(UapAppxPackageBuildMode)' == ''">SideloadOnly</UapAppxPackageBuildMode>
-    <AppxPackageDir>$(MSBuildProjectDirectory)\..\artifacts\msix\</AppxPackageDir>
+    <AppxPackageDir>$(MSBuildProjectDirectory)\..\artifacts\msstore\</AppxPackageDir>
   </PropertyGroup>
 
   <!-- Admin key signing (RSA private key load) — Debug by default; never enable for customer Release publishes. -->
@@ -78,6 +78,12 @@
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
     <PackageReference Include="System.Management" Version="9.0.10" />
+    <PackageReference Include="System.IO.Ports" Version="9.0.10" />
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PharmaBill.Tests" />
   </ItemGroup>
 
   <ItemGroup>

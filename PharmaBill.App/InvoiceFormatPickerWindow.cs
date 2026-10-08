@@ -13,8 +13,10 @@ public sealed class InvoiceFormatPickerWindow : Window
 	public InvoiceFormatPickerWindow(bool allowPreview)
 	{
 		Title = "Invoice format";
-		Width = 420.0;
-		Height = (allowPreview ? 280 : 220);
+		SizeToContent = SizeToContent.Height;
+		MinHeight = 260.0;
+		MinWidth = 440.0;
+		Width = 480.0;
 		WindowStartupLocation = WindowStartupLocation.CenterOwner;
 		ResizeMode = ResizeMode.NoResize;
 		Background = Brushes.White;
@@ -44,7 +46,7 @@ public sealed class InvoiceFormatPickerWindow : Window
 		{
 			Accept(InvoiceTemplateType.Thermal80mm, preview: false);
 		}));
-		stackPanel2.Children.Add(CreateButton("A4 / A5 Tax Invoice", () =>
+		stackPanel2.Children.Add(CreateButton("A4 / A5 Tax Invoice (Standard Print)", () =>
 		{
 			Accept(InvoiceTemplateType.StandardA4, preview: false);
 		}));

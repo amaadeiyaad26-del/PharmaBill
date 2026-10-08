@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Ai;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
@@ -21,6 +22,12 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 	private readonly ILogger<CatalogSearchViewModel> _logger;
 
 	private readonly IAddStockDialogService? _addStockDialog;
+
+	private readonly IQuickAddMedicineDialog? _quickAdd;
+
+	private readonly ISmartDrugLookupService? _smartLookup;
+
+	private bool _showOnlineLookup;
 
 	private CancellationTokenSource? _searchCancellation;
 
@@ -40,13 +47,17 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 
 	private string _hintText = "Type at least 2 letters to search";
 
-	private bool _showAddManual;
+	private bool _showAddManual = true;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand<MedicineSearchResult?>? addStockCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? addManualCommand;
+
+	private AsyncRelayCommand? addMedicineCommand;
+
+	private AsyncRelayCommand? searchOnlineCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand<MedicineSearchResult?>? viewStockCommand;
@@ -214,7 +225,15 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand AddManualCommand => addManualCommand ?? (addManualCommand = new AsyncRelayCommand(AddManualAsync));
+	public IAsyncRelayCommand AddManualCommand => addManualCommand ?? (addManualCommand = new AsyncRelayCommand(() => OpenQuickAddAsync(Query.Trim())));
+
+	public IAsyncRelayCommand AddMedicineCommand => addMedicineCommand ?? (addMedicineCommand = new AsyncRelayCommand(() => OpenQuickAddAsync(string.Empty)));
+
+	public IAsyncRelayCommand SearchOnlineCommand => searchOnlineCommand ?? (searchOnlineCommand = new AsyncRelayCommand(SearchOnlineAsync));
+
+	public bool ShowOnlineLookup => _showOnlineLookup;
+
+	public string OnlineLookupCaption => SmartDrugLookupPrompt.Caption;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -232,11 +251,30 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 
 	public event EventHandler<string>? ViewStockRequested;
 
-	public CatalogSearchViewModel(IServiceScopeFactory scopeFactory, ILogger<CatalogSearchViewModel> logger, IAddStockDialogService? addStockDialog = null)
+	public string AddManualCaption => "+ New Medicine";
+
+	public bool ShowCreateUnlisted
+	{
+		get
+		{
+			string text = Query.Trim();
+			return text.Length >= 2
+				&& InStockResults.Count == 0
+				&& CatalogResults.Count == 0
+				&& !string.IsNullOrEmpty(HintText)
+				&& HintText.StartsWith("No match", StringComparison.Ordinal);
+		}
+	}
+
+	public string CreateUnlistedCaption => "+ Create '" + Query.Trim() + "' as New Medicine";
+
+	public CatalogSearchViewModel(IServiceScopeFactory scopeFactory, ILogger<CatalogSearchViewModel> logger, IAddStockDialogService? addStockDialog = null, IQuickAddMedicineDialog? quickAdd = null, ISmartDrugLookupService? smartLookup = null)
 	{
 		_scopeFactory = scopeFactory;
 		_logger = logger;
 		_addStockDialog = addStockDialog;
+		_quickAdd = quickAdd;
+		_smartLookup = smartLookup;
 	}
 
 	private void RefreshHint(bool searched)
@@ -244,19 +282,42 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 		OnPropertyChanged("HasInStock");
 		OnPropertyChanged("HasCatalog");
 		string text = Query.Trim();
-		if (text.Length < 2)
+		if (text.Length == 0)
 		{
 			HintText = "Type at least 2 letters to search";
-			ShowAddManual = false;
+			ShowAddManual = true;
 			ShowHint = true;
+			SetOnlineLookup(false);
+			NotifyCreateUnlisted();
+		}
+		else if (text.Length < 2)
+		{
+			HintText = "Type at least 2 letters to search";
+			ShowAddManual = true;
+			ShowHint = true;
+			SetOnlineLookup(false);
+			NotifyCreateUnlisted();
 		}
 		else
 		{
 			bool flag = searched && InStockResults.Count == 0 && CatalogResults.Count == 0;
 			HintText = (flag ? ("No match in stock or catalogue for '" + text + "'") : string.Empty);
-			ShowAddManual = flag;
+			ShowAddManual = true;
 			ShowHint = flag;
+			SetOnlineLookup(flag);
+			NotifyCreateUnlisted();
 		}
+	}
+
+	private void SetOnlineLookup(bool visible)
+	{
+		if (_showOnlineLookup == visible)
+		{
+			return;
+		}
+
+		_showOnlineLookup = visible;
+		OnPropertyChanged(nameof(ShowOnlineLookup));
 	}
 
 	private async Task AddStockAsync(MedicineSearchResult? medicine)
@@ -268,13 +329,42 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 		}
 	}
 
-	private async Task AddManualAsync()
+	private async Task SearchOnlineAsync()
 	{
-		if (_addStockDialog != null && await _addStockDialog.ShowAsync(new AddStockRequest(null, null, Query.Trim(), null, null)))
+		string typed = Query.Trim();
+		SmartDrugLookupOutcome outcome = _smartLookup == null
+			? new SmartDrugLookupOutcome(null, "Online lookup is not connected.")
+			: await _smartLookup.LookupAsync(typed);
+		await OpenQuickAddAsync(outcome.Suggestion?.BrandName ?? typed, outcome.Suggestion, outcome.Message);
+	}
+
+	private async Task OpenQuickAddAsync(string brandName, SmartDrugSuggestion? suggestion = null, string? notice = null)
+	{
+		if (_quickAdd == null)
 		{
-			StockChanged?.Invoke(this, EventArgs.Empty);
-			await SearchAsync(null);
+			if (_addStockDialog != null && await _addStockDialog.ShowAsync(new AddStockRequest(null, null, brandName, null, null)))
+			{
+				StockChanged?.Invoke(this, EventArgs.Empty);
+				await SearchAsync(null);
+			}
+
+			return;
 		}
+
+		CustomMedicineResult? saved = await _quickAdd.ShowAsync(brandName, suggestion, notice);
+		if (saved == null)
+		{
+			return;
+		}
+
+		if (_addStockDialog != null)
+		{
+			await _addStockDialog.ShowAsync(new AddStockRequest(saved.DrugId, saved.CatalogMedicineId, saved.Name, saved.GenericName, null));
+		}
+
+		StockChanged?.Invoke(this, EventArgs.Empty);
+		Query = saved.Name;
+		await SearchAsync(null);
 	}
 
 	private void ViewStock(MedicineSearchResult? medicine)
@@ -375,8 +465,16 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
+	private void NotifyCreateUnlisted()
+	{
+		OnPropertyChanged(nameof(AddManualCaption));
+		OnPropertyChanged(nameof(ShowCreateUnlisted));
+		OnPropertyChanged(nameof(CreateUnlistedCaption));
+	}
+
 	private void OnQueryChanged(string value)
 	{
+		NotifyCreateUnlisted();
 		SearchCommand.ExecuteAsync("debounce");
 	}
 }

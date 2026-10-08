@@ -30,6 +30,8 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public const string FilterNearExpiry = "Near expiry";
 
+	public const string FilterMissingMrp = "Missing MRP";
+
 	private string _nameFilter = string.Empty;
 
 	private string _batchFilter = string.Empty;
@@ -96,7 +98,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public ObservableCollection<StockVerificationLineViewModel> VerificationItems { get; } = new ObservableCollection<StockVerificationLineViewModel>();
 
-	public string[] StatusOptions { get; } = new string[6] { "All", "In stock", "Shortage", "Near expiry", "Critical", "Expired" };
+	public string[] StatusOptions { get; } = new string[7] { "All", "In stock", "Shortage", "Near expiry", "Missing MRP", "Critical", "Expired" };
 
 	public string[] ScheduleOptions { get; } = new string[7] { "All", "OTC", "G", "H", "H1", "X", "NDPS" };
 
@@ -107,6 +109,8 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	public bool IsShortageFilter => IsShortageStatus(StatusFilter);
 
 	public bool IsNearExpiryFilter => IsNearExpiryStatus(StatusFilter);
+
+	public bool IsMissingMrpFilter => NormalizeStatus(StatusFilter) == FilterMissingMrp;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -442,6 +446,10 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand CreateDraftPurchaseOrderCommand => createDraftPurchaseOrderCommand ?? (createDraftPurchaseOrderCommand = new AsyncRelayCommand(CreateDraftPurchaseOrderAsync));
 
+	public IAsyncRelayCommand ExtractOpeningStockCommand => extractOpeningStockCommand ?? (extractOpeningStockCommand = new AsyncRelayCommand(ExtractOpeningStockAsync));
+
+	private IAsyncRelayCommand? extractOpeningStockCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand AdjustStockCommand => adjustStockCommand ?? (adjustStockCommand = new AsyncRelayCommand(AdjustStockAsync));
@@ -515,7 +523,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 					string status = RowStatus(item, batch2);
 					if (MatchesStatusFilter(StatusFilter, item, batch2))
 					{
-						list.Add(new StockRowViewModel(item.DrugId, item.DrugName, item.Schedule, batch2, status, item.ReorderLevel, item.TotalStock));
+						list.Add(new StockRowViewModel(item.DrugId, item.DrugName, item.Schedule, batch2, status, item.ReorderLevel, item.TotalStock, CommitMrp));
 					}
 				}
 			}
@@ -527,7 +535,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 				if ((text.Length <= 0 || drug.DrugName.Contains(text, StringComparison.OrdinalIgnoreCase)) && !list.Any((StockRowViewModel row) => row.DrugId == drug.DrugId))
 				{
 					StockBatchRow batch = drug.Batches.OrderBy((StockBatchRow stockBatchRow) => stockBatchRow.ExpiryDate ?? DateOnly.MaxValue).FirstOrDefault() ?? new StockBatchRow(Guid.Empty, "—", null, 0m, null, 0m, 0m, null);
-					list.Add(new StockRowViewModel(drug.DrugId, drug.DrugName, drug.Schedule, batch, "Shortage", drug.ReorderLevel, drug.TotalStock));
+					list.Add(new StockRowViewModel(drug.DrugId, drug.DrugName, drug.Schedule, batch, "Shortage", drug.ReorderLevel, drug.TotalStock, CommitMrp));
 				}
 			}
 		}
@@ -621,6 +629,15 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 	}
 
+	private async Task ExtractOpeningStockAsync()
+	{
+		bool staged = await purchasePage.ExtractInvoicesAsync();
+		if (staged)
+		{
+			navigationService.Navigate("Purchases");
+		}
+	}
+
 	private async Task CreateDraftPurchaseOrderAsync()
 	{
 		StatusMessage = string.Empty;
@@ -698,7 +715,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			string reason = ActionReason.Trim();
 			await RunInventoryActionAsync(async (IServiceScope scope) =>
 			{
-				await scope.ServiceProvider.GetRequiredService<InventoryService>().AdjustStockAsync(row.BatchId, change, reason, user.Id, user.Role);
+				await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<InventoryService>().AdjustStockAsync(row.BatchId, change, reason, user.Id, user.Role));
 			});
 			if (ErrorMessage.Length == 0)
 			{
@@ -736,10 +753,13 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			if (confirmationService.Confirm($"Write off {readOnlyList.Count} expired batch(es)? A dump register entry is recorded for each.{Environment.NewLine}{Environment.NewLine}{text}", "Write off expired stock"))
 			{
 				string reason = (string.IsNullOrWhiteSpace(ActionReason) ? "Expired" : ActionReason.Trim());
-				int value;
+				int value = 0;
 				using (IServiceScope scope = scopeFactory.CreateScope())
 				{
-					value = await scope.ServiceProvider.GetRequiredService<InventoryService>().WriteOffAllExpiredAsync(reason, user.Id, user.Role);
+					await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+					{
+						value = await scope.ServiceProvider.GetRequiredService<InventoryService>().WriteOffAllExpiredAsync(reason, user.Id, user.Role);
+					});
 				}
 				ErrorMessage = string.Empty;
 				StatusMessage = $"{value} expired batch(es) written off.";
@@ -884,6 +904,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			"Near expiry" => batch.IsNearExpiry, 
 			"Critical" => batch.ExpiryBand == BatchExpiryStatus.Critical && !(batch.ExpiryDate < DateOnly.FromDateTime(DateTime.Today)), 
 			"Expired" => batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today), 
+			"Missing MRP" => batch.Mrp <= 0m, 
 			_ => true, 
 		};
 	}
@@ -917,6 +938,46 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	private static bool IsShortageStatus(string? status)
 	{
 		return NormalizeStatus(status) == "Shortage";
+	}
+
+	private async void CommitMrp(StockRowViewModel row)
+	{
+		if (row.BatchId == Guid.Empty)
+		{
+			ErrorMessage = "This row has no batch to update.";
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(row.BatchId, row.Mrp));
+			for (int index = 0; index < Items.Count; index++)
+			{
+				StockDrugRow drug = Items[index];
+				if (drug.DrugId != row.DrugId)
+				{
+					continue;
+				}
+
+				StockBatchRow[] batches = drug.Batches.Select(batch => batch.BatchId == row.BatchId ? batch with { Mrp = row.Mrp } : batch).ToArray();
+				Items[index] = drug with { Batches = batches };
+				row.RememberSavedMrp(row.Mrp, batches.First(batch => batch.BatchId == row.BatchId));
+				break;
+			}
+
+			StatusMessage = "MRP saved for " + row.Medicine + " · batch " + row.BatchNo + ".";
+			ErrorMessage = string.Empty;
+			if (NormalizeStatus(StatusFilter) == FilterMissingMrp && row.Mrp > 0m)
+			{
+				ApplyFilters();
+			}
+		}
+		catch (Exception ex)
+		{
+			row.RememberSavedMrp(row.Batch.Mrp, row.Batch);
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private static bool IsNearExpiryStatus(string? status)
@@ -956,6 +1017,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		OnPropertyChanged("IsAllStockFilter");
 		OnPropertyChanged("IsShortageFilter");
 		OnPropertyChanged("IsNearExpiryFilter");
+		OnPropertyChanged(nameof(IsMissingMrpFilter));
 		ApplyFilters();
 	}
 

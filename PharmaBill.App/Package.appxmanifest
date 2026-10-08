@@ -3,24 +3,36 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
-  IgnorableNamespaces="uap rescap desktop">
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:virtualization="http://schemas.microsoft.com/appx/manifest/virtualization/windows10"
+  IgnorableNamespaces="uap rescap desktop6 virtualization">
 
+  <!-- Publisher must be replaced with the Partner Center CN before upload:
+       .\build-msstore-package.ps1 -Publisher "CN=..." 
+       -PackageName overrides Identity Name if Partner Center reserved a different name. -->
   <Identity
-    Name="S.A.E.R.PharmaBill"
-    Publisher="CN=98F7DD11-200C-4195-8EC3-8E273AD8AF49"
+    Name="SAER.PharmaBill"
+    Publisher="CN=REPLACE-WITH-PARTNER-CENTER-CN"
     Version="1.0.1.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>PharmaBill</DisplayName>
-    <PublisherDisplayName>S.A.E.R</PublisherDisplayName>
+    <PublisherDisplayName>SAER</PublisherDisplayName>
     <Logo>Assets\Store\StoreLogo.png</Logo>
     <Description>Pharmacy billing and inventory for India.</Description>
+    <!-- Real %LocalAppData%\PharmaBill (SQLite). Win10 1903+ uses the disabled flag;
+         Windows 11 prefers the excluded directory and leaves the rest of AppData virtualized. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <virtualization:FileSystemWriteVirtualization>
+      <virtualization:ExcludedDirectories>
+        <virtualization:ExcludedDirectory>$(KnownFolder:LocalAppData)\PharmaBill</virtualization:ExcludedDirectory>
+      </virtualization:ExcludedDirectories>
+    </virtualization:FileSystemWriteVirtualization>
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
 
   <Resources>
@@ -45,5 +57,6 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 </Package>

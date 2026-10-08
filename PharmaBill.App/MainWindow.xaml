@@ -17,7 +17,7 @@
               <TextBlock Text="PharmaBill dashboard" FontSize="26" FontWeight="Bold" />
               <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
             </StackPanel>
-            <Button Content="Refresh" Padding="14,7" Margin="20,4" behaviors:HoverTickSound.Enabled="True" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" />
+            <Button Content="Refresh" Padding="14,7" Margin="20,4" behaviors:HoverTickSound.Enabled="True" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload today's sales, stock alerts, and outstanding balances." />
             <Button Content="Sync Station" Height="40" Margin="4,4,0,4" ToolTip="Open Android LAN sync station (QR + listener)" behaviors:HoverTickSound.Enabled="True" CommandParameter="Sync" Style="{StaticResource PulsingButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Button Content="{Binding LicenseBadgeText}"
                     Height="40"
@@ -1236,7 +1236,7 @@
           <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="Wholesale returns and notes" FontSize="23" FontWeight="SemiBold" />
             <WrapPanel Margin="0,10">
-              <ComboBox Width="400" DisplayMemberPath="Label" Padding="6" ItemsSource="{Binding Invoices}" SelectedItem="{Binding SelectedInvoice}" />
+              <ComboBox Width="400" DisplayMemberPath="Label" Padding="6" ItemsSource="{Binding Invoices}" SelectedItem="{Binding SelectedInvoice}" ToolTip="{Binding SelectedInvoice.AuditToolTip}" />
               <TextBox Width="170" ToolTip="Credit / debit note number" Padding="6" Margin="6,0" Text="{Binding Path=DocumentNo}" />
               <TextBox Width="280" ToolTip="Mandatory reason" Padding="6" Text="{Binding Path=Reason}" />
             </WrapPanel>
@@ -1432,6 +1432,9 @@
                 <Button Margin="0,0,8,0" MinHeight="36" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding NewBillCommand}" ToolTip="Clear form and start a new invoice (F2)">
                   <TextBlock FontWeight="SemiBold" Text="F2 New Invoice" />
                 </Button>
+                <Button Margin="0,0,8,0" MinHeight="36" Padding="12,6" Style="{StaticResource PrimaryButton}" Command="{Binding ExtractOrderDocumentsCommand}" ToolTip="Read a patient or customer order PDF or image and add matching in-stock lines to this wholesale bill.">
+                  <TextBlock FontWeight="SemiBold" Text="📄 Extract from Invoice (PDF / Images)" />
+                </Button>
                 <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding InvoiceNoPreview, StringFormat=Invoice no: {0}}" />
               </StackPanel>
             </DockPanel>
@@ -1527,7 +1530,8 @@
               <controls:InfoHelper Title="Unified medicine search" Body="Type a brand or molecule. In-stock batches appear first (FEFO with PTR/MRP). Catalogue / out-of-stock hits open Quick Inward so you can add a batch before billing — zero-stock lines cannot be billed. Enter selects and focuses Qty; Ctrl+Enter also adds the line." />
             </StackPanel>
             <DockPanel Margin="0,0,0,4" LastChildFill="True">
-              <Button DockPanel.Dock="Right" Content="Add line" Padding="14,8" Margin="8,0,0,0" MinHeight="36" Style="{StaticResource PrimaryButton}" Command="{Binding AddLineCommand}" ToolTip="Add selected medicine line (or Ctrl+Enter)" />
+              <Button DockPanel.Dock="Right" Content="+ New Medicine" MinWidth="150" Padding="14,8" Margin="8,0,0,0" MinHeight="36" Style="{StaticResource SecondaryButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
+              <Button DockPanel.Dock="Right" Content="Add line" Padding="14,8" Margin="8,0,0,0" MinHeight="36" Style="{StaticResource PrimaryButton}" Command="{Binding AddLineCommand}" ToolTip="Add the highlighted medicine to this wholesale invoice and focus Qty. F4 jumps to search. Ctrl+Enter also adds the line." />
               <Grid>
                 <ComboBox x:Name="WholesaleMedicineSearchBox"
                           MinHeight="36"
@@ -1536,12 +1540,17 @@
                           IsTextSearchEnabled="False"
                           StaysOpenOnEdit="True"
                           MaxDropDownHeight="320"
-                          ToolTip="Search in-stock batches and master Drug Bank catalogue (F4). Arrows navigate; Enter selects."
+                          ToolTip="F4 jumps here. Type a brand or molecule. Arrows highlight a result. Enter adds that line and focuses Qty. Out-of-stock names open Quick Inward before they can be billed."
                           PreviewKeyDown="WholesaleMedicineSearchBox_PreviewKeyDown"
                           ItemsSource="{Binding MedicinePickerItems}"
                           SelectedItem="{Binding SelectedMedicineItem, UpdateSourceTrigger=PropertyChanged}"
                           Text="{Binding MedicineSearchText, UpdateSourceTrigger=PropertyChanged}"
                           IsDropDownOpen="{Binding IsMedicineDropDownOpen, Mode=TwoWay}">
+                  <ComboBox.ItemContainerStyle>
+                    <Style TargetType="{x:Type ComboBoxItem}">
+                      <EventSetter Event="PreviewMouseLeftButtonUp" Handler="WholesaleMedicineItem_Click" />
+                    </Style>
+                  </ComboBox.ItemContainerStyle>
                   <ComboBox.ItemTemplate>
                     <DataTemplate>
                       <StackPanel Margin="2,3">
@@ -1555,6 +1564,12 @@
                 <TextBlock Margin="12,0,28,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="#FF64748B" Text="{Binding StockPickerPlaceholder}" Visibility="{Binding ShowStockPickerPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}" />
               </Grid>
             </DockPanel>
+            <Button Margin="0,4,0,4" HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
+            </Button>
+            <Button Margin="0,0,0,4" HorizontalAlignment="Left" Padding="14,8" Style="{StaticResource SecondaryButton}" Command="{Binding QuickAddMedicineCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this search text as a new medicine and add it to the invoice">
+              <TextBlock Text="{Binding CreateUnlistedCaption}" TextWrapping="Wrap" />
+            </Button>
             <Border Margin="0,8,0,4" Padding="12,8" CornerRadius="8" Background="#FFFFF1F0" BorderBrush="#FFFDA29B" BorderThickness="1" Visibility="{Binding HasCreditLockAlert, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock Foreground="#FFB42318" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding CreditLockAlert}" />
             </Border>
@@ -1563,6 +1578,7 @@
                       behaviors:RowFlash.Enabled="True"
                       behaviors:BillingInlineEdit.SearchElementName="WholesaleMedicineSearchBox"
                       behaviors:BillingInlineEdit.FocusQtyRequest="{Binding FocusQtyRequest}"
+                      behaviors:BillingInlineEdit.FocusTargetField="{Binding LineFocusField}"
                       AutoGenerateColumns="False"
                       MinHeight="180"
                       Margin="0,10,0,6"
@@ -1590,8 +1606,10 @@
                     <DataTemplate>
                       <ComboBox Style="{StaticResource StockPickerComboBox}"
                                 IsTabStop="False"
-                                ItemsSource="{Binding Data.StockChoices, Source={StaticResource WholesaleBillingProxy}}"
-                                SelectedItem="{Binding StockChoice, UpdateSourceTrigger=PropertyChanged}">
+                                IsEnabled="True"
+                                ItemsSource="{Binding BatchOptions}"
+                                SelectedItem="{Binding StockChoice, UpdateSourceTrigger=PropertyChanged}"
+                                ToolTip="Oldest valid batch is selected when you press Enter on the medicine. Open this list to bill a different batch.">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleStockChoice}}" DataType="{x:Type vm:WholesaleStockChoice}">
                             <StackPanel Orientation="Horizontal">
@@ -1640,11 +1658,22 @@
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="MRP" Width="72" IsReadOnly="True">
+                <DataGridTemplateColumn Header="MRP" Width="110">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
-                      <TextBlock Style="{StaticResource BillingInlineReadonlyText}"
-                                 Text="{Binding Mrp, Mode=OneWay, StringFormat=₹{0:N2}}" />
+                      <TextBox behaviors:BillingInlineEdit.Field="Mrp" Text="{Binding MrpText, UpdateSourceTrigger=LostFocus}" ToolTip="Enter MRP for this batch. It is saved on the batch so the next bill remembers it.">
+                        <TextBox.Style>
+                          <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource BillingInlineEditBox}">
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding RequiresMrp}" Value="True">
+                                <Setter Property="Background" Value="#FFFEF3C7" />
+                                <Setter Property="Foreground" Value="#FFB45309" />
+                                <Setter Property="ToolTip" Value="MRP Required / ₹0.00" />
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBox.Style>
+                      </TextBox>
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -1736,7 +1765,7 @@
             <TextBlock Text="E-way bill threshold notice: configure the applicable threshold and verify the current requirement. No portal integration is provided." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="4,6" />
             <TextBox ToolTip="Invoice notes" Padding="6" Margin="0,5" Text="{Binding Path=Notes, UpdateSourceTrigger=PropertyChanged}" />
             <WrapPanel Margin="0,8,0,0">
-              <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" />
+              <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
               <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
                       ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
                 <StackPanel>
@@ -1980,12 +2009,12 @@
               </Border>
               <DockPanel Margin="0,8,0,6">
                 <Button DockPanel.Dock="Right" Content="F5 Substitutes" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="9" ToolTip="Find salt / composition substitutes for the searched medicine" Style="{StaticResource SecondaryButton}" Command="{Binding ShowSubstitutesCommand}" />
-                <Button DockPanel.Dock="Right" Content="Add first FEFO match" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="8" Style="{StaticResource PrimaryButton}" Command="{Binding SearchItemsCommand}" />
-                <controls:FloatingField Label="Search medicine, salt or scan barcode (F4)" EnterMovesNext="False" TabIndex="7" ToolTip="Scan barcode or search medicine; Enter adds the first FEFO batch. F4 focuses this field. F5 opens salt substitutes." behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="2.5" behaviors:CyclingPlaceholder.Hints="Search 'Paracetamol 650mg'...|Search 'Amoxicillin 500mg'...|Search 'Azithromycin'...">
+                <Button DockPanel.Dock="Right" Content="+ New Medicine" MinWidth="150" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" Style="{StaticResource SecondaryButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
+                <Button DockPanel.Dock="Right" Content="+ Add" Height="48" MinWidth="96" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="8" Style="{StaticResource PrimaryButton}" Command="{Binding AddMatchedItemCommand}" ToolTip="Add the highlighted or matched medicine from the search bar into this bill." />
+                <controls:FloatingField Label="Search medicine, salt or scan barcode (F4)" EnterMovesNext="False" TabIndex="7" ToolTip="F4 jumps here. Type a brand, salt, or scan a barcode. Search adds the first saleable FEFO batch. F5 opens salt substitutes." behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="2.5" behaviors:CyclingPlaceholder.Hints="Search 'Paracetamol 650mg'...|Search 'Amoxicillin 500mg'...|Search 'Azithromycin'...">
                   <Grid>
-                    <TextBox Name="RetailItemSearchBox" Padding="0,0,22,0" Text="{Binding Path=ItemSearch, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox Name="RetailItemSearchBox" Padding="0,0,22,0" Text="{Binding Path=ItemSearch, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="RetailItemSearchBox_PreviewKeyDown">
                       <UIElement.InputBindings>
-                        <KeyBinding Key="Enter" Command="{Binding SearchItemsCommand}" />
                         <KeyBinding Key="F5" Command="{Binding ShowSubstitutesCommand}" />
                       </UIElement.InputBindings>
                     </TextBox>
@@ -1993,7 +2022,10 @@
                   </Grid>
                 </controls:FloatingField>
               </DockPanel>
-              <ListBox MaxHeight="105" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}" Visibility="{Binding HasSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <Button Margin="0,0,0,6" HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
+              </Button>
+              <ListBox Name="RetailMedicineSuggestionList" MaxHeight="105" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}" Visibility="{Binding HasSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}" PreviewMouseLeftButtonUp="RetailMedicineSuggestionList_PreviewMouseLeftButtonUp">
                 <UIElement.InputBindings>
                   <KeyBinding Key="Enter" Command="{Binding PickFirstSearchResultCommand}" />
                 </UIElement.InputBindings>
@@ -2020,10 +2052,11 @@
                     <DockPanel Dock="Top" Margin="0,0,0,8">
                       <TextBlock Text="Salt substitutes" FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
                       <Button DockPanel.Dock="Right" Content="Close" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding CloseSubstituteFlyoutCommand}" />
-                      <TextBlock DockPanel.Dock="Right" Margin="0,0,12,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="Enter / double-click an in-stock brand to add" />
+                      <Button DockPanel.Dock="Right" Content="Bill with Quick Batch" Margin="0,0,8,0" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding ConfirmSelectedSubstituteCommand}" ToolTip="Add the selected row. In-stock brands go on the bill. Zero stock opens a counter batch pre-filled from the catalogue." />
+                      <TextBlock DockPanel.Dock="Right" Margin="0,0,12,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="Enter adds stock · zero stock opens a batch" />
                     </DockPanel>
                     <TextBlock DockPanel.Dock="Bottom" Text="Pharmacist must confirm suitability and prescription rules" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,0" />
-                    <ListView Name="RetailSubstituteList" MaxHeight="200" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ItemsSource="{Binding Substitutes}" SelectedItem="{Binding SelectedSubstitute}" MouseDoubleClick="RetailSubstitute_OnMouseDoubleClick">
+                    <ListView Name="RetailSubstituteList" MaxHeight="200" ScrollViewer.HorizontalScrollBarVisibility="Auto" ItemsSource="{Binding Substitutes}" SelectedItem="{Binding SelectedSubstitute}" MouseDoubleClick="RetailSubstitute_OnMouseDoubleClick">
                       <UIElement.InputBindings>
                         <KeyBinding Key="Enter" Command="{Binding ConfirmSelectedSubstituteCommand}" />
                         <KeyBinding Key="Escape" Command="{Binding CloseSubstituteFlyoutCommand}" />
@@ -2041,6 +2074,24 @@
                           <GridViewColumn Header="In-Stock Qty" Width="90" DisplayMemberBinding="{Binding StockQuantity, StringFormat=0.##}" />
                           <GridViewColumn Header="MRP" Width="80" DisplayMemberBinding="{Binding Mrp, StringFormat=₹{0:N2}}" />
                           <GridViewColumn Header="Rack/Shelf" Width="90" DisplayMemberBinding="{Binding Rack}" />
+                          <GridViewColumn Header="Action" Width="168">
+                            <GridViewColumn.CellTemplate>
+                              <DataTemplate>
+                                <Button Padding="8,4" Command="{Binding DataContext.AddFromSubstituteCommand, RelativeSource={RelativeSource AncestorType=ListView}}" CommandParameter="{Binding}">
+                                  <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+                                      <Setter Property="Content" Value="Bill with Quick Batch" />
+                                      <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsInStock}" Value="True">
+                                          <Setter Property="Content" Value="Add to bill" />
+                                        </DataTrigger>
+                                      </Style.Triggers>
+                                    </Style>
+                                  </Button.Style>
+                                </Button>
+                              </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                          </GridViewColumn>
                         </GridView>
                       </ListView.View>
                     </ListView>
@@ -2054,7 +2105,12 @@
                 </Decorator.Child>
               </Border>
               <TextBlock Foreground="#FFB42318" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
-              <TextBlock Foreground="#FF027A48" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+              <StackPanel Margin="0,4,0,6">
+                <TextBlock Foreground="#FF027A48" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+                <Button Margin="0,8,0,0" Padding="14,10" HorizontalAlignment="Left" Style="{StaticResource PrimaryButton}" Command="{Binding QuickAddMedicineCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this name to the medicine master, enter a counter batch, and add it to the bill">
+                  <TextBlock Text="{Binding CreateUnlistedCaption}" TextWrapping="Wrap" />
+                </Button>
+              </StackPanel>
             </StackPanel>
             <Grid>
               <Grid.RowDefinitions>
@@ -2066,6 +2122,7 @@
                         behaviors:RowFlash.Enabled="True"
                         behaviors:BillingInlineEdit.SearchElementName="RetailItemSearchBox"
                         behaviors:BillingInlineEdit.FocusQtyRequest="{Binding FocusQtyRequest}"
+                        behaviors:BillingInlineEdit.FocusTargetField="{Binding LineFocusField}"
                         Grid.Row="0"
                         AutoGenerateColumns="False"
                         TabIndex="10"
@@ -2101,10 +2158,17 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="Batch" Width="90" IsReadOnly="True">
+                  <DataGridTemplateColumn Header="Batch" Width="130">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding BatchNo, Mode=OneWay}" />
+                        <ComboBox MinWidth="110"
+                                  IsEnabled="True"
+                                  IsHitTestVisible="True"
+                                  DisplayMemberPath="BatchNo"
+                                  SelectedValuePath="BatchId"
+                                  ItemsSource="{Binding BatchOptions}"
+                                  SelectedValue="{Binding SelectedBatchId, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Oldest valid batch is selected automatically. Open this list to bill a different batch." />
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
@@ -2115,10 +2179,22 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="MRP" Width="72" IsReadOnly="True">
+                  <DataGridTemplateColumn Header="MRP" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding Mrp, StringFormat=₹{0:N2}, Mode=OneWay}" />
+                        <TextBox behaviors:BillingInlineEdit.Field="Mrp" Text="{Binding MrpText, UpdateSourceTrigger=LostFocus}" ToolTip="Enter MRP for this batch. It is saved on the batch so the next bill remembers it.">
+                          <TextBox.Style>
+                            <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource BillingInlineEditBox}">
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding RequiresMrp}" Value="True">
+                                  <Setter Property="Background" Value="#FFFEF3C7" />
+                                  <Setter Property="Foreground" Value="#FFB45309" />
+                                  <Setter Property="ToolTip" Value="MRP Required / ₹0.00" />
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBox.Style>
+                        </TextBox>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
@@ -2188,7 +2264,7 @@
                   <ColumnDefinition Width="Auto" />
                   <ColumnDefinition Width="1.6*" />
                 </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" VerticalAlignment="Stretch" Margin="0,0,12,0" HorizontalAlignment="Stretch" ClipToBounds="False" Style="{StaticResource SummaryPanel}">
+                <Border Grid.Column="0" VerticalAlignment="Stretch" Margin="0,0,12,0" HorizontalAlignment="Stretch" ClipToBounds="False" Style="{StaticResource SummaryPanel}" Background="#D9111827" BorderBrush="#40FFFFFF" BorderThickness="1" TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="ClearType">
                   <Decorator.Child>
                     <Grid HorizontalAlignment="Stretch">
                       <Grid.ColumnDefinitions>
@@ -2291,6 +2367,9 @@
                 </StackPanel>
                 <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="12,0,0,0">
                   <WrapPanel>
+                    <Button Margin="2" MinHeight="48" Padding="10,4" AutomationProperties.Name="Extract from Prescription" ToolTip="Read a prescription PDF or image, extract the prescribed medicines, and add the confirmed lines to this bill." Style="{StaticResource PrimaryButton}" Command="{Binding ExtractPrescriptionCommand}">
+                      <TextBlock Text="📄 Extract from Prescription (PDF / Images)" FontWeight="SemiBold" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="200" />
+                    </Button>
                     <Button Margin="2" AutomationProperties.Name="F2 New Bill" ToolTip="Start a fresh new customer bill (clears current fields). Shortcut: F2" Style="{StaticResource PulsingButtonStyle}" Command="{Binding NewBillCommand}">
                       <StackPanel>
                         <TextBlock Text="F2" FontWeight="Bold" HorizontalAlignment="Center" />
@@ -2359,11 +2438,13 @@
             <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
             <TextBlock Text="Stock" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,14" />
             <WrapPanel Margin="0,0,0,10">
-              <Button Content="All Stock" Height="40" MinWidth="100" Margin="0,0,8,8" CommandParameter="All" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" />
-              <Button Content="Shortage (&lt; Min Level)" Height="40" MinWidth="160" Margin="0,0,8,8" CommandParameter="Shortage" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" />
-              <Button Content="Near Expiry (&lt; 90 Days)" Height="40" MinWidth="170" Margin="0,0,8,8" CommandParameter="Near expiry" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" />
+              <Button Content="All Stock" Height="40" MinWidth="100" Margin="0,0,8,8" CommandParameter="All" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Show every batch currently in stock." />
+              <Button Content="Shortage (&lt; Min Level)" Height="40" MinWidth="160" Margin="0,0,8,8" CommandParameter="Shortage" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Show medicines whose quantity is below the minimum level you set." />
+              <Button Content="Near Expiry (&lt; 90 Days)" Height="40" MinWidth="170" Margin="0,0,8,8" CommandParameter="Near expiry" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Show batches that expire within the next 90 days." />
+              <Button Content="Missing MRP (0.00)" Height="40" MinWidth="160" Margin="0,0,8,8" CommandParameter="Missing MRP" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Show batches whose MRP is still ₹0.00 so you can type the correct price." />
               <Button Content="Generate Purchase Indent" Height="40" MinWidth="180" Margin="0,0,8,8" ToolTip="Build a shortage indent, copy it to the clipboard, and optionally save CSV" Style="{StaticResource PrimaryButton}" Command="{Binding GeneratePurchaseIndentCommand}" />
-              <Button Content="Create draft purchase order" Height="40" MinWidth="190" Margin="0,0,0,8" ToolTip="Open Purchases with shortage lines as an editable draft voucher" Style="{StaticResource SecondaryButton}" Command="{Binding CreateDraftPurchaseOrderCommand}" />
+              <Button Content="Create draft purchase order" Height="40" MinWidth="190" Margin="0,0,8,8" ToolTip="Open Purchases with shortage lines as an editable draft voucher" Style="{StaticResource SecondaryButton}" Command="{Binding CreateDraftPurchaseOrderCommand}" />
+              <Button Content="📄 Extract from Invoice (PDF / Images)" Height="40" MinWidth="280" Margin="0,0,0,8" ToolTip="Read distributor invoice PDFs or images and open them on the purchase page so the stock inward can be reviewed and saved." Style="{StaticResource PrimaryButton}" Command="{Binding ExtractOpeningStockCommand}" />
             </WrapPanel>
             <WrapPanel Margin="0,0,0,14">
               <controls:FloatingField Label="Filter by medicine name" Width="260" Margin="0,0,8,8">
@@ -2378,10 +2459,10 @@
               <controls:FloatingField Label="Status" Width="170" Margin="0,0,8,8">
                 <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" />
               </controls:FloatingField>
-              <Button Content="Refresh" Height="48" MinWidth="100" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" />
+              <Button Content="Refresh" Height="48" MinWidth="100" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload the stock grid from the local database." />
             </WrapPanel>
             <Grid Height="320" Margin="0,0,0,14">
-              <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
+              <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
                 <DataGrid.RowStyle>
                   <Style TargetType="{x:Type DataGridRow}">
                     <Style.Triggers>
@@ -2409,15 +2490,39 @@
                   </Style>
                 </DataGrid.RowStyle>
                 <DataGrid.Columns>
-                  <DataGridTextColumn Header="Medicine" Width="*" Binding="{Binding Medicine, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Schedule" Width="85" Binding="{Binding Schedule, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Batch" Width="120" Binding="{Binding BatchNo, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Expiry" Width="90" Binding="{Binding ExpiryDate, Mode=OneWay, StringFormat=MM/yyyy}" />
-                  <DataGridTextColumn Header="MRP" Width="90" Binding="{Binding Mrp, Mode=OneWay, StringFormat=F2}" />
-                  <DataGridTextColumn Header="Purchase rate" Width="110" Binding="{Binding PurchaseRate, Mode=OneWay, StringFormat=F2}" Visibility="{Binding Data.CanViewPurchaseMargins, Source={StaticResource StockPageProxy}, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                  <DataGridTextColumn Header="Stock" Width="80" Binding="{Binding Quantity, Mode=OneWay, StringFormat=0.##}" />
-                  <DataGridTextColumn Header="Reorder" Width="80" Binding="{Binding ReorderLevel, Mode=OneWay, StringFormat=0.##}" />
-                  <DataGridTextColumn Header="Status" Width="110" Binding="{Binding Status, Mode=OneWay}" />
+                  <DataGridTextColumn Header="Medicine" Width="*" IsReadOnly="True" Binding="{Binding Medicine, Mode=OneWay}" />
+                  <DataGridTextColumn Header="Schedule" Width="85" IsReadOnly="True" Binding="{Binding Schedule, Mode=OneWay}" />
+                  <DataGridTextColumn Header="Batch" Width="120" IsReadOnly="True" Binding="{Binding BatchNo, Mode=OneWay}" />
+                  <DataGridTextColumn Header="Expiry" Width="90" IsReadOnly="True" Binding="{Binding ExpiryDate, Mode=OneWay, StringFormat=MM/yyyy}" />
+                  <DataGridTemplateColumn Header="MRP" Width="160" IsReadOnly="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <TextBlock VerticalAlignment="Center" Margin="6,0" Text="{Binding MrpLabel}">
+                          <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}">
+                              <Setter Property="Foreground" Value="#FF0F172A" />
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding RequiresMrp}" Value="True">
+                                  <Setter Property="Foreground" Value="#FFB45309" />
+                                  <Setter Property="FontWeight" Value="SemiBold" />
+                                  <Setter Property="Background" Value="#FFFEF3C7" />
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                      <DataTemplate>
+                        <TextBox Padding="6,4" VerticalContentAlignment="Center" Text="{Binding MrpEditText, UpdateSourceTrigger=LostFocus}" ToolTip="Type the MRP and press Enter." />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="Purchase rate" Width="110" IsReadOnly="True" Binding="{Binding PurchaseRate, Mode=OneWay, StringFormat=F2}" Visibility="{Binding Data.CanViewPurchaseMargins, Source={StaticResource StockPageProxy}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  <DataGridTextColumn Header="Stock" Width="80" IsReadOnly="True" Binding="{Binding Quantity, Mode=OneWay, StringFormat=0.##}" />
+                  <DataGridTextColumn Header="Reorder" Width="80" IsReadOnly="True" Binding="{Binding ReorderLevel, Mode=OneWay, StringFormat=0.##}" />
+                  <DataGridTextColumn Header="Status" Width="110" IsReadOnly="True" Binding="{Binding Status, Mode=OneWay}" />
                 </DataGrid.Columns>
               </DataGrid>
               <TextBlock Text="No stock items yet. Search a medicine above and click Add to stock." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" IsHitTestVisible="False">
@@ -2550,15 +2655,42 @@
         </ScrollViewer>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:PurchasePageViewModel}}" DataType="{x:Type vm:PurchasePageViewModel}">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <DockPanel Margin="28" AllowDrop="True" DragEnter="PurchaseDocument_DragEnter" Drop="PurchaseDocument_Drop">
-            <StackPanel DockPanel.Dock="Top">
+        <Grid Margin="28" AllowDrop="True" DragEnter="PurchaseDocument_DragEnter" Drop="PurchaseDocument_Drop">
+          <Grid.InputBindings>
+            <KeyBinding Key="F2" Command="{Binding NewEntryCommand}" />
+            <KeyBinding Key="F4" Command="{Binding FocusMedicineCommand}" />
+            <KeyBinding Key="F7" Command="{Binding ScanInvoiceCommand}" />
+            <KeyBinding Key="F10" Command="{Binding TransferToStockCommand}" />
+            <KeyBinding Key="S" Modifiers="Control" Command="{Binding TransferToStockCommand}" />
+            <KeyBinding Key="Left" Modifiers="Alt" Command="{Binding PreviousPageCommand}" />
+            <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding NextPageCommand}" />
+          </Grid.InputBindings>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" MaxHeight="340" />
+            <RowDefinition Height="*" MinHeight="220" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
               <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
               <TextBlock Text="Purchases" FontSize="28" FontWeight="SemiBold" />
-              <TextBlock Text="Manual purchase entry" FontSize="16" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,14" />
-              <WrapPanel Margin="0,0,0,12" behaviors:KeyNavigationBehavior.Enabled="True">
-                <DockPanel Width="360" Margin="0,0,8,8">
-                  <Button DockPanel.Dock="Right" Content="Add new supplier" Height="48" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding AddSupplierCommand}" />
+              <TextBlock Text="Inward supplier bills into stock" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,14" />
+              <WrapPanel Margin="0,0,0,10">
+                <Button Content="📄 Extract from Invoice (PDF/Img)" Height="40" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ExtractInvoicesCommand}" ToolTip="Read one or more distributor invoice PDFs or images into the purchase table." />
+                <Button Content="📷 Scan with Webcam" Height="40" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ScanInvoiceCommand}" ToolTip="Capture the supplier invoice from a USB document camera or webcam. Shortcut: F7" />
+                <Button Content="📁 Load CSV / Excel" Height="40" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding LoadSpreadsheetCommand}" ToolTip="Import purchase items and batches from a distributor Excel or CSV file." />
+                <Button Content="📂 Invoices History" Height="40" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ShowInvoiceHistoryCommand}" ToolTip="Browse saved purchase bills by supplier and date, and open the attached invoice." />
+                <Button Content="Attach file" Height="40" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding AttachInvoiceFileCommand}" ToolTip="Attach an invoice photo or PDF already saved on this PC" />
+              </WrapPanel>
+              <Grid Margin="0,0,0,8" behaviors:KeyNavigationBehavior.Enabled="True">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="2.2*" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.Column="0" Margin="0,0,8,0">
+                  <Button DockPanel.Dock="Right" Content="Add" Height="40" Margin="8,18,0,0" VerticalAlignment="Bottom" Style="{StaticResource SecondaryButton}" Command="{Binding AddSupplierCommand}" ToolTip="Add a supplier that is not in the list yet." />
                   <controls:FloatingField Label="Supplier" IsRequired="True" ErrorText="{Binding SupplierError}">
                     <ComboBox x:Name="PurchaseSupplierBox" DisplayMemberPath="Name" IsEditable="False" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
                       <ComboBox.ItemTemplate>
@@ -2569,13 +2701,13 @@
                     </ComboBox>
                   </controls:FloatingField>
                 </DockPanel>
-                <controls:FloatingField Label="Supplier invoice no." IsRequired="True" Width="220" Margin="0,0,8,8" ErrorText="{Binding InvoiceNoError}">
+                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,0,8,0" ErrorText="{Binding InvoiceNoError}">
                   <TextBox Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
                 </controls:FloatingField>
-                <controls:FloatingField Label="Invoice date" IsRequired="True" Width="190" Margin="0,0,8,8" ErrorText="{Binding InvoiceDateError}">
+                <controls:FloatingField Grid.Column="2" Label="Invoice date" IsRequired="True" Margin="0,0,8,0" ErrorText="{Binding InvoiceDateError}">
                   <DatePicker SelectedDate="{Binding InvoiceDate}" />
                 </controls:FloatingField>
-                <controls:FloatingField Label="Receive into godown" Width="220" Margin="0,0,8,8" ToolTip="Where purchased goods are stored. Defaults to Shop Front (retail counter).">
+                <controls:FloatingField Grid.Column="3" Label="Godown / location" ToolTip="Where purchased goods are stored. Defaults to Shop Front (retail counter).">
                   <ComboBox x:Name="PurchaseGodownBox" DisplayMemberPath="Name" IsEditable="False" ItemsSource="{Binding StorageLocations}" SelectedItem="{Binding SelectedStorageLocation}">
                     <ComboBox.ItemTemplate>
                       <DataTemplate>
@@ -2584,35 +2716,90 @@
                     </ComboBox.ItemTemplate>
                   </ComboBox>
                 </controls:FloatingField>
-                <controls:FloatingField Label="Remarks" Width="260" Margin="0,0,8,8">
-                  <TextBox Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}" />
-                </controls:FloatingField>
-              </WrapPanel>
-              <WrapPanel Margin="0,0,0,12">
-                <Button Content="Add item" Height="44" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding AddLineCommand}" />
-                <Button Content="Import bill with Gemini" Height="44" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ImportDocumentCommand}" />
-                <Button Content="Load CSV / Excel" Height="44" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding LoadSpreadsheetCommand}" />
-                <Button Content="Save purchase" Height="44" Margin="0,0,8,8" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
-                <TextBlock Margin="18,10,0,0" Text="{Binding Subtotal, StringFormat=Subtotal: ₹{0:N2}, ConverterCulture=en-IN}" />
-                <TextBlock Margin="18,10,0,0" Text="{Binding TaxTotal, StringFormat=GST: ₹{0:N2}, ConverterCulture=en-IN}" />
-                <TextBlock Margin="18,10,0,0" FontWeight="Bold" Text="{Binding GrandTotal, StringFormat=Total: ₹{0:N2}, ConverterCulture=en-IN}" />
-              </WrapPanel>
-              <ProgressBar IsIndeterminate="True" Height="4" Margin="0,0,0,6" Visibility="{Binding IsImporting, Converter={StaticResource BooleanToVisibilityConverter}}" />
-              <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding ImportStatus}" />
-              <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="{Binding BillTotalCheck}">
-                <FrameworkElement.Style>
+              </Grid>
+              <controls:FloatingField Label="Remarks" Margin="0,0,0,10" EnterMovesNext="False">
+                <TextBox x:Name="PurchaseRemarksBox" Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}" ToolTip="Notes for this purchase. A barcode scanner is ignored while you type here at normal speed." />
+              </controls:FloatingField>
+              <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Margin="0,0,12,0" Padding="14,10" VerticalAlignment="Center" CornerRadius="8" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Foreground="#FF334155" Text="{Binding Subtotal, StringFormat=Subtotal: ₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock VerticalAlignment="Center" Margin="10,0" Foreground="#FF94A3B8" Text="|" />
+                    <TextBlock VerticalAlignment="Center" Foreground="#FF334155" Text="{Binding TaxTotal, StringFormat=GST: ₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock VerticalAlignment="Center" Margin="10,0" Foreground="#FF94A3B8" Text="|" />
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding GrandTotal, StringFormat=Grand Total: ₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                </Border>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                  <Button Content="F2 New Purchase" Height="40" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding NewEntryCommand}" ToolTip="Clear this screen and start a new purchase invoice. Shortcut: F2" Background="#FFF1F5F9" Foreground="#FF475569" BorderBrush="#FFE2E8F0" />
+                  <Button Content="F4 Add Item" Height="40" Margin="0,0,8,0" Padding="14,8" Style="{StaticResource SecondaryButton}" Command="{Binding FocusMedicineCommand}" ToolTip="Open the add-item row and place the cursor in the medicine search. Shortcut: F4" Background="#00FFFFFF" BorderBrush="#FF94A3B8" />
+                  <Button Content="📦 Transfer to Stock / F10 Save" Height="40" MinWidth="260" Style="{StaticResource SuccessButton}" Command="{Binding TransferToStockCommand}" ToolTip="Create any missing medicines, add each batch into stock, and mark this invoice as committed. Shortcuts: F10 or Ctrl+S" />
+                </StackPanel>
+              </Grid>
+              <Border Margin="0,0,0,12" Padding="10,8" CornerRadius="8" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1">
+                <WrapPanel VerticalAlignment="Center">
+                  <TextBlock Text="From Date" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FF334155" />
+                  <DatePicker Width="150" Margin="0,0,12,0" SelectedDate="{Binding FilterFromDate}" ToolTip="Start of the inward date range" />
+                  <TextBlock Text="To Date" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#FF334155" />
+                  <DatePicker Width="150" Margin="0,0,12,0" SelectedDate="{Binding FilterToDate}" ToolTip="End of the inward date range" />
+                  <Button Content="🔍 Filter by Date" Height="36" Margin="0,0,8,0" Padding="12,6" Command="{Binding FilterByDateCommand}" ToolTip="Show inward lines whose invoice date or expiry falls between these dates, and return to page 1." Background="#00FFFFFF" BorderBrush="#FF059669" Foreground="#FF047857" />
+                  <Button Content="Clear / Show All" Height="36" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding ClearDateFilterCommand}" ToolTip="Remove the date filter and show every inward line." />
+                </WrapPanel>
+              </Border>
+              <Border Margin="0,0,0,10" Padding="12,8" CornerRadius="8" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" Visibility="{Binding HasInvoiceAttachment, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <DockPanel>
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Open File" Margin="8,0,0,0" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding ViewInvoiceImageCommand}" ToolTip="Open the attached invoice in the default Windows viewer." />
+                    <Button Content="Read Text" Margin="8,0,0,0" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding ExtractInvoiceTextCommand}" ToolTip="OCR the attached invoice when Windows text recognition is available" />
+                  </StackPanel>
+                  <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Text="{Binding AttachmentSummary}" />
+                </DockPanel>
+              </Border>
+              <TextBlock Margin="0,0,0,8" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding InvoiceOcrText}" Visibility="{Binding HasInvoiceOcrText, Converter={StaticResource BooleanToVisibilityConverter}}" />
+              <ProgressBar IsIndeterminate="True" Height="4" Margin="0,0,0,8" Visibility="{Binding IsImporting, Converter={StaticResource BooleanToVisibilityConverter}}" />
+              <Border Margin="0,0,0,8" Padding="12,8" CornerRadius="8" Background="#FFFFFBEB" BorderBrush="#FFFDE68A" BorderThickness="1" Visibility="{Binding HasTotalMismatch, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock TextWrapping="Wrap" Foreground="#FF92400E" Text="{Binding TotalMismatchNote}" />
+              </Border>
+              <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding ErrorMessage}">
+                <TextBlock.Style>
                   <Style TargetType="{x:Type TextBlock}">
-                    <Setter Property="TextElement.Foreground" Value="#FFD92D20" />
+                    <Setter Property="Visibility" Value="Visible" />
                     <Style.Triggers>
-                      <DataTrigger Value="True" Binding="{Binding BillTotalMatches}">
-                        <Setter Property="TextElement.Foreground" Value="#FF027A48" />
-                      </DataTrigger>
+                      <Trigger Property="Text" Value="">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                      </Trigger>
                     </Style.Triggers>
                   </Style>
-                </FrameworkElement.Style>
+                </TextBlock.Style>
               </TextBlock>
-              <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
-              <TextBlock Foreground="#FF027A48" Margin="0,4,0,6" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+              <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12" Visibility="{Binding HasStagedItems, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel>
+                    <TextBlock Text="Staged items" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="Check these lines, then import them into the purchase table. Each row stays editable before transfer." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" />
+                    <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" MaxHeight="280" Margin="0,0,0,8" ItemsSource="{Binding StagedItems}">
+                      <DataGrid.Columns>
+                        <DataGridTextColumn Header="Medicine" Width="180" Binding="{Binding ItemName, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Match" Width="140" IsReadOnly="True" Binding="{Binding MatchText, Mode=OneWay}" />
+                        <DataGridTextColumn Header="Batch" Width="100" Binding="{Binding Batch, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Expiry" Width="90" Binding="{Binding Expiry, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Qty" Width="70" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Free" Width="70" Binding="{Binding Free, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="MRP" Width="80" Binding="{Binding Mrp, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Rate" Width="80" Binding="{Binding Rate, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="GST %" Width="70" Binding="{Binding Gst, UpdateSourceTrigger=PropertyChanged}" />
+                        <DataGridTextColumn Header="Disc %" Width="70" Binding="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" />
+                      </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Orientation="Horizontal">
+                      <Button Content="Import Rows into Table" Height="40" Margin="0,0,8,0" Style="{StaticResource SuccessButton}" Command="{Binding ApplyStagedItemsCommand}" ToolTip="Copy the extracted lines into the purchase table. You can still edit or delete each row before transferring to stock." />
+                      <Button Content="Discard staged items" Height="40" Style="{StaticResource SecondaryButton}" Command="{Binding DiscardStagedItemsCommand}" />
+                    </StackPanel>
+                </StackPanel>
+              </Border>
               <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,0,12" Visibility="{Binding IsAddItemOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
                       behaviors:KeyNavigationBehavior.Enabled="True"
                       behaviors:KeyNavigationBehavior.SubmitCommand="{Binding ConfirmAddItemCommand}"
@@ -2623,7 +2810,10 @@
                     <TextBlock Text="Enter advances fields · Ctrl+Enter adds line · Esc closes suggestions · F4 focuses medicine"
                                Foreground="{DynamicResource SecondaryTextBrush}" FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap" />
                     <WrapPanel>
-                      <controls:FloatingField Label="Medicine" IsRequired="True" Width="340" Margin="0,0,8,8" EnterMovesNext="False">
+                      <DockPanel Width="620" Margin="0,0,8,8" LastChildFill="True">
+                        <Button DockPanel.Dock="Right" Content="+ New Medicine" MinWidth="150" Height="44" Margin="8,18,0,8" VerticalAlignment="Bottom" Style="{StaticResource SecondaryButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
+                        <Button DockPanel.Dock="Right" Content="Search" MinWidth="90" Height="44" Margin="8,18,0,8" VerticalAlignment="Bottom" Style="{StaticResource PrimaryButton}" Command="{Binding OpenMedicineSuggestionsCommand}" ToolTip="Open medicine suggestions. F4 jumps to this box. Enter selects the highlighted medicine and moves to Quantity." />
+                      <controls:FloatingField Label="Medicine" IsRequired="True" EnterMovesNext="False">
                         <Grid>
                           <!-- TextBox autosuggest (ComboBox IsEditable was non-responsive inside FloatingField). -->
                           <TextBox x:Name="PurchaseMedicineSearchBox"
@@ -2674,6 +2864,13 @@
                           </Popup>
                         </Grid>
                       </controls:FloatingField>
+                      </DockPanel>
+                      <Button Height="44" Margin="0,18,8,8" VerticalAlignment="Bottom" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding QuickAddMedicineCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this search text as a new medicine and add it to this purchase">
+                        <TextBlock Text="{Binding CreateUnlistedCaption}" TextWrapping="Wrap" />
+                      </Button>
+                      <Button Height="44" Margin="0,18,8,8" VerticalAlignment="Bottom" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
+                      </Button>
                       <controls:FloatingField Label="Formulation / form" Width="150" Margin="0,0,8,8"
                                               Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBox x:Name="PurchaseNewItemFormulation" Text="{Binding Path=NewItemFormulation, UpdateSourceTrigger=PropertyChanged}"
@@ -2686,15 +2883,15 @@
                       <controls:FloatingField Label="Batch no." IsRequired="True" Width="150" Margin="0,0,8,8">
                         <TextBox x:Name="PurchaseNewItemBatch" Text="{Binding Path=NewItemBatch, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
-                      <controls:FloatingField Label="Expiry (month/year)" IsRequired="True" Width="170" Margin="0,0,8,8" HelperText="MM/YYYY">
-                        <TextBox x:Name="PurchaseNewItemExpiry" Text="{Binding Path=NewItemExpiry, UpdateSourceTrigger=PropertyChanged}" />
+                      <controls:FloatingField Label="Expiry (month/year)" IsRequired="True" Width="170" Margin="0,0,8,8" HelperText="MM/YYYY — type 1026, 10/26, or 10-2026">
+                        <TextBox x:Name="PurchaseNewItemExpiry" Text="{Binding Path=NewItemExpiry, UpdateSourceTrigger=PropertyChanged}" LostFocus="PurchaseNewItemExpiry_LostFocus" ToolTip="Type 1026, 10/26, or 10-2026. The box formats to MM/YYYY when you leave it." />
                       </controls:FloatingField>
                       <controls:FloatingField Label="Pack size (Drug Bank)" Width="180" Margin="0,0,8,8" HelperText="From catalogue — editable">
                         <TextBox x:Name="PurchaseNewItemPack" Text="{Binding Path=NewItemPackLabel, UpdateSourceTrigger=PropertyChanged}"
                                  ToolTip="Packaging from Drug Bank (e.g. 10 Tablets / Strip, 100ml Bottle)" />
                       </controls:FloatingField>
                       <controls:FloatingField Label="Quantity (packs)" IsRequired="True" Width="150" Margin="0,0,8,8" HelperText="Defaults to 1">
-                        <TextBox x:Name="PurchaseNewItemQuantity" Text="{Binding Path=NewItemQuantity, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox x:Name="PurchaseNewItemQuantity" behaviors:KeyNavigationBehavior.EnterSubmits="True" Text="{Binding Path=NewItemQuantity, UpdateSourceTrigger=PropertyChanged}" />
                       </controls:FloatingField>
                       <controls:FloatingField Label="Free quantity" Width="130" Margin="0,0,8,8">
                         <TextBox x:Name="PurchaseNewItemFree" Text="{Binding Path=NewItemFree, UpdateSourceTrigger=PropertyChanged}" />
@@ -2704,6 +2901,9 @@
                       </controls:FloatingField>
                       <controls:FloatingField Label="Purchase Rate (₹)" IsRequired="True" Width="140" Margin="0,0,8,8">
                         <TextBox x:Name="PurchaseNewItemRate" Text="{Binding Path=NewItemRate, UpdateSourceTrigger=PropertyChanged}" />
+                      </controls:FloatingField>
+                      <controls:FloatingField Label="Trade discount %" Width="140" Margin="0,0,8,8" HelperText="Optional — edit anytime">
+                        <TextBox x:Name="PurchaseNewItemDiscount" Text="{Binding Path=NewItemDiscountPercent, UpdateSourceTrigger=PropertyChanged}" ToolTip="Suggested from the last purchase for this medicine and supplier. Change it if this bill is different." />
                       </controls:FloatingField>
                       <controls:FloatingField Label="GST %" Width="100" Margin="0,0,8,8" EnterMovesNext="False">
                         <TextBox x:Name="PurchaseNewItemGst" Text="{Binding Path=NewItemGst, UpdateSourceTrigger=PropertyChanged}">
@@ -2720,9 +2920,10 @@
                         </TextBox>
                       </controls:FloatingField>
                     </WrapPanel>
+                    <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,6" Text="{Binding RateSuggestionHint}" Visibility="{Binding HasRateSuggestion, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,6" Text="{Binding NewItemError}" />
                     <StackPanel Orientation="Horizontal">
-                      <Button Content="Add to bill" Height="44" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}" Command="{Binding ConfirmAddItemCommand}" />
+                      <Button Content="Add to bill" Height="44" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}" Command="{Binding ConfirmAddItemCommand}" ToolTip="Add this medicine, batch, quantity, and purchase rate as a row on the purchase bill. Enter on Quantity does the same." />
                       <Button Content="Cancel" Height="44" Style="{StaticResource SecondaryButton}" Command="{Binding CancelAddItemCommand}" />
                     </StackPanel>
                   </StackPanel>
@@ -2749,25 +2950,50 @@
                 </Decorator.Child>
               </Border>
             </StackPanel>
-            <GroupBox Header="Purchase return" DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8">
+          </ScrollViewer>
+            <GroupBox Grid.Row="2" Header="Purchase return" Margin="0,8,0,0" Padding="8">
               <StackPanel>
                 <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" Height="90" Margin="0,0,0,6" ItemsSource="{Binding ReturnLines}">
                   <DataGrid.Columns>
-                    <DataGridComboBoxColumn Header="Batch" DisplayMemberPath="Display" Width="*" ItemsSource="{Binding DataContext.ReturnBatches, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItemBinding="{Binding Batch, UpdateSourceTrigger=PropertyChanged}" />
-                    <DataGridTextColumn Header="Quantity" Width="100" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
+                    <DataGridComboBoxColumn Header="Select Batch / Medicine" DisplayMemberPath="Display" Width="*" ItemsSource="{Binding DataContext.ReturnBatches, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItemBinding="{Binding Batch, UpdateSourceTrigger=PropertyChanged}" />
+                    <DataGridTextColumn Header="Return Qty" Width="110" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
                   </DataGrid.Columns>
                 </DataGrid>
                 <WrapPanel>
-                  <TextBox Width="120" Margin="0,0,8,0" Padding="6" ToolTip="Return number" Text="{Binding Path=ReturnNo, UpdateSourceTrigger=PropertyChanged}" />
-                  <ComboBox Width="320" Margin="0,0,8,0" Padding="6" DisplayMemberPath="Display" ItemsSource="{Binding ReturnBatches}" SelectedItem="{Binding SelectedReturnBatch}" />
-                  <TextBox Width="75" Margin="0,0,8,0" Padding="6" ToolTip="Return quantity" Text="{Binding Path=ReturnQuantity, UpdateSourceTrigger=PropertyChanged}" />
-                  <TextBox Width="180" Margin="0,0,8,0" Padding="6" ToolTip="Mandatory return reason" Text="{Binding Path=ReturnReason, UpdateSourceTrigger=PropertyChanged}" />
-                  <Button Content="Post return" Padding="12,6" Command="{Binding SavePurchaseReturnCommand}" />
+                  <StackPanel Width="160" Margin="0,0,12,8">
+                    <TextBlock Text="Return Number" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
+                    <TextBox Padding="8,6" MinHeight="36" ToolTip="Number printed on the supplier credit note" Text="{Binding Path=ReturnNo, UpdateSourceTrigger=PropertyChanged}" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.Hints="e.g. CN-1042" />
+                  </StackPanel>
+                  <StackPanel Width="340" Margin="0,0,12,8">
+                    <TextBlock Text="Batch / Medicine" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
+                    <ComboBox Padding="6" MinHeight="36" DisplayMemberPath="Display" ItemsSource="{Binding ReturnBatches}" SelectedItem="{Binding SelectedReturnBatch}" ToolTip="Pick the batch and medicine being sent back" />
+                  </StackPanel>
+                  <StackPanel Width="120" Margin="0,0,12,8">
+                    <TextBlock Text="Return Qty" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
+                    <TextBox Padding="8,6" MinHeight="36" ToolTip="How many units of the selected batch to return" Text="{Binding Path=ReturnQuantity, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel Width="170" Margin="0,0,12,8">
+                    <TextBlock Text="Refund / Credit Rate" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
+                    <TextBox IsReadOnly="True" Padding="8,6" MinHeight="36" Background="{DynamicResource FieldReadOnlyBrush}" ToolTip="Credit rate taken from the selected batch purchase price. The supplier credit note uses this rate." Text="{Binding ReturnCreditRate, Mode=OneWay}" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.Hints="Select a batch" />
+                  </StackPanel>
+                  <StackPanel Width="240" Margin="0,0,12,8">
+                    <TextBlock Text="Return Reason" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
+                    <TextBox Padding="8,6" MinHeight="36" ToolTip="Why this stock is being returned, such as damaged, expired, or excess" Text="{Binding Path=ReturnReason, UpdateSourceTrigger=PropertyChanged}" behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.Hints="Damaged, expired, excess" />
+                  </StackPanel>
+                  <Button Content="Post return" Height="36" Margin="0,20,0,8" VerticalAlignment="Bottom" Style="{StaticResource PrimaryButton}" Command="{Binding SavePurchaseReturnCommand}" ToolTip="Deduct returned stock from inventory and issue a credit debit memo for the supplier." />
                 </WrapPanel>
               </StackPanel>
             </GroupBox>
-            <Grid MinHeight="260">
-              <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column" HorizontalScrollBarVisibility="Auto" ItemsSource="{Binding Lines}">
+            <DockPanel Grid.Row="1" Margin="0,4,0,0">
+              <Border DockPanel.Dock="Bottom" Margin="0,8,0,0" Padding="8,6" CornerRadius="8" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1">
+                <DockPanel LastChildFill="True">
+                  <Button DockPanel.Dock="Left" Content="◀ Previous Page" Height="32" MinWidth="140" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding PreviousPageCommand}" IsEnabled="{Binding CanGoPrevious}" ToolTip="Previous page. Shortcut: Alt+Left" />
+                  <Button DockPanel.Dock="Right" Content="Next Page ▶" Height="32" MinWidth="140" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoNext}" ToolTip="Next page. Shortcut: Alt+Right" />
+                  <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#FF334155" Text="{Binding PageSummary}" />
+                </DockPanel>
+              </Border>
+            <Grid>
+              <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" HeadersVisibility="Column" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MinHeight="180" ItemsSource="{Binding PagedLines}" SelectedItem="{Binding SelectedLine}">
                 <DataGrid.Columns>
                   <DataGridTextColumn Header="Medicine" IsReadOnly="True" Width="220" Binding="{Binding MedicineName, Mode=OneWay}" />
                   <DataGridTextColumn Header="Batch" Width="90" Binding="{Binding BatchNo, UpdateSourceTrigger=PropertyChanged}" />
@@ -2789,7 +3015,7 @@
                   </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
-              <TextBlock Text="No items yet. Click Add item, import a bill with Gemini, or load a CSV / Excel file." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" IsHitTestVisible="False">
+              <TextBlock Text="No items yet. Extract an invoice, add an item, or load a CSV / Excel file." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" IsHitTestVisible="False">
                 <FrameworkElement.Style>
                   <Style TargetType="{x:Type TextBlock}">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -2801,9 +3027,10 @@
                   </Style>
                 </FrameworkElement.Style>
               </TextBlock>
+              <TextBlock Text="No inward lines fall between these dates." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" IsHitTestVisible="False" Visibility="{Binding ShowDateFilterEmpty, Converter={StaticResource BooleanToVisibilityConverter}}" />
             </Grid>
-          </DockPanel>
-        </ScrollViewer>
+            </DockPanel>
+        </Grid>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:StatutoryRegistersPageViewModel}}" DataType="{x:Type vm:StatutoryRegistersPageViewModel}">
         <DockPanel Margin="20">

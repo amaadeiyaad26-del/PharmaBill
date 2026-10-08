@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core;
+using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -442,6 +443,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			throw new UnauthorizedAccessException("Only an Admin can unlock a finalized bill.");
 		}
 		Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale item) => item.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The selected bill could not be found.");
+		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes });
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
 		if (sale.IsLocked)
 		{
 			sale.IsLocked = false;
@@ -453,8 +456,20 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				EntityId = sale.Id,
 				Details = "Admin override unlock for " + sale.InvoiceNo + ". Reason: " + reason.Trim()
 			});
-			await unitOfWork.SaveChangesAsync(cancellationToken);
 		}
+
+		await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+		{
+			EntityType = "RetailBill",
+			EntityId = sale.Id,
+			Action = "MODIFIED_AFTER_LOCK",
+			AuthorizedBy = string.Empty,
+			Reason = reason.Trim(),
+			OldSnapshotJson = oldSnapshot,
+			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes }),
+			UserId = adminUserId
+		}, cancellationToken);
+		await unitOfWork.SaveChangesAsync(cancellationToken);
 	}
 
 	public async Task VoidSaleAsync(Guid saleId, Guid adminUserId, UserRole adminRole, string reason, CancellationToken cancellationToken = default(CancellationToken))
@@ -469,6 +484,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		{
 			throw new InvalidOperationException("This bill is already voided.");
 		}
+		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes });
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "VOIDED_AFTER_LOCK");
 		sale.IsDeleted = true;
 		sale.IsLocked = true;
 		sale.Notes = (string.IsNullOrWhiteSpace(sale.Notes) ? ("VOIDED: " + reason.Trim()) : (sale.Notes + " | VOIDED: " + reason.Trim()));
@@ -480,12 +497,24 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			EntityId = sale.Id,
 			Details = "Admin override void for " + sale.InvoiceNo + ". Reason: " + reason.Trim()
 		});
+		await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+		{
+			EntityType = "RetailBill",
+			EntityId = sale.Id,
+			Action = "VOIDED_AFTER_LOCK",
+			AuthorizedBy = string.Empty,
+			Reason = reason.Trim(),
+			OldSnapshotJson = oldSnapshot,
+			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes }),
+			UserId = adminUserId
+		}, cancellationToken);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
 	}
 
 	public async Task DemandUnlockedForMutationAsync(Guid saleId, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		Sale sale = (await unitOfWork.Context.Sales.AsNoTracking().SingleOrDefaultAsync((Sale item) => item.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The selected bill could not be found.");
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
 		if (sale.IsLocked)
 		{
 			throw new InvalidOperationException("This bill is locked after print/save. An Admin must authorize an unlock override before changes.");
@@ -590,6 +619,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
 			Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale sale2) => sale2.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The original bill could not be found.");
+			string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsDeleted });
+			RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
 			List<ReturnNote> priorNotes = await unitOfWork.Context.ReturnNotes.Where((ReturnNote returnNote) => returnNote.SourceType == "Sale" && returnNote.SourceId == saleId).ToListAsync(cancellationToken);
 			IReadOnlyList<SaleReturnItem> priorReturns = await GetPriorReturnItemsAsync(saleId, cancellationToken);
 			HashSet<Guid> priorNoteIdsWithItems = priorReturns.Select((SaleReturnItem saleReturnItem) => saleReturnItem.ReturnNoteId).ToHashSet();
@@ -692,6 +723,17 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				EntityId = note.Id,
 				Details = $"Credit note {returnNo} against {sale.InvoiceNo}; amount {creditTotal:F2}; restocked: {restockedQuantity}; reason: {reason.Trim()}"
 			});
+			await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+			{
+				EntityType = "RetailBill",
+				EntityId = sale.Id,
+				Action = "MODIFIED_AFTER_LOCK",
+				AuthorizedBy = string.Empty,
+				Reason = reason.Trim(),
+				OldSnapshotJson = oldSnapshot,
+				NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, returnNo, creditTotal, restockedQuantity, reason = reason.Trim() }),
+				UserId = actingUserId
+			}, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			result = new RetailSaleReturnResult(returnNo, creditTotal, restockedQuantity);
