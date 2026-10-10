@@ -345,8 +345,8 @@
             <UIElement.RenderTransform>
               <ScaleTransform x:Name="Zoom" ScaleX="1" ScaleY="1" />
             </UIElement.RenderTransform>
-            <Border Name="FocusRing" CornerRadius="10" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
-            <Border Name="Face" CornerRadius="8" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" Padding="{TemplateBinding Control.Padding}">
+            <Border Name="FocusRing" CornerRadius="12" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="10" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" Padding="{TemplateBinding Control.Padding}">
               <UIElement.Effect>
                 <DropShadowEffect x:Name="Glow" BlurRadius="12" ShadowDepth="3" Direction="270" Opacity="0.08" Color="#FF0F172A" />
               </UIElement.Effect>
@@ -465,8 +465,8 @@
     </Style.Triggers>
   </Style>
   <Style x:Key="ReportRunPeriodButton" TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#FF2563EB" />
-    <Setter Property="BorderBrush" Value="#FF2563EB" />
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     <Setter Property="Foreground" Value="#FFFFFFFF" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="MinHeight" Value="36" />
@@ -493,11 +493,11 @@
     </Setter>
     <Style.Triggers>
       <Trigger Property="UIElement.IsMouseOver" Value="True">
-        <Setter Property="Background" Value="#FF1D4ED8" />
-        <Setter Property="BorderBrush" Value="#FF1D4ED8" />
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
       </Trigger>
       <Trigger Property="IsPressed" Value="True">
-        <Setter Property="Background" Value="#FF1D4ED8" />
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
       </Trigger>
     </Style.Triggers>
   </Style>
@@ -628,8 +628,8 @@
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type Button}">
           <Grid>
-            <Border Name="FocusRing" CornerRadius="8" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
-            <Border Name="Face" CornerRadius="8" BorderThickness="{TemplateBinding Control.BorderThickness}" BorderBrush="{TemplateBinding Control.BorderBrush}" Background="{TemplateBinding Control.Background}" Padding="{TemplateBinding Control.Padding}">
+            <Border Name="FocusRing" CornerRadius="10" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="10" BorderThickness="{TemplateBinding Control.BorderThickness}" BorderBrush="{TemplateBinding Control.BorderBrush}" Background="{TemplateBinding Control.Background}" Padding="{TemplateBinding Control.Padding}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Control.Foreground}" TextElement.FontWeight="{TemplateBinding Control.FontWeight}" TextElement.FontSize="{TemplateBinding Control.FontSize}" />
             </Border>
             <Border Name="HoverRing" CornerRadius="8" BorderThickness="1.5" Opacity="0" IsHitTestVisible="False" BorderBrush="{StaticResource FocusRingBrush}" />
@@ -1087,7 +1087,7 @@
                       <Setter TargetName="Chrome" Property="Border.BorderBrush" Value="#FF94A3B8" />
                     </Trigger>
                     <Trigger Property="ToggleButton.IsChecked" Value="True">
-                      <Setter TargetName="Chrome" Property="Border.BorderBrush" Value="#FF2563EB" />
+                      <Setter TargetName="Chrome" Property="Border.BorderBrush" Value="{DynamicResource AccentBrush}" />
                     </Trigger>
                     <Trigger Property="IsEnabled" Value="False">
                       <Setter TargetName="Chrome" Property="UIElement.Opacity" Value="0.55" />

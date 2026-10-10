@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,8 +14,10 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Ai;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Inventory;
+using PharmaBill.Core.Labels;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
@@ -452,6 +455,14 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand GeneratePurchaseIndentCommand => generatePurchaseIndentCommand ?? (generatePurchaseIndentCommand = new AsyncRelayCommand(GeneratePurchaseIndentAsync));
 
+	private AsyncRelayCommand? printLabelsCommand;
+
+	public IAsyncRelayCommand PrintLabelsCommand => printLabelsCommand ?? (printLabelsCommand = new AsyncRelayCommand(PrintLabelsAsync));
+
+	private AsyncRelayCommand? reorderSuggestionsCommand;
+
+	public IAsyncRelayCommand ReorderSuggestionsCommand => reorderSuggestionsCommand ?? (reorderSuggestionsCommand = new AsyncRelayCommand(ExportReorderSuggestionsAsync));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand CreateDraftPurchaseOrderCommand => createDraftPurchaseOrderCommand ?? (createDraftPurchaseOrderCommand = new AsyncRelayCommand(CreateDraftPurchaseOrderAsync));
@@ -726,6 +737,109 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	private Task RefreshAsync()
 	{
 		return LoadAsync();
+	}
+
+	/// <summary>
+	/// Exports medicines that are out of stock or will run out within the cover window,
+	/// based on average daily sales, as a purchase-planning CSV.
+	/// </summary>
+	private async Task ExportReorderSuggestionsAsync()
+	{
+		StatusMessage = string.Empty;
+		ErrorMessage = string.Empty;
+		try
+		{
+			InventoryForecastReportDto report;
+			using (IServiceScope scope = scopeFactory.CreateScope())
+			{
+				report = await scope.ServiceProvider.GetRequiredService<IAiPharmacyAssistantService>().GenerateStockAdvisoryAsync();
+			}
+			List<StockAdvisoryItemDto> items = report.Items
+				.Where((StockAdvisoryItemDto item) => item.Status is StockAdvisoryStatus.StockOut or StockAdvisoryStatus.Low)
+				.ToList();
+			if (items.Count == 0)
+			{
+				StatusMessage = "No medicines need reordering based on recent sales.";
+				return;
+			}
+			string[] columns = { "Medicine", "On hand", "Avg daily sales", "Days of cover", "Suggested reorder qty", "Status", "Advice" };
+			IReadOnlyList<string>[] rows = items
+				.Select((StockAdvisoryItemDto item) => (IReadOnlyList<string>)new[]
+				{
+					item.Name,
+					item.CurrentStock.ToString("0.##", CultureInfo.InvariantCulture),
+					item.AverageDailySales.ToString("0.##", CultureInfo.InvariantCulture),
+					item.DaysOfCover?.ToString("0.#", CultureInfo.InvariantCulture) ?? "n/a",
+					item.SuggestedReorderQuantity.ToString("0.##", CultureInfo.InvariantCulture),
+					item.Status.ToString(),
+					item.Advice
+				})
+				.ToArray();
+			string? destination = filePicker.PickExportDestination("csv", $"reorder-suggestions-{DateTime.Now:yyyyMMdd-HHmm}");
+			if (destination == null)
+			{
+				return;
+			}
+			await exportService.ExportAsync(destination, "Reorder suggestions (sales-based)", columns, rows);
+			StatusMessage = $"{items.Count} reorder suggestion(s) saved to {destination}.";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	/// <summary>
+	/// Prints one shelf label per visible batch that has stock and a printable barcode.
+	/// </summary>
+	private async Task PrintLabelsAsync()
+	{
+		StatusMessage = string.Empty;
+		ErrorMessage = string.Empty;
+		try
+		{
+			List<StockRowViewModel> visible = Rows.Where((StockRowViewModel row) => row.Quantity > 0m).ToList();
+			if (visible.Count == 0)
+			{
+				StatusMessage = "No batches with stock in the current view to label.";
+				return;
+			}
+			HashSet<Guid> drugIds = visible.Select((StockRowViewModel row) => row.DrugId).ToHashSet();
+			Dictionary<Guid, (string? Barcode, string? Strength)> details;
+			using (IServiceScope scope = scopeFactory.CreateScope())
+			{
+				PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+				details = await context.Drugs
+					.AsNoTracking()
+					.Where((Drug drug) => drugIds.Contains(drug.Id))
+					.ToDictionaryAsync((Drug drug) => drug.Id, (Drug drug) => (drug.Barcode, drug.Strength));
+			}
+			List<BarcodeLabelItem> items = visible.Select((StockRowViewModel row) =>
+			{
+				details.TryGetValue(row.DrugId, out (string? Barcode, string? Strength) detail);
+				return new BarcodeLabelItem(row.Medicine, detail.Strength, detail.Barcode, row.Mrp > 0m ? row.Mrp : null, row.BatchNo, row.ExpiryDate, 1);
+			}).ToList();
+			BarcodeLabelPlan plan = BarcodeLabelPlanner.Plan(items);
+			if (plan.Cells.Count == 0)
+			{
+				StatusMessage = $"None of the {items.Count} batches has a printable barcode. Add barcodes to the medicines first.";
+				return;
+			}
+			string? destination = filePicker.PickExportDestination("pdf", $"shelf-labels-{DateTime.Now:yyyyMMdd-HHmm}");
+			if (destination == null)
+			{
+				return;
+			}
+			byte[] pdf = new BarcodeLabelPdfService().Build(plan, "Shelf labels " + DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture), columns: 3);
+			await File.WriteAllBytesAsync(destination, pdf);
+			StatusMessage = plan.SkippedWithoutBarcode > 0
+				? $"{plan.Cells.Count} labels saved to {destination}. {plan.SkippedWithoutBarcode} batch(es) skipped: no printable barcode."
+				: $"{plan.Cells.Count} labels saved to {destination}.";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private async Task GeneratePurchaseIndentAsync()

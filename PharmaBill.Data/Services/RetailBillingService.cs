@@ -10,6 +10,7 @@ using PharmaBill.Core;
 using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Loyalty;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 
@@ -383,6 +384,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						Notes = $"SaleId={sale.Id:D}; InvoiceNo={invoiceNo}"
 					});
 				}
+				patient.LoyaltyPoints += LoyaltyPolicy.PointsForAmount(totalAmount);
 				decimal unpaid = RetailTaxCalculator.RoundMoney(totalAmount - paidAmount);
 				if (unpaid > 0m)
 				{

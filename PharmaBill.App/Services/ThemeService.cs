@@ -11,6 +11,7 @@ public sealed class ThemeService : IThemeService
 {
 	private static readonly IReadOnlyDictionary<string, string> AccentColors = new Dictionary<string, string>
 	{
+		["Indigo"] = "#4F46E5",
 		["Blue"] = "#2563EB",
 		["Green"] = "#16834A",
 		["Purple"] = "#7C3AED",

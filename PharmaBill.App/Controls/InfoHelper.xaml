@@ -12,8 +12,8 @@
       <Control.Template>
         <ControlTemplate TargetType="{x:Type Button}">
           <Grid>
-            <Ellipse Name="Disc" Width="16" Height="16" Fill="#FFEFF6FF" Stroke="#FF2563EB" StrokeThickness="1.25" />
-            <TextBlock Text="i" FontFamily="Segoe UI Semibold, Segoe UI" FontSize="11" FontWeight="SemiBold" Foreground="#FF2563EB" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
+            <Ellipse Name="Disc" Width="16" Height="16" Fill="#FFEFF6FF" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.25" />
+            <TextBlock Text="i" FontFamily="Segoe UI Semibold, Segoe UI" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="UIElement.IsMouseOver" Value="True">

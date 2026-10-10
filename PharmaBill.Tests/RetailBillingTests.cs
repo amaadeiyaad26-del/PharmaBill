@@ -204,6 +204,24 @@ public sealed class RetailBillingTests
     }
 
     [Fact]
+    public async Task SaveSale_AwardsLoyaltyPointsOnBillValue()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+
+        var result = await service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Cash", 100m, 100m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner);
+
+        Assert.Equal(100m, result.TotalAmount);
+        Assert.Equal(1, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+    }
+
+    [Fact]
     public async Task SaveSale_ReusesPatientAndCreatesHabitRegisterAndMovement()
     {
         await using var database = await DatabaseTestContext.CreateAsync();

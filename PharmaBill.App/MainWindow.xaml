@@ -135,8 +135,8 @@
                 <FrameworkElement.Resources>
                   <ResourceDictionary>
                     <Style x:Key="DashboardTileStyle" TargetType="{x:Type Border}">
-                      <Setter Property="Background" Value="#FF1E293B" />
-                      <Setter Property="BorderBrush" Value="#FF334155" />
+                      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                      <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
                       <Setter Property="BorderThickness" Value="1" />
                       <Setter Property="Border.CornerRadius" Value="12" />
                       <Setter Property="Border.Padding" Value="16" />
@@ -154,7 +154,7 @@
                     <Style x:Key="CardTitle" TargetType="{x:Type TextBlock}">
                       <Setter Property="TextElement.FontSize" Value="15" />
                       <Setter Property="TextElement.FontWeight" Value="SemiBold" />
-                      <Setter Property="TextElement.Foreground" Value="#FFF8FAFC" />
+                      <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryTextBrush}" />
                       <Setter Property="VerticalAlignment" Value="Center" />
                     </Style>
                     <Style x:Key="CardIcon" TargetType="{x:Type TextBlock}">
@@ -316,7 +316,7 @@
                               <DataTemplate>
                                 <StackPanel VerticalAlignment="Bottom" ToolTip="{Binding Value, StringFormat='{}{0:N0} bill(s)'}">
                                   <TextBlock FontSize="10" Foreground="#FF475569" HorizontalAlignment="Center" Text="{Binding ValueText}" />
-                                  <Border Width="14" Background="#FF2563EB" CornerRadius="4,4,0,0" HorizontalAlignment="Center" Height="{Binding BarHeight}" />
+                                  <Border Width="14" Background="{DynamicResource AccentBrush}" CornerRadius="4,4,0,0" HorizontalAlignment="Center" Height="{Binding BarHeight}" />
                                 </StackPanel>
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -375,7 +375,7 @@
                                   <ColumnDefinition Width="*" />
                                   <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Border Width="34" Height="22" CornerRadius="11" Background="#FF2563EB" VerticalAlignment="Top" Margin="0,0,10,0">
+                                <Border Width="34" Height="22" CornerRadius="11" Background="{DynamicResource AccentBrush}" VerticalAlignment="Top" Margin="0,0,10,0">
                                   <Decorator.Child>
                                     <TextBlock Foreground="#FFFFFFFF" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Text="{Binding RankText}" />
                                   </Decorator.Child>
@@ -541,8 +541,8 @@
                       <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
                         <Style.Triggers>
                           <DataTrigger Value="Today" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="#FF2563EB" />
-                            <Setter Property="BorderBrush" Value="#FF2563EB" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Foreground" Value="#FFFFFFFF" />
                             <Setter Property="UIElement.Effect">
                               <Setter.Value>
@@ -559,8 +559,8 @@
                       <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
                         <Style.Triggers>
                           <DataTrigger Value="This month" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="#FF2563EB" />
-                            <Setter Property="BorderBrush" Value="#FF2563EB" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Foreground" Value="#FFFFFFFF" />
                             <Setter Property="UIElement.Effect">
                               <Setter.Value>
@@ -577,8 +577,8 @@
                       <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
                         <Style.Triggers>
                           <DataTrigger Value="Last month" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="#FF2563EB" />
-                            <Setter Property="BorderBrush" Value="#FF2563EB" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Foreground" Value="#FFFFFFFF" />
                             <Setter Property="UIElement.Effect">
                               <Setter.Value>
@@ -595,8 +595,8 @@
                       <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
                         <Style.Triggers>
                           <DataTrigger Value="Last 3 months" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="#FF2563EB" />
-                            <Setter Property="BorderBrush" Value="#FF2563EB" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Foreground" Value="#FFFFFFFF" />
                             <Setter Property="UIElement.Effect">
                               <Setter.Value>
@@ -613,8 +613,8 @@
                       <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
                         <Style.Triggers>
                           <DataTrigger Value="This year" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="#FF2563EB" />
-                            <Setter Property="BorderBrush" Value="#FF2563EB" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Foreground" Value="#FFFFFFFF" />
                             <Setter Property="UIElement.Effect">
                               <Setter.Value>
@@ -631,8 +631,8 @@
                       <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
                         <Style.Triggers>
                           <DataTrigger Value="Active window" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="#FF2563EB" />
-                            <Setter Property="BorderBrush" Value="#FF2563EB" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             <Setter Property="Foreground" Value="#FFFFFFFF" />
                             <Setter Property="UIElement.Effect">
                               <Setter.Value>
@@ -1744,16 +1744,16 @@
                 <TextBlock Text="B2B tax invoice to retailers / hospitals / pharmacies — not patient retail billing" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" />
                 <WrapPanel Margin="0,6,0,0">
                   <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F2/Ctrl+N New" />
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Text="F2/Ctrl+N New" />
                   </Border>
                   <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F3/Ctrl+P Retailer" />
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Text="F3/Ctrl+P Retailer" />
                   </Border>
                   <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F4/Ctrl+M Medicine" />
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Text="F4/Ctrl+M Medicine" />
                   </Border>
                   <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F9/Ctrl+T Payment" />
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Text="F9/Ctrl+T Payment" />
                   </Border>
                   <Border Background="#FFECFDF5" BorderBrush="#FFA7F3D0" BorderThickness="1" CornerRadius="4" Padding="6,2">
                     <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF047857" Text="F10/Ctrl+↵ Save" />
@@ -2071,7 +2071,7 @@
               <TextBlock Grid.Column="0" FontWeight="SemiBold" Margin="4,4,16,4" VerticalAlignment="Center" Text="{Binding Subtotal, StringFormat=Taxable: ₹{0:N2}, ConverterCulture=en-IN}" />
               <TextBlock Grid.Column="1" Margin="0,4,16,4" VerticalAlignment="Center" Text="{Binding EstimatedTax, StringFormat=Estimated GST: ₹{0:N2}, ConverterCulture=en-IN}" />
               <TextBlock Grid.Column="2" FontSize="18" FontWeight="Bold" Margin="0,4,16,4" VerticalAlignment="Center" HorizontalAlignment="Left" TextWrapping="NoWrap" TextTrimming="None" Text="{Binding EstimatedTotal, StringFormat=Estimated total: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <Button Grid.Column="3" Content="Show Payment QR" Height="34" MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center" Background="#FF2563EB" BorderBrush="#FF2563EB" ToolTip="Open dynamic UPI QR for the estimated total" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
+              <Button Grid.Column="3" Content="Show Payment QR" Height="34" MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" ToolTip="Open dynamic UPI QR for the estimated total" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
             </Grid>
             <TextBlock Text="Payment (F9)" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,4" />
             <WrapPanel>
@@ -2348,7 +2348,7 @@
                   <TextBlock Margin="0,0,16,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding BillNumber, StringFormat=Bill no: {0}}" />
                   <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding BillDate, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
                   <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="16,0,6,0" VerticalAlignment="Center">
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#FF1D4ED8" Text="F2/Ctrl+N · F3/Ctrl+P · F4/Ctrl+M · F5/Ctrl+5 · F8/Ctrl+H · F9/Ctrl+T · F10/Ctrl+↵ · Alt+C Calculator" />
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Text="F2/Ctrl+N · F3/Ctrl+P · F4/Ctrl+M · F5/Ctrl+5 · F8/Ctrl+H · F9/Ctrl+T · F10/Ctrl+↵ · Alt+C Calculator" />
                   </Border>
                 </StackPanel>
               </StackPanel>
@@ -2769,7 +2769,7 @@
                   </StackPanel>
                 </Grid>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0" Visibility="{Binding IsUpiPayment, Converter={StaticResource BooleanToVisibilityConverter}}">
-                  <Button Content="Open QR modal" Height="34" Margin="0,0,0,8" Background="#FF2563EB" BorderBrush="#FF2563EB" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
+                  <Button Content="Open QR modal" Height="34" Margin="0,0,0,8" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
                   <Image Width="120" Height="120" Stretch="Uniform" SnapsToDevicePixels="True" RenderOptions.BitmapScalingMode="NearestNeighbor" Source="{Binding UpiQrCode}" />
                   <TextBlock FontWeight="SemiBold" Text="{Binding UpiId, StringFormat=UPI ID: {0}}" />
                   <CheckBox Content="Payment received" Margin="0,6,0,0" IsChecked="{Binding UpiPaymentReceived}" />
@@ -2948,6 +2948,8 @@
               <Button Content="Missing MRP" Height="36" MinWidth="120" Margin="0,0,8,8" CommandParameter="Missing MRP" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" />
               <Button Content="Purchase Indent" Height="36" MinWidth="140" Margin="0,0,8,8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding GeneratePurchaseIndentCommand}" />
               <Button Content="Draft PO" Height="40" MinWidth="100" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding CreateDraftPurchaseOrderCommand}" />
+              <Button Content="Reorder suggestions" Height="40" MinWidth="150" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ReorderSuggestionsCommand}" ToolTip="Export medicines that are low or out of stock, based on average daily sales over the last 30 days." />
+              <Button Content="Print labels" Height="40" MinWidth="120" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding PrintLabelsCommand}" ToolTip="Save a PDF sheet of barcode shelf labels for the batches in this view." />
               <Button Content="Ban / Hold batch" Height="36" MinWidth="130" Margin="0,0,8,8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding BanSelectedBatchCommand}" ToolTip="Flag selected batch as Banned / Not for Sale / Recalled." />
               <Button Content="Brk / Exp Return" Height="36" MinWidth="130" Margin="0,0,8,8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding IssueBrkExpReturnCommand}" ToolTip="Pull expired/damaged batches and issue debit note to distributor." />
               <Button Content="Counter Challan" Height="36" MinWidth="130" Margin="0,0,8,8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding OpenCounterChallanCommand}" ToolTip="Internal stock movement between godown and shop front." />
@@ -4067,7 +4069,7 @@
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
                           <Style.Triggers>
                             <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.Today}">
-                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                               <Setter Property="Foreground" Value="#FFFFFFFF" />
                               <Setter Property="FontWeight" Value="Bold" />
                               <Setter Property="UIElement.Effect">
@@ -4085,7 +4087,7 @@
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
                           <Style.Triggers>
                             <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.ThisMonth}">
-                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                               <Setter Property="Foreground" Value="#FFFFFFFF" />
                               <Setter Property="FontWeight" Value="Bold" />
                               <Setter Property="UIElement.Effect">
@@ -4103,7 +4105,7 @@
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
                           <Style.Triggers>
                             <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.LastMonth}">
-                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                               <Setter Property="Foreground" Value="#FFFFFFFF" />
                               <Setter Property="FontWeight" Value="Bold" />
                               <Setter Property="UIElement.Effect">
@@ -4121,7 +4123,7 @@
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
                           <Style.Triggers>
                             <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.LastThreeMonths}">
-                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                               <Setter Property="Foreground" Value="#FFFFFFFF" />
                               <Setter Property="FontWeight" Value="Bold" />
                               <Setter Property="UIElement.Effect">
@@ -4139,7 +4141,7 @@
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
                           <Style.Triggers>
                             <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.ThisYear}">
-                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                               <Setter Property="Foreground" Value="#FFFFFFFF" />
                               <Setter Property="FontWeight" Value="Bold" />
                               <Setter Property="UIElement.Effect">
@@ -4157,7 +4159,7 @@
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource DrugRecordsPeriodSegmentButton}">
                           <Style.Triggers>
                             <DataTrigger Binding="{Binding Period}" Value="{x:Static vm:DrugRecordsPeriod.Custom}">
-                              <Setter Property="Background" Value="#FF2563EB" />
+                              <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
                               <Setter Property="Foreground" Value="#FFFFFFFF" />
                               <Setter Property="FontWeight" Value="Bold" />
                               <Setter Property="UIElement.Effect">
@@ -4225,7 +4227,7 @@
                   </Button>
                   <Button Style="{StaticResource DrugRecordsOutlineButton}" ToolTip="Show PDF to share" Command="{Binding ShowPdfForSharingCommand}">
                     <StackPanel Orientation="Horizontal">
-                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="#FF2563EB" Margin="0,0,6,0" VerticalAlignment="Center" />
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="{DynamicResource AccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
                       <TextBlock Text="Show PDF to share" VerticalAlignment="Center" />
                     </StackPanel>
                   </Button>
@@ -4678,11 +4680,11 @@
           <Border Background="#FFEFF6FF" BorderBrush="#FF93C5FD" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="{Binding ShowUpdateBanner, Converter={StaticResource BooleanToVisibilityConverter}}">
             <DockPanel>
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Button Content="Update Now" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0" Background="#FF2563EB" BorderBrush="#FF2563EB" AutomationProperties.Name="Update Now" Command="{Binding UpdateNowCommand}" />
+                <Button Content="Update Now" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" AutomationProperties.Name="Update Now" Command="{Binding UpdateNowCommand}" />
                 <Button Content="Remind Me Tomorrow" Style="{StaticResource SecondaryButton}" Height="32" AutomationProperties.Name="Remind Me Tomorrow update" Command="{Binding RemindUpdateTomorrowCommand}" IsEnabled="{Binding CanRemindUpdateTomorrow}" />
               </StackPanel>
               <StackPanel Orientation="Horizontal">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="16" Foreground="#FF1D4ED8" Margin="0,0,10,0" VerticalAlignment="Center" />
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="16" Foreground="{DynamicResource AccentHoverBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
                 <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FF1E3A8A" FontWeight="SemiBold" Text="{Binding UpdateBannerText}" />
               </StackPanel>
             </DockPanel>
@@ -4779,11 +4781,11 @@
               </Style>
             </FrameworkElement.Style>
             <Grid>
-              <Border Width="4" HorizontalAlignment="Left" Background="#FF2563EB" CornerRadius="12,0,0,12" />
+              <Border Width="4" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" CornerRadius="12,0,0,12" />
               <DockPanel Margin="16,14,12,14">
                 <Button DockPanel.Dock="Right" Content="×" Width="28" Height="28" Margin="8,0,0,0" Padding="0" FontSize="16" Cursor="Hand" Focusable="False" VerticalAlignment="Top" Background="#00FFFFFF" BorderThickness="0" Foreground="#FF94A3B8" ToolTip="Dismiss" AutomationProperties.Name="Dismiss welcome" Command="{Binding DismissWelcomeToastCommand}" />
                 <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="20" Background="#FFEFF6FF" Margin="0,0,12,0" VerticalAlignment="Top">
-                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="18" Foreground="#FF2563EB" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="18" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
                 <StackPanel VerticalAlignment="Center">
                   <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#FF0F172A" TextWrapping="Wrap" Text="{Binding WelcomeHeadline}" />

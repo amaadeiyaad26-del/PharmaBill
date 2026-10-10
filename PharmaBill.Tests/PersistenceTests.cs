@@ -97,7 +97,7 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_CatalogMedicineIsCustom",
+            "_LoyaltyPoints",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
         Assert.Equal(49, database.Context.Model.GetEntityTypes().Count());
 

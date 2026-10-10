@@ -2793,7 +2793,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			new RetentionPeriodChoice(DataRetentionPeriod.Permanent, StatutoryRetentionPolicy.Describe(DataRetentionPeriod.Permanent))
 		});
 		SelectedTheme = "Light";
-		SelectedAccent = "Blue";
+		SelectedAccent = "Indigo";
 		SelectedLanguage = "English";
 		_languageService.LanguageChanged += OnLanguageChanged;
 		PaperSizeOptions = Enum.GetValues<DocumentPaperSize>();

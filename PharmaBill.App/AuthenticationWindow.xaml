@@ -35,7 +35,7 @@
         <Setter Property="FontWeight" Value="SemiBold" />
       </Style>
       <Style x:Key="PrimaryUnlockButtonStyle" TargetType="{x:Type Button}">
-        <Setter Property="Background" Value="#2563EB" />
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="Foreground" Value="#FFFFFF" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="Bold" />
@@ -66,7 +66,7 @@
         </Setter>
       </Style>
       <Style x:Key="LoginLinkButtonStyle" TargetType="{x:Type Button}">
-        <Setter Property="Foreground" Value="#2563EB" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
         <Setter Property="FrameworkElement.Cursor" Value="Hand" />
         <Setter Property="Template">
           <Setter.Value>
@@ -165,7 +165,7 @@
           <TextBlock Grid.Row="5" HorizontalAlignment="Center" Foreground="#94A3B8" Margin="0,8,0,0" Text="{Binding VersionText}" />
           <TextBlock Grid.Row="6" Margin="0,14,0,0" FontSize="11" LineHeight="16" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" Foreground="#94A3B8" Text="Designed and developed by S.A.E.R. to serve pharma professionals." />
           <TextBlock Grid.Row="7" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" Foreground="#94A3B8">
-            <Run Text="For any query: email at " /> <Hyperlink NavigateUri="mailto:pharma.bill26@gmail.com" Foreground="#2563EB" RequestNavigate="SupportEmail_RequestNavigate">pharma.bill26@gmail.com</Hyperlink></TextBlock>
+            <Run Text="For any query: email at " /> <Hyperlink NavigateUri="mailto:pharma.bill26@gmail.com" Foreground="{DynamicResource AccentBrush}" RequestNavigate="SupportEmail_RequestNavigate">pharma.bill26@gmail.com</Hyperlink></TextBlock>
         </Grid>
       </Grid>
     </Border>

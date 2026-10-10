@@ -8,9 +8,9 @@
   <SolidColorBrush x:Key="SecondaryTextBrush" Color="#FF98A2B3" />
   <SolidColorBrush x:Key="DividerBrush" Color="#FF344054" />
   <SolidColorBrush x:Key="HoverBrush" Color="#FF344054" />
-  <SolidColorBrush x:Key="AccentBrush" Color="#FF60A5FA" />
-  <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF3B82F6" />
-  <SolidColorBrush x:Key="AccentSoftBrush" Color="#2660A5FA" />
+  <SolidColorBrush x:Key="AccentBrush" Color="#FF818CF8" />
+  <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF6366F1" />
+  <SolidColorBrush x:Key="AccentSoftBrush" Color="#26818CF8" />
   <SolidColorBrush x:Key="FieldBorderBrush" Color="#FF475467" />
   <SolidColorBrush x:Key="FieldBackgroundBrush" Color="#FF1D2939" />
   <SolidColorBrush x:Key="FieldReadOnlyBrush" Color="#FF344054" />

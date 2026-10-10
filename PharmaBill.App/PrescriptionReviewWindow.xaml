@@ -21,7 +21,7 @@
       <TextBlock Text="{Binding ErrorMessage}" Foreground="#FFB42318" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="420" Margin="0,0,16,0" />
       <Button Content="📦 Inward Missing Items to Stock" Height="36" Padding="12,6" Margin="0,0,8,0" Command="{Binding InwardMissingCommand}" />
       <Button Content="Cancel" IsCancel="True" Height="36" Padding="18,6" Margin="0,0,8,0" />
-      <Button Content="Add to Bill" IsDefault="True" Height="36" Padding="22,6" FontWeight="SemiBold" Background="#FF2563EB" Foreground="#FFFFFFFF" BorderBrush="#FF1D4ED8" Click="AddToBill_Click" />
+      <Button Content="Add to Bill" IsDefault="True" Height="36" Padding="22,6" FontWeight="SemiBold" Background="{DynamicResource AccentBrush}" Foreground="#FFFFFFFF" BorderBrush="{DynamicResource AccentHoverBrush}" Click="AddToBill_Click" />
     </StackPanel>
     <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single" ItemsSource="{Binding Rows}" RowHeight="72" VerticalScrollBarVisibility="Auto">
       <DataGrid.Columns>
@@ -64,7 +64,7 @@
                     <Setter Property="Background" Value="White" />
                     <Style.Triggers>
                       <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                        <Setter Property="BorderBrush" Value="#2563EB" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                         <Setter Property="Background" Value="#EFF6FF" />
                       </Trigger>
                     </Style.Triggers>
