@@ -4463,7 +4463,7 @@
         <RowDefinition Height="*" />
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
-      <Border Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Padding="24,12">
+      <Border Grid.Row="0" Background="{DynamicResource HeaderBackgroundBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="0,0,0,3" Padding="24,12">
         <Decorator.Child>
           <Grid>
             <Grid.ColumnDefinitions>
