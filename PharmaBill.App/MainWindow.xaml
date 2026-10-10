@@ -2330,10 +2330,11 @@
             <KeyBinding Key="W" Modifiers="Control" Command="{Binding CancelBillCommand}" />
             <KeyBinding Key="S" Modifiers="Control+Shift" Command="{Binding ScanPrescriptionWithHandheldScannerCommand}" />
           </Grid.InputBindings>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <Grid Margin="16" AllowDrop="True">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
-              <RowDefinition Height="*" MinHeight="100" />
+              <RowDefinition Height="*" MinHeight="200" />
               <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0">
@@ -2855,6 +2856,7 @@
                 </Grid>
               </Grid>
             </Grid>
+          </ScrollViewer>
           <Border Background="#99FFFFFF" Visibility="{Binding IsScanningPrescription, Converter={StaticResource BooleanToVisibilityConverter}}">
             <Decorator.Child>
               <Border Background="#FF0F172A" CornerRadius="12" Padding="28,22" HorizontalAlignment="Center" VerticalAlignment="Center">
