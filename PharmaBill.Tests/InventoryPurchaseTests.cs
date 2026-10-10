@@ -50,7 +50,8 @@ public sealed class InventoryPurchaseTests
         Assert.Equal(31.5m, invoice.TotalAmount);
         Assert.Single(await database.Context.Batches.ToListAsync());
         Assert.Contains(await database.Context.SupplierLedgerEntries.ToListAsync(),
-            entry => entry.SupplierId == supplier.Id && entry.Credit == 31.5m && entry.EntryType == "PurchaseInvoice");
+            entry => entry.SupplierId == supplier.Id && entry.Credit == 31.5m && entry.Debit == 0m
+                && (entry.EntryType == "PurchaseBill" || entry.EntryType == "PurchaseInvoice"));
     }
 
     [Fact]

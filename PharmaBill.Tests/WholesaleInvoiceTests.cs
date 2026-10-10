@@ -234,7 +234,7 @@ public sealed class WholesaleInvoiceTests
         {
             SupplierId = supplier.Id,
             EntryAtUtc = DateTime.UtcNow,
-            EntryType = "PurchaseInvoice",
+            EntryType = "PurchaseBill",
             Credit = 500m
         });
         await database.Context.SaveChangesAsync();

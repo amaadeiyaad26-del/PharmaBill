@@ -18,7 +18,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 	{
 		ValidatePeriod(from, to);
 		List<PurchaseInvoice> invoices = await (from invoice in context.PurchaseInvoices.AsNoTracking()
-			where invoice.Status == "Posted" && invoice.InvoiceDate >= @from && invoice.InvoiceDate <= to
+			where (invoice.Status == PurchaseInvoice.PostedStatus || invoice.Status == PurchaseInvoice.CommittedStatus) && invoice.InvoiceDate >= @from && invoice.InvoiceDate <= to
 			select invoice).ToListAsync(cancellationToken);
 		Guid[] invoiceIds = invoices.Select((PurchaseInvoice invoice) => invoice.Id).ToArray();
 		Dictionary<Guid, Supplier> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync((Supplier item) => item.Id, cancellationToken);

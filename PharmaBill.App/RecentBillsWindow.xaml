@@ -28,6 +28,13 @@
           <DataGridTextColumn Header="Total" Width="90" Binding="{Binding TotalAmount, StringFormat=N2}" />
           <DataGridTextColumn Header="Paid" Width="90" Binding="{Binding PaidAmount, StringFormat=N2}" />
           <DataGridTextColumn Header="Lock" Width="55" Binding="{Binding IsLocked}" />
+          <DataGridTemplateColumn Header="Audit" Width="Auto" MinWidth="110">
+            <DataGridTemplateColumn.CellTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding AuditStatus}" ToolTip="{Binding AuditToolTip}" VerticalAlignment="Center" />
+              </DataTemplate>
+            </DataGridTemplateColumn.CellTemplate>
+          </DataGridTemplateColumn>
         </DataGrid.Columns>
       </DataGrid>
       <GroupBox Grid.Row="1" Header="Select item quantities to return; use 0 for items not being returned">

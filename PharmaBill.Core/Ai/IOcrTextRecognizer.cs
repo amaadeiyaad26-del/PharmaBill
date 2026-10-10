@@ -6,4 +6,6 @@ namespace PharmaBill.Core.Ai;
 public interface IOcrTextRecognizer
 {
 	Task<string> RecognizeAsync(byte[] imageBytes, CancellationToken cancellationToken = default(CancellationToken));
+
+	Task<IReadOnlyList<OcrWordPosition>> RecognizeWordsAsync(byte[] imageBytes, CancellationToken cancellationToken = default(CancellationToken));
 }

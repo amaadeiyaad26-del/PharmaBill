@@ -114,6 +114,19 @@ public sealed class PersistenceTests
 
         Assert.Contains("BranchId", columns);
 
+        var purchaseColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var command = database.Connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA table_info(\"PurchaseInvoices\");";
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                purchaseColumns.Add(reader.GetString(1));
+            }
+        }
+
+        Assert.Contains("StorageLocationId", purchaseColumns);
+
         database.Context.AuditLogs.Add(new AuditLog
         {
             Action = "SchemaSmokeTest",
@@ -121,6 +134,27 @@ public sealed class PersistenceTests
             BranchId = null,
         });
         await database.Context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task DbInitializer_AddsModelColumnsMissingFromInstalledDatabase()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        await database.Context.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE \"PurchaseInvoices\" DROP COLUMN \"StorageLocationId\";");
+
+        await database.CreateDbInitializer().InitializeAsync();
+
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var command = database.Connection.CreateCommand();
+        command.CommandText = "PRAGMA table_info(\"PurchaseInvoices\");";
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(1));
+        }
+
+        Assert.Contains("StorageLocationId", columns);
     }
 
     [Fact]

@@ -1,7 +1,10 @@
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PharmaBill.App.Services;
 using PharmaBill.Core;
@@ -19,7 +22,65 @@ public sealed class RetailBillLineViewModel : ObservableObject
 
 	private decimal _unitPrice;
 
-	public RetailStockChoice Choice { get; }
+	private RetailStockChoice _choice;
+
+	public ObservableCollection<RetailStockChoice> BatchOptions { get; } = new ObservableCollection<RetailStockChoice>();
+
+	public RetailStockChoice Choice => _choice;
+
+	public Guid SelectedBatchId
+	{
+		get => _choice.BatchId;
+		set
+		{
+			RetailStockChoice? next = BatchOptions.FirstOrDefault(option => option.BatchId == value);
+			if (next == null || next.BatchId == _choice.BatchId)
+			{
+				return;
+			}
+
+			_choice = next;
+			UnitPrice = (next.SalePrice.HasValue && next.SalePrice.Value >= 0m && next.SalePrice.Value <= next.Mrp) ? next.SalePrice.Value : next.Mrp;
+			OnPropertyChanged(nameof(Choice));
+			OnPropertyChanged(nameof(SelectedBatchId));
+			OnPropertyChanged(nameof(DrugName));
+			OnPropertyChanged(nameof(BatchNo));
+			OnPropertyChanged(nameof(ExpiryDate));
+			OnPropertyChanged(nameof(Mrp));
+			OnPropertyChanged(nameof(StockQuantity));
+			OnPropertyChanged(nameof(GstRate));
+			OnPropertyChanged(nameof(RequiresPrescription));
+			OnPropertyChanged(nameof(IsHabitForming));
+			OnPropertyChanged(nameof(Schedule));
+			UpdateAmounts();
+		}
+	}
+
+	public void SetBatchOptions(IEnumerable<RetailStockChoice> batches)
+	{
+		BatchOptions.Clear();
+		foreach (RetailStockChoice batch in batches.OrderBy(option => option.ExpiryDate ?? DateOnly.MaxValue).ThenBy(option => option.BatchNo, StringComparer.OrdinalIgnoreCase))
+		{
+			if (BatchOptions.All(option => option.BatchId != batch.BatchId))
+			{
+				BatchOptions.Add(batch);
+			}
+		}
+
+		RetailStockChoice? current = BatchOptions.FirstOrDefault(option => option.BatchId == _choice.BatchId);
+		if (current != null)
+		{
+			_choice = current;
+		}
+		else
+		{
+			BatchOptions.Insert(0, _choice);
+		}
+
+		OnPropertyChanged(nameof(BatchOptions));
+		OnPropertyChanged(nameof(SelectedBatchId));
+		OnPropertyChanged(nameof(Choice));
+	}
 
 	public string DrugName => Choice.DrugName;
 
@@ -27,7 +88,42 @@ public sealed class RetailBillLineViewModel : ObservableObject
 
 	public DateOnly? ExpiryDate => Choice.ExpiryDate;
 
+	public event Action<RetailBillLineViewModel, decimal>? MrpCommitted;
+
 	public decimal Mrp => Choice.Mrp;
+
+	public bool RequiresMrp => Mrp <= 0m;
+
+	public string MrpText
+	{
+		get => Mrp.ToString("0.00", CultureInfo.CurrentCulture);
+		set
+		{
+			if (!MrpAmount.TryParse(value, out decimal parsed) || parsed < 0m || parsed == Mrp)
+			{
+				return;
+			}
+
+			ApplySavedMrp(parsed);
+			MrpCommitted?.Invoke(this, parsed);
+		}
+	}
+
+	public void ApplySavedMrp(decimal mrp)
+	{
+		_choice = _choice with { Mrp = mrp };
+		if (_unitPrice <= 0m || (_unitPrice > mrp && mrp > 0m))
+		{
+			_unitPrice = mrp;
+			OnPropertyChanged(nameof(UnitPrice));
+		}
+
+		OnPropertyChanged(nameof(Choice));
+		OnPropertyChanged(nameof(Mrp));
+		OnPropertyChanged(nameof(RequiresMrp));
+		OnPropertyChanged(nameof(MrpText));
+		UpdateAmounts();
+	}
 
 	public decimal StockQuantity => Choice.AvailableQuantity;
 
@@ -157,13 +253,15 @@ public sealed class RetailBillLineViewModel : ObservableObject
 
 	public RetailBillLineViewModel(RetailStockChoice choice)
 	{
-		Choice = choice;
+		_choice = choice;
+		BatchOptions.Add(choice);
 		UnitPrice = ((choice.SalePrice.HasValue && choice.SalePrice.Value >= 0m && choice.SalePrice.Value <= choice.Mrp) ? choice.SalePrice.Value : choice.Mrp);
 	}
 
 	private RetailBillLineViewModel(RetailBillLineSnapshot snapshot)
 	{
-		Choice = snapshot.Choice;
+		_choice = snapshot.Choice;
+		BatchOptions.Add(snapshot.Choice);
 		Quantity = snapshot.Quantity;
 		DiscountAmount = snapshot.DiscountAmount;
 		UnitPrice = snapshot.UnitPrice;

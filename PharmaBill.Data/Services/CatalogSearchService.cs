@@ -30,18 +30,67 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		{
 			return new MedicineSearchResults(Array.Empty<MedicineSearchResult>(), Array.Empty<MedicineSearchResult>());
 		}
-		List<Guid> matchingIds = await FindCatalogIdsAsync(text, cancellationToken);
-		if (matchingIds.Count == 0)
+		List<Guid> matchingIds = new List<Guid>();
+		try
+		{
+			matchingIds = await FindCatalogIdsAsync(text, cancellationToken);
+		}
+		catch (Exception)
+		{
+			// FTS is created by catalogue import. Custom and local medicines are still matched below.
+		}
+
+		string like = "%" + query.Trim().Replace("%", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal) + "%";
+		List<Guid> customIds = await context.CatalogMedicines.AsNoTracking()
+			.Where(medicine => !medicine.IsDiscontinued && medicine.IsCustom && (
+				EF.Functions.Like(medicine.Name, like)
+				|| EF.Functions.Like(medicine.GenericName ?? string.Empty, like)
+				|| EF.Functions.Like(medicine.BrandName ?? string.Empty, like)
+				|| EF.Functions.Like(medicine.ShortComposition1 ?? string.Empty, like)
+				|| EF.Functions.Like(medicine.Manufacturer ?? string.Empty, like)))
+			.Select(medicine => medicine.Id)
+			.Take(40)
+			.ToListAsync(cancellationToken);
+		foreach (Guid customId in customIds)
+		{
+			if (!matchingIds.Contains(customId))
+			{
+				matchingIds.Add(customId);
+			}
+		}
+
+		List<Drug> localDrugs = await context.Drugs.AsNoTracking()
+			.Where(drug => drug.IsActive && (
+				EF.Functions.Like(drug.Name, like)
+				|| EF.Functions.Like(drug.GenericName ?? string.Empty, like)
+				|| EF.Functions.Like(drug.BrandName ?? string.Empty, like)))
+			.OrderBy(drug => drug.Name)
+			.Take(40)
+			.ToListAsync(cancellationToken);
+		foreach (Drug localDrug in localDrugs)
+		{
+			if (localDrug.CatalogMedicineId is Guid catalogId && !matchingIds.Contains(catalogId))
+			{
+				matchingIds.Add(catalogId);
+			}
+		}
+
+		if (matchingIds.Count == 0 && localDrugs.Count == 0)
 		{
 			return new MedicineSearchResults(Array.Empty<MedicineSearchResult>(), Array.Empty<MedicineSearchResult>());
 		}
-		List<CatalogMedicine> medicines = await (from medicine in context.CatalogMedicines.AsNoTracking()
-			where matchingIds.Contains(medicine.Id) && !medicine.IsDiscontinued
-			select medicine).ToListAsync(cancellationToken);
+
+		List<CatalogMedicine> medicines = matchingIds.Count == 0
+			? new List<CatalogMedicine>()
+			: await (from medicine in context.CatalogMedicines.AsNoTracking()
+				where matchingIds.Contains(medicine.Id) && !medicine.IsDiscontinued
+				select medicine).ToListAsync(cancellationToken);
 		string[] localNames = medicines.Select((CatalogMedicine medicine) => medicine.Name.ToLower()).Distinct().ToArray();
-		HashSet<string> habits = await (from info in context.CatalogInfos.AsNoTracking()
-			where info.IsHabitForming && localNames.Contains(info.NameKey)
-			select info.NameKey).ToHashSetAsync(cancellationToken);
+		HashSet<string> habits = localNames.Length == 0
+			? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+			: await (from info in context.CatalogInfos.AsNoTracking()
+				where info.IsHabitForming && localNames.Contains(info.NameKey)
+				select info.NameKey).ToHashSetAsync(cancellationToken);
 		var drugLinks = await (from drug in context.Drugs.AsNoTracking()
 			where drug.CatalogMedicineId.HasValue && matchingIds.Contains(drug.CatalogMedicineId.Value) && drug.IsActive
 			select new { drug.Id, drug.CatalogMedicineId, drug.Name }).ToListAsync(cancellationToken);
@@ -60,7 +109,13 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 			string otherBranchAvailability = ((valueOrDefault <= 0m) ? BranchService.FormatPeerAvailabilityHint(branchService.FindPeerAvailability(medicine.Name, medicine.CompositionKey, value.Item1)) : null);
 			return ToResult(medicine, habits.Contains(medicine.Name.ToLowerInvariant()), valueOrDefault, value.Item4, value.Item2, value.Item3, value.Item1, otherBranchAvailability);
 		}).ToArray();
-		return new MedicineSearchResults(source.Where((MedicineSearchResult result) => result.IsInStock).Take(25).ToArray(), source.Where((MedicineSearchResult result) => !linkedCatalogIds.Contains(result.CatalogMedicineId)).Take(25).ToArray());
+		MedicineSearchResult[] unlinked = localDrugs
+			.Where(drug => source.All(result => result.DrugId != drug.Id) && (drug.CatalogMedicineId == null || source.All(result => result.CatalogMedicineId != drug.CatalogMedicineId)))
+			.Select(drug => new MedicineSearchResult(drug.CatalogMedicineId ?? Guid.Empty, drug.Name, drug.GenericName, drug.GenericName ?? string.Empty, null, drug.Unit ?? drug.DosageForm, drug.Mrp, false, 0m, false, null, null, drug.Mrp, drug.Id))
+			.ToArray();
+		return new MedicineSearchResults(
+			source.Where((MedicineSearchResult result) => result.IsInStock).Take(25).ToArray(),
+			source.Where((MedicineSearchResult result) => !linkedCatalogIds.Contains(result.CatalogMedicineId)).Concat(unlinked).Take(25).ToArray());
 	}
 
 	public async Task<List<SubstituteStockResult>> FindSubstitutesAsync(string saltComposition, Guid? excludeCatalogMedicineId = null, CancellationToken cancellationToken = default(CancellationToken))

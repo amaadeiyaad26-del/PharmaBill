@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using PharmaBill.App.ViewModels;
 
 namespace PharmaBill.App;
@@ -11,6 +13,7 @@ public partial class PrescriptionReviewWindow : Window
 	{
 		InitializeComponent();
 		_viewModel = viewModel;
+		viewModel.OwnerWindow = this;
 		DataContext = viewModel;
 	}
 
@@ -20,16 +23,20 @@ public partial class PrescriptionReviewWindow : Window
 		DialogResult = false;
 	}
 
-	private void AddToBill_Click(object sender, RoutedEventArgs e)
+	private async void AddToBill_Click(object sender, RoutedEventArgs e)
 	{
-		string text = _viewModel.Validate();
-		if (text != null)
-		{
-			ErrorText.Text = text;
-		}
-		else
+		if (await _viewModel.TryAcceptAsync())
 		{
 			DialogResult = true;
+		}
+	}
+
+	private void Qty_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+	{
+		if (sender is TextBox box && !box.IsKeyboardFocusWithin)
+		{
+			box.Focus();
+			e.Handled = true;
 		}
 	}
 }

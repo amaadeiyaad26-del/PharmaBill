@@ -8,32 +8,32 @@ namespace PharmaBill.Sync;
 
 public static class LocalNetworkInfo
 {
+	private static readonly string[] VirtualHints =
+	[
+		"virtual", "vethernet", "vmware", "virtualbox", "vbox", "hyper-v", "hyperv",
+		"wsl", "docker", "vpn", "tap", "tun", "wireguard", "nordlynx", "zerotier",
+		"hamachi", "radmin", "npcap", "loopback", "pseudo"
+	];
+
 	public static string? GetLocalIPv4()
 	{
 		try
 		{
-			return (from item in (from nic in NetworkInterface.GetAllNetworkInterfaces().Where((NetworkInterface nic) =>
-					{
-						bool flag = nic.OperationalStatus == OperationalStatus.Up;
-						if (flag)
-						{
-							NetworkInterfaceType networkInterfaceType = nic.NetworkInterfaceType;
-							bool flag2 = ((networkInterfaceType == NetworkInterfaceType.Loopback || networkInterfaceType == NetworkInterfaceType.Tunnel) ? true : false);
-							flag = !flag2;
-						}
-						return flag;
-					})
+			return (from item in (from nic in NetworkInterface.GetAllNetworkInterfaces().Where(IsCandidateNic)
 					select new
 					{
 						Nic = nic,
 						Properties = nic.GetIPProperties()
 					}).SelectMany(item => from address in item.Properties.UnicastAddresses
-					where address.Address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(address.Address) && !IsLinkLocal(address.Address)
+					where address.Address.AddressFamily == AddressFamily.InterNetwork
+						&& !IPAddress.IsLoopback(address.Address)
+						&& !IsLinkLocal(address.Address)
 					select new
 					{
 						Address = address.Address,
 						Score = Score(item.Nic, item.Properties, address.Address)
 					})
+				where item.Score > 0
 				orderby item.Score descending
 				select item.Address.ToString()).FirstOrDefault();
 		}
@@ -43,60 +43,78 @@ public static class LocalNetworkInfo
 		}
 	}
 
+	private static bool IsCandidateNic(NetworkInterface nic)
+	{
+		if (nic.OperationalStatus != OperationalStatus.Up)
+		{
+			return false;
+		}
+
+		NetworkInterfaceType type = nic.NetworkInterfaceType;
+		if (type is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
+		{
+			return false;
+		}
+
+		return !LooksVirtual(nic);
+	}
+
+	private static bool LooksVirtual(NetworkInterface nic)
+	{
+		string haystack = (nic.Name + " " + nic.Description).ToLowerInvariant();
+		return VirtualHints.Any(hint => haystack.Contains(hint, StringComparison.Ordinal));
+	}
+
 	private static bool IsLinkLocal(IPAddress address)
 	{
 		byte[] addressBytes = address.GetAddressBytes();
-		if (addressBytes[0] == 169)
-		{
-			return addressBytes[1] == 254;
-		}
-		return false;
+		return addressBytes.Length >= 2 && addressBytes[0] == 169 && addressBytes[1] == 254;
 	}
 
 	private static int Score(NetworkInterface nic, IPInterfaceProperties properties, IPAddress address)
 	{
-		int num = 0;
-		if (properties.GatewayAddresses.Any((GatewayIPAddressInformation gateway) => gateway.Address.AddressFamily == AddressFamily.InterNetwork && !gateway.Address.Equals(IPAddress.Any)))
+		if (LooksVirtual(nic))
 		{
-			num += 100;
+			return -1000;
 		}
-		int num2 = num;
-		num = num2 + nic.NetworkInterfaceType switch
+
+		int score = 0;
+		bool hasGateway = properties.GatewayAddresses.Any(gateway =>
+			gateway.Address.AddressFamily == AddressFamily.InterNetwork
+			&& !gateway.Address.Equals(IPAddress.Any)
+			&& !IPAddress.IsLoopback(gateway.Address));
+		if (!hasGateway)
 		{
-			NetworkInterfaceType.Wireless80211 => 30, 
-			NetworkInterfaceType.Ethernet => 20, 
-			_ => 0, 
-		};
-		byte[] addressBytes = address.GetAddressBytes();
-		if (addressBytes[0] == 192 && addressBytes[1] == 168)
-		{
-			num += 10;
+			// Prefer real LAN adapters that can route; host-only / VM NICs often have no gateway.
+			score -= 40;
 		}
 		else
 		{
-			if (addressBytes[0] == 10)
-			{
-				goto IL_00a0;
-			}
-			if (addressBytes[0] == 172)
-			{
-				byte b = addressBytes[1];
-				if (b >= 16 && b <= 31)
-				{
-					goto IL_00a0;
-				}
-			}
+			score += 100;
 		}
-		goto IL_00a4;
-		IL_00a4:
-		string description = nic.Description;
-		if (description.Contains("virtual", StringComparison.OrdinalIgnoreCase) || description.Contains("vethernet", StringComparison.OrdinalIgnoreCase) || description.Contains("vmware", StringComparison.OrdinalIgnoreCase) || description.Contains("virtualbox", StringComparison.OrdinalIgnoreCase))
+
+		score += nic.NetworkInterfaceType switch
 		{
-			num -= 50;
+			NetworkInterfaceType.Wireless80211 => 40,
+			NetworkInterfaceType.Ethernet => 30,
+			NetworkInterfaceType.GigabitEthernet => 30,
+			_ => 0
+		};
+
+		byte[] bytes = address.GetAddressBytes();
+		if (bytes.Length >= 2 && bytes[0] == 192 && bytes[1] == 168)
+		{
+			score += 15;
 		}
-		return num;
-		IL_00a0:
-		num += 5;
-		goto IL_00a4;
+		else if (bytes.Length >= 1 && bytes[0] == 10)
+		{
+			score += 8;
+		}
+		else if (bytes.Length >= 2 && bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+		{
+			score += 8;
+		}
+
+		return score;
 	}
 }

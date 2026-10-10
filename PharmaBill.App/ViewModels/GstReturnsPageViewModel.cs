@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using ClosedXML.Excel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Data.Services;
@@ -55,11 +56,27 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? exportGstr3bWorksheetCommand;
 
+	private AsyncRelayCommand? exportGstr1ExcelCommand;
+
+	private AsyncRelayCommand? importGstr2bCommand;
+
+	private AsyncRelayCommand? exportEInvoiceCommand;
+
+	private AsyncRelayCommand? exportEWayBillCommand;
+
 	public ObservableCollection<GstPeriodChoice> PeriodChoices { get; } = new ObservableCollection<GstPeriodChoice>();
 
 	public ObservableCollection<GstTaxAuditIssue> AuditIssues { get; } = new ObservableCollection<GstTaxAuditIssue>();
 
 	public ObservableCollection<Gstr3bWorksheetRow> Gstr3bRows { get; } = new ObservableCollection<Gstr3bWorksheetRow>();
+
+	public ObservableCollection<Gstr2bReconRow> Gstr2bReconRows { get; } = new ObservableCollection<Gstr2bReconRow>();
+
+	public ObservableCollection<Gstr1B2bRow> Gstr1B2bRows { get; } = new ObservableCollection<Gstr1B2bRow>();
+
+	public ObservableCollection<Gstr1B2cSlabRow> Gstr1B2cRows { get; } = new ObservableCollection<Gstr1B2cSlabRow>();
+
+	public ObservableCollection<Gstr1HsnRow> Gstr1HsnRows { get; } = new ObservableCollection<Gstr1HsnRow>();
 
 	public string TotalTaxableText => MoneyFormat.Rupees(TotalTaxableTurnover);
 
@@ -301,6 +318,14 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ExportGstr3bWorksheetCommand => exportGstr3bWorksheetCommand ?? (exportGstr3bWorksheetCommand = new AsyncRelayCommand(ExportGstr3bWorksheetAsync));
 
+	public IAsyncRelayCommand ExportGstr1ExcelCommand => exportGstr1ExcelCommand ?? (exportGstr1ExcelCommand = new AsyncRelayCommand(ExportGstr1ExcelAsync));
+
+	public IAsyncRelayCommand ImportGstr2bCommand => importGstr2bCommand ?? (importGstr2bCommand = new AsyncRelayCommand(ImportGstr2bAsync));
+
+	public IAsyncRelayCommand ExportEInvoiceCommand => exportEInvoiceCommand ?? (exportEInvoiceCommand = new AsyncRelayCommand(ExportEInvoiceAsync));
+
+	public IAsyncRelayCommand ExportEWayBillCommand => exportEWayBillCommand ?? (exportEWayBillCommand = new AsyncRelayCommand(ExportEWayBillAsync));
+
 	public GstReturnsPageViewModel(IServiceScopeFactory scopeFactory, IFilePickerService filePicker)
 	{
 		_scopeFactory = scopeFactory;
@@ -347,6 +372,27 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			{
 				Gstr3bRows.Add(item);
 			}
+
+			GstService gst = scope.ServiceProvider.GetRequiredService<GstService>();
+			Gstr1Tables tables = await gst.BuildGstr1TablesAsync(from, to, cancellationToken);
+			Gstr1B2bRows.Clear();
+			foreach (Gstr1B2bRow row in tables.Table4B2b)
+			{
+				Gstr1B2bRows.Add(row);
+			}
+
+			Gstr1B2cRows.Clear();
+			foreach (Gstr1B2cSlabRow row in tables.Table7B2c)
+			{
+				Gstr1B2cRows.Add(row);
+			}
+
+			Gstr1HsnRows.Clear();
+			foreach (Gstr1HsnRow row in tables.Table12Hsn)
+			{
+				Gstr1HsnRows.Add(row);
+			}
+
 			ErrorMessage = string.Empty;
 			StatusMessage = "GST returns loaded for " + SelectedPeriod.DisplayName + ".";
 		}
@@ -446,6 +492,210 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			{
 				Gstr3bRows.Add(item2);
 			}
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task ExportGstr1ExcelAsync()
+	{
+		if (SelectedPeriod is null)
+		{
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			GstService gst = scope.ServiceProvider.GetRequiredService<GstService>();
+			Gstr1Tables tables = await gst.BuildGstr1TablesAsync(SelectedPeriod.From, SelectedPeriod.To);
+			string path = _filePicker.PickExportDestination("xlsx", $"GSTR1-{SelectedPeriod.From:yyyyMM}");
+			if (path is null)
+			{
+				return;
+			}
+
+			await Task.Run(() =>
+			{
+				using XLWorkbook workbook = new XLWorkbook();
+				IXLWorksheet b2b = workbook.Worksheets.Add("Table4-B2B");
+				string[] b2bHeaders = ["GSTIN", "Invoice", "Date", "Taxable", "CGST", "SGST", "IGST", "Invoice value", "POS"];
+				for (int i = 0; i < b2bHeaders.Length; i++)
+				{
+					b2b.Cell(1, i + 1).Value = b2bHeaders[i];
+					b2b.Cell(1, i + 1).Style.Font.Bold = true;
+				}
+
+				int row = 2;
+				foreach (Gstr1B2bRow item in tables.Table4B2b)
+				{
+					b2b.Cell(row, 1).Value = item.Gstin;
+					b2b.Cell(row, 2).Value = item.InvoiceNo;
+					b2b.Cell(row, 3).Value = item.InvoiceDate.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+					b2b.Cell(row, 4).Value = item.TaxableValue;
+					b2b.Cell(row, 5).Value = item.Cgst;
+					b2b.Cell(row, 6).Value = item.Sgst;
+					b2b.Cell(row, 7).Value = item.Igst;
+					b2b.Cell(row, 8).Value = item.InvoiceValue;
+					b2b.Cell(row, 9).Value = item.PlaceOfSupply;
+					row++;
+				}
+
+				IXLWorksheet b2c = workbook.Worksheets.Add("Table7-B2C");
+				string[] b2cHeaders = ["Tax slab %", "Taxable", "CGST", "SGST", "IGST", "Invoices"];
+				for (int i = 0; i < b2cHeaders.Length; i++)
+				{
+					b2c.Cell(1, i + 1).Value = b2cHeaders[i];
+					b2c.Cell(1, i + 1).Style.Font.Bold = true;
+				}
+
+				row = 2;
+				foreach (Gstr1B2cSlabRow item in tables.Table7B2c)
+				{
+					b2c.Cell(row, 1).Value = item.TaxRate;
+					b2c.Cell(row, 2).Value = item.TaxableValue;
+					b2c.Cell(row, 3).Value = item.Cgst;
+					b2c.Cell(row, 4).Value = item.Sgst;
+					b2c.Cell(row, 5).Value = item.Igst;
+					b2c.Cell(row, 6).Value = item.InvoiceCount;
+					row++;
+				}
+
+				IXLWorksheet hsn = workbook.Worksheets.Add("Table12-HSN");
+				string[] hsnHeaders = ["HSN", "Qty", "Taxable", "CGST", "SGST", "IGST", "Rate %"];
+				for (int i = 0; i < hsnHeaders.Length; i++)
+				{
+					hsn.Cell(1, i + 1).Value = hsnHeaders[i];
+					hsn.Cell(1, i + 1).Style.Font.Bold = true;
+				}
+
+				row = 2;
+				foreach (Gstr1HsnRow item in tables.Table12Hsn)
+				{
+					hsn.Cell(row, 1).Value = item.HsnCode;
+					hsn.Cell(row, 2).Value = item.Quantity;
+					hsn.Cell(row, 3).Value = item.TaxableValue;
+					hsn.Cell(row, 4).Value = item.Cgst;
+					hsn.Cell(row, 5).Value = item.Sgst;
+					hsn.Cell(row, 6).Value = item.Igst;
+					hsn.Cell(row, 7).Value = item.TaxRate;
+					row++;
+				}
+
+				b2b.Columns().AdjustToContents();
+				b2c.Columns().AdjustToContents();
+				hsn.Columns().AdjustToContents();
+				workbook.SaveAs(path);
+			});
+			StatusMessage = "GSTR-1 Excel saved: " + path;
+			ErrorMessage = string.Empty;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task ImportGstr2bAsync()
+	{
+		if (SelectedPeriod is null)
+		{
+			return;
+		}
+
+		try
+		{
+			string? path = _filePicker.PickCsvFile();
+			if (string.IsNullOrWhiteSpace(path))
+			{
+				return;
+			}
+
+			string csv = await File.ReadAllTextAsync(path);
+			IReadOnlyList<Gstr2bImportedRow> portal = GstService.ParseGstr2bCsv(csv);
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			IReadOnlyList<Gstr2bReconRow> recon = await scope.ServiceProvider.GetRequiredService<GstService>()
+				.ReconcileGstr2bAsync(SelectedPeriod.From, SelectedPeriod.To, portal);
+			Gstr2bReconRows.Clear();
+			foreach (Gstr2bReconRow row in recon)
+			{
+				Gstr2bReconRows.Add(row);
+			}
+
+			StatusMessage = $"GSTR-2B recon: {recon.Count} row(s) — matched {recon.Count(r => r.MatchStatus == "Matched")}.";
+			ErrorMessage = string.Empty;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task ExportEInvoiceAsync()
+	{
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			PharmaBill.Data.Persistence.PharmaBillDbContext db = scope.ServiceProvider.GetRequiredService<PharmaBill.Data.Persistence.PharmaBillDbContext>();
+			Guid? invoiceId = await db.WholesaleInvoices.AsNoTracking()
+				.Where(i => i.Status == "Posted")
+				.OrderByDescending(i => i.InvoiceAtUtc)
+				.Select(i => (Guid?)i.Id)
+				.FirstOrDefaultAsync();
+			if (invoiceId is null)
+			{
+				ErrorMessage = "No posted wholesale invoice available for e-Invoice JSON.";
+				return;
+			}
+
+			EInvoicePayloadResult payload = await scope.ServiceProvider.GetRequiredService<GstService>()
+				.BuildEInvoiceJsonAsync(invoiceId.Value);
+			string path = _filePicker.PickExportDestination("json", Path.GetFileNameWithoutExtension(payload.SuggestedFileName));
+			if (path is null)
+			{
+				return;
+			}
+
+			await File.WriteAllTextAsync(path, payload.Json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+			StatusMessage = "e-Invoice JSON (schema v1.03) saved: " + path;
+			ErrorMessage = string.Empty;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task ExportEWayBillAsync()
+	{
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			PharmaBill.Data.Persistence.PharmaBillDbContext db = scope.ServiceProvider.GetRequiredService<PharmaBill.Data.Persistence.PharmaBillDbContext>();
+			var invoice = await db.WholesaleInvoices.AsNoTracking()
+				.Where(i => i.Status == "Posted")
+				.OrderByDescending(i => i.InvoiceAtUtc)
+				.Select(i => new { i.Id, i.VehicleNumber })
+				.FirstOrDefaultAsync();
+			if (invoice is null)
+			{
+				ErrorMessage = "No posted wholesale invoice available for e-Way Bill JSON.";
+				return;
+			}
+
+			EWayBillPayloadResult payload = await scope.ServiceProvider.GetRequiredService<GstService>()
+				.BuildEWayBillJsonAsync(invoice.Id, transporterId: null, vehicleNumber: invoice.VehicleNumber, distanceKm: 1m);
+			string path = _filePicker.PickExportDestination("json", Path.GetFileNameWithoutExtension(payload.SuggestedFileName));
+			if (path is null)
+			{
+				return;
+			}
+
+			await File.WriteAllTextAsync(path, payload.Json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+			StatusMessage = "e-Way Bill Part-A/B JSON saved: " + path;
+			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
 		{

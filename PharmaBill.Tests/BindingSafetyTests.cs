@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Xml.Linq;
+using PharmaBill.App.Services;
 using PharmaBill.App.ViewModels;
 using Xunit;
 
@@ -119,7 +120,7 @@ public sealed class BindingSafetyTests
                 PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
                 PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Warning | SourceLevels.Error;
 
-                var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!);
+                var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new NullScannerService());
                 foreach (var key in window.Resources.Keys.OfType<DataTemplateKey>())
                 {
                     var template = (DataTemplate)window.Resources[key];
@@ -133,9 +134,14 @@ public sealed class BindingSafetyTests
                         Height = 768,
                         Resources = window.Resources
                     };
-                    host.Measure(new Size(1366, 768));
-                    host.Arrange(new Rect(0, 0, 1366, 768));
-                    host.UpdateLayout();
+                    foreach (var (width, height) in new[] { (1366d, 768d), (1920d, 1080d) })
+                    {
+                        host.Width = width;
+                        host.Height = height;
+                        host.Measure(new Size(width, height));
+                        host.Arrange(new Rect(0, 0, width, height));
+                        host.UpdateLayout();
+                    }
                 }
             }
             catch (Exception exception)
@@ -153,5 +159,26 @@ public sealed class BindingSafetyTests
                         !m.Contains("RelativeSource", StringComparison.Ordinal))
             .ToList();
         Assert.True(pathErrors.Count == 0, string.Join(Environment.NewLine, pathErrors.Take(10)));
+    }
+
+    private sealed class NullScannerService : IScannerService
+    {
+        public event EventHandler<string>? BarcodeReceived;
+
+        public bool IsListening => false;
+
+        public string Status => "Test stub";
+
+        public void Start()
+        {
+        }
+
+        public void Stop()
+        {
+        }
+
+        public void Toggle()
+        {
+        }
     }
 }

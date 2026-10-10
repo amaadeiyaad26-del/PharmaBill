@@ -30,7 +30,13 @@ public sealed class Drug : EntityBase
 
 	public decimal ReorderLevel { get; set; }
 
+	public decimal StockQuantity { get; set; }
+
 	public Guid? CatalogMedicineId { get; set; }
 
 	public bool IsActive { get; set; } = true;
+
+	public bool IsBanned { get; set; }
+
+	public decimal MaxStockLevel { get; set; }
 }

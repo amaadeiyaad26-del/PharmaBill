@@ -33,11 +33,46 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 
 	private string? _rack;
 
+	public string? ValidationWarning { get; set; }
+
+	public DateTime InwardDate { get; set; }
+
+	public bool AcceptMedicineEdits { get; set; }
+
 	public decimal BaseAmount => Round(Quantity * Rate - DiscountAmount);
 
 	public decimal TaxAmount => Round(BaseAmount * GstRate / 100m);
 
+	/// <summary>Line amount after trade discount (Qty × Rate − discount).</summary>
 	public decimal Amount => BaseAmount;
+
+	/// <summary>Trade discount as a percent of Qty × Rate; keeps <see cref="DiscountAmount"/> in sync for save.</summary>
+	public decimal DiscountPercent
+	{
+		get
+		{
+			decimal gross = Quantity * Rate;
+			if (gross <= 0m)
+			{
+				return 0m;
+			}
+
+			return Round(DiscountAmount * 100m / gross);
+		}
+		set
+		{
+			decimal gross = Quantity * Rate;
+			decimal nextAmount = gross <= 0m ? 0m : Round(gross * Math.Clamp(value, 0m, 100m) / 100m);
+			if (!EqualityComparer<decimal>.Default.Equals(DiscountAmount, nextAmount))
+			{
+				DiscountAmount = nextAmount;
+			}
+			else
+			{
+				OnPropertyChanged(nameof(DiscountPercent));
+			}
+		}
+	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -79,6 +114,12 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 			{
 				OnPropertyChanging(nameof(MedicineName));
 				_medicineName = next;
+				if (AcceptMedicineEdits && _drug != null && !string.Equals(_drug.Name?.Trim(), next, StringComparison.OrdinalIgnoreCase) && !string.Equals(_drug.BrandName?.Trim(), next, StringComparison.OrdinalIgnoreCase))
+				{
+					_drug = null;
+					OnPropertyChanged(nameof(Drug));
+				}
+
 				OnPropertyChanged(nameof(MedicineName));
 			}
 		}
@@ -263,13 +304,54 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 
 	public bool TryCreateInput(out PurchaseLineInput input)
 	{
-		input = null;
-		if (Drug == null || !DateOnly.TryParse(Expiry, CultureInfo.CurrentCulture, DateTimeStyles.None, out var result))
+		input = null!;
+		if (Drug == null
+			|| string.IsNullOrWhiteSpace(BatchNo)
+			|| Quantity <= 0m
+			|| !TryParseExpiry(Expiry, out DateOnly result))
 		{
 			return false;
 		}
-		input = new PurchaseLineInput(Drug.Id, BatchNo, result, Quantity, FreeQuantity, Mrp, Rate, GstRate, DiscountAmount, Amount, Rack);
+
+		input = new PurchaseLineInput(Drug.Id, BatchNo.Trim(), result, Quantity, FreeQuantity, Mrp, Rate, GstRate, DiscountAmount, Amount, Rack);
 		return true;
+	}
+
+	/// <summary>Accepts MM/yyyy, yyyy-MM-dd, 06/2027, 2027-06-30, and culture-local dates.</summary>
+	public static bool TryParseExpiry(string? text, out DateOnly result)
+	{
+		result = default;
+		if (string.IsNullOrWhiteSpace(text))
+		{
+			return false;
+		}
+
+		string trimmed = text.Trim();
+		if (AddStockViewModel.TryParseExpiry(trimmed, out result))
+		{
+			return true;
+		}
+
+		string[] exact =
+		[
+			"yyyy-MM-dd", "yyyy/MM/dd", "yyyy-MM", "yyyy/MM",
+			"dd-MM-yyyy", "dd/MM/yyyy", "dd-MM-yy", "dd/MM/yy"
+		];
+		if (DateTime.TryParseExact(trimmed, exact, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
+		{
+			result = trimmed.Length <= 7
+				? new DateOnly(parsed.Year, parsed.Month, DateTime.DaysInMonth(parsed.Year, parsed.Month))
+				: DateOnly.FromDateTime(parsed);
+			return true;
+		}
+
+		if (DateOnly.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.None, out result)
+			|| DateOnly.TryParse(trimmed, CultureInfo.CurrentCulture, DateTimeStyles.None, out result))
+		{
+			return true;
+		}
+
+		return false;
 	}
 
 	private void NotifyAmounts()
@@ -288,12 +370,14 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 	private void OnQuantityChanged(decimal value)
 	{
 		NotifyAmounts();
+		OnPropertyChanged(nameof(DiscountPercent));
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnRateChanged(decimal value)
 	{
 		NotifyAmounts();
+		OnPropertyChanged(nameof(DiscountPercent));
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
@@ -306,5 +390,6 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 	private void OnDiscountAmountChanged(decimal value)
 	{
 		NotifyAmounts();
+		OnPropertyChanged(nameof(DiscountPercent));
 	}
 }

@@ -35,7 +35,11 @@ public partial class QuickInwardWindow : Window
 		Guid? catalogMedicineId,
 		string? composition,
 		string? manufacturer,
-		decimal? suggestedMrp)
+		decimal? suggestedMrp,
+		decimal? purchaseRate = null,
+		string? defaultBatchNo = null,
+		decimal? defaultQuantity = null,
+		string? notice = null)
 	{
 		_scopeFactory = scopeFactory;
 		_session = session;
@@ -46,13 +50,47 @@ public partial class QuickInwardWindow : Window
 		_manufacturer = manufacturer;
 		InitializeComponent();
 		MedicineTitleText.Text = _medicineName;
+		if (!string.IsNullOrWhiteSpace(notice))
+		{
+			NoticeText.Text = notice.Trim();
+		}
 		if (suggestedMrp is > 0m)
 		{
 			MrpBox.Text = suggestedMrp.Value.ToString("0.##", CultureInfo.InvariantCulture);
 			PtrBox.Text = suggestedMrp.Value.ToString("0.##", CultureInfo.InvariantCulture);
+		}
+
+		if (purchaseRate is > 0m)
+		{
+			PurchaseRateBox.Text = purchaseRate.Value.ToString("0.##", CultureInfo.InvariantCulture);
+		}
+		else if (suggestedMrp is > 0m)
+		{
 			PurchaseRateBox.Text = suggestedMrp.Value.ToString("0.##", CultureInfo.InvariantCulture);
 		}
-		BatchNoBox.Focus();
+
+		if (!string.IsNullOrWhiteSpace(defaultBatchNo))
+		{
+			BatchNoBox.Text = defaultBatchNo.Trim();
+		}
+
+		if (defaultQuantity is > 0m)
+		{
+			QuantityBox.Text = defaultQuantity.Value.ToString("0.##", CultureInfo.InvariantCulture);
+		}
+
+		if (!string.IsNullOrWhiteSpace(defaultBatchNo))
+		{
+			DateTime expiry = DateTime.Today.AddYears(1);
+			ExpiryBox.Text = expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+			ExpiryBox.Focus();
+			ExpiryBox.SelectAll();
+		}
+		else
+		{
+			BatchNoBox.Focus();
+			BatchNoBox.SelectAll();
+		}
 	}
 
 	private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -153,6 +191,12 @@ public partial class QuickInwardWindow : Window
 			PtrEntered = ptr;
 			DialogResult = true;
 			Close();
+		}
+		catch (DbUpdateException dbEx)
+		{
+			string message = dbEx.InnerException != null ? dbEx.InnerException.Message : dbEx.Message;
+			StatusText.Text = $"Database error: {message}";
+			System.Diagnostics.Debug.WriteLine($"[QuickInward Save Error]: {dbEx}");
 		}
 		catch (Exception ex)
 		{

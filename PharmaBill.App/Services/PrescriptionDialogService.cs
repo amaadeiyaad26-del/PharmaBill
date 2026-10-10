@@ -6,9 +6,9 @@ namespace PharmaBill.App.Services;
 
 public sealed class PrescriptionDialogService : IPrescriptionDialogService
 {
-	public string? CaptureFromWebcam()
+	public string? CaptureFromWebcam(bool prescriptionOcrMode = false)
 	{
-		WebcamCaptureWindow webcamCaptureWindow = new WebcamCaptureWindow
+		WebcamCaptureWindow webcamCaptureWindow = new WebcamCaptureWindow(prescriptionOcrMode)
 		{
 			Owner = Application.Current?.MainWindow
 		};
@@ -17,6 +17,16 @@ public sealed class PrescriptionDialogService : IPrescriptionDialogService
 			return null;
 		}
 		return webcamCaptureWindow.CapturedPath;
+	}
+
+	public bool HasHardwareScanner()
+	{
+		return WiaScannerCapture.HasScanner();
+	}
+
+	public string? CaptureFromHardwareScanner()
+	{
+		return WiaScannerCapture.ScanToJpeg();
 	}
 
 	public IReadOnlyList<ConfirmedPrescriptionItem>? ReviewMatches(PrescriptionReviewViewModel viewModel)

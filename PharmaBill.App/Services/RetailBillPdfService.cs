@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -6,6 +7,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.Core;
 using PharmaBill.Data.Services;
@@ -83,29 +85,128 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 
 	public async Task ShareWhatsAppAsync(Guid saleId, RetailDocumentType documentType = RetailDocumentType.CashMemo, CancellationToken cancellationToken = default(CancellationToken))
 	{
-		RetailBillPrintData bill = await GetBillAsync(saleId, cancellationToken);
 		DocumentOutputSettings settings = settingsStore.Load();
 		if (string.IsNullOrWhiteSpace(settings.WhatsAppNumber))
 		{
 			throw new InvalidOperationException("Set a WhatsApp phone number in Settings first.");
 		}
+
 		string destination = GetSharedPdfPath(saleId, documentType);
-		Directory.CreateDirectory(Path.GetDirectoryName(destination));
+		Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
 		await ExportAsync(saleId, destination, documentType, cancellationToken);
-		string text = new string(settings.WhatsAppNumber.Where(char.IsDigit).ToArray());
-		if (text.Length == 0)
+		OpenWhatsAppChat(settings.WhatsAppNumber, await BuildDefaultWhatsAppMessageAsync(saleId, cancellationToken));
+		ShowInExplorer(destination);
+	}
+
+	/// <summary>
+	/// Exports the bill PDF under Invoices, opens wa.me with the invoice text,
+	/// and places the PDF itself on the clipboard as a FileDropList so Ctrl+V attaches the file (not a path string).
+	/// </summary>
+	public async Task<string> ShareWhatsAppToCustomerAsync(Guid saleId, string customerPhone, RetailDocumentType documentType = RetailDocumentType.CashMemo, bool copyPdfFileToClipboard = true, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		RetailBillPrintData bill = await GetBillAsync(saleId, cancellationToken);
+		string digits = NormalizeWhatsAppPhone(customerPhone);
+		if (digits.Length == 0)
 		{
-			throw new InvalidOperationException("Enter a WhatsApp number containing digits in Settings.");
+			throw new InvalidOperationException("Please enter customer phone number first.");
 		}
-		string text2 = Uri.EscapeDataString($"Hello, {bill.PharmacyName} has prepared bill {bill.InvoiceNo} for {MoneyFormat.Rupees(bill.TotalAmount)}. The PDF is saved on this device; attach it in WhatsApp.");
-		if (Process.Start(new ProcessStartInfo("https://wa.me/" + text + "?text=" + text2)
+
+		string invoicesDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "Invoices");
+		Directory.CreateDirectory(invoicesDir);
+		string billNo = SanitizeFileName(bill.InvoiceNo);
+		string destination = Path.Combine(invoicesDir, billNo + ".pdf");
+		await ExportAsync(saleId, destination, documentType, cancellationToken);
+
+		string patient = string.IsNullOrWhiteSpace(bill.PatientName) ? "Customer" : bill.PatientName.Trim();
+		string pharmacy = string.IsNullOrWhiteSpace(bill.PharmacyName) ? "our pharmacy" : bill.PharmacyName.Trim();
+		string message = "Hello " + patient + ", here is your digital invoice for " + pharmacy + ":\n"
+			+ "Bill No: " + bill.InvoiceNo + "\n"
+			+ "Amount: " + MoneyFormat.Rupees(bill.TotalAmount) + "\n"
+			+ "Thank you for choosing us!";
+		OpenWhatsAppChat(digits, message);
+
+		if (copyPdfFileToClipboard)
 		{
-			UseShellExecute = true
-		}) == null)
+			try
+			{
+				CopyPdfFileDropToClipboard(destination);
+			}
+			catch
+			{
+				// Clipboard can be locked by another app; WhatsApp still opened with the text message.
+			}
+		}
+
+		return destination;
+	}
+
+	/// <summary>Puts the PDF file on the clipboard as CF_HDROP / FileDropList so paste attaches the document.</summary>
+	public static void CopyPdfFileDropToClipboard(string pdfPath)
+	{
+		if (string.IsNullOrWhiteSpace(pdfPath) || !File.Exists(pdfPath))
+		{
+			throw new FileNotFoundException("The invoice PDF was not found to copy.", pdfPath);
+		}
+
+		void Set()
+		{
+			StringCollection fileList = new StringCollection();
+			fileList.Add(Path.GetFullPath(pdfPath));
+			Clipboard.SetFileDropList(fileList);
+		}
+
+		System.Windows.Threading.Dispatcher? dispatcher = Application.Current?.Dispatcher;
+		if (dispatcher == null || dispatcher.CheckAccess())
+		{
+			Set();
+			return;
+		}
+
+		dispatcher.Invoke(Set);
+	}
+
+	private static string SanitizeFileName(string? name)
+	{
+		string raw = string.IsNullOrWhiteSpace(name) ? "bill" : name.Trim();
+		string safe = string.Join("_", raw.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+		return string.IsNullOrWhiteSpace(safe) ? "bill" : safe;
+	}
+
+	private async Task<string> BuildDefaultWhatsAppMessageAsync(Guid saleId, CancellationToken cancellationToken)
+	{
+		RetailBillPrintData bill = await GetBillAsync(saleId, cancellationToken);
+		return "Hello, " + bill.PharmacyName + " has prepared bill " + bill.InvoiceNo + " for " + MoneyFormat.Rupees(bill.TotalAmount) + ". The PDF is saved on this device; attach it in WhatsApp.";
+	}
+
+	private static void OpenWhatsAppChat(string phoneOrDigits, string message)
+	{
+		string digits = NormalizeWhatsAppPhone(phoneOrDigits);
+		if (digits.Length == 0)
+		{
+			digits = new string(phoneOrDigits.Where(char.IsDigit).ToArray());
+		}
+
+		if (digits.Length == 0)
+		{
+			throw new InvalidOperationException("Enter a WhatsApp number containing digits.");
+		}
+
+		string url = "https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(message);
+		if (Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }) == null)
 		{
 			throw new InvalidOperationException("Windows could not open the WhatsApp link.");
 		}
-		ShowInExplorer(destination);
+	}
+
+	public static string NormalizeWhatsAppPhone(string? phone)
+	{
+		string digits = new string((phone ?? string.Empty).Where(char.IsDigit).ToArray());
+		if (digits.Length == 10)
+		{
+			digits = "91" + digits;
+		}
+
+		return digits.Length >= 10 ? digits : string.Empty;
 	}
 
 	public async Task EmailAsync(Guid saleId, RetailDocumentType documentType, string recipient, CancellationToken cancellationToken = default(CancellationToken))
@@ -197,6 +298,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 					string text = ((settings.PrintCustomerPhone && !string.IsNullOrWhiteSpace(bill.PatientPhone)) ? ("Patient: " + bill.PatientName + "  Phone: " + bill.PatientPhone) : ("Patient: " + bill.PatientName));
 					column.Item().Text(text);
 					AddIfPresent(column, bill.PatientAddress);
+					AddIfPresent(column, string.IsNullOrWhiteSpace(bill.MrdNumber) ? null : ("MRD / IPD No: " + bill.MrdNumber));
 					if (settings.PrintDoctorName && !string.IsNullOrWhiteSpace(bill.PrescriberName))
 					{
 						column.Item().Text("Doctor: " + bill.PrescriberName + (string.IsNullOrWhiteSpace(bill.PrescriberRegistrationNumber) ? string.Empty : ("  Reg. No: " + bill.PrescriberRegistrationNumber)));
@@ -290,6 +392,19 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 	public static string GetSharedPdfPath(Guid saleId, RetailDocumentType documentType)
 	{
 		return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "shared-bills", $"{saleId:N}-{documentType}.pdf");
+	}
+
+	public static string GetInvoicePdfPath(Guid saleId, string? invoiceNo)
+	{
+		string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "Invoices");
+		Directory.CreateDirectory(folder);
+		string safe = string.IsNullOrWhiteSpace(invoiceNo) ? saleId.ToString("N") : string.Join("_", invoiceNo.Trim().Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+		if (string.IsNullOrWhiteSpace(safe))
+		{
+			safe = saleId.ToString("N");
+		}
+
+		return Path.Combine(folder, safe + ".pdf");
 	}
 
 	private async Task<RetailBillPrintData> GetBillAsync(Guid saleId, CancellationToken cancellationToken)

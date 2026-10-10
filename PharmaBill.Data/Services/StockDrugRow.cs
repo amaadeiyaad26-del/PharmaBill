@@ -4,7 +4,7 @@ using PharmaBill.Core.Inventory;
 
 namespace PharmaBill.Data.Services;
 
-public sealed record StockDrugRow(Guid DrugId, string DrugName, string? Schedule, string? Manufacturer, string? Supplier, decimal TotalStock, decimal ReorderLevel, IReadOnlyList<StockBatchRow> Batches)
+public sealed record StockDrugRow(Guid DrugId, string DrugName, string? Schedule, string? Manufacturer, string? Supplier, decimal TotalStock, decimal ReorderLevel, IReadOnlyList<StockBatchRow> Batches, bool IsBanned = false)
 {
 	public bool IsShortage => StockShortage.IsShortage(TotalStock, ReorderLevel);
 

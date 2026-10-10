@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Compliance;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
@@ -334,7 +335,31 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 
 	private async Task UnlockBillAsync()
 	{
-		if ((object)SelectedBill == null || !SelectedBill.IsLocked || !confirmationService.Confirm("Unlock finalized bill " + SelectedBill.InvoiceNo + " for editing?\nAn Admin override is required.", "Admin override required"))
+		if ((object)SelectedBill == null || !SelectedBill.IsLocked)
+		{
+			return;
+		}
+		if (SelectedBill.IsAgeLocked)
+		{
+			try
+			{
+				using IServiceScope scope = scopeFactory.CreateScope();
+				await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+				{
+					RecordUnlockGrant grant = RecordUnlockContext.Current ?? throw new RecordLockedException("RetailBill", SelectedBill.SaleId, "MODIFIED_AFTER_LOCK");
+					await scope.ServiceProvider.GetRequiredService<RetailBillingService>().UnlockSaleAsync(SelectedBill.SaleId, grant.AdminUserId, grant.AdminRole, grant.Reason);
+				});
+				StatusMessage = "Bill " + SelectedBill.InvoiceNo + " unlocked with a compliance authorization.";
+				ErrorMessage = string.Empty;
+				await LoadAsync();
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+			}
+			return;
+		}
+		if (!confirmationService.Confirm("Unlock finalized bill " + SelectedBill.InvoiceNo + " for editing?\nAn Admin override is required.", "Admin override required"))
 		{
 			return;
 		}
@@ -367,7 +392,32 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 
 	private async Task VoidBillAsync()
 	{
-		if ((object)SelectedBill == null || !confirmationService.Confirm("Void (delete) finalized bill " + SelectedBill.InvoiceNo + "?\nAn Admin override is required. Stock is not restocked automatically.", "Admin override required"))
+		if ((object)SelectedBill == null)
+		{
+			return;
+		}
+		if (SelectedBill.IsAgeLocked)
+		{
+			try
+			{
+				using IServiceScope scope = scopeFactory.CreateScope();
+				await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+				{
+					RecordUnlockGrant grant = RecordUnlockContext.Current ?? throw new RecordLockedException("RetailBill", SelectedBill.SaleId, "VOIDED_AFTER_LOCK");
+					await scope.ServiceProvider.GetRequiredService<RetailBillingService>().VoidSaleAsync(SelectedBill.SaleId, grant.AdminUserId, grant.AdminRole, grant.Reason);
+				});
+				StatusMessage = "Bill " + SelectedBill.InvoiceNo + " voided with a compliance authorization.";
+				ErrorMessage = string.Empty;
+				SelectedBill = null;
+				await LoadAsync();
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+			}
+			return;
+		}
+		if (!confirmationService.Confirm("Void (delete) finalized bill " + SelectedBill.InvoiceNo + "?\nAn Admin override is required. Stock is not restocked automatically.", "Admin override required"))
 		{
 			return;
 		}
@@ -427,7 +477,11 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 			try
 			{
 				using IServiceScope scope = scopeFactory.CreateScope();
-				RetailSaleReturnResult retailSaleReturnResult = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().IssueSalesReturnAsync(SelectedBill.SaleId, array, ReturnReason, RestockReturnedItems, currentSession.User.Id, currentSession.User.Role);
+				RetailSaleReturnResult retailSaleReturnResult = null!;
+				await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+				{
+					retailSaleReturnResult = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().IssueSalesReturnAsync(SelectedBill.SaleId, array, ReturnReason, RestockReturnedItems, currentSession.User.Id, currentSession.User.Role);
+				});
 				ReturnReason = string.Empty;
 				RestockReturnedItems = false;
 				StatusMessage = $"Credit note {retailSaleReturnResult.ReturnNo} issued for {MoneyFormat.Rupees(retailSaleReturnResult.CreditAmount)}; {retailSaleReturnResult.RestockedQuantity:N2} unit(s) returned to stock.";

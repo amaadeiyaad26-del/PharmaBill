@@ -144,8 +144,8 @@ public sealed class PurchaseMedicinePickerItem
 		string name = typedName.Trim();
 		return new PurchaseMedicinePickerItem(
 			"Manual",
-			$"+ Add '{name}' Manually",
-			"Create a new medicine in Medicine Master with formulation, HSN and GST",
+			$"+ Add '{name}' as new medicine",
+			"Save it to the medicine master and select it on this line",
 			name,
 			drug: null,
 			catalogMedicineId: null,

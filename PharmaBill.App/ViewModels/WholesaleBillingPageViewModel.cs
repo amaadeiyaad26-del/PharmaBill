@@ -16,6 +16,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Ai;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
@@ -40,6 +41,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	private readonly INavigationService _navigation;
 
 	private readonly SettingsPageViewModel _settingsPage;
+
+	private readonly IQuickAddMedicineDialog _quickAdd;
+
+	private readonly ISmartDrugLookupService _smartLookup;
 
 	private string _pharmacyName = "Pharmacy";
 
@@ -103,6 +108,8 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	private string _focusQtyRequest = string.Empty;
 
+	private string _lineFocusField = "Qty";
+
 	private string _focusRequest = string.Empty;
 
 	private RelayCommand? newBillCommand;
@@ -133,6 +140,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	private AsyncRelayCommand? showPaymentQrCommand;
 
 	private AsyncRelayCommand? addNewRetailerCommand;
+
+	private AsyncRelayCommand? quickAddMedicineCommand;
+
+	private AsyncRelayCommand? searchOnlineCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? addLineCommand;
@@ -175,6 +186,45 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	public bool HasMedicinePickerItems => MedicinePickerItems.Count > 0;
 
 	public bool ShowMedicineSearchPlaceholder => string.IsNullOrWhiteSpace(MedicineSearchText) && SelectedMedicineItem == null;
+
+	public bool ShowNamedQuickAdd
+	{
+		get
+		{
+			string term = MedicineSearchText.Trim();
+			if (term.Length == 0)
+			{
+				return true;
+			}
+
+			if (term.Length < 2)
+			{
+				return false;
+			}
+
+			return MedicinePickerItems.Count == 0 || MedicinePickerItems.All(item => item.IsQuickAdd);
+		}
+	}
+
+	public string AddNamedMedicineCaption => "+ New Medicine";
+
+	public bool ShowCreateUnlisted
+	{
+		get
+		{
+			string term = MedicineSearchText.Trim();
+			return term.Length >= 2 && (MedicinePickerItems.Count == 0 || MedicinePickerItems.All(item => item.IsQuickAdd));
+		}
+	}
+
+	public string CreateUnlistedCaption => "+ Create '" + MedicineSearchText.Trim() + "' as New Medicine";
+
+	public bool ShowOnlineLookup =>
+		MedicineSearchText.Trim().Length >= 2
+		&& MedicinePickerItems.Count > 0
+		&& MedicinePickerItems.All(item => item.IsQuickAdd);
+
+	public string OnlineLookupCaption => SmartDrugLookupPrompt.Caption;
 
 	public bool HasSelectedCustomer => SelectedCustomer != null;
 
@@ -240,7 +290,14 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				OnPropertyChanged(nameof(ShowMedicineSearchPlaceholder));
 				OnPropertyChanged(nameof(ShowStockPickerPlaceholder));
 				OnPropertyChanged(nameof(StockPickerPlaceholder));
-				if (!_suppressMedicineSearchSync)
+				OnPropertyChanged(nameof(ShowNamedQuickAdd));
+				OnPropertyChanged(nameof(AddNamedMedicineCaption));
+				OnPropertyChanged(nameof(ShowCreateUnlisted));
+				OnPropertyChanged(nameof(CreateUnlistedCaption));
+				OnPropertyChanged(nameof(ShowOnlineLookup));
+				bool highlightOnly = SelectedMedicineItem != null
+					&& string.Equals(_medicineSearchText, SelectedMedicineItem.DisplayTitle, StringComparison.Ordinal);
+				if (!_suppressMedicineSearchSync && !highlightOnly)
 				{
 					_ = DebouncedMedicineSearchAsync();
 				}
@@ -274,12 +331,57 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				OnPropertyChanged(nameof(SelectedMedicineItem));
 				OnPropertyChanged(nameof(ShowMedicineSearchPlaceholder));
 				OnPropertyChanged(nameof(ShowStockPickerPlaceholder));
-				if (value != null)
-				{
-					_ = OnMedicineItemSelectedAsync(value);
-				}
 			}
 		}
+	}
+
+	private bool _explicitMedicinePick;
+
+	public void NoteExplicitMedicinePick() => _explicitMedicinePick = true;
+
+	public WholesaleMedicinePickerItem? TakeEnterPick()
+	{
+		if (_explicitMedicinePick && SelectedMedicineItem != null)
+		{
+			return SelectedMedicineItem;
+		}
+
+		return OldestValidPick() ?? SelectedMedicineItem ?? MedicinePickerItems.FirstOrDefault();
+	}
+
+	private WholesaleMedicinePickerItem? OldestValidPick()
+	{
+		List<WholesaleMedicinePickerItem> inStock = MedicinePickerItems.Where(item => item.IsInStock && item.StockChoice != null).ToList();
+		if (inStock.Count == 0)
+		{
+			return null;
+		}
+
+		string needle = MedicineSearchText.Trim();
+		List<WholesaleMedicinePickerItem> named = needle.Length == 0
+			? inStock
+			: inStock.Where(item => item.DisplayTitle.Contains(needle, StringComparison.OrdinalIgnoreCase)).ToList();
+		List<WholesaleMedicinePickerItem> pool = named.Count > 0 ? named : inStock;
+		Guid? drugId = pool.OrderBy(item => item.DisplayTitle, StringComparer.OrdinalIgnoreCase).First().DrugId;
+		return pool.Where(item => item.DrugId == drugId)
+			.OrderBy(item => item.StockChoice!.ExpiryDate ?? DateOnly.MaxValue)
+			.ThenBy(item => item.StockChoice!.BatchNo, StringComparer.OrdinalIgnoreCase)
+			.FirstOrDefault();
+	}
+
+	public void CommitMedicinePick(WholesaleMedicinePickerItem? item)
+	{
+		if (item == null)
+		{
+			return;
+		}
+
+		if (!EqualityComparer<WholesaleMedicinePickerItem>.Default.Equals(_selectedMedicineItem, item))
+		{
+			SelectedMedicineItem = item;
+		}
+
+		_ = OnMedicineItemSelectedAsync(item);
 	}
 
 	public decimal Subtotal => Items.Sum((WholesaleInvoiceLineDraft item) => item.LineAmount);
@@ -832,6 +934,14 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public IAsyncRelayCommand AddNewRetailerCommand => addNewRetailerCommand ?? (addNewRetailerCommand = new AsyncRelayCommand(AddNewRetailerAsync));
 
+	public IAsyncRelayCommand QuickAddMedicineCommand => quickAddMedicineCommand ?? (quickAddMedicineCommand = new AsyncRelayCommand(() => QuickAddMedicineAsync(MedicineSearchText)));
+
+	public IAsyncRelayCommand SearchOnlineCommand => searchOnlineCommand ?? (searchOnlineCommand = new AsyncRelayCommand(SearchOnlineAndInwardAsync));
+
+	public IAsyncRelayCommand ExtractOrderDocumentsCommand => extractOrderDocumentsCommand ?? (extractOrderDocumentsCommand = new AsyncRelayCommand(ExtractOrderDocumentsAsync));
+
+	private IAsyncRelayCommand? extractOrderDocumentsCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand AddLineCommand => addLineCommand ?? (addLineCommand = new AsyncRelayCommand(AddLineAsync));
@@ -858,6 +968,29 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public IRelayCommand FocusSearchCommand => FocusMedicineCommand;
 
+	public IRelayCommand FocusMedicineSearchCommand => FocusMedicineCommand;
+
+	private RelayCommand? holdBillCommand;
+
+	private RelayCommand? cancelBillCommand;
+
+	private RelayCommand? showSubstitutesCommand;
+
+	/// <summary>F8 / Ctrl+H — wholesale has no hold queue; prompts to save or start a new invoice.</summary>
+	public IRelayCommand HoldBillCommand => holdBillCommand ??= new RelayCommand(() =>
+	{
+		StatusMessage = "Wholesale bills are not parked — use Save & Print (F10) or New Invoice (F2).";
+	});
+
+	/// <summary>Esc / Ctrl+W — clear the active wholesale invoice draft.</summary>
+	public IRelayCommand CancelBillCommand => cancelBillCommand ??= new RelayCommand(NewBill);
+
+	/// <summary>F5 substitutes are retail-oriented; keep binding safe on wholesale.</summary>
+	public IRelayCommand ShowSubstitutesCommand => showSubstitutesCommand ??= new RelayCommand(() =>
+	{
+		StatusMessage = "Salt substitutes are available on the Retail Counter desk.";
+	});
+
 	public IRelayCommand RemoveSelectedLineCommand => removeSelectedLineCommand ?? (removeSelectedLineCommand = new RelayCommand(RemoveSelectedLine));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -868,7 +1001,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ExportDeliveryChallanCommand => exportDeliveryChallanCommand ?? (exportDeliveryChallanCommand = new AsyncRelayCommand(ExportDeliveryChallanAsync));
 
-	public WholesaleBillingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IConfirmationService confirmation, WholesaleInvoiceDocumentService documents, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, INavigationService navigation, SettingsPageViewModel settingsPage)
+	public WholesaleBillingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IConfirmationService confirmation, WholesaleInvoiceDocumentService documents, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, INavigationService navigation, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup)
 	{
 		_scopeFactory = scopeFactory;
 		_session = session;
@@ -878,6 +1011,8 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		_documentOutputSettings = documentOutputSettings;
 		_navigation = navigation;
 		_settingsPage = settingsPage;
+		_quickAdd = quickAdd;
+		_smartLookup = smartLookup;
 		Items.CollectionChanged += OnItemsChanged;
 	}
 
@@ -1005,11 +1140,13 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task SearchMedicinesAsync(string query, CancellationToken cancellationToken)
 	{
+		_explicitMedicinePick = false;
 		string needle = query?.Trim() ?? string.Empty;
 		if (needle.Length < 2)
 		{
 			SeedMedicinePickerFromStock();
 			IsMedicineDropDownOpen = MedicinePickerItems.Count > 0 && !string.IsNullOrWhiteSpace(needle);
+			OnPropertyChanged(nameof(ShowOnlineLookup));
 			return;
 		}
 
@@ -1093,8 +1230,31 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			MedicineSearchResults catalogResults = await scope.ServiceProvider.GetRequiredService<CatalogSearchService>()
 				.SearchAsync(needle, cancellationToken);
 			HashSet<Guid> shownCatalog = drugs.Where(d => d.CatalogMedicineId.HasValue).Select(d => d.CatalogMedicineId!.Value).ToHashSet();
+			HashSet<Guid> shownDrugs = drugs.Select(d => d.Id).ToHashSet();
 			foreach (MedicineSearchResult row in catalogResults.FromCatalog.Take(20))
 			{
+				if (row.DrugId is Guid existingDrug && shownDrugs.Contains(existingDrug))
+				{
+					continue;
+				}
+
+				if (row.CatalogMedicineId == Guid.Empty)
+				{
+					catalogue.Add(new WholesaleMedicinePickerItem
+					{
+						GroupKey = "Out of stock",
+						DisplayTitle = row.Name,
+						DisplayDetail = "Out of Stock - Click to Add Stock / Batch",
+						Display = "[Out of stock] " + row.Name + " — Out of Stock - Click to Add Stock / Batch",
+						DrugId = row.DrugId,
+						MedicineName = row.Name,
+						Composition = row.Composition,
+						Manufacturer = row.Manufacturer,
+						SuggestedMrp = row.Mrp ?? row.ReferencePrice
+					});
+					continue;
+				}
+
 				if (shownCatalog.Contains(row.CatalogMedicineId))
 				{
 					continue;
@@ -1128,14 +1288,114 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			MedicinePickerItems.Add(item);
 		}
 
+		if (inStock.Count == 0 && outOfStock.Count == 0 && catalogue.Count == 0)
+		{
+			MedicinePickerItems.Insert(0, WholesaleMedicinePickerItem.QuickAdd(needle));
+		}
+
 		OnPropertyChanged(nameof(HasMedicinePickerItems));
 		OnPropertyChanged(nameof(StockPickerPlaceholder));
+		OnPropertyChanged(nameof(ShowNamedQuickAdd));
+		OnPropertyChanged(nameof(AddNamedMedicineCaption));
+		OnPropertyChanged(nameof(ShowCreateUnlisted));
+		OnPropertyChanged(nameof(CreateUnlistedCaption));
+		OnPropertyChanged(nameof(ShowOnlineLookup));
 		IsMedicineDropDownOpen = MedicinePickerItems.Count > 0;
+	}
+
+	private async Task ExtractOrderDocumentsAsync()
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		IReadOnlyList<string> files = scope.ServiceProvider.GetRequiredService<IFilePickerService>().PickInvoiceDocuments();
+		if (files.Count == 0)
+		{
+			return;
+		}
+
+		if (StockChoices.Count == 0)
+		{
+			await LoadAsync();
+		}
+
+		InvoiceDocumentExtractor extractor = scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>();
+		int added = 0;
+		List<string> missed = new List<string>();
+		foreach (string path in files)
+		{
+			try
+			{
+				ExtractedPurchaseInvoice invoice = await extractor.ExtractAsync(path);
+				foreach (ExtractedPurchaseLine item in invoice.Items)
+				{
+					WholesaleStockChoice? choice = StockChoices
+						.Where(stock => stock.DrugName.Contains(item.ItemName.Trim(), StringComparison.OrdinalIgnoreCase) && stock.Available > 0m)
+						.OrderBy(stock => stock.ExpiryDate ?? DateOnly.MaxValue)
+						.FirstOrDefault();
+					if (choice == null)
+					{
+						missed.Add(item.ItemName);
+						continue;
+					}
+
+					SelectedStockToAdd = choice;
+					await AddLineAsync();
+					if (SelectedLine != null && item.Quantity > 0m)
+					{
+						SelectedLine.Quantity = item.Quantity;
+					}
+
+					added++;
+				}
+			}
+			catch (Exception ex)
+			{
+				missed.Add(System.IO.Path.GetFileName(path) + " (" + ex.Message + ")");
+			}
+		}
+
+		StatusMessage = added + " order line(s) added to the wholesale bill.";
+		ErrorMessage = missed.Count == 0 ? string.Empty : "Not in stock: " + string.Join(", ", missed.Distinct(StringComparer.OrdinalIgnoreCase));
+	}
+
+	private async Task SearchOnlineAndInwardAsync()
+	{
+		string typed = MedicineSearchText.Trim();
+		SmartDrugLookupOutcome outcome = await _smartLookup.LookupAsync(typed);
+		await QuickAddMedicineAsync(outcome.Suggestion?.BrandName ?? typed, outcome.Suggestion, outcome.Message);
+	}
+
+	private async Task QuickAddMedicineAsync(string typedName, SmartDrugSuggestion? suggestion = null, string? notice = null)
+	{
+		CustomMedicineResult? saved = await _quickAdd.ShowAsync(typedName, suggestion, notice);
+		if (saved == null)
+		{
+			return;
+		}
+
+		await OpenQuickInwardAsync(new WholesaleMedicinePickerItem
+		{
+			GroupKey = "New medicine",
+			DisplayTitle = saved.Name,
+			DisplayDetail = "New medicine master item",
+			Display = saved.Name,
+			DrugId = saved.DrugId,
+			CatalogMedicineId = saved.CatalogMedicineId,
+			MedicineName = saved.Name,
+			SuggestedMrp = saved.Mrp,
+			Composition = saved.GenericName
+		}, saved.PurchaseRate, "COUNTER", 1m, 1m);
 	}
 
 	private async Task OnMedicineItemSelectedAsync(WholesaleMedicinePickerItem item)
 	{
 		ErrorMessage = string.Empty;
+		if (item.IsQuickAdd)
+		{
+			IsMedicineDropDownOpen = false;
+			await QuickAddMedicineAsync(item.MedicineName);
+			return;
+		}
+
 		if (item.IsInStock && item.StockChoice != null)
 		{
 			SelectedStockToAdd = item.StockChoice;
@@ -1157,7 +1417,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		await OpenQuickInwardAsync(item);
 	}
 
-	private async Task OpenQuickInwardAsync(WholesaleMedicinePickerItem item)
+	private async Task OpenQuickInwardAsync(WholesaleMedicinePickerItem item, decimal? purchaseRate = null, string? defaultBatchNo = null, decimal? defaultQuantity = null, decimal? invoiceQuantity = null)
 	{
 		QuickInwardWindow dialog = new QuickInwardWindow(
 			_scopeFactory,
@@ -1167,7 +1427,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			item.CatalogMedicineId,
 			item.Composition,
 			item.Manufacturer,
-			item.SuggestedMrp ?? item.StockChoice?.Mrp);
+			item.SuggestedMrp ?? item.StockChoice?.Mrp,
+			purchaseRate,
+			defaultBatchNo,
+			defaultQuantity);
 		try
 		{
 			Window? owner = Application.Current?.MainWindow;
@@ -1216,7 +1479,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			_suppressMedicineSearchSync = false;
 		}
 
-		decimal qty = dialog.QuantityEntered > 0m ? dialog.QuantityEntered : 1m;
+		decimal qty = invoiceQuantity ?? (dialog.QuantityEntered > 0m ? dialog.QuantityEntered : 1m);
 		decimal unitPrice = dialog.PtrEntered > 0m ? dialog.PtrEntered : created.DefaultWholesaleRate;
 		WholesaleInvoiceLineDraft draft = new WholesaleInvoiceLineDraft
 		{
@@ -1226,12 +1489,21 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			UnitPrice = unitPrice,
 			SaleUnit = "Unit"
 		};
+		draft.SetBatchOptions(StockChoices.Where(choice => choice.DrugId == created.DrugId));
+		draft.MrpCommitted += OnWholesaleMrpCommitted;
 		Items.Add(draft);
 		SelectedLine = draft;
 		NotifyTotalsChanged();
 		ClearMedicinePickerAfterAdd();
-		RequestFocusQty();
 		StatusMessage = $"Batch {created.BatchNo} inwarded for {created.DrugName} and added to the invoice.";
+		if (draft.Mrp <= 0m)
+		{
+			PromptMissingWholesaleMrp(draft);
+		}
+		else
+		{
+			RequestFocusQty();
+		}
 		ErrorMessage = string.Empty;
 	}
 
@@ -1350,6 +1622,77 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	public async Task<bool> TryAddByBarcodeAsync(string raw)
+	{
+		Gs1Scan scan = Gs1Scan.Parse(raw);
+		IReadOnlyList<string> keys = scan.LookupKeys();
+		if (keys.Count == 0 && string.IsNullOrWhiteSpace(scan.Batch))
+		{
+			return false;
+		}
+
+		try
+		{
+			WholesaleStockChoice? match = null;
+			if (!string.IsNullOrWhiteSpace(scan.Batch))
+			{
+				match = StockChoices.FirstOrDefault(choice => string.Equals(choice.BatchNo, scan.Batch, StringComparison.OrdinalIgnoreCase));
+			}
+
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			Drug? drug = keys.Count == 0
+				? null
+				: await context.Drugs.AsNoTracking().FirstOrDefaultAsync(item => item.IsActive && item.Barcode != null && keys.Contains(item.Barcode));
+			if (drug != null)
+			{
+				List<WholesaleStockChoice> forDrug = StockChoices.Where(choice => choice.DrugId == drug.Id)
+					.OrderBy(choice => choice.ExpiryDate ?? DateOnly.MaxValue)
+					.ToList();
+				if (!string.IsNullOrWhiteSpace(scan.Batch))
+				{
+					match = forDrug.FirstOrDefault(choice => string.Equals(choice.BatchNo, scan.Batch, StringComparison.OrdinalIgnoreCase)) ?? forDrug.FirstOrDefault() ?? match;
+				}
+				else
+				{
+					match = forDrug.FirstOrDefault() ?? match;
+				}
+			}
+			else if (match != null && string.IsNullOrWhiteSpace(scan.Gtin) && string.IsNullOrWhiteSpace(scan.Batch))
+			{
+				match = StockChoices.Where(choice => choice.DrugId == match.DrugId)
+					.OrderBy(choice => choice.ExpiryDate ?? DateOnly.MaxValue)
+					.FirstOrDefault();
+			}
+
+			if (match == null)
+			{
+				return false;
+			}
+
+			_suppressMedicineSearchSync = true;
+			try
+			{
+				SelectedMedicineItem = null;
+			}
+			finally
+			{
+				_suppressMedicineSearchSync = false;
+			}
+			SelectedStockToAdd = match;
+			await AddLineAsync();
+			StatusMessage = string.IsNullOrWhiteSpace(scan.Batch)
+				? "Scanned " + match.DrugName + ". Oldest valid batch " + match.BatchNo + " was selected. Change the batch dropdown if needed."
+				: "Scanned 2D code: " + match.DrugName + " · batch " + match.BatchNo + ".";
+			return true;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+			return false;
+		}
+	}
+
 	private async Task AddLineAsync()
 	{
 		if (SelectedMedicineItem is { NeedsInward: true })
@@ -1404,11 +1747,70 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			UnitPrice = unitPrice,
 			SaleUnit = "Unit"
 		};
+		draft.SetBatchOptions(StockChoices.Where(choice => choice.DrugId == wholesaleStockChoice.DrugId));
+		draft.MrpCommitted += OnWholesaleMrpCommitted;
 		Items.Add(draft);
 		SelectedLine = draft;
 		NotifyTotalsChanged();
 		ClearMedicinePickerAfterAdd();
-		RequestFocusQty();
+		if (draft.Mrp <= 0m)
+		{
+			PromptMissingWholesaleMrp(draft);
+		}
+		else
+		{
+			RequestFocusQty();
+		}
+	}
+
+	private void OnWholesaleMrpCommitted(WholesaleInvoiceLineDraft line, decimal mrp)
+	{
+		if (line.StockChoice == null)
+		{
+			return;
+		}
+
+		_ = SaveWholesaleMrpAsync(line.StockChoice.BatchId, line.StockChoice.DrugName, line.StockChoice.BatchNo, mrp);
+	}
+
+	private void PromptMissingWholesaleMrp(WholesaleInvoiceLineDraft line)
+	{
+		if (line.StockChoice == null)
+		{
+			return;
+		}
+
+		string message = "Enter MRP for " + line.StockChoice.DrugName + " (Batch: " + line.StockChoice.BatchNo + ")";
+		string? entered;
+		using (IServiceScope scope = _scopeFactory.CreateScope())
+		{
+			entered = scope.ServiceProvider.GetRequiredService<IPromptService>().AskText("MRP required", message, "MRP (₹)");
+		}
+
+		if (MrpAmount.TryParse(entered, out decimal mrp) && mrp > 0m)
+		{
+			line.ApplySavedMrp(mrp);
+			_ = SaveWholesaleMrpAsync(line.StockChoice.BatchId, line.StockChoice.DrugName, line.StockChoice.BatchNo, mrp);
+			RequestFocusQty();
+			return;
+		}
+
+		StatusMessage = message;
+		RequestLineFocus("Mrp");
+	}
+
+	private async Task SaveWholesaleMrpAsync(Guid batchId, string medicineName, string batchNo, decimal mrp)
+	{
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			await scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, mrp);
+			StatusMessage = "MRP saved for " + medicineName + " · batch " + batchNo + ".";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private void ClearMedicinePickerAfterAdd()
@@ -1427,10 +1829,29 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	public string LineFocusField
+	{
+		get => _lineFocusField;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_lineFocusField, value))
+			{
+				_lineFocusField = value;
+				OnPropertyChanged(nameof(LineFocusField));
+			}
+		}
+	}
+
 	private void RequestFocusQty()
 	{
+		RequestLineFocus("Qty");
+	}
+
+	private void RequestLineFocus(string field)
+	{
+		LineFocusField = field;
 		FocusQtyRequest = string.Empty;
-		FocusQtyRequest = "qty-" + Guid.NewGuid().ToString("N");
+		FocusQtyRequest = field + "-" + Guid.NewGuid().ToString("N");
 	}
 
 	private void RequestFocus(string target)
@@ -1534,6 +1955,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		if (SelectedCustomer == null || Items.Count == 0 || Items.Any((WholesaleInvoiceLineDraft item) => (object)item.StockChoice == null))
 		{
 			ErrorMessage = "Choose an active retailer / pharmacy and at least one stocked item.";
+			_confirmation.Notify("Cannot Save Invoice Yet", "1. Select the retailer / pharmacy.\n2. Search a medicine (F4) and add at least one stocked line.");
 			return;
 		}
 		if (string.IsNullOrWhiteSpace(BuyerDrugLicence))

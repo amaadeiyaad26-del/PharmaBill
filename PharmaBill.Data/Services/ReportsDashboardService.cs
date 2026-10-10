@@ -12,7 +12,7 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchService branchService)
+public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchService branchService, SalesAnalysisService salesAnalysis)
 {
 	private sealed record SalesLineFact(Guid DocumentId, string RowKey, DateTime AtUtc, string InvoiceNo, string Party, string Contact, string Gstin, string Item, string Brand, string Manufacturer, string BatchNo, string Expiry, decimal Quantity, decimal UnitPrice, decimal Taxable, decimal TaxAmount, decimal LineTotal, string BranchCode);
 
@@ -241,6 +241,21 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			break;
 		case ReportKind.ManufacturerWise:
 			result = await ManufacturerWiseAsync(from, to, branchScope, filter, cancellationToken);
+			break;
+		case ReportKind.DailyMis:
+			result = await DailyMisAsync(from, to, cancellationToken);
+			break;
+		case ReportKind.AbcAnalysis:
+			result = await AbcAnalysisAsync(from, to, cancellationToken);
+			break;
+		case ReportKind.SaleBookDaily:
+			result = await SaleBookAsync(from, to, groupByMonth: false, cancellationToken);
+			break;
+		case ReportKind.SaleBookMonthly:
+			result = await SaleBookAsync(from, to, groupByMonth: true, cancellationToken);
+			break;
+		case ReportKind.PrescriberWise:
+			result = await PrescriberWiseAsync(from, to, cancellationToken);
 			break;
 		default:
 			throw new ArgumentOutOfRangeException("kind");
@@ -556,7 +571,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	private async Task<ReportTable> SupplierWiseDetailAsync(DateOnly from, DateOnly to, string? filter, CancellationToken token)
 	{
 		List<PurchaseInvoice> invoices = await (from item in context.PurchaseInvoices.AsNoTracking()
-			where item.Status == "Posted" && item.InvoiceDate >= @from && item.InvoiceDate <= to
+			where (item.Status == PurchaseInvoice.PostedStatus || item.Status == PurchaseInvoice.CommittedStatus) && item.InvoiceDate >= @from && item.InvoiceDate <= to
 			select item).ToListAsync(token);
 		Dictionary<Guid, Supplier> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync((Supplier item) => item.Id, token);
 		List<IReadOnlyList<string>> list = (from entry in (from entry in invoices.Select((PurchaseInvoice invoice) =>
@@ -766,7 +781,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	{
 		Guid? currentBranchId = branchService.CurrentBranchId;
 		IQueryable<PurchaseInvoice> source = from item in context.PurchaseInvoices.AsNoTracking()
-			where item.Status == "Posted" && item.InvoiceDate >= @from && item.InvoiceDate <= to
+			where (item.Status == PurchaseInvoice.PostedStatus || item.Status == PurchaseInvoice.CommittedStatus) && item.InvoiceDate >= @from && item.InvoiceDate <= to
 			select item;
 		if (branchScope == ReportBranchScope.CurrentBranchOnly && currentBranchId.HasValue)
 		{
@@ -1140,7 +1155,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	private async Task<IEnumerable<string>> LoadSupplierNamesAsync(DateOnly from, DateOnly to, CancellationToken token)
 	{
 		List<Guid> invoices = await (from item in context.PurchaseInvoices.AsNoTracking()
-			where item.Status == "Posted" && item.InvoiceDate >= @from && item.InvoiceDate <= to
+			where (item.Status == PurchaseInvoice.PostedStatus || item.Status == PurchaseInvoice.CommittedStatus) && item.InvoiceDate >= @from && item.InvoiceDate <= to
 			select item.SupplierId).Distinct().ToListAsync(token);
 		return await (from item in context.Suppliers.AsNoTracking()
 			where invoices.Contains(item.Id)
@@ -1177,6 +1192,81 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			decimal num = credits.Where((CustomerLedgerEntry entry) => entry.CustomerId == invoice.CustomerId && (entry.Notes?.Contains(invoice.InvoiceNo, StringComparison.OrdinalIgnoreCase) ?? false)).Sum((CustomerLedgerEntry entry) => entry.Credit);
 			return Math.Max(0m, invoice.TotalAmount - Math.Max(invoice.PaidAmount, receipts.GetValueOrDefault(invoice.Id)) - num);
 		});
+	}
+
+	private async Task<ReportTable> DailyMisAsync(DateOnly from, DateOnly to, CancellationToken token)
+	{
+		List<IReadOnlyList<string>> rows = new();
+		for (DateOnly day = from; day <= to; day = day.AddDays(1))
+		{
+			DailyMisSummary mis = await salesAnalysis.GetDailyMisAsync(day, token);
+			rows.Add(new[]
+			{
+				day.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+				Format(mis.GrossSales),
+				Format(mis.PurchaseCost),
+				Format(mis.GrossProfit),
+				Format(mis.MarginPercent) + "%",
+				mis.BillCount.ToString(CultureInfo.InvariantCulture),
+				Format(mis.AvgBillValue)
+			});
+		}
+
+		return new ReportTable(
+			"Today's Gross Profit & Daily MIS (retail counter)",
+			new[] { "Date", "Gross sales", "Purchase cost", "Gross profit ₹", "Margin %", "Bills", "Avg bill" },
+			rows);
+	}
+
+	private async Task<ReportTable> AbcAnalysisAsync(DateOnly from, DateOnly to, CancellationToken token)
+	{
+		IReadOnlyList<AbcAnalysisRow> analysis = await salesAnalysis.GetAbcAnalysisAsync(from, to, token);
+		IReadOnlyList<string>[] rows = analysis.Select(row => (IReadOnlyList<string>)new[]
+		{
+			row.Category,
+			row.DrugName,
+			row.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
+			Format(row.SalesValue),
+			Format(row.CumulativePercent) + "%"
+		}).ToArray();
+		return new ReportTable(
+			"ABC Analysis (A=top 70% revenue, B=next 20%, C=bottom 10%)",
+			new[] { "Category", "Drug", "Qty", "Sales value", "Cumulative %" },
+			rows);
+	}
+
+	private async Task<ReportTable> SaleBookAsync(DateOnly from, DateOnly to, bool groupByMonth, CancellationToken token)
+	{
+		IReadOnlyList<SaleBookRow> book = await salesAnalysis.GetSaleBookAsync(from, to, groupByMonth, token);
+		IReadOnlyList<string>[] rows = book.Select(row => (IReadOnlyList<string>)new[]
+		{
+			row.PeriodKey,
+			row.InvoiceCount.ToString("0", CultureInfo.InvariantCulture),
+			Format(row.Taxable),
+			Format(row.Tax),
+			Format(row.GrossSales)
+		}).ToArray();
+		return new ReportTable(
+			groupByMonth ? "Sale Book (monthly)" : "Sale Book (daily)",
+			new[] { "Period", "Invoices", "Taxable", "Tax", "Gross sales" },
+			rows);
+	}
+
+	private async Task<ReportTable> PrescriberWiseAsync(DateOnly from, DateOnly to, CancellationToken token)
+	{
+		IReadOnlyList<PrescriberSaleRow> rowsData = await salesAnalysis.GetPrescriberWiseAsync(from, to, token);
+		IReadOnlyList<string>[] rows = rowsData.Select(row => (IReadOnlyList<string>)new[]
+		{
+			row.PrescriberName,
+			row.RegistrationNumber ?? string.Empty,
+			row.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
+			Format(row.SalesValue),
+			row.DispenseCount.ToString(CultureInfo.InvariantCulture)
+		}).ToArray();
+		return new ReportTable(
+			"Doctor / Prescriber-wise dispensing",
+			new[] { "Prescriber", "Registration", "Qty", "Sales value", "Dispenses" },
+			rows);
 	}
 
 	private static (DateTime StartUtc, DateTime EndUtc) GetUtcBounds(DateOnly from, DateOnly to)

@@ -46,16 +46,23 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 			b.Property<Guid>("Id").HasColumnType("TEXT");
 			b.Property<string>("Action").IsRequired().HasColumnType("TEXT");
 			b.Property<DateTime>("ActionAtUtc").HasColumnType("TEXT");
+			b.Property<string>("AuthorizedBy").HasColumnType("TEXT");
 			b.Property<Guid?>("BranchId").HasColumnType("TEXT");
 			b.Property<DateTime>("CreatedAtUtc").HasColumnType("TEXT");
 			b.Property<string>("Details").HasColumnType("TEXT");
 			b.Property<Guid>("DeviceId").HasColumnType("TEXT");
 			b.Property<Guid?>("EntityId").HasColumnType("TEXT");
 			b.Property<string>("EntityName").IsRequired().HasColumnType("TEXT");
+			b.Property<string>("EntityType").HasColumnType("TEXT");
 			b.Property<string>("HlcStamp").IsRequired().HasMaxLength(80)
 				.HasColumnType("TEXT");
 			b.Property<bool>("IsDeleted").HasColumnType("INTEGER");
+			b.Property<string>("NewSnapshotJson").HasColumnType("TEXT");
+			b.Property<string>("OldSnapshotJson").HasColumnType("TEXT");
+			b.Property<string>("Reason").HasColumnType("TEXT");
+			b.Property<string>("RecordHash").HasColumnType("TEXT");
 			b.Property<int>("SyncState").HasColumnType("INTEGER");
+			b.Property<DateTime?>("Timestamp").HasColumnType("TEXT");
 			b.Property<DateTime>("UpdatedAtUtc").HasColumnType("TEXT");
 			b.Property<Guid?>("UserId").HasColumnType("TEXT");
 			b.HasKey("Id");
@@ -175,6 +182,7 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 				.HasColumnType("TEXT");
 			b.Property<bool>("IsDeleted").HasColumnType("INTEGER");
 			b.Property<bool>("IsDiscontinued").HasColumnType("INTEGER");
+			b.Property<bool>("IsCustom").HasColumnType("INTEGER");
 			b.Property<string>("Manufacturer").HasColumnType("TEXT");
 			b.Property<string>("Name").IsRequired().HasColumnType("TEXT");
 			b.Property<string>("PackSizeLabel").HasColumnType("TEXT");
@@ -346,6 +354,7 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 			b.Property<decimal>("ReorderLevel").HasColumnType("decimal(18,2)");
 			b.Property<decimal?>("SalePrice").HasColumnType("decimal(18,2)");
 			b.Property<string>("Schedule").HasColumnType("TEXT");
+			b.Property<decimal>("StockQuantity").HasColumnType("decimal(18,2)");
 			b.Property<string>("Strength").HasColumnType("TEXT");
 			b.Property<int>("SyncState").HasColumnType("INTEGER");
 			b.Property<string>("Unit").HasColumnType("TEXT");
@@ -512,6 +521,7 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 		modelBuilder.Entity("PharmaBill.Core.Entities.PurchaseInvoice", (EntityTypeBuilder b) =>
 		{
 			b.Property<Guid>("Id").HasColumnType("TEXT");
+			b.Property<string>("AttachedInvoicePath").HasColumnType("TEXT");
 			b.Property<Guid?>("BranchId").HasColumnType("TEXT");
 			b.Property<DateTime>("CreatedAtUtc").HasColumnType("TEXT");
 			b.Property<Guid>("DeviceId").HasColumnType("TEXT");
@@ -523,6 +533,7 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 			b.Property<string>("InvoiceNo").IsRequired().HasColumnType("TEXT");
 			b.Property<bool>("IsDeleted").HasColumnType("INTEGER");
 			b.Property<string>("Notes").HasColumnType("TEXT");
+			b.Property<string>("OriginalFileName").HasColumnType("TEXT");
 			b.Property<string>("Status").HasColumnType("TEXT");
 			b.Property<Guid?>("StorageLocationId").HasColumnType("TEXT");
 			b.Property<decimal>("Subtotal").HasColumnType("decimal(18,2)");
@@ -665,11 +676,13 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 			b.Property<string>("InvoiceNo").IsRequired().HasColumnType("TEXT");
 			b.Property<bool>("IsDeleted").HasColumnType("INTEGER");
 			b.Property<bool>("IsLocked").HasColumnType("INTEGER");
+			b.Property<string>("MrdNumber").HasColumnType("TEXT");
 			b.Property<string>("Notes").HasColumnType("TEXT");
 			b.Property<decimal>("PaidAmount").HasColumnType("decimal(18,2)");
 			b.Property<Guid?>("PatientId").HasColumnType("TEXT");
 			b.Property<string>("PaymentStatus").HasColumnType("TEXT");
 			b.Property<Guid?>("PrescriptionId").HasColumnType("TEXT");
+			b.Property<string>("PrescriptionFilePath").HasColumnType("TEXT");
 			b.Property<DateTime>("SaleAtUtc").HasColumnType("TEXT");
 			b.Property<decimal>("Subtotal").HasColumnType("decimal(18,2)");
 			b.Property<int>("SyncState").HasColumnType("INTEGER");

@@ -1,0 +1,21 @@
+<Window x:Class="PharmaBill.App.ComplianceCalendarWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Compliance Calendar" Height="420" Width="560"
+        Icon="/Assets/Icons/app.ico"
+        WindowStartupLocation="CenterOwner" Background="#DDEEE2">
+  <DockPanel Margin="16">
+    <TextBlock DockPanel.Dock="Top" Text="Compliance Calendar" FontSize="22" FontWeight="SemiBold" Foreground="#0D4A2B" />
+    <TextBlock DockPanel.Dock="Top" Margin="0,4,0,12" TextWrapping="Wrap" Foreground="#0D4A2B"
+               Text="Upcoming drug licence renewals and GSTR filing dates for this pharmacy." />
+    <DataGrid x:Name="EventsGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+              Background="Transparent" BorderThickness="0">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Due date" Width="120" Binding="{Binding DueDate, StringFormat=dd-MMM-yyyy}" />
+        <DataGridTextColumn Header="Type" Width="140" Binding="{Binding Category}" />
+        <DataGridTextColumn Header="Event" Width="*" Binding="{Binding Title}" />
+        <DataGridTextColumn Header="Status" Width="100" Binding="{Binding Status}" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</Window>

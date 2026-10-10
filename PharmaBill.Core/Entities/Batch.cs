@@ -27,4 +27,8 @@ public sealed class Batch : EntityBase
 	public string? Rack { get; set; }
 
 	public Guid? BranchId { get; set; }
+
+	public bool IsBanned { get; set; }
+
+	public string? BanReason { get; set; }
 }

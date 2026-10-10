@@ -23,24 +23,34 @@ public static class ServiceCollectionExtensions
 		AppDataPaths.EnsureCreatedAndMigrateLegacyLayout();
 		string text = AppDataPaths.RootDirectory;
 		Guid value = LoadOrCreateDeviceId(Path.Combine(text, "device.id"));
-		DatabaseStorageOptions databaseStorageOptions = new DatabaseStorageOptions(text);
+		ActiveStoreContext activeStoreContext = new ActiveStoreContext(text);
+		DatabaseStorageOptions databaseStorageOptions = new DatabaseStorageOptions(text, activeStoreContext);
 		DatabaseEncryptionKeyProvider databaseEncryptionKeyProvider = new DatabaseEncryptionKeyProvider(databaseStorageOptions.KeyPath);
-		byte[] orCreateKey = databaseEncryptionKeyProvider.GetOrCreateKey();
-		string connectionString = new SqliteConnectionStringBuilder
-		{
-			DataSource = databaseStorageOptions.DatabasePath,
-			Mode = SqliteOpenMode.ReadWriteCreate,
-			Password = Convert.ToHexString(orCreateKey)
-		}.ToString();
+		databaseEncryptionKeyProvider.GetOrCreateKey();
 		services.AddSingleton(new DatabaseDeviceId(value));
+		services.AddSingleton(activeStoreContext);
 		services.AddSingleton(databaseStorageOptions);
 		services.AddSingleton(databaseEncryptionKeyProvider);
 		services.AddSingleton<HybridLogicalClockState>();
 		services.AddSingleton<BranchSettingsStore>();
 		services.AddSingleton<SaveChangesAuditInterceptor>();
+		services.AddSingleton<StoreDatabaseIsolationService>();
+		// Resolve the connection string per DbContext so store switches take effect without restarting the process.
 		services.AddDbContext<PharmaBillDbContext>((IServiceProvider provider, DbContextOptionsBuilder options) =>
 		{
-			options.UseSqlite(connectionString).AddInterceptors(provider.GetRequiredService<SaveChangesAuditInterceptor>());
+			DatabaseStorageOptions storage = provider.GetRequiredService<DatabaseStorageOptions>();
+			DatabaseEncryptionKeyProvider keyProvider = provider.GetRequiredService<DatabaseEncryptionKeyProvider>();
+			string connectionString = new SqliteConnectionStringBuilder
+			{
+				DataSource = storage.DatabasePath,
+				Mode = SqliteOpenMode.ReadWriteCreate,
+				Password = Convert.ToHexString(keyProvider.GetOrCreateKey())
+			}.ToString();
+			options
+				.ConfigureWarnings(warnings =>
+					warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
+				.UseSqlite(connectionString)
+				.AddInterceptors(provider.GetRequiredService<SaveChangesAuditInterceptor>());
 		});
 		services.AddScoped<IUnitOfWork, UnitOfWork>();
 		services.AddScoped<NumberSeriesService>();
@@ -53,12 +63,14 @@ public static class ServiceCollectionExtensions
 		services.AddScoped((Func<IServiceProvider, IEntitlementService>)((IServiceProvider provider) => provider.GetRequiredService<AccessService>()));
 		services.AddScoped<AuthorizationService>();
 		services.AddScoped<PharmacySetupService>();
+		services.AddScoped<OperationalDataResetService>();
 		services.AddScoped<BusinessModeService>();
 		services.AddScoped<AuthenticationService>();
 		services.AddScoped<SocialLoginService>();
 		services.AddScoped<CatalogImportService>();
 		services.AddSingleton<CatalogueService>();
 		services.AddScoped<CatalogSearchService>();
+		services.AddScoped<CustomMedicineService>();
 		services.AddScoped<InventoryService>();
 		services.AddScoped<ShortageIndentService>();
 		services.AddScoped<StorageLocationService>();
@@ -72,12 +84,18 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<WholesalePricingService>();
 		services.AddScoped<WholesaleInvoiceService>();
 		services.AddScoped<WholesaleAccountsService>();
+		services.AddScoped<LedgerRepairService>();
 		services.AddScoped<IReconciliationService, ReconciliationService>();
 		services.AddScoped<IDunningService, DunningService>();
 		services.AddScoped<WholesaleReturnsService>();
 		services.AddScoped<StockInHandService>();
 		services.AddScoped<WholesaleGstReportsService>();
+		services.AddScoped<WholesaleDashboardService>();
 		services.AddScoped<GstReturnExportService>();
+		services.AddScoped<GstService>();
+		services.AddScoped<StockIntelligenceService>();
+		services.AddScoped<SalesAnalysisService>();
+		services.AddScoped<BreakageExpiryReturnService>();
 		services.AddScoped<ReportsDashboardService>();
 		services.AddSingleton<AiAssistantOptions>();
 		services.AddScoped<IAiPharmacyAssistantService, LocalPharmacyAssistantService>();
@@ -89,7 +107,7 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<DataRetentionArchiveService>();
 		services.AddSingleton<GeminiApiKeyStore>();
 		services.AddScoped<IPrescriptionOcrService, PrescriptionOcrService>();
-		services.AddSingleton(new HttpClient());
+		services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(100) });
 		services.AddSingleton<GeminiPurchaseImportService>();
 		services.AddHostedService<DatabaseInitializationHostedService>();
 		services.AddHostedService<AutomaticBackupHostedService>();

@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Windows.Devices.Enumeration;
 using Windows.Graphics.Imaging;
 using Windows.Media.Capture;
@@ -20,6 +21,8 @@ public partial class WebcamCaptureWindow : Window
 	private sealed record CameraItem(string Id, string Name);
 
 	private const string NoCameraMessage = "No active webcam found. Please connect a USB camera or allow camera access.";
+
+	private const string CameraBlockedMessage = "Camera permission denied or camera in use by another application. Please check Windows Settings > Privacy > Camera.";
 
 	private readonly object _gate = new object();
 
@@ -37,11 +40,20 @@ public partial class WebcamCaptureWindow : Window
 
 	private int _startVersion;
 
+	private DispatcherTimer? _previewWatchdog;
+
 	public string? CapturedPath { get; private set; }
 
-	public WebcamCaptureWindow()
+	public WebcamCaptureWindow(bool prescriptionOcrMode = false)
 	{
 		InitializeComponent();
+		if (prescriptionOcrMode)
+		{
+			Title = "Extract prescription from webcam";
+			CaptureButton.Content = "Capture Frame & Extract";
+			OcrGuide.Visibility = Visibility.Visible;
+			StatusText.Text = "Hold prescription steady within frame and ensure adequate lighting.";
+		}
 		Loaded += async (object _, RoutedEventArgs _) =>
 		{
 			await LoadDevicesAsync();
@@ -97,50 +109,148 @@ public partial class WebcamCaptureWindow : Window
 				VideoDeviceId = device.Id,
 				StreamingCaptureMode = StreamingCaptureMode.Video,
 				MemoryPreference = MediaCaptureMemoryPreference.Cpu,
-				SharingMode = MediaCaptureSharingMode.SharedReadOnly
+				SharingMode = MediaCaptureSharingMode.ExclusiveControl
 			});
 			MediaFrameSource mediaFrameSource = capture.FrameSources.Values.FirstOrDefault((MediaFrameSource s) => s.Info.MediaStreamType == MediaStreamType.VideoPreview && s.Info.SourceKind == MediaFrameSourceKind.Color) ?? capture.FrameSources.Values.FirstOrDefault((MediaFrameSource s) => s.Info.SourceKind == MediaFrameSourceKind.Color);
 			if ((object)mediaFrameSource == null)
 			{
 				throw new InvalidOperationException("The camera offers no colour video stream.");
 			}
-			MediaFrameReader reader = await capture.CreateFrameReaderAsync(mediaFrameSource, MediaEncodingSubtypes.Bgra8);
-			reader.FrameArrived += OnFrameArrived;
-			MediaFrameReaderStartStatus mediaFrameReaderStartStatus = await reader.StartAsync();
-			if (mediaFrameReaderStartStatus != MediaFrameReaderStartStatus.Success)
+			List<MediaFrameFormat?> formats = RankPreviewFormats(mediaFrameSource);
+			Exception? lastError = null;
+			foreach (MediaFrameFormat? format in formats)
 			{
-				reader.FrameArrived -= OnFrameArrived;
-				reader.Dispose();
-				throw new InvalidOperationException((mediaFrameReaderStartStatus == MediaFrameReaderStartStatus.ExclusiveControlNotAvailable) ? "The camera is in use by another application." : $"The camera stream could not be started ({mediaFrameReaderStartStatus}).");
+				MediaFrameReader? reader = null;
+				try
+				{
+					if (format != null)
+					{
+						await mediaFrameSource.SetFormatAsync(format);
+					}
+					reader = await capture.CreateFrameReaderAsync(mediaFrameSource, MediaEncodingSubtypes.Bgra8);
+					reader.FrameArrived += OnFrameArrived;
+					MediaFrameReaderStartStatus mediaFrameReaderStartStatus = await reader.StartAsync();
+					if (mediaFrameReaderStartStatus == MediaFrameReaderStartStatus.ExclusiveControlNotAvailable || mediaFrameReaderStartStatus == MediaFrameReaderStartStatus.DeviceNotAvailable)
+					{
+						throw new UnauthorizedAccessException(CameraBlockedMessage);
+					}
+					if (mediaFrameReaderStartStatus != MediaFrameReaderStartStatus.Success)
+					{
+						throw new InvalidOperationException($"The camera stream could not be started ({mediaFrameReaderStartStatus}).");
+					}
+					if (_closed || version != _startVersion)
+					{
+						reader.FrameArrived -= OnFrameArrived;
+						await reader.StopAsync();
+						reader.Dispose();
+						capture.Dispose();
+						return;
+					}
+					_capture = capture;
+					_reader = reader;
+					uint width = format?.VideoFormat?.Width ?? 0;
+					uint height = format?.VideoFormat?.Height ?? 0;
+					StatusText.Text = width > 0
+						? $"Live preview {width}x{height}. Hold the document flat and well lit, then press Capture & Scan."
+						: "Hold the prescription flat and well lit, then press Capture & Scan.";
+					StartPreviewWatchdog();
+					return;
+				}
+				catch (UnauthorizedAccessException)
+				{
+					if (reader != null)
+					{
+						reader.FrameArrived -= OnFrameArrived;
+						reader.Dispose();
+					}
+					throw;
+				}
+				catch (Exception ex)
+				{
+					lastError = ex;
+					if (reader != null)
+					{
+						reader.FrameArrived -= OnFrameArrived;
+						reader.Dispose();
+					}
+				}
 			}
-			if (_closed || version != _startVersion)
-			{
-				reader.FrameArrived -= OnFrameArrived;
-				await reader.StopAsync();
-				reader.Dispose();
-				capture.Dispose();
-			}
-			else
-			{
-				_capture = capture;
-				_reader = reader;
-				StatusText.Text = "Hold the prescription flat and well lit, then press Capture & Scan.";
-			}
+			throw lastError ?? new InvalidOperationException("No supported camera format could be started.");
 		}
 		catch (UnauthorizedAccessException)
 		{
 			capture?.Dispose();
-			StatusText.Text = "Camera access is blocked. Allow desktop apps to use the camera in Windows Settings > Privacy > Camera, or close any app using the webcam.";
+			StatusText.Text = CameraBlockedMessage;
 		}
 		catch (Exception ex2)
 		{
 			capture?.Dispose();
-			StatusText.Text = "The camera could not be started. It may be busy or unavailable. " + ex2.Message;
+			StatusText.Text = IsCameraBlocked(ex2)
+				? CameraBlockedMessage
+				: "The camera could not be started. It may be busy or unavailable. " + ex2.Message;
 		}
+	}
+
+	private static List<MediaFrameFormat?> RankPreviewFormats(MediaFrameSource source)
+	{
+		(uint Width, uint Height)[] preferredSizes = [(1920, 1080), (1280, 720), (640, 480)];
+		string[] subtypes = [MediaEncodingSubtypes.Bgra8, MediaEncodingSubtypes.Nv12, MediaEncodingSubtypes.Yuy2, MediaEncodingSubtypes.Rgb32];
+		List<MediaFrameFormat> available = source.SupportedFormats.Where(format => format.VideoFormat != null && format.VideoFormat.Width > 0).ToList();
+		List<MediaFrameFormat?> ranked = new List<MediaFrameFormat?>();
+		foreach ((uint width, uint height) in preferredSizes)
+		{
+			foreach (string subtype in subtypes)
+			{
+				ranked.AddRange(available.Where(format => string.Equals(format.Subtype, subtype, StringComparison.OrdinalIgnoreCase) && format.VideoFormat.Width == width && format.VideoFormat.Height == height));
+			}
+		}
+		ranked.AddRange(available.Where(format => subtypes.Contains(format.Subtype, StringComparer.OrdinalIgnoreCase) && format.VideoFormat.Width <= 1920 && format.VideoFormat.Height <= 1080).OrderBy(format => Math.Abs((int)format.VideoFormat.Width - 1280) + Math.Abs((int)format.VideoFormat.Height - 720)));
+		ranked.AddRange(available.Where(format => format.VideoFormat.Width <= 1280).OrderBy(format => format.VideoFormat.Width * format.VideoFormat.Height));
+		List<MediaFrameFormat?> distinct = ranked.Where(format => format != null).DistinctBy(format => format!.Subtype + ":" + format.VideoFormat.Width + "x" + format.VideoFormat.Height).Cast<MediaFrameFormat?>().Take(8).ToList();
+		if (distinct.Count == 0)
+		{
+			distinct.Add(null);
+		}
+		return distinct;
+	}
+
+	private static bool IsCameraBlocked(Exception exception)
+	{
+		string message = exception.ToString();
+		return message.Contains("denied", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("privacy", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("0x80070005", StringComparison.OrdinalIgnoreCase)
+			|| message.Contains("0xC00D3704", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private void StartPreviewWatchdog()
+	{
+		StopPreviewWatchdog();
+		_previewWatchdog = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+		_previewWatchdog.Tick += (_, _) =>
+		{
+			StopPreviewWatchdog();
+			if (!_closed && !CaptureButton.IsEnabled)
+			{
+				StatusText.Text = CameraBlockedMessage;
+			}
+		};
+		_previewWatchdog.Start();
+	}
+
+	private void StopPreviewWatchdog()
+	{
+		if (_previewWatchdog == null)
+		{
+			return;
+		}
+		_previewWatchdog.Stop();
+		_previewWatchdog = null;
 	}
 
 	private async Task StopCameraAsync()
 	{
+		StopPreviewWatchdog();
 		MediaFrameReader reader;
 		MediaCapture capture;
 		lock (_gate)
@@ -200,6 +310,7 @@ public partial class WebcamCaptureWindow : Window
 						if (!CaptureButton.IsEnabled)
 						{
 							CaptureButton.IsEnabled = true;
+							StopPreviewWatchdog();
 						}
 					}
 				}

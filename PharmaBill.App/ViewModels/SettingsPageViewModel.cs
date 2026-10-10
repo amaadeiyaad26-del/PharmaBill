@@ -318,6 +318,8 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? archivePreRetentionRecordsCommand;
 
+	private AsyncRelayCommand? resetDatabaseCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? checkForUpdatesCommand;
 
@@ -2679,6 +2681,8 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ArchivePreRetentionRecordsCommand => archivePreRetentionRecordsCommand ?? (archivePreRetentionRecordsCommand = new AsyncRelayCommand(ArchivePreRetentionRecordsAsync));
 
+	public IAsyncRelayCommand ResetDatabaseCommand => resetDatabaseCommand ?? (resetDatabaseCommand = new AsyncRelayCommand(ResetDatabaseAsync));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand CheckForUpdatesCommand => checkForUpdatesCommand ?? (checkForUpdatesCommand = new AsyncRelayCommand(CheckForUpdatesAsync));
@@ -3077,6 +3081,50 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			{
 				IsArchiving = false;
 			}
+		}
+	}
+
+	private async Task ResetDatabaseAsync()
+	{
+		if (_currentSession.User == null || _currentSession.User.Role is not (UserRole.Owner or UserRole.Manager))
+		{
+			RetentionStatus = "Only the owner or manager can reset the database.";
+			return;
+		}
+
+		if (!_confirmationService.Confirm(
+			    "Clear all stock, sales, purchases, customers, patients, and statutory register entries from this pharmacy database?\n\nPharmacy profile, users, licences, and the medicine catalogue are kept. This cannot be undone.",
+			    "Reset Database / Clear All Data"))
+		{
+			return;
+		}
+
+		if (!_confirmationService.Confirm(
+			    "Final confirmation: inventory and register entries will be zero. Continue?",
+			    "Confirm Reset Database"))
+		{
+			return;
+		}
+
+		try
+		{
+			IsArchiving = true;
+			RetentionStatus = "Clearing transactional data…";
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			OperationalDataResetResult result = await scope.ServiceProvider
+				.GetRequiredService<OperationalDataResetService>()
+				.ClearAllTransactionalDataAsync();
+			RetentionStatus =
+				$"Database reset complete. Removed {result.RemovedRowCount:N0} row(s). Stock batches: {result.RemainingBatchCount}, register entries: {result.RemainingRegisterCount}.";
+			await RefreshRetentionSummaryAsync();
+		}
+		catch (Exception ex)
+		{
+			RetentionStatus = ex.Message;
+		}
+		finally
+		{
+			IsArchiving = false;
 		}
 	}
 

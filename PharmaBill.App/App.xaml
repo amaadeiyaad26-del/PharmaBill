@@ -7,6 +7,27 @@
         <ResourceDictionary Source="Resources/Strings.en.xaml" />
         <ResourceDictionary Source="Resources/Controls.xaml" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!-- Pharmacy-grade semantic palette (Accounts / Ledgers / Navigation) -->
+      <SolidColorBrush x:Key="BrandTeal" Color="#0D9488" />
+      <SolidColorBrush x:Key="BrandDarkTeal" Color="#0F766E" />
+      <SolidColorBrush x:Key="BrandTealLight" Color="#F0FDFA" />
+
+      <SolidColorBrush x:Key="MoneyCredit" Color="#E11D48" />
+      <SolidColorBrush x:Key="MoneyCreditBg" Color="#FFE4E6" />
+      <SolidColorBrush x:Key="MoneyDebit" Color="#16A34A" />
+      <SolidColorBrush x:Key="MoneyDebitBg" Color="#DCFCE7" />
+      <SolidColorBrush x:Key="MoneyWarning" Color="#D97706" />
+      <SolidColorBrush x:Key="MoneyWarningBg" Color="#FEF3C7" />
+
+      <SolidColorBrush x:Key="SurfaceBg" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="SurfaceAltBg" Color="#F8FAFC" />
+      <SolidColorBrush x:Key="CardBorder" Color="#E2E8F0" />
+      <SolidColorBrush x:Key="TextPrimary" Color="#0F172A" />
+      <SolidColorBrush x:Key="TextMuted" Color="#64748B" />
+
+      <SolidColorBrush x:Key="NavActiveIndicator" Color="#0D9488" />
+      <SolidColorBrush x:Key="NavActiveBg" Color="#F0FDFA" />
     </ResourceDictionary>
   </Application.Resources>
 </Application>

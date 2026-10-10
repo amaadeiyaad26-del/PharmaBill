@@ -47,6 +47,14 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 
 	private bool _hidePatientPhoneNumber;
 
+	private DateTime? _registerFromDate;
+
+	private DateTime? _registerToDate;
+
+	private string _inspectorEmail = string.Empty;
+
+	private AsyncRelayCommand? emailReportCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? searchCommand;
 
@@ -85,6 +93,10 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 				OnPropertyChanging(nameof(SelectedRegisterType));
 				_selectedRegisterType = value;
 				OnPropertyChanged(nameof(SelectedRegisterType));
+				if (_authorized)
+				{
+					_ = SearchAsync();
+				}
 			}
 		}
 	}
@@ -191,6 +203,21 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand SearchCommand => searchCommand ?? (searchCommand = new AsyncRelayCommand(SearchAsync));
 
+	public IRelayCommand<string?> OpenPrescriptionCommand => openPrescriptionCommand ?? (openPrescriptionCommand = new RelayCommand<string?>(OpenPrescription));
+
+	private RelayCommand<string?>? openPrescriptionCommand;
+
+	private void OpenPrescription(string? path)
+	{
+		if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+		{
+			ErrorMessage = "The archived prescription file could not be found.";
+			return;
+		}
+
+		Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand AppendCorrectionCommand => appendCorrectionCommand ?? (appendCorrectionCommand = new AsyncRelayCommand(AppendCorrectionAsync));
@@ -210,6 +237,55 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ShowPdfForSharingCommand => showPdfForSharingCommand ?? (showPdfForSharingCommand = new AsyncRelayCommand(ShowPdfForSharingAsync));
+
+	public IAsyncRelayCommand EmailReportCommand => emailReportCommand ?? (emailReportCommand = new AsyncRelayCommand(EmailReportAsync));
+
+	public DateTime? RegisterFromDate
+	{
+		get => _registerFromDate;
+		set
+		{
+			if (_registerFromDate != value)
+			{
+				_registerFromDate = value;
+				OnPropertyChanged(nameof(RegisterFromDate));
+				if (_authorized)
+				{
+					_ = SearchAsync();
+				}
+			}
+		}
+	}
+
+	public DateTime? RegisterToDate
+	{
+		get => _registerToDate;
+		set
+		{
+			if (_registerToDate != value)
+			{
+				_registerToDate = value;
+				OnPropertyChanged(nameof(RegisterToDate));
+				if (_authorized)
+				{
+					_ = SearchAsync();
+				}
+			}
+		}
+	}
+
+	public string InspectorEmail
+	{
+		get => _inspectorEmail;
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_inspectorEmail, value))
+			{
+				_inspectorEmail = value;
+				OnPropertyChanged(nameof(InspectorEmail));
+			}
+		}
+	}
 
 	public StatutoryRegistersPageViewModel(StatutoryRegisterService registerService, SensitiveAccessService sensitiveAccess, IConfirmationService confirmation, IFilePickerService filePicker, TabularExportService exportService, CurrentSession currentSession)
 		: base("Statutory registers")
@@ -248,11 +324,11 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 		{
 			IReadOnlyList<StatutoryRegisterRow> readOnlyList = await _registerService.SearchAsync(SelectedRegisterType, _currentSession.User.Id);
 			Entries.Clear();
-			foreach (StatutoryRegisterRow item in readOnlyList)
+			foreach (StatutoryRegisterRow item in readOnlyList.Where(MatchesRegisterDate))
 			{
 				Entries.Add(item);
 			}
-			StatusMessage = $"{readOnlyList.Count} read-only register entry/entries.";
+			StatusMessage = $"{Entries.Count} read-only register entry/entries.";
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
@@ -351,6 +427,59 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 		}
 	}
 
+	private bool MatchesRegisterDate(StatutoryRegisterRow item)
+	{
+		DateTime local = item.EntryAtUtc.ToLocalTime();
+		if (RegisterFromDate.HasValue && local.Date < RegisterFromDate.Value.Date)
+		{
+			return false;
+		}
+
+		if (RegisterToDate.HasValue && local.Date > RegisterToDate.Value.Date)
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	private async Task EmailReportAsync()
+	{
+		if (!(await AuthorizeExportAsync()))
+		{
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(InspectorEmail) || !InspectorEmail.Contains('@'))
+		{
+			ErrorMessage = "Enter the inspector or auditor email address.";
+			return;
+		}
+
+		string path = Path.Combine(Path.GetTempPath(), "PharmaBill-statutory-register-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".pdf");
+		try
+		{
+			await ExportFileAsync(path);
+			string subject = Uri.EscapeDataString(SelectedRegisterType + " statutory register");
+			string body = Uri.EscapeDataString("Statutory register exported for review. PDF saved at: " + path);
+			if (Process.Start(new ProcessStartInfo($"mailto:{Uri.EscapeDataString(InspectorEmail.Trim())}?subject={subject}&body={body}")
+			{
+				UseShellExecute = true
+			}) == null)
+			{
+				throw new InvalidOperationException("Windows could not open the default mail client.");
+			}
+
+			RetailBillPdfService.ShowInExplorer(path);
+			StatusMessage = "Email draft opened for " + InspectorEmail.Trim() + ". Attach " + path + ".";
+			ErrorMessage = string.Empty;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
 	private async Task ExportAsync(string extension)
 	{
 		if (!(await AuthorizeExportAsync()))
@@ -394,12 +523,12 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 
 	private async Task ExportFileAsync(string path)
 	{
-		string[] columns = new string[13]
+		string[] columns = new string[15]
 		{
-			"Date/time", "Document no.", "Patient or buyer", "Address", "Phone", "Buyer licence no.", "Doctor", "Doctor registration no.", "Drug", "Batch",
+			"Date/time", "Document no.", "Patient or buyer", "Address", "Phone", "Buyer licence no.", "Doctor", "Doctor registration no.", "Drug", "Salt / composition", "Batch", "Expiry",
 			"Quantity", "Balance", "Reason / notes"
 		};
-		IReadOnlyList<IReadOnlyList<string>> rows = ((IEnumerable<StatutoryRegisterRow>)Entries).Select((Func<StatutoryRegisterRow, IReadOnlyList<string>>)((StatutoryRegisterRow item) => new _003C_003Ez__ReadOnlyArray<string>(new string[13]
+		IReadOnlyList<IReadOnlyList<string>> rows = ((IEnumerable<StatutoryRegisterRow>)Entries).Select((Func<StatutoryRegisterRow, IReadOnlyList<string>>)((StatutoryRegisterRow item) => new _003C_003Ez__ReadOnlyArray<string>(new string[15]
 		{
 			item.EntryAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
 			item.DocumentNo,
@@ -410,7 +539,9 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 			item.DoctorName,
 			item.DoctorRegistrationNo,
 			item.DrugName,
+			item.Composition,
 			item.BatchNo,
+			item.ExpiryLabel,
 			item.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
 			item.Balance.ToString("0.##", CultureInfo.InvariantCulture),
 			item.Reason

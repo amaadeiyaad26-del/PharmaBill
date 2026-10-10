@@ -148,6 +148,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <StackPanel Margin="0,0,8,10"><TextBlock Text="GSTIN" /><TextBox Text="{Binding Gstin}" Margin="0,5,0,0" Padding="6" /></StackPanel>
                         <StackPanel Grid.Column="1" Margin="8,0,8,10"><TextBlock Text="PAN" /><TextBox Text="{Binding Pan}" Margin="0,5,0,0" Padding="6" /></StackPanel>
@@ -155,9 +156,11 @@
                         <StackPanel Grid.Row="1" Margin="0,0,8,10"><TextBlock Text="Competent person / registered pharmacist" /><TextBox Text="{Binding CompetentPersonName}" Margin="0,5,0,0" Padding="6" /></StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,8,10"><TextBlock Text="Qualification" /><TextBox Text="{Binding CompetentPersonQualification}" Margin="0,5,0,0" Padding="6" /></StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,0,0,10"><TextBlock Text="Registration number" /><TextBox Text="{Binding CompetentPersonRegistrationNumber}" Margin="0,5,0,0" Padding="6" /></StackPanel>
-                        <StackPanel Grid.Row="2" Margin="0,0,8,0"><TextBlock Text="Bank name" /><TextBox Text="{Binding BankName}" Margin="0,5,0,0" Padding="6" /></StackPanel>
-                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,0"><TextBlock Text="Account name / number" /><TextBox Text="{Binding BankAccountName}" Margin="0,5,0,0" Padding="6" /><TextBox Text="{Binding BankAccountNumber}" Margin="0,5,0,0" Padding="6" /></StackPanel>
-                        <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,0,0"><TextBlock Text="IFSC / UPI ID" /><TextBox Text="{Binding BankIfsc}" Margin="0,5,0,0" Padding="6" /><TextBox Text="{Binding UpiId}" Margin="0,5,0,0" Padding="6" /></StackPanel>
+                        <StackPanel Grid.Row="2" Margin="0,0,8,10"><TextBlock Text="Bank name" /><TextBox Text="{Binding BankName}" Margin="0,5,0,0" Padding="6" /></StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,10"><TextBlock Text="Account holder name" /><TextBox Text="{Binding BankAccountName}" Margin="0,5,0,0" Padding="6" /></StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,0,10"><TextBlock Text="Account number" /><TextBox Text="{Binding BankAccountNumber}" Margin="0,5,0,0" Padding="6" /></StackPanel>
+                        <StackPanel Grid.Row="3" Margin="0,0,8,0"><TextBlock Text="IFSC code" /><TextBox Text="{Binding BankIfsc}" Margin="0,5,0,0" Padding="6" /></StackPanel>
+                        <StackPanel Grid.Row="3" Grid.Column="1" Margin="8,0,8,0"><TextBlock Text="UPI ID / QR VPA" /><TextBox Text="{Binding UpiId}" Margin="0,5,0,0" Padding="6" /></StackPanel>
                     </Grid>
                 </GroupBox>
 

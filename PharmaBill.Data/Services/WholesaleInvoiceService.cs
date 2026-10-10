@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -252,10 +253,11 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			{
 				CustomerId = customer.Id,
 				EntryAtUtc = invoiceAtUtc,
-				EntryType = "WholesaleInvoice",
+				EntryType = LedgerEntryTypes.WholesaleInvoice,
 				ReferenceId = invoice.Id,
 				ReferenceNo = text2,
 				Debit = roundedTotal,
+				Credit = 0m,
 				Notes = ((input.OverrideReason == null) ? null : ("Owner override: " + input.OverrideReason.Trim()))
 			});
 			if (input.PaidAmount > 0m)
@@ -276,9 +278,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				{
 					CustomerId = customer.Id,
 					EntryAtUtc = invoiceAtUtc,
-					EntryType = "Receipt",
+					EntryType = LedgerEntryTypes.Receipt,
 					ReferenceId = receipt.Id,
 					ReferenceNo = receipt.ReceiptNo,
+					Debit = 0m,
 					Credit = input.PaidAmount,
 					Notes = receipt.PaymentMethod
 				});
@@ -352,9 +355,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		{
 			CustomerId = invoice.CustomerId,
 			EntryAtUtc = correction.ReturnAtUtc,
-			EntryType = "WholesaleInvoiceCancellation",
+			EntryType = LedgerEntryTypes.WholesaleInvoiceCancellation,
 			ReferenceId = correction.Id,
 			ReferenceNo = correction.ReturnNo,
+			Debit = 0m,
 			Credit = invoice.TotalAmount,
 			Notes = reason.Trim()
 		});

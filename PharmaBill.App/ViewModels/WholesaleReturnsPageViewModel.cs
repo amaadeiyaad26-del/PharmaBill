@@ -216,7 +216,11 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			ReturnNote returnNote = await scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>().CreateCreditNoteAsync(SelectedInvoice.Id, DocumentNo, DateOnly.FromDateTime(DateTime.Today), lines, Reason, (_session.User ?? throw new UnauthorizedAccessException("Sign in before creating credit notes.")).Id, _session.User.Role);
+			ReturnNote returnNote = null!;
+			await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+			{
+				returnNote = await scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>().CreateCreditNoteAsync(SelectedInvoice.Id, DocumentNo, DateOnly.FromDateTime(DateTime.Today), lines, Reason, (_session.User ?? throw new UnauthorizedAccessException("Sign in before creating credit notes.")).Id, _session.User.Role);
+			});
 			StatusMessage = $"Credit note {returnNote.ReturnNo} saved for {MoneyFormat.Rupees(returnNote.TotalAmount)}. Unrestocked items are quarantined.";
 			ErrorMessage = string.Empty;
 			await LoadInvoiceLinesAsync(SelectedInvoice.Id);

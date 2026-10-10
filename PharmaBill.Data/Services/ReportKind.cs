@@ -15,5 +15,10 @@ public enum ReportKind
 	PurchaserSupplierWise = 101,
 	BatchWise = 102,
 	BrandProductWise = 103,
-	ManufacturerWise = 104
+	ManufacturerWise = 104,
+	DailyMis = 200,
+	AbcAnalysis = 201,
+	SaleBookDaily = 202,
+	SaleBookMonthly = 203,
+	PrescriberWise = 204
 }

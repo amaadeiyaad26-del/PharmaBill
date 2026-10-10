@@ -104,7 +104,7 @@ public sealed class DrugRecordsService(IServiceScopeFactory scopeFactory)
 		StockMovement[] purchaseTypes = source3.Where((StockMovement item) =>
 		{
 			string movementType = item.MovementType;
-			return (movementType == "PurchaseReceipt" || movementType == "PurchaseReturn") ? true : false;
+			return (movementType == "PurchaseReceipt" || movementType == "PurchaseInward" || movementType == "PurchaseReturn") ? true : false;
 		}).ToArray();
 		List<DrugRecordsMovement> movements = new List<DrugRecordsMovement>();
 		foreach (StockMovement item in source3.Where((StockMovement item) =>
@@ -115,6 +115,7 @@ public sealed class DrugRecordsService(IServiceScopeFactory scopeFactory)
 			case "RetailSale":
 			case "RetailSaleReturn":
 			case "PurchaseReceipt":
+			case "PurchaseInward":
 			case "PurchaseReturn":
 				flag3 = true;
 				break;
@@ -239,7 +240,7 @@ public sealed class DrugRecordsService(IServiceScopeFactory scopeFactory)
 			}
 		}
 		Guid[] purchaseInvoiceIds = (from item in purchaseTypes
-			where item.MovementType == "PurchaseReceipt" && item.ReferenceId.HasValue
+			where (item.MovementType == "PurchaseReceipt" || item.MovementType == "PurchaseInward") && item.ReferenceId.HasValue
 			select item.ReferenceId.Value).Distinct().ToArray();
 		Dictionary<Guid, PurchaseInvoice> purchaseInvoices = await (from item in context.PurchaseInvoices.AsNoTracking()
 			where purchaseInvoiceIds.Contains(item.Id)
@@ -258,7 +259,7 @@ public sealed class DrugRecordsService(IServiceScopeFactory scopeFactory)
 		array = purchaseTypes;
 		foreach (StockMovement stockMovement2 in array)
 		{
-			bool flag2 = stockMovement2.MovementType == "PurchaseReceipt";
+			bool flag2 = stockMovement2.MovementType is "PurchaseReceipt" or "PurchaseInward";
 			PurchaseInvoice purchaseInvoice = (flag2 ? purchaseInvoices.GetValueOrDefault(stockMovement2.ReferenceId ?? Guid.Empty) : null);
 			PurchaseReturn purchaseReturn = (flag2 ? null : purchaseReturns.GetValueOrDefault(stockMovement2.ReferenceId ?? Guid.Empty));
 			Guid? guid2 = ((purchaseInvoice != null) ? new Guid?(purchaseInvoice.SupplierId) : purchaseReturn?.SupplierId);

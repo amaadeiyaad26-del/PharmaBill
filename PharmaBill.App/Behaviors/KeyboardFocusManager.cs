@@ -146,7 +146,31 @@ public static class KeyboardFocusManager
 		}
 
 		Popup? popup = FindAncestor<Popup>(source);
-		return popup is { IsOpen: true };
+		if (popup is { IsOpen: true })
+		{
+			return true;
+		}
+
+		DependencyObject? current = source;
+		while (current != null)
+		{
+			if (current is Panel panel)
+			{
+				foreach (object child in LogicalTreeHelper.GetChildren(panel))
+				{
+					if (child is Popup { IsOpen: true })
+					{
+						return true;
+					}
+				}
+			}
+
+			current = current is Visual or System.Windows.Media.Media3D.Visual3D
+				? VisualTreeHelper.GetParent(current)
+				: LogicalTreeHelper.GetParent(current);
+		}
+
+		return false;
 	}
 
 	public static bool TryCloseOpenPopup(DependencyObject? source)

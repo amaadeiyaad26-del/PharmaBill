@@ -109,6 +109,11 @@ public static class InvoiceFlowDocumentFactory
 			paragraph2.Inlines.Add(new LineBreak());
 			paragraph2.Inlines.Add(new Run("Address: " + bill.PatientAddress));
 		}
+		if (!string.IsNullOrWhiteSpace(bill.MrdNumber))
+		{
+			paragraph2.Inlines.Add(new LineBreak());
+			paragraph2.Inlines.Add(new Run("MRD / IPD No: " + bill.MrdNumber));
+		}
 		if (settings.PrintDoctorName && !string.IsNullOrWhiteSpace(bill.PrescriberName))
 		{
 			paragraph2.Inlines.Add(new LineBreak());

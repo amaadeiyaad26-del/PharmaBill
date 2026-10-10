@@ -46,7 +46,7 @@
               </FrameworkElement.Style>
             </Button>
             <WrapPanel Margin="0,8,0,0" Visibility="{Binding ShowActions, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}, Converter={StaticResource BooleanToVisibilityConverter}}">
-              <Button Height="36" Margin="0,0,8,4" Style="{StaticResource PrimaryButton}" Content="{Binding IsInStock, Converter={StaticResource StockButtonText}}" Command="{Binding DataContext.AddStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+              <Button Height="36" Margin="0,0,8,4" Style="{StaticResource FrostedMintPillButton}" Content="{Binding IsInStock, Converter={StaticResource StockButtonText}}" Command="{Binding DataContext.AddStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
               <Button Content="Adjust" Height="36" Margin="0,0,8,4" Style="{StaticResource SecondaryButton}" Visibility="{Binding IsInStock, Converter={StaticResource BooleanToVisibilityConverter}}" Command="{Binding DataContext.ViewStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
               <Button Content="Batches" Height="36" Margin="0,0,8,4" Style="{StaticResource SecondaryButton}" Visibility="{Binding IsInStock, Converter={StaticResource BooleanToVisibilityConverter}}" Command="{Binding DataContext.ViewStockCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
               <Button Content="Substitutes" Height="36" Margin="0,0,8,4" Style="{StaticResource SecondaryButton}" Command="{Binding DataContext.ShowSubstitutesCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
@@ -57,43 +57,56 @@
     </ResourceDictionary>
   </UserControl.Resources>
   <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-    <controls:FloatingField Label="Search medicine, salt or brand (type 2 or more letters)" Visibility="{Binding ShowActions, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}}">
-      <Grid>
-        <TextBox Padding="0,0,22,0" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
+    <Grid Margin="0,0,0,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Button Grid.Column="2" Content="+ New Medicine" MinWidth="150" MinHeight="36" Margin="8,0,0,0" Padding="14,8" VerticalAlignment="Center" Style="{StaticResource FrostedMintPillButton}" Command="{Binding AddManualCommand}" ToolTip="Create a medicine that is not in stock or the catalogue. Text already typed in the search box is filled in as the brand name." />
+      <Button Grid.Column="1" Content="Search" MinWidth="90" MinHeight="36" Margin="8,0,0,0" Padding="14,8" VerticalAlignment="Center" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SearchCommand}" ToolTip="Search stock and the medicine catalogue. Type at least 2 letters, then press Search or Enter." />
+      <controls:FloatingField Grid.Column="0" Label="Search medicine, salt or brand (type 2 or more letters)" Visibility="{Binding ShowActions, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}}">
+        <Grid>
+          <TextBox Padding="0,0,22,0" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
+            <UIElement.InputBindings>
+              <KeyBinding Key="Enter" Command="{Binding SearchCommand}" CommandParameter="{x:Null}" />
+            </UIElement.InputBindings>
+          </TextBox>
+          <controls:InlineSearchBusyRing HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,10,4,0" IsActive="{Binding IsSearching}" />
+        </Grid>
+      </controls:FloatingField>
+      <Grid Grid.Column="0">
+        <FrameworkElement.Style>
+          <Style TargetType="{x:Type Grid}">
+            <Style.Triggers>
+              <DataTrigger Value="True" Binding="{Binding ShowActions, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}}">
+                <Setter Property="Visibility" Value="Collapsed" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </FrameworkElement.Style>
+        <TextBox Name="SearchBox" Height="36" Padding="12,6,28,6" VerticalContentAlignment="Center" FontSize="13" ToolTip="Search medicines (type at least 2 characters)" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}" TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_FocusChanged" LostKeyboardFocus="SearchBox_FocusChanged">
           <UIElement.InputBindings>
             <KeyBinding Key="Enter" Command="{Binding SearchCommand}" CommandParameter="{x:Null}" />
           </UIElement.InputBindings>
         </TextBox>
-        <controls:InlineSearchBusyRing HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,10,4,0" IsActive="{Binding IsSearching}" />
+        <controls:InlineSearchBusyRing HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" IsActive="{Binding IsSearching}" />
+        <TextBlock Name="TxtSearchHint" IsHitTestVisible="False" Margin="14,0,28,0" VerticalAlignment="Center" Foreground="#FF808080" FontSize="13" RenderTransformOrigin="0.5,0.5">
+          <UIElement.RenderTransform>
+            <TranslateTransform Y="0" />
+          </UIElement.RenderTransform>
+        </TextBlock>
       </Grid>
-    </controls:FloatingField>
-    <Grid Margin="0,0,0,0">
-      <FrameworkElement.Style>
-        <Style TargetType="{x:Type Grid}">
-          <Style.Triggers>
-            <DataTrigger Value="True" Binding="{Binding ShowActions, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}}">
-              <Setter Property="Visibility" Value="Collapsed" />
-            </DataTrigger>
-          </Style.Triggers>
-        </Style>
-      </FrameworkElement.Style>
-      <TextBox Name="SearchBox" Height="36" Padding="12,6,28,6" VerticalContentAlignment="Center" FontSize="13" ToolTip="Search medicines (type at least 2 characters)" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}" TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_FocusChanged" LostKeyboardFocus="SearchBox_FocusChanged">
-        <UIElement.InputBindings>
-          <KeyBinding Key="Enter" Command="{Binding SearchCommand}" CommandParameter="{x:Null}" />
-        </UIElement.InputBindings>
-      </TextBox>
-      <controls:InlineSearchBusyRing HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" IsActive="{Binding IsSearching}" />
-      <TextBlock Name="TxtSearchHint" IsHitTestVisible="False" Margin="14,0,28,0" VerticalAlignment="Center" Foreground="#FF808080" FontSize="13" RenderTransformOrigin="0.5,0.5">
-        <UIElement.RenderTransform>
-          <TranslateTransform Y="0" />
-        </UIElement.RenderTransform>
-      </TextBlock>
     </Grid>
-    <Button Content="Search" HorizontalAlignment="Right" Margin="0,6,0,8" Padding="12,5" Command="{Binding SearchCommand}" />
     <TextBlock Foreground="#FFB42318" Text="{Binding ErrorMessage}" />
     <StackPanel Visibility="{Binding ShowActions, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}}">
       <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,4" Text="{Binding HintText}" Visibility="{Binding ShowHint, Converter={StaticResource BooleanToVisibilityConverter}}" />
-      <Button Content="Add new medicine manually" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Command="{Binding AddManualCommand}" Visibility="{Binding ShowAddManual, Converter={StaticResource BooleanToVisibilityConverter}}" />
+      <Button Margin="0,4,0,0" HorizontalAlignment="Left" MinHeight="36" Padding="14,8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding AddManualCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this search text as a new medicine">
+        <TextBlock Text="{Binding CreateUnlistedCaption}" TextWrapping="Wrap" />
+      </Button>
+      <Button Margin="0,8,0,0" HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
+      </Button>
     </StackPanel>
     <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
       <StackPanel>

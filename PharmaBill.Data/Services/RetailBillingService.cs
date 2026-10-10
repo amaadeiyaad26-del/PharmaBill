@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core;
+using PharmaBill.Core.Accounting;
+using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -79,7 +81,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				select batch).ThenBy((Batch batch) => batch.BatchNo, StringComparer.OrdinalIgnoreCase).Select((Batch batch) =>
 			{
 				CatalogInfo catalogInfo2 = FindCatalogInfo(drug, catalogInfo);
-				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate.GetValueOrDefault(), ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType);
+				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate.GetValueOrDefault(), ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType, drug.IsBanned || batch.IsBanned);
 			}))
 			orderby choice.Barcode == searchTerm descending
 			select choice).ThenBy((RetailStockChoice choice) => choice.DrugName, StringComparer.OrdinalIgnoreCase).ThenBy((RetailStockChoice choice) => choice.ExpiryDate ?? DateOnly.MaxValue).ToArray();
@@ -245,7 +247,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			ArgumentException.ThrowIfNullOrWhiteSpace(input.PatientAddress, "input.PatientAddress");
 			ArgumentException.ThrowIfNullOrWhiteSpace(input.PrescriberName, "input.PrescriberName");
 			ArgumentException.ThrowIfNullOrWhiteSpace(input.PrescriberRegistrationNumber, "input.PrescriberRegistrationNumber");
-			if (string.IsNullOrWhiteSpace(input.PrescriptionDocumentPath))
+			if (string.IsNullOrWhiteSpace(input.PrescriptionDocumentPath) && !input.PrescriptionAdminOverride)
 			{
 				throw new InvalidOperationException("Attach a prescription image or PDF for H1, X, and NDPS items.");
 			}
@@ -258,7 +260,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		decimal num2 = input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase)).Sum((RetailPaymentInput retailPaymentInput) => (!(retailPaymentInput.TenderedAmount > 0m)) ? retailPaymentInput.AppliedAmount : retailPaymentInput.TenderedAmount);
 		decimal num3 = input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase)).Sum((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount);
 		decimal changeDue = RetailTaxCalculator.RoundMoney(Math.Max(0m, num2 - num3));
-		string attachmentPath = await CopyPrescriptionAsync(input.PrescriptionDocumentPath, controlledItems.Length != 0, prescriptionStorageDirectory, cancellationToken);
+		string? attachmentPath = null;
+		string? stagedPendingPath = IsPendingArchive(input.PrescriptionDocumentPath) ? Path.GetFullPath(input.PrescriptionDocumentPath) : null;
 		bool shouldKeepAttachment = false;
 		try
 		{
@@ -281,6 +284,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					patient.Name = input.PatientName.Trim();
 					patient.Address = NullIfWhiteSpace(input.PatientAddress);
 				}
+				string invoicePrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
+				Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
+				string invoiceNo = await numberSeriesService.AllocateAsync(invoicePrefix, today, cancellationToken);
+				attachmentPath = await PrescriptionArchive.StoreForBillAsync(input.PrescriptionDocumentPath, controlledItems.Length != 0 && !input.PrescriptionAdminOverride, string.IsNullOrWhiteSpace(prescriptionStorageDirectory) ? null : prescriptionStorageDirectory, invoiceNo, cancellationToken);
 				Prescription prescription = null;
 				if (controlledItems.Length != 0 || attachmentPath != null || !string.IsNullOrWhiteSpace(input.PrescriberName) || !string.IsNullOrWhiteSpace(input.PrescriberRegistrationNumber))
 				{
@@ -294,14 +301,12 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					};
 					context.Prescriptions.Add(prescription);
 				}
-				string invoicePrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
-				Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
-				string invoiceNo = await numberSeriesService.AllocateAsync(invoicePrefix, today, cancellationToken);
 				decimal paidAmount = appliedPayments;
 				Sale sale = new Sale
 				{
 					PatientId = patient.Id,
 					PrescriptionId = prescription?.Id,
+					PrescriptionFilePath = attachmentPath,
 					InvoiceNo = invoiceNo,
 					SaleAtUtc = DateTime.UtcNow,
 					Subtotal = subtotal,
@@ -311,6 +316,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					PaidAmount = paidAmount,
 					PaymentStatus = ((paidAmount >= totalAmount) ? "Paid" : ((paidAmount > 0m) ? "Partial" : "Credit")),
 					Notes = NullIfWhiteSpace(input.Notes),
+					MrdNumber = NullIfWhiteSpace(input.MrdNumber),
 					IsLocked = true,
 					BilledByUserId = actingUserId,
 					BranchId = branch.Id
@@ -360,13 +366,14 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 							PatientName = patient.Name,
 							PrescriberName = prescription?.PrescriberName,
 							PrescriberRegistrationNumber = prescription?.PrescriberRegistrationNumber,
-							Notes = (prepared.IsHabitForming ? "Habit-forming classification is reference data; verify against the prescription and applicable rules." : null)
+							Notes = BuildRegisterNotes(prepared.IsHabitForming, attachmentPath, input.PrescriptionAdminOverride)
 						});
 					}
 				}
 				foreach (RetailPaymentInput payment in input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount > 0m))
 				{
 					string receiptNo = await numberSeriesService.AllocateAsync(invoicePrefix + "-R", today, cancellationToken);
+					// Cash/UPI/Card: Receipt is the cash/bank debit side; Sale row is the sales credit side.
 					context.Receipts.Add(new Receipt
 					{
 						ReceiptNo = receiptNo,
@@ -374,6 +381,23 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						Amount = RetailTaxCalculator.RoundMoney(payment.AppliedAmount),
 						PaymentMethod = payment.Method.Trim(),
 						Notes = $"SaleId={sale.Id:D}; InvoiceNo={invoiceNo}"
+					});
+				}
+				decimal unpaid = RetailTaxCalculator.RoundMoney(totalAmount - paidAmount);
+				if (unpaid > 0m)
+				{
+					// Credit sale: Debit CustomerLedger (receivable ↑); sales credit remains on the Sale document.
+					Customer creditCustomer = await EnsureRetailCreditCustomerAsync(context, patient, cancellationToken);
+					context.CustomerLedgerEntries.Add(new CustomerLedgerEntry
+					{
+						CustomerId = creditCustomer.Id,
+						EntryAtUtc = sale.SaleAtUtc,
+						EntryType = LedgerEntryTypes.RetailSale,
+						ReferenceId = sale.Id,
+						ReferenceNo = invoiceNo,
+						Debit = unpaid,
+						Credit = 0m,
+						Notes = "Retail credit sale " + invoiceNo
 					});
 				}
 				context.AuditLogs.Add(new AuditLog
@@ -401,6 +425,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			if (!shouldKeepAttachment && attachmentPath != null && File.Exists(attachmentPath))
 			{
 				File.Delete(attachmentPath);
+			}
+			else if (shouldKeepAttachment && stagedPendingPath != null && !string.Equals(stagedPendingPath, attachmentPath, StringComparison.OrdinalIgnoreCase) && File.Exists(stagedPendingPath))
+			{
+				File.Delete(stagedPendingPath);
 			}
 		}
 	}
@@ -442,6 +470,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			throw new UnauthorizedAccessException("Only an Admin can unlock a finalized bill.");
 		}
 		Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale item) => item.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The selected bill could not be found.");
+		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes });
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
 		if (sale.IsLocked)
 		{
 			sale.IsLocked = false;
@@ -453,8 +483,20 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				EntityId = sale.Id,
 				Details = "Admin override unlock for " + sale.InvoiceNo + ". Reason: " + reason.Trim()
 			});
-			await unitOfWork.SaveChangesAsync(cancellationToken);
 		}
+
+		await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+		{
+			EntityType = "RetailBill",
+			EntityId = sale.Id,
+			Action = "MODIFIED_AFTER_LOCK",
+			AuthorizedBy = string.Empty,
+			Reason = reason.Trim(),
+			OldSnapshotJson = oldSnapshot,
+			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes }),
+			UserId = adminUserId
+		}, cancellationToken);
+		await unitOfWork.SaveChangesAsync(cancellationToken);
 	}
 
 	public async Task VoidSaleAsync(Guid saleId, Guid adminUserId, UserRole adminRole, string reason, CancellationToken cancellationToken = default(CancellationToken))
@@ -469,6 +511,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		{
 			throw new InvalidOperationException("This bill is already voided.");
 		}
+		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes });
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "VOIDED_AFTER_LOCK");
 		sale.IsDeleted = true;
 		sale.IsLocked = true;
 		sale.Notes = (string.IsNullOrWhiteSpace(sale.Notes) ? ("VOIDED: " + reason.Trim()) : (sale.Notes + " | VOIDED: " + reason.Trim()));
@@ -480,12 +524,24 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			EntityId = sale.Id,
 			Details = "Admin override void for " + sale.InvoiceNo + ". Reason: " + reason.Trim()
 		});
+		await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+		{
+			EntityType = "RetailBill",
+			EntityId = sale.Id,
+			Action = "VOIDED_AFTER_LOCK",
+			AuthorizedBy = string.Empty,
+			Reason = reason.Trim(),
+			OldSnapshotJson = oldSnapshot,
+			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes }),
+			UserId = adminUserId
+		}, cancellationToken);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
 	}
 
 	public async Task DemandUnlockedForMutationAsync(Guid saleId, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		Sale sale = (await unitOfWork.Context.Sales.AsNoTracking().SingleOrDefaultAsync((Sale item) => item.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The selected bill could not be found.");
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
 		if (sale.IsLocked)
 		{
 			throw new InvalidOperationException("This bill is locked after print/save. An Admin must authorize an unlock override before changes.");
@@ -530,7 +586,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			Drug valueOrDefault = drugs.GetValueOrDefault(item.DrugId);
 			decimal taxAmount = RetailTaxCalculator.SplitInclusive(item.Quantity, item.UnitPrice, item.TaxRate, item.DiscountAmount).TaxAmount;
 			return new RetailBillPrintLine(valueOrDefault?.Name ?? "Unknown medicine", batches.GetValueOrDefault(item.BatchId)?.BatchNo ?? "Unknown batch", batches.GetValueOrDefault(item.BatchId)?.ExpiryDate, item.Quantity, item.UnitPrice, item.TaxRate, taxAmount, item.DiscountAmount, item.LineTotal, valueOrDefault?.HsnCode);
-		}).ToArray(), prescription?.PrescriberName, prescription?.PrescriberRegistrationNumber, null, null, null, cgstAmount, sgstAmount);
+		}).ToArray(), prescription?.PrescriberName, prescription?.PrescriberRegistrationNumber, null, null, null, cgstAmount, sgstAmount, sale.MrdNumber);
 	}
 
 	public async Task<IReadOnlyList<RetailSaleReturnableLine>> GetSaleReturnLinesAsync(Guid saleId, CancellationToken cancellationToken = default(CancellationToken))
@@ -590,6 +646,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
 			Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale sale2) => sale2.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The original bill could not be found.");
+			string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsDeleted });
+			RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
 			List<ReturnNote> priorNotes = await unitOfWork.Context.ReturnNotes.Where((ReturnNote returnNote) => returnNote.SourceType == "Sale" && returnNote.SourceId == saleId).ToListAsync(cancellationToken);
 			IReadOnlyList<SaleReturnItem> priorReturns = await GetPriorReturnItemsAsync(saleId, cancellationToken);
 			HashSet<Guid> priorNoteIdsWithItems = priorReturns.Select((SaleReturnItem saleReturnItem) => saleReturnItem.ReturnNoteId).ToHashSet();
@@ -684,6 +742,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					});
 				}
 			}
+			await PostRetailSaleReturnLedgerAsync(unitOfWork.Context, sale, note, creditTotal, cancellationToken);
 			unitOfWork.Context.AuditLogs.Add(new AuditLog
 			{
 				UserId = actingUserId,
@@ -692,11 +751,94 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				EntityId = note.Id,
 				Details = $"Credit note {returnNo} against {sale.InvoiceNo}; amount {creditTotal:F2}; restocked: {restockedQuantity}; reason: {reason.Trim()}"
 			});
+			await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+			{
+				EntityType = "RetailBill",
+				EntityId = sale.Id,
+				Action = "MODIFIED_AFTER_LOCK",
+				AuthorizedBy = string.Empty,
+				Reason = reason.Trim(),
+				OldSnapshotJson = oldSnapshot,
+				NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, returnNo, creditTotal, restockedQuantity, reason = reason.Trim() }),
+				UserId = actingUserId
+			}, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			result = new RetailSaleReturnResult(returnNo, creditTotal, restockedQuantity);
 		}
 		return result;
+	}
+
+	private static async Task PostRetailSaleReturnLedgerAsync(
+		PharmaBillDbContext context,
+		Sale sale,
+		ReturnNote note,
+		decimal creditTotal,
+		CancellationToken cancellationToken)
+	{
+		// Reverse receivable for the unpaid portion of the original bill (Credit CustomerLedger).
+		CustomerLedgerEntry? saleLedger = await context.CustomerLedgerEntries
+			.AsNoTracking()
+			.FirstOrDefaultAsync(
+				entry => entry.ReferenceId == sale.Id && entry.EntryType == LedgerEntryTypes.RetailSale,
+				cancellationToken);
+		if (saleLedger == null)
+		{
+			return;
+		}
+
+		decimal priorReturnCredits = await context.CustomerLedgerEntries.AsNoTracking()
+			.Where(entry => entry.CustomerId == saleLedger.CustomerId
+				&& entry.EntryType == LedgerEntryTypes.RetailSaleReturn
+				&& entry.Notes != null
+				&& entry.Notes.Contains(sale.InvoiceNo))
+			.SumAsync(entry => (decimal?)entry.Credit, cancellationToken) ?? 0m;
+		decimal remainingReceivable = RetailTaxCalculator.RoundMoney(Math.Max(0m, saleLedger.Debit - priorReturnCredits));
+		decimal receivableCredit = RetailTaxCalculator.RoundMoney(Math.Min(creditTotal, remainingReceivable));
+		if (receivableCredit <= 0m)
+		{
+			return;
+		}
+
+		context.CustomerLedgerEntries.Add(new CustomerLedgerEntry
+		{
+			CustomerId = saleLedger.CustomerId,
+			EntryAtUtc = note.ReturnAtUtc,
+			EntryType = LedgerEntryTypes.RetailSaleReturn,
+			ReferenceId = note.Id,
+			ReferenceNo = note.ReturnNo,
+			Debit = 0m,
+			Credit = receivableCredit,
+			Notes = "Retail return against " + sale.InvoiceNo
+		});
+	}
+
+	private static async Task<Customer> EnsureRetailCreditCustomerAsync(
+		PharmaBillDbContext context,
+		Patient patient,
+		CancellationToken cancellationToken)
+	{
+		string phone = patient.Phone.Trim();
+		Customer? existing = await context.Customers
+			.FirstOrDefaultAsync(
+				customer => customer.IsActive && customer.Phone == phone,
+				cancellationToken);
+		if (existing != null)
+		{
+			return existing;
+		}
+
+		Customer created = new Customer
+		{
+			Name = patient.Name.Trim(),
+			Phone = phone,
+			Address = patient.Address,
+			BuyerType = "Retail",
+			IsActive = true,
+			CreditDays = 30
+		};
+		context.Customers.Add(created);
+		return created;
 	}
 
 	private async Task<IReadOnlyList<SaleReturnItem>> GetPriorReturnItemsAsync(Guid saleId, CancellationToken cancellationToken)
@@ -754,55 +896,23 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		return RetailTaxCalculator.RoundMoney(num);
 	}
 
-	private static async Task<string?> CopyPrescriptionAsync(string? sourcePath, bool required, string? storageDirectory, CancellationToken cancellationToken)
+	private static bool IsPendingArchive(string? path)
 	{
-		if (string.IsNullOrWhiteSpace(sourcePath))
+		if (string.IsNullOrWhiteSpace(path))
 		{
-			if (required)
-			{
-				throw new InvalidOperationException("Attach a prescription image or PDF for H1, X, and NDPS items.");
-			}
-			return null;
+			return false;
 		}
-		string fullPath = Path.GetFullPath(sourcePath);
-		string text = Path.GetExtension(fullPath).ToLowerInvariant();
-		bool flag;
-		switch (text)
-		{
-		case ".pdf":
-		case ".png":
-		case ".jpg":
-		case ".jpeg":
-		case ".bmp":
-			flag = true;
-			break;
-		default:
-			flag = false;
-			break;
-		}
-		if (!flag)
-		{
-			throw new InvalidOperationException("Prescription attachment must be a PDF or image.");
-		}
-		if (!File.Exists(fullPath))
-		{
-			throw new FileNotFoundException("The prescription attachment could not be found.", fullPath);
-		}
-		string text2 = storageDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "prescriptions");
-		Directory.CreateDirectory(text2);
-		string destination = Path.Combine(text2, $"{Guid.NewGuid():N}{text}");
-		string result;
-		await using (FileStream source = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true))
-		{
-			string text3;
-			await using (FileStream target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
-			{
-				await source.CopyToAsync(target, cancellationToken);
-				text3 = destination;
-			}
-			result = text3;
-		}
-		return result;
+
+		return Path.GetFullPath(path).Contains($"{Path.DirectorySeparatorChar}_pending{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string? BuildRegisterNotes(bool habitForming, string? attachmentPath, bool adminOverride)
+	{
+		string habit = habitForming ? "Habit-forming classification is reference data; verify against the prescription and applicable rules." : string.Empty;
+		string file = string.IsNullOrWhiteSpace(attachmentPath) ? string.Empty : "PrescriptionFile=" + attachmentPath;
+		string waived = adminOverride && string.IsNullOrWhiteSpace(attachmentPath) ? "Prescription attachment waived by admin override." : string.Empty;
+		string combined = string.Join(" ", new[] { habit, file, waived }.Where(part => !string.IsNullOrWhiteSpace(part)));
+		return string.IsNullOrWhiteSpace(combined) ? null : combined;
 	}
 
 	private static CatalogInfo? FindCatalogInfo(Drug drug, IReadOnlyCollection<CatalogInfo> infos)

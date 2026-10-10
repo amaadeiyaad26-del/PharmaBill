@@ -36,6 +36,12 @@ public static class KeyNavigationBehavior
 		typeof(KeyNavigationBehavior),
 		new PropertyMetadata(null));
 
+	public static readonly DependencyProperty EnterSubmitsProperty = DependencyProperty.RegisterAttached(
+		"EnterSubmits",
+		typeof(bool),
+		typeof(KeyNavigationBehavior),
+		new PropertyMetadata(false));
+
 	public static readonly DependencyProperty CycleFocusElementNameProperty = DependencyProperty.RegisterAttached(
 		"CycleFocusElementName",
 		typeof(string),
@@ -57,6 +63,10 @@ public static class KeyNavigationBehavior
 	public static ICommand? GetSubmitCommand(DependencyObject element) => (ICommand?)element.GetValue(SubmitCommandProperty);
 
 	public static void SetSubmitCommand(DependencyObject element, ICommand? value) => element.SetValue(SubmitCommandProperty, value);
+
+	public static bool GetEnterSubmits(DependencyObject element) => (bool)element.GetValue(EnterSubmitsProperty);
+
+	public static void SetEnterSubmits(DependencyObject element, bool value) => element.SetValue(EnterSubmitsProperty, value);
 
 	public static string? GetCycleFocusElementName(DependencyObject element) => (string?)element.GetValue(CycleFocusElementNameProperty);
 
@@ -168,6 +178,18 @@ public static class KeyNavigationBehavior
 			return;
 		}
 
+		if (!shift && !ctrl && EnterSubmits(source))
+		{
+			ICommand? submitNow = GetSubmitCommand(scope);
+			if (submitNow != null && submitNow.CanExecute(null))
+			{
+				submitNow.Execute(null);
+				e.Handled = true;
+			}
+
+			return;
+		}
+
 		if (ctrl && !shift)
 		{
 			ICommand? submit = GetSubmitCommand(scope);
@@ -197,5 +219,23 @@ public static class KeyNavigationBehavior
 		{
 			KeyboardFocusManager.MoveNext();
 		}
+	}
+
+	private static bool EnterSubmits(DependencyObject source)
+	{
+		DependencyObject? current = source;
+		while (current != null)
+		{
+			if (current.GetValue(EnterSubmitsProperty) is true)
+			{
+				return true;
+			}
+
+			current = current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D
+				? System.Windows.Media.VisualTreeHelper.GetParent(current)
+				: System.Windows.LogicalTreeHelper.GetParent(current);
+		}
+
+		return false;
 	}
 }

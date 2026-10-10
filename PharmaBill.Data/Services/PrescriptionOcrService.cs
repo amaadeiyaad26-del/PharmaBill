@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -18,7 +17,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class PrescriptionOcrService(PharmaBillDbContext context, HttpClient httpClient, GeminiApiKeyStore apiKeyStore, IOcrTextRecognizer? textRecognizer = null, ILogger<PrescriptionOcrService>? logger = null) : IPrescriptionOcrService
 {
-	public const string GeminiModel = "gemini-2.5-flash";
+	public const string GeminiModel = GeminiGenerateContent.DefaultModel;
 
 	private const int MaximumImageBytes = 15728640;
 
@@ -61,7 +60,7 @@ public sealed class PrescriptionOcrService(PharmaBillDbContext context, HttpClie
 				catch (Exception ex) when (((ex is HttpRequestException || ex is InvalidDataException || ex is JsonException || ex is TaskCanceledException) ? true : false) && !cancellationToken.IsCancellationRequested)
 				{
 					logger?.LogError(ex, "Gemini prescription reading failed: {Reason}", ex.Message);
-					fallbackNote = "The AI reader was unavailable (" + ex.Message + "), so the offline reader was used. ";
+					fallbackNote = GeminiGenerateContent.UserMessageFor(ex) + " Offline reader was used. ";
 				}
 			}
 		}
@@ -132,17 +131,14 @@ public sealed class PrescriptionOcrService(PharmaBillDbContext context, HttpClie
 				responseMimeType = "application/json"
 			}
 		};
-		using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent")
-		{
-			Content = JsonContent.Create(inputValue)
-		};
-		request.Headers.Add("x-goog-api-key", value);
-		using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken);
+		using CancellationTokenSource overall = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+		overall.CancelAfter(GeminiGenerateContent.OverallTimeout);
+		using HttpResponseMessage response = await GeminiGenerateContent.SendAsync(httpClient, value, inputValue, overall.Token, logger);
 		if (!response.IsSuccessStatusCode)
 		{
 			string text = await response.Content.ReadAsStringAsync(cancellationToken);
 			logger?.LogError("Gemini returned HTTP {StatusCode} {Reason}: {ResponseBody}", (int)response.StatusCode, response.ReasonPhrase, (text.Length > 2000) ? text.Substring(0, 2000) : text);
-			throw new HttpRequestException($"Gemini prescription reading failed (HTTP {(int)response.StatusCode} {response.ReasonPhrase}).", null, response.StatusCode);
+			throw new HttpRequestException(GeminiGenerateContent.UserMessageFor(response.StatusCode), null, response.StatusCode);
 		}
 		using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
 		using JsonDocument jsonDocument = await JsonDocument.ParseAsync(stream, default, cancellationToken);

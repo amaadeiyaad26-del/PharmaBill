@@ -13,7 +13,7 @@
   <StackPanel Margin="24">
     <TextBlock Text="Quick Inward / Add Batch" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,4" />
     <TextBlock x:Name="MedicineTitleText" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,4" />
-    <TextBlock Text="Commit this batch to inventory before billing so FEFO / GST batch tracking stays accurate."
+    <TextBlock x:Name="NoticeText" Text="Commit this batch to inventory before billing so FEFO / GST batch tracking stays accurate."
                TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,16" />
 
     <TextBlock Text="Batch Number *" FontWeight="SemiBold" Margin="0,0,0,4" />

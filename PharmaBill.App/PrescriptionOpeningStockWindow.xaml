@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.PrescriptionOpeningStockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/Assets/Icons/app.ico"
+        Title="Inward opening stock"
+        Width="460"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource ContentBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
+  <StackPanel Margin="20">
+    <TextBlock Text="Inward opening stock" FontSize="18" FontWeight="SemiBold" />
+    <TextBlock Text="This batch is written to the medicine master and stock, then matched on the prescription line." TextWrapping="Wrap" Margin="0,4,0,12" Foreground="{DynamicResource SecondaryTextBrush}" />
+    <TextBlock Text="Brand name" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="BrandBox" Padding="8,6" Margin="0,0,0,8" BorderBrush="#CBD5E1" />
+    <TextBlock Text="Batch no." FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="BatchBox" Padding="8,6" Margin="0,0,0,8" BorderBrush="#CBD5E1" Text="OPENING" />
+    <TextBlock Text="Expiry (MM/YYYY)" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="ExpiryBox" Padding="8,6" Margin="0,0,0,8" BorderBrush="#CBD5E1" />
+    <UniformGrid Columns="2">
+      <StackPanel Margin="0,0,8,8">
+        <TextBlock Text="MRP" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="MrpBox" Padding="8,6" BorderBrush="#CBD5E1" />
+      </StackPanel>
+      <StackPanel Margin="0,0,0,8">
+        <TextBlock Text="Purchase rate" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="RateBox" Padding="8,6" BorderBrush="#CBD5E1" />
+      </StackPanel>
+    </UniformGrid>
+    <TextBlock Text="Inward quantity" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="QtyBox" Padding="8,6" Margin="0,0,0,8" Width="120" HorizontalAlignment="Left" BorderBrush="#CBD5E1" />
+    <TextBlock x:Name="StatusText" Foreground="#FFB42318" TextWrapping="Wrap" MinHeight="18" Margin="0,0,0,8" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Cancel" IsCancel="True" MinWidth="90" Height="34" Margin="0,0,8,0" Padding="10,4" />
+      <Button Content="Save to stock" IsDefault="True" MinWidth="120" Height="34" Padding="10,4" Background="#059669" Foreground="#FFFFFF" BorderBrush="#047857" Click="Save_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>

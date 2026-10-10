@@ -52,12 +52,30 @@ public sealed class FilePickerService : IFilePickerService
 		return openFileDialog.FileName;
 	}
 
+	public IReadOnlyList<string> PickInvoiceDocuments()
+	{
+		OpenFileDialog openFileDialog = new OpenFileDialog
+		{
+			Title = "Extract from invoice PDF or images",
+			Filter = "PDF Files (*.pdf)|*.pdf|Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|All Supported (*.pdf;*.jpg;*.png)|*.pdf;*.jpg;*.png",
+			FilterIndex = 3,
+			CheckFileExists = true,
+			Multiselect = true
+		};
+		if (openFileDialog.ShowDialog() != true)
+		{
+			return Array.Empty<string>();
+		}
+
+		return openFileDialog.FileNames;
+	}
+
 	public string? PickPurchaseSpreadsheet()
 	{
 		OpenFileDialog openFileDialog = new OpenFileDialog
 		{
 			Title = "Choose purchase spreadsheet",
-			Filter = "Purchase spreadsheets (*.csv;*.xlsx)|*.csv;*.xlsx",
+			Filter = "Purchase spreadsheets (*.csv;*.xlsx)|*.csv;*.xlsx|CSV (*.csv)|*.csv|Excel (*.xlsx)|*.xlsx|All files (*.*)|*.*",
 			CheckFileExists = true,
 			Multiselect = false
 		};
@@ -88,8 +106,8 @@ public sealed class FilePickerService : IFilePickerService
 	{
 		OpenFileDialog openFileDialog = new OpenFileDialog
 		{
-			Title = "Choose prescription image or PDF",
-			Filter = "Prescription documents (*.pdf;*.png;*.jpg;*.jpeg;*.bmp)|*.pdf;*.png;*.jpg;*.jpeg;*.bmp",
+			Title = "Attach prescription (PDF, JPG, or PNG)",
+			Filter = "Prescription files (*.pdf;*.jpg;*.jpeg;*.png)|*.pdf;*.jpg;*.jpeg;*.png",
 			CheckFileExists = true,
 			Multiselect = false
 		};

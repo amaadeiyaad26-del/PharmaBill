@@ -20,6 +20,9 @@ public sealed class CatalogMedicine : EntityBase
 
 	public bool IsDiscontinued { get; set; }
 
+	/// <summary>True when a chemist created this row locally. Preloaded Drug Bank rows stay false.</summary>
+	public bool IsCustom { get; set; }
+
 	public string? Type { get; set; }
 
 	public string? PackSizeLabel { get; set; }

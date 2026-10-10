@@ -239,6 +239,7 @@ public partial class AuthenticationWindow : Window
         try
         {
             using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync();
             var context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
             if (!await PharmacySetupProbe.IsInitialSetupRequiredAsync(context)
                 && MessageBox.Show(

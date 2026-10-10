@@ -5,6 +5,8 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
+using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -17,7 +19,89 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 
 	public async Task<bool> IsDuplicateInvoiceAsync(Guid supplierId, string invoiceNo, CancellationToken cancellationToken = default(CancellationToken))
 	{
-		return await unitOfWork.Context.PurchaseInvoices.IgnoreQueryFilters().AnyAsync((PurchaseInvoice invoice) => invoice.SupplierId == supplierId && invoice.InvoiceNo == invoiceNo.Trim(), cancellationToken);
+		string key = NormalizeInvoiceNo(invoiceNo);
+		if (key.Length == 0)
+		{
+			return false;
+		}
+
+		return await unitOfWork.Context.PurchaseInvoices.IgnoreQueryFilters()
+			.AnyAsync(
+				(PurchaseInvoice invoice) => invoice.SupplierId == supplierId
+					&& invoice.InvoiceNo.ToLower() == key,
+				cancellationToken);
+	}
+
+	/// <summary>
+	/// True when this spreadsheet/file content was already transferred into stock (any supplier).
+	/// Prevents re-importing the same CSV/Excel from doubling quantities under a new auto invoice no.
+	/// </summary>
+	public async Task<bool> IsDuplicateSourceFingerprintAsync(string? sourceFingerprint, CancellationToken cancellationToken = default)
+	{
+		string marker = SourceFingerprintMarker(sourceFingerprint);
+		if (marker.Length == 0)
+		{
+			return false;
+		}
+
+		return await unitOfWork.Context.PurchaseInvoices.IgnoreQueryFilters()
+			.AnyAsync(
+				(PurchaseInvoice invoice) => invoice.Notes != null && invoice.Notes.Contains(marker),
+				cancellationToken);
+	}
+
+	public static string SourceFingerprintMarker(string? sourceFingerprint)
+	{
+		if (string.IsNullOrWhiteSpace(sourceFingerprint))
+		{
+			return string.Empty;
+		}
+
+		return "[src:" + sourceFingerprint.Trim().ToLowerInvariant() + "]";
+	}
+
+	public static string NormalizeInvoiceNo(string? invoiceNo) =>
+		string.IsNullOrWhiteSpace(invoiceNo) ? string.Empty : invoiceNo.Trim().ToLowerInvariant();
+
+	public static string AppendSourceFingerprint(string? notes, string? sourceFingerprint)
+	{
+		string marker = SourceFingerprintMarker(sourceFingerprint);
+		if (marker.Length == 0)
+		{
+			return notes?.Trim() ?? string.Empty;
+		}
+
+		string existing = notes?.Trim() ?? string.Empty;
+		if (existing.Contains(marker, StringComparison.OrdinalIgnoreCase))
+		{
+			return existing;
+		}
+
+		return string.IsNullOrWhiteSpace(existing) ? marker : existing + " " + marker;
+	}
+
+	public static string? ExtractSourceFingerprint(string? notes)
+	{
+		if (string.IsNullOrWhiteSpace(notes))
+		{
+			return null;
+		}
+
+		int start = notes.IndexOf("[src:", StringComparison.OrdinalIgnoreCase);
+		if (start < 0)
+		{
+			return null;
+		}
+
+		int valueStart = start + 5;
+		int end = notes.IndexOf(']', valueStart);
+		if (end <= valueStart)
+		{
+			return null;
+		}
+
+		string value = notes[valueStart..end].Trim();
+		return string.IsNullOrWhiteSpace(value) ? null : value.ToLowerInvariant();
 	}
 
 	public async Task<PurchaseInvoice> SavePurchaseAsync(SavePurchaseInput input, Guid actingUserId, UserRole role, CancellationToken cancellationToken = default(CancellationToken))
@@ -33,7 +117,15 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 		}
 		if (await IsDuplicateInvoiceAsync(input.SupplierId, input.InvoiceNo, cancellationToken))
 		{
-			throw new InvalidOperationException("A purchase invoice with this supplier and invoice number already exists.");
+			throw new InvalidOperationException(
+				"Invoice '" + input.InvoiceNo.Trim() + "' was already transferred to stock for this supplier. Stock was not added again.");
+		}
+
+		string? sourceFingerprint = ExtractSourceFingerprint(input.Notes);
+		if (await IsDuplicateSourceFingerprintAsync(sourceFingerprint, cancellationToken))
+		{
+			throw new InvalidOperationException(
+				"This spreadsheet/invoice file was already transferred to stock. Stock was not added again.");
 		}
 		if (!(await unitOfWork.Context.Suppliers.AnyAsync((Supplier supplier) => supplier.Id == input.SupplierId && supplier.IsActive, cancellationToken)))
 		{
@@ -81,32 +173,38 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				TaxAmount = RoundMoney(expectedTax),
 				DiscountAmount = RoundMoney(input.DiscountAmount),
 				TotalAmount = num,
-				Status = "Posted",
-				Notes = NullIfWhiteSpace(input.Notes),
+				Status = PurchaseInvoice.CommittedStatus,
+				Notes = NullIfWhiteSpace(AppendSourceFingerprint(input.Notes, ExtractSourceFingerprint(input.Notes))),
 				StorageLocationId = receiveLocation.Id,
-				BranchId = branch.Id
+				BranchId = branch.Id,
+				AttachedInvoicePath = NullIfWhiteSpace(input.AttachedInvoicePath),
+				OriginalFileName = NullIfWhiteSpace(input.OriginalFileName)
 			};
 			unitOfWork.Context.PurchaseInvoices.Add(invoice);
+			// Same EF transaction: payable increases (Credit); payments later reduce it via Debit.
 			unitOfWork.Context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
 			{
 				SupplierId = input.SupplierId,
-				EntryAtUtc = DateTime.UtcNow,
-				EntryType = "PurchaseInvoice",
+				EntryAtUtc = invoice.InvoiceDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+				EntryType = LedgerEntryTypes.PurchaseBill,
 				ReferenceId = invoice.Id,
 				ReferenceNo = invoice.InvoiceNo,
+				Debit = 0m,
 				Credit = num,
-				Notes = "Purchase invoice " + invoice.InvoiceNo.Trim()
+				Notes = "Purchase bill " + invoice.InvoiceNo.Trim()
 			});
-			Dictionary<(Guid DrugId, string BatchNo, DateOnly? ExpiryDate), Batch> batchesByKey = new Dictionary<(Guid, string, DateOnly?), Batch>();
+			Dictionary<(Guid DrugId, string BatchNo), Batch> batchesByKey = new Dictionary<(Guid, string), Batch>();
 			Dictionary<Guid, decimal> resultingQuantities = new Dictionary<Guid, decimal>();
 			ValidatedLine[] array = validatedItems;
 			foreach (ValidatedLine line in array)
 			{
 				PurchaseLineInput inputLine = line.Input;
-				(Guid DrugId, string, DateOnly? ExpiryDate) batchKey = (DrugId: inputLine.DrugId, inputLine.BatchNo.Trim(), ExpiryDate: inputLine.ExpiryDate);
+				string batchNo = inputLine.BatchNo.Trim();
+				(Guid DrugId, string BatchNo) batchKey = (inputLine.DrugId, batchNo.ToUpperInvariant());
 				if (!batchesByKey.TryGetValue(batchKey, out Batch batch))
 				{
-					batch = await unitOfWork.Context.Batches.SingleOrDefaultAsync((Batch item) => item.DrugId == batchKey.DrugId && item.SupplierId == input.SupplierId && item.BatchNo == batchKey.Item2 && item.ExpiryDate == batchKey.ExpiryDate, cancellationToken);
+					List<Batch> existing = await unitOfWork.Context.Batches.Where((Batch item) => item.DrugId == inputLine.DrugId && item.BatchNo.ToLower() == batchNo.ToLower()).ToListAsync(cancellationToken);
+					batch = existing.FirstOrDefault((Batch item) => item.ExpiryDate == inputLine.ExpiryDate) ?? existing.OrderByDescending((Batch item) => item.Quantity).FirstOrDefault();
 				}
 				if (batch == null)
 				{
@@ -114,13 +212,13 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					{
 						DrugId = inputLine.DrugId,
 						SupplierId = input.SupplierId,
-						BatchNo = inputLine.BatchNo.Trim(),
+						BatchNo = batchNo,
 						ExpiryDate = inputLine.ExpiryDate,
 						Quantity = 0m,
 						Mrp = inputLine.Mrp,
 						Ptr = inputLine.Rate,
 						PurchasePrice = inputLine.Rate,
-						SalePrice = inputLine.Mrp,
+						SalePrice = inputLine.Mrp > 0m ? inputLine.Mrp : inputLine.Rate,
 						Rack = NullIfWhiteSpace(inputLine.Rack),
 						BranchId = branch.Id
 					};
@@ -128,10 +226,12 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				}
 				else
 				{
+					batch.SupplierId = input.SupplierId;
+					batch.ExpiryDate = inputLine.ExpiryDate;
 					batch.Mrp = inputLine.Mrp;
 					batch.Ptr = inputLine.Rate;
 					batch.PurchasePrice = inputLine.Rate;
-					batch.SalePrice = inputLine.Mrp;
+					batch.SalePrice = inputLine.Mrp > 0m ? inputLine.Mrp : batch.SalePrice;
 					if (!string.IsNullOrWhiteSpace(inputLine.Rack))
 					{
 						batch.Rack = inputLine.Rack.Trim();
@@ -152,7 +252,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					BatchId = batch.Id,
 					Quantity = inputLine.Quantity,
 					FreeQuantity = inputLine.FreeQuantity,
-					BatchNo = inputLine.BatchNo.Trim(),
+					BatchNo = batchNo,
 					ExpiryDate = inputLine.ExpiryDate,
 					Mrp = inputLine.Mrp,
 					Ptr = inputLine.Rate,
@@ -167,7 +267,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					DrugId = inputLine.DrugId,
 					LocationId = receiveLocation.Id,
 					QuantityChange = receivedQuantity,
-					MovementType = "PurchaseReceipt",
+					MovementType = "PurchaseInward",
 					ReferenceType = "PurchaseInvoice",
 					ReferenceId = invoice.Id,
 					MovementAtUtc = DateTime.UtcNow,
@@ -192,6 +292,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					});
 				}
 			}
+			await RecalculateDrugStockAsync(drugs, cancellationToken);
 			unitOfWork.Context.AuditLogs.Add(new AuditLog
 			{
 				UserId = actingUserId,
@@ -262,6 +363,10 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				}
 				onHandByBatch[batch.Id] = valueOrDefault;
 			}
+			foreach (Batch lockedBatch in batches.Values)
+			{
+				RecordLockGuard.Demand(lockedBatch.CreatedAtUtc, "BatchStock", lockedBatch.Id, "MODIFIED_AFTER_LOCK");
+			}
 			PurchaseReturn purchaseReturn = new PurchaseReturn
 			{
 				SupplierId = supplierId,
@@ -316,10 +421,11 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 			{
 				SupplierId = supplier.Id,
 				EntryAtUtc = DateTime.UtcNow,
-				EntryType = "PurchaseReturn",
+				EntryType = LedgerEntryTypes.PurchaseReturn,
 				ReferenceId = purchaseReturn.Id,
 				ReferenceNo = purchaseReturn.ReturnNo,
 				Debit = purchaseReturn.TotalAmount,
+				Credit = 0m,
 				Notes = reason.Trim()
 			});
 			unitOfWork.Context.AuditLogs.Add(new AuditLog
@@ -330,11 +436,38 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				EntityId = purchaseReturn.Id,
 				Details = "Return " + purchaseReturn.ReturnNo + "; reason: " + reason.Trim()
 			});
+			foreach (Batch lockedBatch in batches.Values.Where(item => RecordLockPolicy.IsLocked(item.CreatedAtUtc)))
+			{
+				await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, lockedBatch.CreatedAtUtc, new ComplianceAuditEntry
+				{
+					EntityType = "BatchStock",
+					EntityId = lockedBatch.Id,
+					Action = "MODIFIED_AFTER_LOCK",
+					AuthorizedBy = string.Empty,
+					Reason = reason.Trim(),
+					OldSnapshotJson = ComplianceAuditWriter.Snapshot(new { lockedBatch.BatchNo, purchaseReturn.ReturnNo }),
+					NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { lockedBatch.BatchNo, lockedBatch.Quantity, purchaseReturn.ReturnNo, purchaseReturn.TotalAmount }),
+					UserId = actingUserId
+				}, cancellationToken);
+			}
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			result = purchaseReturn;
 		}
 		return result;
+	}
+
+	private async Task RecalculateDrugStockAsync(Dictionary<Guid, Drug> drugs, CancellationToken cancellationToken)
+	{
+		Guid[] drugIds = drugs.Keys.ToArray();
+		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		List<Batch> batches = await unitOfWork.Context.Batches.Where((Batch batch) => drugIds.Contains(batch.DrugId)).ToListAsync(cancellationToken);
+		foreach (Guid drugId in drugIds)
+		{
+			drugs[drugId].StockQuantity = batches
+				.Where((Batch batch) => batch.DrugId == drugId && batch.Quantity > 0m && (!batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= today))
+				.Sum((Batch batch) => batch.Quantity);
+		}
 	}
 
 	private static void ValidateHeader(SavePurchaseInput input)

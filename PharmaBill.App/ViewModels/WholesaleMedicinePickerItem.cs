@@ -31,7 +31,11 @@ public sealed class WholesaleMedicinePickerItem
 
 	public bool IsInStock => StockChoice is { Available: > 0m };
 
-	public bool NeedsInward => !IsInStock;
+	public bool IsQuickAdd { get; init; }
+
+	public bool NeedsInward => !IsInStock && !IsQuickAdd;
+
+	public override string ToString() => DisplayTitle;
 
 	public static WholesaleMedicinePickerItem FromInStock(WholesaleStockChoice choice)
 	{
@@ -81,6 +85,20 @@ public sealed class WholesaleMedicinePickerItem
 			Composition = composition,
 			Manufacturer = manufacturer,
 			SuggestedMrp = mrp
+		};
+	}
+
+	public static WholesaleMedicinePickerItem QuickAdd(string typedName)
+	{
+		string name = typedName.Trim();
+		return new WholesaleMedicinePickerItem
+		{
+			GroupKey = "New medicine",
+			DisplayTitle = "+ Add '" + name + "' as new medicine",
+			DisplayDetail = "Save it to the medicine master and continue this invoice",
+			Display = "+ Add '" + name + "' as new medicine",
+			MedicineName = name,
+			IsQuickAdd = true
 		};
 	}
 

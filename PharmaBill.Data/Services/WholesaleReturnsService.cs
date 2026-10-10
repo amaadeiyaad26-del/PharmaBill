@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
+using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -23,6 +25,8 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 		}
 		PharmaBillDbContext context = unitOfWork.Context;
 		WholesaleInvoice invoice = (await context.WholesaleInvoices.SingleOrDefaultAsync((WholesaleInvoice item) => item.Id == invoiceId && item.Status == "Posted", cancellationToken)) ?? throw new InvalidOperationException("Select a posted wholesale invoice.");
+		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { invoice.InvoiceNo, invoice.TotalAmount, invoice.PaidAmount, invoice.Status });
+		RecordLockGuard.Demand(invoice.InvoiceAtUtc, "WholesaleInvoice", invoice.Id, "MODIFIED_AFTER_LOCK");
 		if (await context.ReturnNotes.IgnoreQueryFilters().AnyAsync((ReturnNote item) => item.ReturnNo == returnNo.Trim(), cancellationToken))
 		{
 			throw new InvalidOperationException("That return number has already been used.");
@@ -101,9 +105,10 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 			{
 				CustomerId = invoice.CustomerId,
 				EntryAtUtc = note.ReturnAtUtc,
-				EntryType = "WholesaleCreditNote",
+				EntryType = LedgerEntryTypes.WholesaleCreditNote,
 				ReferenceId = invoice.Id,
 				ReferenceNo = note.ReturnNo,
+				Debit = 0m,
 				Credit = creditTotal,
 				Notes = "Credit note " + note.ReturnNo + " against " + invoice.InvoiceNo
 			});
@@ -116,6 +121,17 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 				EntityId = note.Id,
 				Details = $"{note.ReturnNo}; invoice {invoice.InvoiceNo}; amount {creditTotal}; {grouped.Length} lines."
 			});
+			await ComplianceAuditWriter.AppendIfUnlockedAsync(context, invoice.InvoiceAtUtc, new ComplianceAuditEntry
+			{
+				EntityType = "WholesaleInvoice",
+				EntityId = invoice.Id,
+				Action = "MODIFIED_AFTER_LOCK",
+				AuthorizedBy = string.Empty,
+				Reason = reason.Trim(),
+				OldSnapshotJson = oldSnapshot,
+				NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { invoice.InvoiceNo, note.ReturnNo, creditTotal, note.Reason }),
+				UserId = userId
+			}, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			result = note;
@@ -155,10 +171,11 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 			{
 				CustomerId = customer.Id,
 				EntryAtUtc = note.ReturnAtUtc,
-				EntryType = "WholesaleDebitNote",
+				EntryType = LedgerEntryTypes.WholesaleDebitNote,
 				ReferenceId = note.Id,
 				ReferenceNo = note.ReturnNo,
 				Debit = note.TotalAmount,
+				Credit = 0m,
 				Notes = note.Reason
 			});
 			context.AuditLogs.Add(new AuditLog

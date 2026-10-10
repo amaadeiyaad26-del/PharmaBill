@@ -615,6 +615,9 @@
                 <Button Content="Refresh summary" Padding="12,7" Margin="0,0,8,0" Command="{Binding RefreshRetentionSummaryCommand}" />
                 <Button Content="Export &amp; Archive" Style="{StaticResource PrimaryButton}" Command="{Binding ArchivePreRetentionRecordsCommand}" IsEnabled="{Binding CanArchive}" />
               </WrapPanel>
+              <TextBlock Margin="0,12,0,4" Text="Fresh rollout" FontSize="14" FontWeight="SemiBold" />
+              <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#FF64748B" Text="Clear inventory, sales, purchases, and statutory registers without removing the pharmacy profile or users. New stores created in Initial Setup already start on an empty per-store database." />
+              <Button Content="Reset Database / Clear All Data" Padding="12,7" HorizontalAlignment="Left" Background="#FFFEF2F2" BorderBrush="#FFDC2626" Foreground="#FFB91C1C" Command="{Binding ResetDatabaseCommand}" IsEnabled="{Binding CanArchive}" />
               <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding RetentionStatus}" />
             </StackPanel>
           </Border>

@@ -24,6 +24,10 @@ public static class AppDataPaths
 
 	public static string DatabaseFileName => "pharmabill.db";
 
+	/// <summary>
+	/// Legacy shared database path (<c>data\pharmabill.db</c>). Runtime storage prefers
+	/// <see cref="ActiveStoreContext.DatabasePath"/> under <c>{SanitizedStoreName}\pharmabill.db</c>.
+	/// </summary>
 	public static string DatabasePath => Path.Combine(DataDirectory, DatabaseFileName);
 
 	public static string DatabaseKeyPath => Path.Combine(DataDirectory, "database.key");

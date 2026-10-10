@@ -17,4 +17,18 @@ public sealed class AuditLog : EntityBase
 	public string? Details { get; set; }
 
 	public Guid? BranchId { get; set; }
+
+	public DateTime? Timestamp { get; set; }
+
+	public string? EntityType { get; set; }
+
+	public string? AuthorizedBy { get; set; }
+
+	public string? Reason { get; set; }
+
+	public string? OldSnapshotJson { get; set; }
+
+	public string? NewSnapshotJson { get; set; }
+
+	public string? RecordHash { get; set; }
 }

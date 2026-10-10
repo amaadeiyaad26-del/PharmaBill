@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.RecordUnlockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Record Locked (Older than 5 Days)"
+        SizeToContent="WidthAndHeight"
+        MinWidth="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Icon="/Assets/Icons/app.ico">
+  <StackPanel Margin="24">
+    <TextBlock FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Text="Record Locked (Older than 5 Days):" />
+    <TextBlock Margin="0,8,0,16" TextWrapping="Wrap" Text="Under pharmacy audit regulations, records older than 5 days cannot be altered without Master Admin authorization and a verified compliance reason." />
+    <TextBlock Text="Master Admin username" Margin="0,0,0,6" />
+    <TextBox Name="UsernameBox" MinWidth="440" Padding="8" />
+    <TextBlock Text="Master Admin Password / PIN" Margin="0,12,0,6" />
+    <PasswordBox Name="PinBox" MinWidth="440" Padding="8" />
+    <TextBlock Text="Reason for Modification" Margin="0,12,0,6" />
+    <ComboBox Name="ReasonBox" MinWidth="440" Padding="8" IsEditable="False" />
+    <TextBlock Text="Notes (minimum 10 characters)" Margin="0,12,0,6" />
+    <TextBox Name="NotesBox" MinWidth="440" MinHeight="72" Padding="8" AcceptsReturn="True" TextWrapping="Wrap" />
+    <TextBlock Name="ErrorText" Foreground="#FFB42318" Margin="0,8,0,0" TextWrapping="Wrap" />
+    <WrapPanel HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Cancel" IsCancel="True" Padding="14,7" Margin="0,0,8,0" />
+      <Button Content="Authorize this record" IsDefault="True" Padding="14,7" Click="Authorize_Click" />
+    </WrapPanel>
+  </StackPanel>
+</Window>
