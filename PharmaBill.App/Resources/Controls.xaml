@@ -740,9 +740,9 @@
                   <SolidColorBrush Color="#FF1E293B" />
                 </Border.Background>
               </Border>
-              <Border Name="ActivePill" Width="4" Height="24" CornerRadius="2" HorizontalAlignment="Left" Margin="3,0,0,0" Visibility="Collapsed" Background="{StaticResource NavPillGlowBrush}">
+              <Border Name="ActivePill" Width="4" Height="24" CornerRadius="2" HorizontalAlignment="Left" Margin="3,0,0,0" Visibility="Collapsed" Background="#FFFFFFFF">
                 <UIElement.Effect>
-                  <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.9" Color="#FF10B981" />
+                  <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.6" Color="#FFFFFFFF" />
                 </UIElement.Effect>
               </Border>
               <ContentPresenter Margin="{TemplateBinding Control.Padding}" HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}" VerticalAlignment="Center" />

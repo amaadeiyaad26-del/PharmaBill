@@ -19,7 +19,7 @@
   <SolidColorBrush x:Key="SidebarNavBackgroundBrush" Color="#FF0F172A" />
   <SolidColorBrush x:Key="SidebarTextBrush" Color="#FF94A3B8" />
   <SolidColorBrush x:Key="SidebarHoverBrush" Color="#FF1E293B" />
-  <SolidColorBrush x:Key="SidebarActiveBrush" Color="#FF2563EB" />
+  <SolidColorBrush x:Key="SidebarActiveBrush" Color="#FF6366F1" />
   <SolidColorBrush x:Key="SidebarActiveTextBrush" Color="#FFFFFFFF" />
   <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FF1D2939" />
   <SolidColorBrush x:Key="GridHeaderBrush" Color="#FF263244" />
