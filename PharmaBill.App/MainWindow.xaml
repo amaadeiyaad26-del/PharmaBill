@@ -3314,6 +3314,32 @@
           <StackPanel Grid.Row="1" Margin="0,0,0,4">
             <Border Padding="8,6" CornerRadius="8" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1"
                     behaviors:KeyNavigationBehavior.Enabled="True">
+              <Border.Resources>
+                <Style x:Key="PurchaseHeaderTextBox" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+                  <Setter Property="Height" Value="32" />
+                  <Setter Property="Template">
+                    <Setter.Value>
+                      <ControlTemplate TargetType="{x:Type TextBox}">
+                        <Grid>
+                          <Border Name="Box" CornerRadius="4" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer Name="PART_ContentHost" Focusable="False" Padding="{TemplateBinding Padding}" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" VerticalAlignment="Center" />
+                          </Border>
+                          <Border Name="FocusRing" CornerRadius="4" IsHitTestVisible="False" Opacity="0" BorderThickness="{TemplateBinding BorderThickness}" BorderBrush="{StaticResource FocusRingBrush}">
+                            <UIElement.Effect>
+                              <DropShadowEffect BlurRadius="6" ShadowDepth="0" Opacity="0.55" Color="#FF3B82F6" />
+                            </UIElement.Effect>
+                          </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="UIElement.IsKeyboardFocused" Value="True">
+                            <Setter TargetName="FocusRing" Property="Opacity" Value="1" />
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Setter.Value>
+                  </Setter>
+                </Style>
+              </Border.Resources>
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="2.4*" />
@@ -3327,7 +3353,7 @@
                           VerticalAlignment="Bottom" Style="{StaticResource SecondaryButton}"
                           Command="{Binding AddSupplierCommand}" ToolTip="Add a supplier that is not in the list yet." />
                   <controls:FloatingField Label="Supplier" IsRequired="True" Margin="0,4" ErrorText="{Binding SupplierError}">
-                    <ComboBox x:Name="PurchaseSupplierBox" DisplayMemberPath="Name" IsEditable="False" Padding="4,2"
+                    <ComboBox x:Name="PurchaseSupplierBox" DisplayMemberPath="Name" IsEditable="False" Height="32" Padding="4,2"
                               ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
@@ -3338,11 +3364,11 @@
                   </controls:FloatingField>
                 </DockPanel>
                 <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" ErrorText="{Binding InvoiceNoError}">
-                  <TextBox Padding="4,2" Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
                 </controls:FloatingField>
                 <StackPanel Grid.Column="2" Margin="0,4,8,4">
                   <TextBlock Text="Invoice date *" FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,2" />
-                  <DatePicker MinWidth="130" Height="28" VerticalAlignment="Center" VerticalContentAlignment="Center" Padding="4,2" SelectedDate="{Binding InvoiceDate}">
+                  <DatePicker MinWidth="130" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" Padding="4,2" SelectedDate="{Binding InvoiceDate}">
                     <DatePicker.Resources>
                       <!-- Stock template overlays PART_Watermark on the text, producing "In10-10-2026"; render the text host only. -->
                       <Style TargetType="{x:Type DatePickerTextBox}">
@@ -3373,7 +3399,7 @@
                   </TextBlock>
                 </StackPanel>
                 <controls:FloatingField Grid.Column="3" Label="Godown" Margin="0,4,8,4" ToolTip="Where purchased goods are stored. Defaults to Shop Front (retail counter).">
-                  <ComboBox x:Name="PurchaseGodownBox" DisplayMemberPath="Name" IsEditable="False" Padding="4,2"
+                  <ComboBox x:Name="PurchaseGodownBox" DisplayMemberPath="Name" IsEditable="False" Height="32" Padding="4,2"
                             ItemsSource="{Binding StorageLocations}" SelectedItem="{Binding SelectedStorageLocation}">
                     <ComboBox.ItemTemplate>
                       <DataTemplate>
@@ -3383,7 +3409,7 @@
                   </ComboBox>
                 </controls:FloatingField>
                 <controls:FloatingField Grid.Column="4" Label="Remarks" Margin="0,4" EnterMovesNext="False">
-                  <TextBox x:Name="PurchaseRemarksBox" Padding="4,2" Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}"
+                  <TextBox x:Name="PurchaseRemarksBox" Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}"
                            ToolTip="Notes for this purchase. A barcode scanner is ignored while you type here at normal speed." />
                 </controls:FloatingField>
               </Grid>
@@ -3432,7 +3458,7 @@
             </Border>
 
             <Border BorderBrush="#FFE2E8F0" Background="#FFF8FAFC" BorderThickness="1" CornerRadius="8" Padding="10,6" Margin="0,4,0,0"
-                    Visibility="{Binding IsAddItemOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    Visibility="Visible"
                     behaviors:KeyNavigationBehavior.Enabled="True"
                     behaviors:KeyNavigationBehavior.SubmitCommand="{Binding ConfirmAddItemCommand}"
                     behaviors:KeyNavigationBehavior.CycleFocusElementName="PurchaseMedicineSearchBox">
@@ -3445,7 +3471,7 @@
                   <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 </Style>
                 <Style x:Key="EntryBox" TargetType="{x:Type TextBox}">
-                  <Setter Property="Height" Value="30" />
+                  <Setter Property="Height" Value="32" />
                   <Setter Property="Padding" Value="6,0" />
                   <Setter Property="VerticalContentAlignment" Value="Center" />
                   <Setter Property="Background" Value="White" />
@@ -3614,13 +3640,13 @@
                     </Button>
                   </Grid>
                   <WrapPanel VerticalAlignment="Center">
-                    <controls:FloatingField Label="Pack size (Drug Bank)" Width="230" Margin="0,2,8,2" HelperText="From catalogue — editable">
-                      <TextBox x:Name="PurchaseNewItemPack" Padding="4,2" Text="{Binding Path=NewItemPackLabel, UpdateSourceTrigger=PropertyChanged}"
+                    <controls:FloatingField Label="Pack size (Drug Bank)" Width="230" Margin="0,0,8,0" HelperText="From catalogue — editable">
+                      <TextBox x:Name="PurchaseNewItemPack" Style="{StaticResource EntryBox}" Height="32" Padding="4,2" Text="{Binding Path=NewItemPackLabel, UpdateSourceTrigger=PropertyChanged}"
                                ToolTip="Packaging from Drug Bank (e.g. 10 Tablets / Strip, 100ml Bottle)" />
                     </controls:FloatingField>
-                    <Button Content="Search" MinWidth="70" Height="30" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" Command="{Binding OpenMedicineSuggestionsCommand}" ToolTip="Open medicine suggestions. F4 jumps to the medicine box. Enter selects the highlighted medicine and moves to Quantity." />
-                    <Button Content="+ New Medicine" MinWidth="120" Height="30" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
-                    <Button Content="Cancel" MinWidth="70" Height="30" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding CancelAddItemCommand}" />
+                    <Button Content="Search" MinWidth="70" Height="32" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" Command="{Binding OpenMedicineSuggestionsCommand}" ToolTip="Open medicine suggestions. F4 jumps to the medicine box. Enter selects the highlighted medicine and moves to Quantity." />
+                    <Button Content="+ New Medicine" MinWidth="120" Height="32" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
+                    <Button Content="Cancel" MinWidth="70" Height="32" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding CancelAddItemCommand}" />
                     <Button Height="30" Margin="0,0,8,0" HorizontalContentAlignment="Left" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this search text as a new medicine and add it to this purchase">
                       <TextBlock Text="{Binding CreateUnlistedCaption}" TextWrapping="Wrap" />
                     </Button>
