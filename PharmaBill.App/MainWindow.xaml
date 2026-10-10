@@ -2489,6 +2489,23 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ListBox>
+              <StackPanel Visibility="{Binding HasCatalogOnlyMatches, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,4,0,6">
+                <TextBlock Text="In the drug bank but not in stock: purchase or add stock before billing" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,3" />
+                <ItemsControl ItemsSource="{Binding CatalogOnlyMatches}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <DockPanel Margin="3">
+                        <Border DockPanel.Dock="Right" Background="{DynamicResource AccentSoftBrush}" CornerRadius="8" Padding="6,2" Margin="12,0,0,0">
+                          <TextBlock Text="No stock" Foreground="{DynamicResource AccentBrush}" />
+                        </Border>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                        <TextBlock Margin="12,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Composition}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Margin="12,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Manufacturer}" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
               <TextBlock Text="Out-of-stock substitutes open in the right drawer. Pharmacist must confirm suitability." Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,4" Visibility="{Binding HasSubstitutes, Converter={StaticResource BooleanToVisibilityConverter}}" />
               <Border Background="#FFFFEDD5" CornerRadius="8" Padding="8,4" Margin="0,2,0,4" HorizontalAlignment="Left" Visibility="{Binding HasHabitFormingItems, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Decorator.Child>

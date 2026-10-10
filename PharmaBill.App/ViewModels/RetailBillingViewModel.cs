@@ -215,6 +215,24 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	public ObservableCollection<RetailStockChoice> SearchResults { get; } = new ObservableCollection<RetailStockChoice>();
 
+	/// <summary>Drug bank medicines matching the search that have no stock. Shown for reference; they can't be billed.</summary>
+	public ObservableCollection<MedicineSearchResult> CatalogOnlyMatches { get; } = new ObservableCollection<MedicineSearchResult>();
+
+	public bool HasCatalogOnlyMatches => CatalogOnlyMatches.Count > 0;
+
+	private void SetCatalogOnlyMatches(IReadOnlyList<MedicineSearchResult>? matches)
+	{
+		CatalogOnlyMatches.Clear();
+		if (matches != null)
+		{
+			foreach (MedicineSearchResult match in matches)
+			{
+				CatalogOnlyMatches.Add(match);
+			}
+		}
+		OnPropertyChanged(nameof(HasCatalogOnlyMatches));
+	}
+
 	public ObservableCollection<RetailBillLineViewModel> BillItems { get; } = new ObservableCollection<RetailBillLineViewModel>();
 
 	public ObservableCollection<MedicineSearchResult> Substitutes => catalogSearch.SubstituteResults;
@@ -1458,6 +1476,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			if (value.Trim().Length < 2)
 			{
 				SearchResults.Clear();
+				SetCatalogOnlyMatches(null);
 				OnPropertyChanged("HasSearchResults");
 				SetOnlineLookup(false);
 				SetNoMedicineMatches(false);
@@ -1485,7 +1504,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 	}
 
-	private sealed record LiveSearchOutcome(IReadOnlyList<RetailStockChoice> Stock, MedicineSearchResult? Medicine, List<SubstituteStockResult>? Substitutes);
+	private sealed record LiveSearchOutcome(IReadOnlyList<RetailStockChoice> Stock, MedicineSearchResult? Medicine, List<SubstituteStockResult>? Substitutes, IReadOnlyList<MedicineSearchResult>? CatalogMatches = null);
 
 	/// <summary>
 	/// Runs the database queries on a thread-pool thread with its own scope. SQLite queries block
@@ -1502,17 +1521,25 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
 		MedicineSearchResults medicineSearchResults = await catalog.SearchAsync(value, token);
 		MedicineSearchResult? medicine = medicineSearchResults.FromCatalog.FirstOrDefault() ?? medicineSearchResults.InStock.FirstOrDefault();
+		// Drug bank medicines with no stock are listed so they can be found; they can't be billed until stocked.
+		List<MedicineSearchResult> catalogMatches = medicineSearchResults.FromCatalog.Concat(medicineSearchResults.InStock)
+			.Where(match => !match.IsInStock)
+			.GroupBy(match => match.Name, StringComparer.OrdinalIgnoreCase)
+			.Select(group => group.First())
+			.Take(8)
+			.ToList();
 		if (medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
 		{
-			return new LiveSearchOutcome(stock, medicine, null);
+			return new LiveSearchOutcome(stock, medicine, null, catalogMatches);
 		}
 		List<SubstituteStockResult> substitutes = await catalog.FindSubstitutesAsync(medicine.CompositionKey, medicine.CatalogMedicineId, token);
-		return new LiveSearchOutcome(stock, medicine, substitutes);
+		return new LiveSearchOutcome(stock, medicine, substitutes, catalogMatches);
 	}
 
 	/// <summary>Applies a finished search to the bound UI state. Must run on the UI thread.</summary>
 	private void ApplyLiveSearchOutcome(string value, LiveSearchOutcome outcome)
 	{
+		SetCatalogOnlyMatches(outcome.CatalogMatches);
 		SearchResults.Clear();
 		foreach (RetailStockChoice item in outcome.Stock)
 		{
@@ -3167,6 +3194,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		{
 			IsSearching = false;
 			SearchResults.Clear();
+			SetCatalogOnlyMatches(null);
 			OnPropertyChanged("HasSearchResults");
 			ClearSubstitutes();
 			SetOnlineLookup(false);
