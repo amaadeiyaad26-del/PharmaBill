@@ -1111,6 +1111,25 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <!-- Tabs, section boxes and expanders take the mode accent (indigo in Retail, amber in Wholesale). -->
+  <Style TargetType="{x:Type TabItem}" BasedOn="{StaticResource {x:Type TabItem}}">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Style.Triggers>
+      <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style TargetType="{x:Type GroupBox}" BasedOn="{StaticResource {x:Type GroupBox}}">
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style TargetType="{x:Type Expander}" BasedOn="{StaticResource {x:Type Expander}}">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+  </Style>
   <!-- Wholesale page titles take the mode accent (amber in Wholesale B2B) so each B2B screen reads as its own workspace. -->
   <Style x:Key="WholesalePageTitle" TargetType="{x:Type TextBlock}">
     <Setter Property="FontWeight" Value="Bold" />
