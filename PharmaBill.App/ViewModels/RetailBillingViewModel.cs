@@ -1465,46 +1465,9 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				return;
 			}
 			IsSearching = true;
-			using IServiceScope scope = scopeFactory.CreateScope();
-			IReadOnlyList<RetailStockChoice> readOnlyList = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchStockAsync(value, token);
+			LiveSearchOutcome outcome = await Task.Run(() => QueryLiveSearchAsync(value, token), token);
 			token.ThrowIfCancellationRequested();
-			SearchResults.Clear();
-			foreach (RetailStockChoice item in readOnlyList)
-			{
-				SearchResults.Add(item);
-			}
-			OnPropertyChanged("HasSearchResults");
-			OnPropertyChanged(nameof(ShowNamedQuickAdd));
-			if (readOnlyList.Count > 0)
-			{
-				ClearSubstitutes();
-				_explicitBatchPick = false;
-				SelectedSearchResult = OldestValidBatch(readOnlyList, value) ?? readOnlyList[0];
-				SetOnlineLookup(false);
-				SetNoMedicineMatches(false);
-				SetRetailSearchSettled(true);
-				return;
-			}
-			CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
-			MedicineSearchResults medicineSearchResults = await catalog.SearchAsync(value, token);
-			token.ThrowIfCancellationRequested();
-			MedicineSearchResult medicineSearchResult = medicineSearchResults.FromCatalog.FirstOrDefault() ?? medicineSearchResults.InStock.FirstOrDefault();
-			if ((object)medicineSearchResult == null || string.IsNullOrWhiteSpace(medicineSearchResult.CompositionKey))
-			{
-				ClearSubstitutes();
-				SetOnlineLookup(medicineSearchResult == null && value.Trim().Length >= 2);
-				SetNoMedicineMatches(medicineSearchResult == null && value.Trim().Length >= 2);
-				SetRetailSearchSettled(value.Trim().Length >= 2);
-				return;
-			}
-
-			SetOnlineLookup(false);
-			SetNoMedicineMatches(false);
-			SetRetailSearchSettled(true);
-			SelectedOutOfStockMedicine = medicineSearchResult;
-			List<SubstituteStockResult> list = await catalog.FindSubstitutesAsync(medicineSearchResult.CompositionKey, medicineSearchResult.CatalogMedicineId, token);
-			token.ThrowIfCancellationRequested();
-			PresentSubstituteDrawer(list, medicineSearchResult.Name, inStockOnly: true);
+			ApplyLiveSearchOutcome(value, outcome);
 		}
 		catch (OperationCanceledException)
 		{
@@ -1520,6 +1483,67 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				IsSearching = false;
 			}
 		}
+	}
+
+	private sealed record LiveSearchOutcome(IReadOnlyList<RetailStockChoice> Stock, MedicineSearchResult? Medicine, List<SubstituteStockResult>? Substitutes);
+
+	/// <summary>
+	/// Runs the database queries on a thread-pool thread with its own scope. SQLite queries block
+	/// the calling thread, so running them here keeps the search box responsive while typing.
+	/// </summary>
+	private async Task<LiveSearchOutcome> QueryLiveSearchAsync(string value, CancellationToken token)
+	{
+		using IServiceScope scope = scopeFactory.CreateScope();
+		IReadOnlyList<RetailStockChoice> stock = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchStockAsync(value, token);
+		if (stock.Count > 0)
+		{
+			return new LiveSearchOutcome(stock, null, null);
+		}
+		CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
+		MedicineSearchResults medicineSearchResults = await catalog.SearchAsync(value, token);
+		MedicineSearchResult? medicine = medicineSearchResults.FromCatalog.FirstOrDefault() ?? medicineSearchResults.InStock.FirstOrDefault();
+		if (medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
+		{
+			return new LiveSearchOutcome(stock, medicine, null);
+		}
+		List<SubstituteStockResult> substitutes = await catalog.FindSubstitutesAsync(medicine.CompositionKey, medicine.CatalogMedicineId, token);
+		return new LiveSearchOutcome(stock, medicine, substitutes);
+	}
+
+	/// <summary>Applies a finished search to the bound UI state. Must run on the UI thread.</summary>
+	private void ApplyLiveSearchOutcome(string value, LiveSearchOutcome outcome)
+	{
+		SearchResults.Clear();
+		foreach (RetailStockChoice item in outcome.Stock)
+		{
+			SearchResults.Add(item);
+		}
+		OnPropertyChanged("HasSearchResults");
+		OnPropertyChanged(nameof(ShowNamedQuickAdd));
+		if (outcome.Stock.Count > 0)
+		{
+			ClearSubstitutes();
+			_explicitBatchPick = false;
+			SelectedSearchResult = OldestValidBatch(outcome.Stock, value) ?? outcome.Stock[0];
+			SetOnlineLookup(false);
+			SetNoMedicineMatches(false);
+			SetRetailSearchSettled(true);
+			return;
+		}
+		MedicineSearchResult? medicine = outcome.Medicine;
+		if (medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
+		{
+			ClearSubstitutes();
+			SetOnlineLookup(medicine == null && value.Trim().Length >= 2);
+			SetNoMedicineMatches(medicine == null && value.Trim().Length >= 2);
+			SetRetailSearchSettled(value.Trim().Length >= 2);
+			return;
+		}
+		SetOnlineLookup(false);
+		SetNoMedicineMatches(false);
+		SetRetailSearchSettled(true);
+		SelectedOutOfStockMedicine = medicine;
+		PresentSubstituteDrawer(outcome.Substitutes ?? new List<SubstituteStockResult>(), medicine.Name, inStockOnly: true);
 	}
 
 	private void ClearSubstitutes()
