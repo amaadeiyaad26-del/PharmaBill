@@ -83,8 +83,9 @@ public sealed class FloatingFieldTests
                 Application.Current.Resources.MergedDictionaries.Add(Load(theme));
                 Application.Current.Resources.MergedDictionaries.Add(Load("Resources/Strings.en.xaml"));
                 Application.Current.Resources.MergedDictionaries.Add(Load("Resources/Controls.xaml"));
+                TestAppResources.AddAppLevelBrushes(Application.Current.Resources);
 
-                var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!, null!);
+                var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
                 var template = (DataTemplate)window.Resources[new DataTemplateKey(typeof(PharmaBill.App.ViewModels.RetailBillingViewModel))]!;
                 var viewModel = new PharmaBill.App.ViewModels.RetailBillingViewModel(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!)
                 {

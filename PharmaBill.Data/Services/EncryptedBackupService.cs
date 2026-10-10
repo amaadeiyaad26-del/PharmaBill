@@ -331,10 +331,13 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 		bool keyChanged = false;
 		try
 		{
-			if (context.Database.GetDbConnection().State != ConnectionState.Closed)
+			DbConnection liveConnection = context.Database.GetDbConnection();
+			if (liveConnection.State != ConnectionState.Closed)
 			{
-				await context.Database.CloseConnectionAsync();
+				await liveConnection.CloseAsync();
 			}
+			// Pooled SQLite connections keep the database file open and block the move below.
+			SqliteConnection.ClearAllPools();
 			string[] array = new string[2] { "prescriptions", "licences" };
 			foreach (string path in array)
 			{
@@ -377,7 +380,9 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 		}
 		catch
 		{
-			if (File.Exists(storage.DatabasePath))
+			// Only remove the file at DatabasePath if the original was moved aside first; otherwise
+			// it IS the original live database and deleting it would lose all pharmacy data.
+			if (databaseMoved && File.Exists(storage.DatabasePath))
 			{
 				File.Delete(storage.DatabasePath);
 			}

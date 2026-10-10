@@ -97,7 +97,7 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_BranchIdColumns",
+            "_CatalogMedicineIsCustom",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
         Assert.Equal(49, database.Context.Model.GetEntityTypes().Count());
 
@@ -169,9 +169,20 @@ public sealed class PersistenceTests
             .Initialize(snapshot.Model, designTime: true);
         var differ = database.Context.GetService<IMigrationsModelDiffer>();
         var currentModel = database.Context.GetService<IDesignTimeModel>().Model;
+        // Columns intentionally added by DbInitializer.EnsureBanAndReorderColumnsAsync rather than a migration.
+        var runtimeGuardedColumns = new HashSet<(string Table, string Column)>
+        {
+            ("Drugs", "IsBanned"),
+            ("Drugs", "MaxStockLevel"),
+            ("Batches", "IsBanned"),
+            ("Batches", "BanReason"),
+        };
         var differences = differ.GetDifferences(
-            snapshotModel.GetRelationalModel(),
-            currentModel.GetRelationalModel());
+                snapshotModel.GetRelationalModel(),
+                currentModel.GetRelationalModel())
+            .Where(operation => operation is not Microsoft.EntityFrameworkCore.Migrations.Operations.AddColumnOperation add ||
+                                !runtimeGuardedColumns.Contains((add.Table, add.Name)))
+            .ToList();
         Assert.True(differences.Count == 0,
             string.Join(Environment.NewLine, differences.Select(operation =>
                 operation switch

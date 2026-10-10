@@ -6,9 +6,9 @@ namespace PharmaBill.Core.Security;
 
 public static class TrialClock
 {
-	public const int TRIAL_DAYS = 20;
+	public const int TRIAL_DAYS = 7;
 
-	public static TimeSpan TrialDuration => TimeSpan.FromDays(20);
+	public static TimeSpan TrialDuration => TimeSpan.FromDays(TRIAL_DAYS);
 
 	public static TrialEvaluation Evaluate(DateTime utcNow, IEnumerable<DateTime> persistedTrialStartsUtc, DateTime? lastObservedUtc)
 	{

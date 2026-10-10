@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
@@ -103,7 +104,10 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
         }.ToString());
         await connection.OpenAsync();
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
+        // Mirror production (ServiceCollectionExtensions): columns added by DbInitializer's
+        // runtime schema guards are not in a migration, so ignore the pending-model warning.
         var options = new DbContextOptionsBuilder<PharmaBillDbContext>()
+            .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
             .UseSqlite(connection)
             .AddInterceptors(new SaveChangesAuditInterceptor(deviceId))
             .Options;

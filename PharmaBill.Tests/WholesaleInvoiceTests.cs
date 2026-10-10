@@ -56,7 +56,7 @@ public sealed class WholesaleInvoiceTests
 
         var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
 
-        Assert.Equal("WHO/2026-27/000001", result.Invoice.InvoiceNo);
+        Assert.Equal("WS/2026-27/000001", result.Invoice.InvoiceNo);
         Assert.Equal(120m, result.CgstAmount + result.SgstAmount);
         Assert.Equal(0m, result.IgstAmount);
         Assert.Equal(-11m, await database.Context.StockMovements
@@ -140,7 +140,7 @@ public sealed class WholesaleInvoiceTests
 
         await service.CancelAsync(result.Invoice.Id, "Duplicate order", test.Owner.Id, UserRole.Owner);
 
-        Assert.Equal("WHO/2026-27/000001", (await database.Context.WholesaleInvoices.SingleAsync()).InvoiceNo);
+        Assert.Equal("WS/2026-27/000001", (await database.Context.WholesaleInvoices.SingleAsync()).InvoiceNo);
         Assert.Equal("Cancelled", (await database.Context.WholesaleInvoices.SingleAsync()).Status);
         Assert.Equal(100m, await database.Context.StockMovements.SumAsync(item => item.QuantityChange));
         Assert.Contains(
@@ -294,7 +294,8 @@ public sealed class WholesaleInvoiceTests
         Assert.Equal(3m, row.OutQuantity);
         Assert.Equal(7m, row.Closing);
         Assert.Equal(28m, row.StockValue);
-        Assert.Equal(3m, Assert.Single(await service.GetReorderSuggestionsAsync()).SuggestedQuantity);
+        // Reorder level 10, on hand 7: top up to the target of 2 x reorder level (20) => 13.
+        Assert.Equal(13m, Assert.Single(await service.GetReorderSuggestionsAsync()).SuggestedQuantity);
     }
 
     [Fact]
@@ -312,7 +313,7 @@ public sealed class WholesaleInvoiceTests
         var reference = await reports.GetGstr3bReferenceSummaryAsync(today, today);
 
         Assert.Equal("3004", Assert.Single(hsn).Hsn);
-        Assert.Contains("WHO/2026-27/000001", csv);
+        Assert.Contains("WS/2026-27/000001", csv);
         Assert.Contains("GSTR-1-style reference export", json);
         Assert.Equal("For reference only; verify with your CA.", reference.Notice);
         Assert.Equal(120m, reference.Igst);

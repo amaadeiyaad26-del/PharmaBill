@@ -116,6 +116,8 @@ public sealed class BindingSafetyTests
                     });
                 }
 
+                TestAppResources.AddAppLevelBrushes(app.Resources);
+
                 PresentationTraceSources.Refresh();
                 PresentationTraceSources.DataBindingSource.Listeners.Add(listener);
                 PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Warning | SourceLevels.Error;
@@ -161,7 +163,7 @@ public sealed class BindingSafetyTests
         Assert.True(pathErrors.Count == 0, string.Join(Environment.NewLine, pathErrors.Take(10)));
     }
 
-    private sealed class NullScannerService : IScannerService
+    internal sealed class NullScannerService : IScannerService
     {
         public event EventHandler<string>? BarcodeReceived;
 

@@ -14,14 +14,17 @@ public sealed class BackupAndReportsTests
     {
         var root = Path.Combine(Path.GetTempPath(), $"PharmaBill.BackupTests.{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
+        // Use the same data/ layout EncryptedBackupService reads from (DatabaseStorageOptions).
+        var storage = new DatabaseStorageOptions(root);
+        Directory.CreateDirectory(storage.DataDirectory);
         var key = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-        var keyProvider = new DatabaseEncryptionKeyProvider(Path.Combine(root, "database.key"));
+        var keyProvider = new DatabaseEncryptionKeyProvider(storage.KeyPath);
         keyProvider.ReplaceKey(key);
-        var databasePath = Path.Combine(root, "pharmabill.db");
+        var databasePath = storage.DatabasePath;
         var context = CreateContext(databasePath, key);
         try
         {
-            await context.Database.MigrateAsync();
+            await InitializeLikeAppStartupAsync(context, root);
             Directory.CreateDirectory(Path.Combine(root, "prescriptions"));
             await File.WriteAllTextAsync(Path.Combine(root, "prescriptions", "rx-scan.pdf"), "sample attachment");
             Directory.CreateDirectory(Path.Combine(root, "licences"));
@@ -102,13 +105,16 @@ public sealed class BackupAndReportsTests
     {
         var root = Path.Combine(Path.GetTempPath(), $"PharmaBill.BackupTests.{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
+        // Use the same data/ layout EncryptedBackupService reads from (DatabaseStorageOptions).
+        var storage = new DatabaseStorageOptions(root);
+        Directory.CreateDirectory(storage.DataDirectory);
         var key = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-        var keyProvider = new DatabaseEncryptionKeyProvider(Path.Combine(root, "database.key"));
+        var keyProvider = new DatabaseEncryptionKeyProvider(storage.KeyPath);
         keyProvider.ReplaceKey(key);
-        var context = CreateContext(Path.Combine(root, "pharmabill.db"), key);
+        var context = CreateContext(storage.DatabasePath, key);
         try
         {
-            await context.Database.MigrateAsync();
+            await InitializeLikeAppStartupAsync(context, root);
             context.Drugs.Add(new Drug { Name = "Protected current data" });
             await context.SaveChangesAsync();
             var service = new EncryptedBackupService(context, new DatabaseStorageOptions(root), keyProvider);
@@ -222,7 +228,10 @@ public sealed class BackupAndReportsTests
 
         Assert.Equal(2, salesReport.Rows.Count);
         Assert.Equal("Report supplier", Assert.Single(purchasesReport.Rows)[2]);
-        Assert.Equal("Report supplier", Assert.Single(supplierWise.Rows)[0]);
+        // Supplier-wise is an invoice-level detail report followed by one subtotal row per supplier.
+        Assert.Equal(2, supplierWise.Rows.Count);
+        Assert.Equal("Report supplier", supplierWise.Rows[0][2]);
+        Assert.Equal("Subtotal — Report supplier", supplierWise.Rows[1][2]);
         Assert.Equal("Report medicine", Assert.Single(profitReport.Rows)[0]);
         Assert.Equal("3004", Assert.Single(gstReport.Rows)[0]);
         Assert.Equal("Report medicine", Assert.Single(topSelling.Rows)[0]);
@@ -236,6 +245,14 @@ public sealed class BackupAndReportsTests
         Assert.Equal(1, dashboard.RegisterAlerts);
     }
 
+    // Same path as App startup: migrations plus DbInitializer's runtime schema guards.
+    private static Task InitializeLikeAppStartupAsync(PharmaBillDbContext context, string root)
+    {
+        var storage = new DatabaseStorageOptions(root);
+        var branches = new BranchService(new UnitOfWork(context), new BranchSettingsStore(storage), storage);
+        return new DbInitializer(context, new StorageLocationService(context), branches, storage).InitializeAsync();
+    }
+
     private static PharmaBillDbContext CreateContext(string databasePath, byte[] key)
     {
         SQLitePCL.Batteries_V2.Init();
@@ -246,6 +263,7 @@ public sealed class BackupAndReportsTests
             Pooling = false
         }.ToString();
         var options = new DbContextOptionsBuilder<PharmaBillDbContext>()
+            .ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
             .UseSqlite(connectionString)
             .AddInterceptors(new SaveChangesAuditInterceptor(new DatabaseDeviceId(Guid.NewGuid())))
             .Options;
