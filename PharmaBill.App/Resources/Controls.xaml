@@ -1111,4 +1111,11 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <!-- Wholesale page titles take the mode accent (amber in Wholesale B2B) so each B2B screen reads as its own workspace. -->
+  <Style x:Key="WholesalePageTitle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,0,0,10" />
+  </Style>
 </ResourceDictionary>

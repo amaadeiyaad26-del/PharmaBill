@@ -1051,7 +1051,7 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesalePricingPageViewModel}}" DataType="{x:Type vm:WholesalePricingPageViewModel}">
         <ScrollViewer Name="WholesalePricingRoot" VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="18">
-            <TextBlock Text="Pack levels, batch rates and wholesale pricing" FontSize="23" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Pack levels, batch rates and wholesale pricing" FontSize="23" FontWeight="SemiBold" />
             <WrapPanel Margin="0,10">
               <ComboBox Width="360" DisplayMemberPath="Name" Padding="6" ItemsSource="{Binding Drugs}" SelectedItem="{Binding SelectedDrug}" />
               <ComboBox Width="220" DisplayMemberPath="BatchNo" Margin="8,0,0,0" Padding="6" ItemsSource="{Binding Batches}" SelectedItem="{Binding SelectedBatch}" />
@@ -1110,7 +1110,7 @@
             <KeyBinding Key="F5" Command="{Binding RecordSupplierPaymentCommand}" />
           </DockPanel.InputBindings>
           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <TextBlock Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding PageSubtitle}" TextWrapping="Wrap" Margin="0,2,0,0" FontSize="12.5" Foreground="{DynamicResource SecondaryTextBrush}" />
             <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="12.5" Text="{Binding ErrorMessage}" />
             <TextBlock Foreground="{DynamicResource AccentBrush}" Margin="0,2,0,0" FontSize="12.5" Text="{Binding StatusMessage}" />
@@ -1431,7 +1431,7 @@
             </ResourceDictionary>
           </FrameworkElement.Resources>
           <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Stock in hand (movement-derived)" FontSize="23" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Stock in hand (movement-derived)" FontSize="23" FontWeight="SemiBold" />
             <WrapPanel Margin="0,10">
               <TextBlock Text="As of" VerticalAlignment="Center" />
               <DatePicker Margin="6,0" SelectedDate="{Binding AsOfDate}" />
@@ -1483,7 +1483,7 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleReturnsPageViewModel}}" DataType="{x:Type vm:WholesaleReturnsPageViewModel}">
         <DockPanel Margin="18">
           <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Wholesale returns and notes" FontSize="23" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Wholesale returns and notes" FontSize="23" FontWeight="SemiBold" />
             <WrapPanel Margin="0,10">
               <ComboBox Width="400" DisplayMemberPath="Label" Padding="6" ItemsSource="{Binding Invoices}" SelectedItem="{Binding SelectedInvoice}" ToolTip="{Binding SelectedInvoice.AuditToolTip}" />
               <TextBox Width="170" ToolTip="Credit / debit note number" Padding="6" Margin="6,0" Text="{Binding Path=DocumentNo}" />
@@ -1532,7 +1532,7 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleReportsPageViewModel}}" DataType="{x:Type vm:WholesaleReportsPageViewModel}">
         <DockPanel Margin="18">
           <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Wholesale GST and sales reports" FontSize="23" FontWeight="SemiBold" />
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Wholesale GST and sales reports" FontSize="23" FontWeight="SemiBold" />
             <WrapPanel Margin="0,10">
               <DatePicker SelectedDate="{Binding FromDate}" />
               <DatePicker Margin="6,0" SelectedDate="{Binding ToDate}" />
@@ -1740,7 +1740,7 @@
             </Border>
             <DockPanel Margin="0,0,0,12">
               <StackPanel>
-                <TextBlock Text="Wholesale Invoice / B2B Sale" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Wholesale Invoice / B2B Sale" FontSize="24" FontWeight="SemiBold" />
                 <TextBlock Text="B2B tax invoice to retailers / hospitals / pharmacies — not patient retail billing" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" />
                 <WrapPanel Margin="0,6,0,0">
                   <Border Background="#FFEFF6FF" BorderBrush="#FFBFDBFE" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="0,0,6,0">
@@ -2126,7 +2126,7 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Text="{Binding PageTitle}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="{Binding PageTitle}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
             <WrapPanel Grid.Row="1" Margin="0,10,0,10">
               <Button Padding="10,6" Command="{Binding NewCustomerCommand}" Content="{Binding NewButtonLabel}" />
               <Button Content="Import Excel" Padding="10,6" Margin="6,0,0,0" Command="{Binding ImportExcelCommand}" Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
