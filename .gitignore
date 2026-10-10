@@ -490,3 +490,7 @@ tools/licensing/*.key
 tools/licensing/*-private.pem
 tools/licensing/*.key
 
+
+# Release build output and debug dumps (do not commit)
+/PharmaBill-Setup.exe
+ocr_debug_raw.txt

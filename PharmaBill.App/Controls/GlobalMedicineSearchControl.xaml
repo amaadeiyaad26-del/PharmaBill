@@ -12,7 +12,7 @@
               <Border Background="#FFFFEDD5" CornerRadius="9" Padding="8,3" Margin="8,0,0,0" Visibility="{Binding IsHabitForming, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <TextBlock Text="Habit-forming (reference data)" Foreground="#FFC2410C" FontSize="11" />
               </Border>
-              <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold" Margin="12,0,0,0" Text="{Binding ReferencePrice, StringFormat=â‚¹{0:N2}, ConverterCulture=en-IN}" />
+              <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold" Margin="12,0,0,0" Text="{Binding ReferencePrice, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
             </DockPanel>
             <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="{Binding Composition}" />
             <TextBlock Margin="0,3,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Manufacturer}" />

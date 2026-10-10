@@ -1264,7 +1264,7 @@
                           </Style>
                         </DataGrid.Resources>
                         <DataGrid.Columns>
-                          <DataGridTextColumn Header="Date" Width="140" Binding="{Binding DateText}" />
+                          <DataGridTextColumn Header="Date" Width="140" Binding="{Binding DateText, Mode=OneWay}" />
                           <DataGridTemplateColumn Header="Type" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                               <DataTemplate>
@@ -1328,11 +1328,11 @@
                             VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource CardBorder}">
                     <DataGrid.Columns>
                       <DataGridTextColumn Header="Distributor" Width="*" MinWidth="160" Binding="{Binding SupplierName}" />
-                      <DataGridTextColumn Header="0-30" Width="100" Binding="{Binding Current0To30Text}" />
-                      <DataGridTextColumn Header="31-60" Width="100" Binding="{Binding Days31To60Text}" />
-                      <DataGridTextColumn Header="61-90" Width="100" Binding="{Binding Days61To90Text}" />
-                      <DataGridTextColumn Header="90+" Width="100" Binding="{Binding Over90Text}" />
-                      <DataGridTextColumn Header="Total Due" Width="120" Binding="{Binding TotalText}" />
+                      <DataGridTextColumn Header="0-30" Width="100" Binding="{Binding Current0To30Text, Mode=OneWay}" />
+                      <DataGridTextColumn Header="31-60" Width="100" Binding="{Binding Days31To60Text, Mode=OneWay}" />
+                      <DataGridTextColumn Header="61-90" Width="100" Binding="{Binding Days61To90Text, Mode=OneWay}" />
+                      <DataGridTextColumn Header="90+" Width="100" Binding="{Binding Over90Text, Mode=OneWay}" />
+                      <DataGridTextColumn Header="Total Due" Width="120" Binding="{Binding TotalText, Mode=OneWay}" />
                     </DataGrid.Columns>
                   </DataGrid>
                 </Expander>
