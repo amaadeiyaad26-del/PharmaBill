@@ -4434,7 +4434,7 @@
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="220" />
           </StackPanel>
           <controls:FloatingField DockPanel.Dock="Top" Label="Search features" Margin="2,0,2,10" ToolTip="Type to filter the menu. Enter opens the first match. Esc clears the search.">
-            <TextBox Text="{Binding NavFilter, UpdateSourceTrigger=PropertyChanged}" KeyDown="NavSearchBox_KeyDown" AutomationProperties.Name="Search features" />
+            <TextBox x:Name="NavSearchBox" Text="{Binding NavFilter, UpdateSourceTrigger=PropertyChanged}" KeyDown="NavSearchBox_KeyDown" AutomationProperties.Name="Search features" />
           </controls:FloatingField>
           <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,4">
             <Button Name="AccessSimulatorNavButton" Style="{StaticResource SidebarNavButtonStyle}" AutomationProperties.Name="Access simulator debug" Visibility="{Binding IsDebugBuild, Converter={StaticResource BooleanToVisibilityConverter}}" Click="OpenAccessSimulator_Click">

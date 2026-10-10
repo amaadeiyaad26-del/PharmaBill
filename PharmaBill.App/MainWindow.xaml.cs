@@ -957,15 +957,19 @@ public partial class MainWindow : Window
 
 		if (e.Key is Key.Enter or Key.Return && !string.IsNullOrWhiteSpace(_viewModel.NavFilter))
 		{
+			string typed = _viewModel.NavFilter.Trim();
+			_viewModel.NavFilter = string.Empty;
 			if (_viewModel.NavigationItemsView.Cast<NavigationItem>().FirstOrDefault() is { } first)
 			{
 				_viewModel.NavigateCommand.Execute(first.SectionKey);
 			}
 			else
 			{
-				OpenSidebarToolMatch(_viewModel.NavFilter.Trim(), e);
+				OpenSidebarToolMatch(typed, e);
+				// A dialog hands focus back to whatever was focused before it, which can be a sidebar button.
+				// Return it to the search box so the next Enter doesn't activate that button.
+				Dispatcher.BeginInvoke(() => NavSearchBox.Focus(), DispatcherPriority.Input);
 			}
-			_viewModel.NavFilter = string.Empty;
 			e.Handled = true;
 		}
 	}
