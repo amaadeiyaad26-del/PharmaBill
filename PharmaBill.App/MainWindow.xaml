@@ -2658,14 +2658,14 @@
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Taxable value" FontWeight="SemiBold" Foreground="#047857" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="#047857" Text="{Binding Subtotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
-                    <TextBlock Grid.Row="1" Text="GST included" FontWeight="SemiBold" Foreground="#047857" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="#047857" Text="{Binding GstAmount, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
-                    <TextBlock Grid.Row="2" Text="Discount" FontWeight="SemiBold" Foreground="#047857" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="#047857" Text="{Binding DiscountTotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
-                    <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="GRAND TOTAL" FontWeight="Bold" FontSize="13" Margin="0,10,0,2" Foreground="#065F46" />
-                    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Margin="0,0,0,4" FontWeight="Bold" FontSize="24" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="NoWrap" TextTrimming="None" Foreground="#047857" ToolTip="{Binding TotalAmount, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" Text="{Binding TotalAmount, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Grid.Row="0" Text="Taxable value" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding Subtotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Grid.Row="1" Text="GST included" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding GstAmount, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Grid.Row="2" Text="Discount" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding DiscountTotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="GRAND TOTAL" FontWeight="Bold" FontSize="13" Margin="0,10,0,2" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Margin="0,0,0,4" FontWeight="Bold" FontSize="24" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="NoWrap" TextTrimming="None" Foreground="{DynamicResource AccentBrush}" ToolTip="{Binding TotalAmount, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" Text="{Binding TotalAmount, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
                     <Button Grid.Row="5" Grid.ColumnSpan="2" Content="Show Payment QR" Height="32" MinWidth="148" Margin="0,4,0,2" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="10,4" ToolTip="Open dynamic UPI QR for the grand total" AutomationProperties.Name="Show Payment QR" Command="{Binding ShowPaymentQrCommand}">
                       <Button.Style>
                         <Style TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
