@@ -4411,6 +4411,9 @@
             <TextBlock Text="{DynamicResource PharmacyBilling}" FontSize="11" Foreground="#94A3B8"
                        HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="220" />
           </StackPanel>
+          <controls:FloatingField DockPanel.Dock="Top" Label="Search features" Margin="2,0,2,10" ToolTip="Type to filter the menu. Enter opens the first match. Esc clears the search.">
+            <TextBox Text="{Binding NavFilter, UpdateSourceTrigger=PropertyChanged}" KeyDown="NavSearchBox_KeyDown" AutomationProperties.Name="Search features" />
+          </controls:FloatingField>
           <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,4">
             <Button Name="AccessSimulatorNavButton" Style="{StaticResource SidebarNavButtonStyle}" AutomationProperties.Name="Access simulator debug" Visibility="{Binding IsDebugBuild, Converter={StaticResource BooleanToVisibilityConverter}}" Click="OpenAccessSimulator_Click">
               <StackPanel Orientation="Horizontal">
@@ -4447,7 +4450,7 @@
               <Run Text="For any query: " /> <Hyperlink NavigateUri="mailto:pharma.bill26@gmail.com" Foreground="{DynamicResource AccentBrush}" RequestNavigate="SupportEmail_RequestNavigate">pharma.bill26@gmail.com</Hyperlink></TextBlock>
           </StackPanel>
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding NavigationItems}">
+            <ItemsControl ItemsSource="{Binding NavigationItemsView}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Button Style="{StaticResource SidebarNavButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding SectionKey}">

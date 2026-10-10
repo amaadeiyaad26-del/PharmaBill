@@ -946,6 +946,24 @@ public partial class MainWindow : Window
 		}
 	}
 
+	private void NavSearchBox_KeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.Key == Key.Escape)
+		{
+			_viewModel.NavFilter = string.Empty;
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key is Key.Enter or Key.Return && !string.IsNullOrWhiteSpace(_viewModel.NavFilter)
+			&& _viewModel.NavigationItemsView.Cast<NavigationItem>().FirstOrDefault() is { } first)
+		{
+			_viewModel.NavigateCommand.Execute(first.SectionKey);
+			_viewModel.NavFilter = string.Empty;
+			e.Handled = true;
+		}
+	}
+
 	private void RetailItemSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
 	{
 		if (_viewModel.CurrentPage is not RetailBillingViewModel retail)

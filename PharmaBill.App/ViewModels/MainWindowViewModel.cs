@@ -7,7 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -355,6 +357,36 @@ public class MainWindowViewModel : ObservableObject
 		?? "Your annual license is approaching expiry. Contact support to renew.";
 
 	public ObservableCollection<NavigationItem> NavigationItems { get; } = new ObservableCollection<NavigationItem>();
+
+	private string _navFilter = string.Empty;
+
+	private ICollectionView? _navigationItemsView;
+
+	/// <summary>Text typed in the sidebar search box. Filters the navigation list by title.</summary>
+	public string NavFilter
+	{
+		get => _navFilter;
+		set
+		{
+			if (_navFilter != value)
+			{
+				_navFilter = value;
+				OnPropertyChanged(nameof(NavFilter));
+				NavigationItemsView.Refresh();
+			}
+		}
+	}
+
+	/// <summary>The sidebar list, filtered by <see cref="NavFilter"/>. Stays in step with <see cref="NavigationItems"/>.</summary>
+	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
+
+	private ICollectionView BuildNavigationItemsView()
+	{
+		ICollectionView view = CollectionViewSource.GetDefaultView(NavigationItems);
+		view.Filter = item => item is NavigationItem navigationItem
+			&& (string.IsNullOrWhiteSpace(NavFilter) || navigationItem.Title.Contains(NavFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+		return view;
+	}
 
 	public string CurrentSectionKey => _navigationService.CurrentSectionKey;
 
