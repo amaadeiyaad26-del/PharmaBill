@@ -284,7 +284,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	public bool HasSubstitutes => Substitutes.Count > 0;
 
-	public IReadOnlyList<string> PaymentMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[6] { "Cash", "UPI / QR", "Card / POS", "Cheque / Bank Transfer", "Credit / Ledger", "Split Payment" });
+	public IReadOnlyList<string> PaymentMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[7] { "Cash", "UPI / QR", "Card / POS", "Cheque / Bank Transfer", "Credit / Ledger", "Loyalty points", "Split Payment" });
 
 	public ObservableCollection<HeldRetailBill> HeldBills { get; } = new ObservableCollection<HeldRetailBill>();
 
@@ -2738,6 +2738,12 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private IReadOnlyList<RetailPaymentInput> BuildPaymentInputs()
 	{
+		if (UpiPaymentPayload.NormalizeMethod(PaymentMethod) == "Loyalty")
+		{
+			// Whole points only; the service rejects a redemption that leaves any part of the bill unpaid.
+			decimal points = Math.Floor(Math.Min(_loyaltyBalance, TotalAmount));
+			return new _003C_003Ez__ReadOnlySingleElementList<RetailPaymentInput>(new RetailPaymentInput("Loyalty", points, points));
+		}
 		if (IsCreditPayment || (PaymentAmount <= 0m && !IsSplitPayment))
 		{
 			return Array.Empty<RetailPaymentInput>();
@@ -3078,11 +3084,14 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private int _loyaltyLookupVersion;
 
+	private int _loyaltyBalance;
+
 	private async Task RefreshLoyaltyPointsAsync(string phone)
 	{
 		int version = ++_loyaltyLookupVersion;
 		if (phone.Trim().Length < 6)
 		{
+			_loyaltyBalance = 0;
 			LoyaltyPointsText = string.Empty;
 			return;
 		}
@@ -3096,7 +3105,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			});
 			if (version == _loyaltyLookupVersion)
 			{
-				LoyaltyPointsText = points is int balance && balance > 0 ? $"Loyalty points: {balance}" : string.Empty;
+				_loyaltyBalance = points ?? 0;
+				LoyaltyPointsText = _loyaltyBalance > 0 ? $"Loyalty points: {_loyaltyBalance}" : string.Empty;
 			}
 		}
 		catch (Exception)

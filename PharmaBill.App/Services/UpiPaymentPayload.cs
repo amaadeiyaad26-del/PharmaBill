@@ -41,6 +41,8 @@ public static partial class UpiPaymentPayload
 		case "UPI / Dynamic QR":
 		case "UPI":
 			return "UPI";
+		case "Loyalty points":
+			return "Loyalty";
 		case "Card":
 		case "Card / POS":
 		case "Card / POS Terminal":

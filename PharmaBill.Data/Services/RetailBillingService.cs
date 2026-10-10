@@ -317,6 +317,19 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					context.Prescriptions.Add(prescription);
 				}
 				decimal paidAmount = appliedPayments;
+				decimal loyaltyRedeemed = RetailTaxCalculator.RoundMoney(input.Payments.Where((RetailPaymentInput payment) => IsLoyalty(payment.Method)).Sum((RetailPaymentInput payment) => payment.AppliedAmount));
+				if (loyaltyRedeemed > 0m)
+				{
+					if (loyaltyRedeemed > patient.LoyaltyPoints)
+					{
+						throw new InvalidOperationException($"Only {patient.LoyaltyPoints} loyalty points are available for this patient.");
+					}
+					if (RetailTaxCalculator.RoundMoney(totalAmount - paidAmount) > 0m)
+					{
+						throw new InvalidOperationException("Loyalty points cover only part of the bill. Add the rest as cash, UPI or card.");
+					}
+					patient.LoyaltyPoints -= (int)loyaltyRedeemed;
+				}
 				Sale sale = new Sale
 				{
 					PatientId = patient.Id,
@@ -385,7 +398,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						});
 					}
 				}
-				foreach (RetailPaymentInput payment in input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount > 0m))
+				foreach (RetailPaymentInput payment in input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount > 0m && !IsLoyalty(retailPaymentInput.Method)))
 				{
 					string receiptNo = await numberSeriesService.AllocateAsync(invoicePrefix + "-R", today, cancellationToken);
 					// Cash/UPI/Card: Receipt is the cash/bank debit side; Sale row is the sales credit side.
@@ -398,7 +411,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						Notes = $"SaleId={sale.Id:D}; InvoiceNo={invoiceNo}"
 					});
 				}
-				patient.LoyaltyPoints += LoyaltyPolicy.PointsForAmount(totalAmount);
+				patient.LoyaltyPoints += LoyaltyPolicy.PointsForAmount(totalAmount - loyaltyRedeemed);
 				decimal unpaid = RetailTaxCalculator.RoundMoney(totalAmount - paidAmount);
 				if (unpaid > 0m)
 				{
@@ -877,6 +890,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			case "UPI":
 			case "Card":
 			case "Credit":
+			case "Loyalty":
 				flag = true;
 				break;
 			default:
@@ -899,6 +913,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			{
 				throw new InvalidOperationException("Confirm that the UPI payment was received before saving.");
 			}
+			if (IsLoyalty(payment.Method) && payment.AppliedAmount != decimal.Truncate(payment.AppliedAmount))
+			{
+				throw new InvalidOperationException("Loyalty points are redeemed in whole points.");
+			}
 			if (payment.Method == "Credit" && payment.AppliedAmount != 0m)
 			{
 				throw new InvalidOperationException("Credit is the unpaid balance, not a received payment.");
@@ -911,6 +929,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		}
 		return RetailTaxCalculator.RoundMoney(num);
 	}
+
+	private static bool IsLoyalty(string? method) => string.Equals(method, "Loyalty", StringComparison.Ordinal);
 
 	private static bool IsPendingArchive(string? path)
 	{
