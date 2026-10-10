@@ -20,6 +20,20 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 {
 	private sealed record PreparedSaleLine(RetailSaleLineInput Input, Drug Drug, Batch Batch, string? Schedule, bool RequiresPrescription, bool IsHabitForming, string? RegisterType, InclusiveTaxLine Tax);
 
+	/// <summary>Loyalty points for the saved patient with this phone number, or null when there is none.</summary>
+	public async Task<int?> GetLoyaltyPointsAsync(string phone, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		if (string.IsNullOrWhiteSpace(phone))
+		{
+			return null;
+		}
+		string normalized = NormalizePhone(phone);
+		return await unitOfWork.Context.Patients.AsNoTracking()
+			.Where((Patient patient) => patient.Phone == normalized)
+			.Select((Patient patient) => (int?)patient.LoyaltyPoints)
+			.SingleOrDefaultAsync(cancellationToken);
+	}
+
 	public async Task<IReadOnlyList<RetailStockChoice>> SearchStockAsync(string query, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(query, "query");

@@ -222,6 +222,19 @@ public sealed class RetailBillingTests
     }
 
     [Fact]
+    public async Task GetLoyaltyPoints_ReturnsBalanceForSavedPatientOnly()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, _, _) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9123456780", LoyaltyPoints = 7 });
+        await database.Context.SaveChangesAsync();
+
+        Assert.Equal(7, await service.GetLoyaltyPointsAsync(" 91234-56780 "));
+        Assert.Null(await service.GetLoyaltyPointsAsync("9000000000"));
+        Assert.Null(await service.GetLoyaltyPointsAsync("  "));
+    }
+
+    [Fact]
     public async Task SaveSale_ReusesPatientAndCreatesHabitRegisterAndMovement()
     {
         await using var database = await DatabaseTestContext.CreateAsync();

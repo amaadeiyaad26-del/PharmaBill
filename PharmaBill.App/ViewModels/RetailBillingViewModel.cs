@@ -3057,6 +3057,56 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private void OnPatientPhoneChanged(string value)
 	{
 		PatientPhoneError = string.Empty;
+		_ = RefreshLoyaltyPointsAsync(value);
+	}
+
+	private string _loyaltyPointsText = string.Empty;
+
+	/// <summary>Shown under the phone field when the typed number belongs to a saved patient with points.</summary>
+	public string LoyaltyPointsText
+	{
+		get => _loyaltyPointsText;
+		private set
+		{
+			if (_loyaltyPointsText != value)
+			{
+				_loyaltyPointsText = value;
+				OnPropertyChanged(nameof(LoyaltyPointsText));
+			}
+		}
+	}
+
+	private int _loyaltyLookupVersion;
+
+	private async Task RefreshLoyaltyPointsAsync(string phone)
+	{
+		int version = ++_loyaltyLookupVersion;
+		if (phone.Trim().Length < 6)
+		{
+			LoyaltyPointsText = string.Empty;
+			return;
+		}
+		try
+		{
+			// Off the UI thread: SQLite queries block the caller.
+			int? points = await Task.Run(async () =>
+			{
+				using IServiceScope scope = scopeFactory.CreateScope();
+				return await scope.ServiceProvider.GetRequiredService<RetailBillingService>().GetLoyaltyPointsAsync(phone);
+			});
+			if (version == _loyaltyLookupVersion)
+			{
+				LoyaltyPointsText = points is int balance && balance > 0 ? $"Loyalty points: {balance}" : string.Empty;
+			}
+		}
+		catch (Exception)
+		{
+			// The balance is a convenience; a failed lookup must not block billing.
+			if (version == _loyaltyLookupVersion)
+			{
+				LoyaltyPointsText = string.Empty;
+			}
+		}
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]

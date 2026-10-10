@@ -2364,6 +2364,7 @@
                     <Grid.RowDefinitions>
                       <RowDefinition Height="Auto" />
                       <RowDefinition Height="Auto" />
+                      <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <controls:FloatingField Grid.Row="0" Grid.Column="0" TabIndex="0" Label="Patient name (F3)" IsRequired="True" ToolTip="Patient name (required). Shortcut: F3" ErrorText="{Binding PatientNameError}">
                       <TextBox Name="PatientNameBox" Text="{Binding Path=PatientName, UpdateSourceTrigger=PropertyChanged}" />
@@ -2371,6 +2372,17 @@
                     <controls:FloatingField Grid.Row="0" Grid.Column="1" TabIndex="1" Label="Phone number" IsRequired="True" ToolTip="Patient phone (required)" ErrorText="{Binding PatientPhoneError}">
                       <TextBox Name="PatientPhoneBox" Text="{Binding Path=PatientPhone, UpdateSourceTrigger=PropertyChanged}" />
                     </controls:FloatingField>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Margin="4,2,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Text="{Binding LoyaltyPointsText}">
+                      <FrameworkElement.Style>
+                        <Style TargetType="{x:Type TextBlock}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding LoyaltyPointsText}" Value="">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </FrameworkElement.Style>
+                    </TextBlock>
                     <controls:FloatingField Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2" TabIndex="2" Label="Patient address (required for H1/X/NDPS)" ToolTip="Patient address (required for H1/X/NDPS)" IsRequired="{Binding HasControlledItems}" ErrorText="{Binding PatientAddressError}">
                       <TextBox Name="PatientAddressBox" Text="{Binding Path=PatientAddress, UpdateSourceTrigger=PropertyChanged}" />
                     </controls:FloatingField>
