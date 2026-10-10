@@ -2719,6 +2719,7 @@ public class MainWindowViewModel : ObservableObject
 		OnPropertyChanged("IsRetailDeskActive");
 		OnPropertyChanged("IsWholesaleDeskActive");
 		OnPropertyChanged("IsCombinedDeskActive");
+		BillingModeAccent.Apply(_activeBillingDeskMode);
 	}
 
 	private string? PreferredBillingSection()
