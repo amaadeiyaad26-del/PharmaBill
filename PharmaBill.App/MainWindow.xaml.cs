@@ -955,12 +955,35 @@ public partial class MainWindow : Window
 			return;
 		}
 
-		if (e.Key is Key.Enter or Key.Return && !string.IsNullOrWhiteSpace(_viewModel.NavFilter)
-			&& _viewModel.NavigationItemsView.Cast<NavigationItem>().FirstOrDefault() is { } first)
+		if (e.Key is Key.Enter or Key.Return && !string.IsNullOrWhiteSpace(_viewModel.NavFilter))
 		{
-			_viewModel.NavigateCommand.Execute(first.SectionKey);
+			if (_viewModel.NavigationItemsView.Cast<NavigationItem>().FirstOrDefault() is { } first)
+			{
+				_viewModel.NavigateCommand.Execute(first.SectionKey);
+			}
+			else
+			{
+				OpenSidebarToolMatch(_viewModel.NavFilter.Trim(), e);
+			}
 			_viewModel.NavFilter = string.Empty;
 			e.Handled = true;
+		}
+	}
+
+	/// <summary>The sidebar tools at the bottom are not menu items, so search opens them by name.</summary>
+	private void OpenSidebarToolMatch(string text, RoutedEventArgs e)
+	{
+		if ("settings".Contains(text, StringComparison.OrdinalIgnoreCase))
+		{
+			_viewModel.NavigateCommand.Execute("Settings");
+		}
+		else if ("diagnostics".Contains(text, StringComparison.OrdinalIgnoreCase))
+		{
+			OpenDiagnostics_Click(this, e);
+		}
+		else if ("import medicine data".Contains(text, StringComparison.OrdinalIgnoreCase))
+		{
+			OpenCatalogImport_Click(this, e);
 		}
 	}
 
