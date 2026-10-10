@@ -26,7 +26,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup) : ObservableObject, ILoadablePage
+public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IAddStockDialogService? addStockDialog = null) : ObservableObject, ILoadablePage
 {
 	private string _billNumber = "Assigned on save";
 
@@ -219,6 +219,25 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	public ObservableCollection<MedicineSearchResult> CatalogOnlyMatches { get; } = new ObservableCollection<MedicineSearchResult>();
 
 	public bool HasCatalogOnlyMatches => CatalogOnlyMatches.Count > 0;
+
+	private AsyncRelayCommand<MedicineSearchResult?>? addCatalogToStockCommand;
+
+	public IAsyncRelayCommand<MedicineSearchResult?> AddCatalogToStockCommand => addCatalogToStockCommand ?? (addCatalogToStockCommand = new AsyncRelayCommand<MedicineSearchResult?>(AddCatalogToStockAsync));
+
+	/// <summary>Opens the add-stock form for a drug bank medicine, then searches again so it can be billed.</summary>
+	private async Task AddCatalogToStockAsync(MedicineSearchResult? medicine)
+	{
+		if (medicine == null || addStockDialog == null)
+		{
+			return;
+		}
+		bool saved = await addStockDialog.ShowAsync(new AddStockRequest(null, medicine.CatalogMedicineId, medicine.Name, medicine.Composition, medicine.Manufacturer));
+		if (saved)
+		{
+			StatusMessage = medicine.Name + " added to stock. It can be billed now.";
+			await DebouncedLiveSearchAsync(ItemSearch);
+		}
+	}
 
 	private void SetCatalogOnlyMatches(IReadOnlyList<MedicineSearchResult>? matches)
 	{
@@ -1526,7 +1545,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			.Where(match => !match.IsInStock)
 			.GroupBy(match => match.Name, StringComparer.OrdinalIgnoreCase)
 			.Select(group => group.First())
-			.Take(8)
+			.Take(25)
 			.ToList();
 		if (medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
 		{
