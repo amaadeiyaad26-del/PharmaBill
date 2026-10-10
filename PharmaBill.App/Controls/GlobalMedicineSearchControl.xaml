@@ -67,7 +67,7 @@
       <Button Grid.Column="1" Content="Search" MinWidth="90" MinHeight="36" Margin="8,0,0,0" Padding="14,8" VerticalAlignment="Center" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SearchCommand}" ToolTip="Search stock and the medicine catalogue. Type at least 2 letters, then press Search or Enter." />
       <controls:FloatingField Grid.Column="0" Label="Search medicine, salt or brand (type 2 or more letters)" Visibility="{Binding ShowActions, Converter={StaticResource BooleanToVisibilityConverter}, RelativeSource={RelativeSource AncestorType=controls:GlobalMedicineSearchControl}}">
         <Grid>
-          <TextBox Padding="0,0,22,0" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}">
+          <TextBox Padding="0,0,22,0" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=250}">
             <UIElement.InputBindings>
               <KeyBinding Key="Enter" Command="{Binding SearchCommand}" CommandParameter="{x:Null}" />
             </UIElement.InputBindings>
@@ -85,7 +85,7 @@
             </Style.Triggers>
           </Style>
         </FrameworkElement.Style>
-        <TextBox Name="SearchBox" Height="36" Padding="12,6,28,6" VerticalContentAlignment="Center" FontSize="13" ToolTip="Search medicines (type at least 2 characters)" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}" TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_FocusChanged" LostKeyboardFocus="SearchBox_FocusChanged">
+        <TextBox Name="SearchBox" Height="36" Padding="12,6,28,6" VerticalContentAlignment="Center" FontSize="13" ToolTip="Search medicines (type at least 2 characters)" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=250}" TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_FocusChanged" LostKeyboardFocus="SearchBox_FocusChanged">
           <UIElement.InputBindings>
             <KeyBinding Key="Enter" Command="{Binding SearchCommand}" CommandParameter="{x:Null}" />
           </UIElement.InputBindings>
