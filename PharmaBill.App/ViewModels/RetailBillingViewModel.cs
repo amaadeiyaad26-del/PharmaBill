@@ -329,7 +329,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	public string HeldBillsPlaceholder => HasHeldBills ? "Select Paused Bill..." : "No Paused Bills";
 
-	public IReadOnlyList<string> SplitSecondMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[3] { "UPI / QR", "Card / POS", "Credit / Ledger" });
+	public IReadOnlyList<string> SplitSecondMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[4] { "UPI / QR", "Card / POS", "Loyalty points", "Credit / Ledger" });
 
 	public decimal Subtotal => BillItems.Sum((RetailBillLineViewModel line) => line.NetAmount);
 
