@@ -2491,7 +2491,7 @@
               </ListBox>
               <StackPanel Visibility="{Binding HasCatalogOnlyMatches, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,4,0,6">
                 <TextBlock Text="In the drug bank but not in stock: add stock to bill it" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,3" />
-                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
                   <ItemsControl ItemsSource="{Binding CatalogOnlyMatches}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
