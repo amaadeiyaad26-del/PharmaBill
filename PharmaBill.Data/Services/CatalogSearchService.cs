@@ -48,9 +48,20 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		{
 			matchingIds = await Db(trace, () => FindCatalogIdsAsync(text, cancellationToken));
 		}
+		catch (OperationCanceledException)
+		{
+			throw;
+		}
 		catch (Exception)
 		{
-			// FTS is created by catalogue import. Custom and local medicines are still matched below.
+			// The full-text index can be missing or still building (for example during a catalogue import).
+			matchingIds = new List<Guid>();
+		}
+		if (matchingIds.Count == 0)
+		{
+			// Fall back to a plain name search when the index is missing, still building, or has no hit,
+			// so the drug bank still answers.
+			matchingIds = await Db(trace, () => FindCatalogIdsByNameAsync(query.Trim(), cancellationToken));
 		}
 
 		string like = "%" + query.Trim().Replace("%", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal) + "%";
@@ -287,6 +298,18 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 			}
 		}
 		return hashSet;
+	}
+
+	/// <summary>Plain name search used when the full-text index can't answer. Slower, so only the fallback path calls it.</summary>
+	private async Task<List<Guid>> FindCatalogIdsByNameAsync(string query, CancellationToken cancellationToken)
+	{
+		string like = "%" + query.Replace("%", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal) + "%";
+		return await context.CatalogMedicines.AsNoTracking()
+			.Where(medicine => !medicine.IsDiscontinued && (EF.Functions.Like(medicine.Name, like) || EF.Functions.Like(medicine.GenericName ?? string.Empty, like)))
+			.OrderBy(medicine => medicine.Name)
+			.Select(medicine => medicine.Id)
+			.Take(200)
+			.ToListAsync(cancellationToken);
 	}
 
 	private async Task<List<Guid>> FindCatalogIdsAsync(string ftsQuery, CancellationToken cancellationToken)
