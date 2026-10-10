@@ -59,6 +59,13 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 		timeout.CancelAfter(RequestTimeout);
 		try
 		{
+			// The built-in drug bank and local medicines answer at once and work offline, so try them before the network.
+			SmartDrugSuggestion? localFirst = await TryLocalFallbackAsync(typed, timeout.Token);
+			if (localFirst != null)
+			{
+				return new SmartDrugLookupOutcome(localFirst, "Filled from your local medicine list. Check the MRP and purchase rate before saving.");
+			}
+
 			string? saved = ReadConfiguredKey();
 			string? openRouter = IsOpenRouterKey(saved) ? saved : NullIfEmpty(Environment.GetEnvironmentVariable("OPENROUTER_API_KEY"));
 			string? gemini = IsOpenRouterKey(saved) ? null : saved;
@@ -82,12 +89,6 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 			{
 				string source = !string.IsNullOrWhiteSpace(gemini) ? "Gemini" : "OpenRouter";
 				return new SmartDrugLookupOutcome(suggestion, "Filled from " + source + ". Check the MRP and purchase rate before saving.");
-			}
-
-			SmartDrugSuggestion? local = await TryLocalFallbackAsync(typed, timeout.Token);
-			if (local != null)
-			{
-				return new SmartDrugLookupOutcome(local, "Filled from your local medicine list. Check the MRP and purchase rate before saving.");
 			}
 
 			if (timeout.IsCancellationRequested)
