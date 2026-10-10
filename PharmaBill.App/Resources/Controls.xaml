@@ -1137,4 +1137,28 @@
     <Setter Property="TextWrapping" Value="Wrap" />
     <Setter Property="Margin" Value="0,0,0,10" />
   </Style>
+
+  <!-- Modern surfaces: rounded white (or dark) cards with a soft shadow and accent-coloured titles. -->
+  <Style x:Key="PageTitle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource WholesalePageTitle}" />
+
+  <Style x:Key="SectionCard" TargetType="{x:Type Border}">
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="18" />
+    <Setter Property="Margin" Value="0,0,0,14" />
+    <Setter Property="Effect">
+      <Setter.Value>
+        <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.08" Color="#FF0F172A" />
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="SectionCardTitle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Margin" Value="0,0,0,10" />
+  </Style>
 </ResourceDictionary>
