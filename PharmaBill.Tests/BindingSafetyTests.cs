@@ -101,7 +101,8 @@ public sealed class BindingSafetyTests
     {
         Exception? failure = null;
         var listener = new BindingTrace();
-        var thread = new Thread(() =>
+        // Runs on the shared STA thread: a second STA thread creating Application.Current races with other UI tests.
+        StaRunner.Run(() =>
         {
             try
             {
@@ -151,9 +152,6 @@ public sealed class BindingSafetyTests
                 failure = exception;
             }
         });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
 
         Assert.True(failure is null, failure?.ToString());
         var pathErrors = listener.Messages
