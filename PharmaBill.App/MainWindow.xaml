@@ -1837,6 +1837,24 @@
               <KeyBinding Key="W" Modifiers="Control" Command="{Binding CancelBillCommand}" />
             </Grid.InputBindings>
           <StackPanel Margin="18">
+            <StackPanel.RenderTransform>
+              <TranslateTransform x:Name="PageSlide" Y="16" />
+            </StackPanel.RenderTransform>
+            <!-- The page eases in each time it is opened. -->
+            <StackPanel.Triggers>
+              <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                    <DoubleAnimation Storyboard.TargetName="PageSlide" Storyboard.TargetProperty="Y" From="16" To="0" Duration="0:0:0.36">
+                      <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </StackPanel.Triggers>
             <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10"
                     Visibility="{Binding DataContext.ShowAnnualLicenseWarning, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold"
@@ -1874,7 +1892,7 @@
                 <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding InvoiceNoPreview, StringFormat=Invoice no: {0}}" />
               </StackPanel>
             </DockPanel>
-            <Border Style="{StaticResource SectionCard}">
+            <Border Style="{StaticResource SectionCardLift}">
               <StackPanel>
                 <TextBlock Style="{StaticResource SectionCardTitle}" Text="Buyer / Retailer (B2B) — F3" />
                 <TextBlock Text="Retailer / Pharmacy Business Name *" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
@@ -2174,18 +2192,55 @@
               </DataGrid.Columns>
             </DataGrid>
             <CheckBox Content="Confirmed near-expiry batch sale after review" Margin="2,4" IsChecked="{Binding ConfirmNearExpiry}" />
-            <Grid Margin="0,8,0,4" HorizontalAlignment="Stretch">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="160" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0" FontWeight="SemiBold" Margin="4,4,16,4" VerticalAlignment="Center" Text="{Binding Subtotal, StringFormat=Taxable: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <TextBlock Grid.Column="1" Margin="0,4,16,4" VerticalAlignment="Center" Text="{Binding EstimatedTax, StringFormat=Estimated GST: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <TextBlock Grid.Column="2" FontSize="18" FontWeight="Bold" Margin="0,4,16,4" VerticalAlignment="Center" HorizontalAlignment="Left" TextWrapping="NoWrap" TextTrimming="None" Text="{Binding EstimatedTotal, StringFormat=Estimated total: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <Button Grid.Column="3" Content="Show Payment QR" Height="34" MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" ToolTip="Open dynamic UPI QR for the estimated total" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
-            </Grid>
+            <Border x:Name="InvoiceSummaryCard" Margin="0,12,0,8" Padding="20,16" CornerRadius="16">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#FFEA580C" Offset="0" />
+                  <GradientStop Color="#FF9A3412" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.25" Color="#FF7C2D12" />
+              </Border.Effect>
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <UniformGrid Columns="4">
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Items" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding LineCount}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Taxable value" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding Subtotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Estimated GST" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding EstimatedTax, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Text="Estimated total" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,2,0,0" FontSize="26" FontWeight="Bold" Foreground="White" Text="{Binding EstimatedTotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                </UniformGrid>
+                <Button Grid.Column="1" Margin="16,0,0,0" MinHeight="42" Padding="18,8" VerticalAlignment="Center" Cursor="Hand"
+                        Content="Show Payment QR" FontWeight="SemiBold" Foreground="#FF9A3412" Background="White" BorderThickness="0"
+                        ToolTip="Open dynamic UPI QR for the estimated total" Command="{Binding ShowPaymentQrCommand}" />
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0" Visibility="{Binding HasCreditLimit, Converter={StaticResource BooleanToVisibilityConverter}}">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="Credit limit" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CreditBarText}" FontSize="12" Foreground="White" />
+                  </DockPanel>
+                  <ProgressBar Margin="0,6,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding CreditUsedPercent, Mode=OneWay}" Foreground="White" Background="#33FFFFFF" BorderThickness="0" />
+                </StackPanel>
+              </Grid>
+            </Border>
             <TextBlock Text="Payment (F9)" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,4" />
             <WrapPanel>
               <ComboBox x:Name="WholesalePaymentMethodBox" Width="180" Padding="6" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" ToolTip="Payment mode (F9)" />
@@ -2209,20 +2264,30 @@
             </WrapPanel>
             <TextBlock Text="E-way bill threshold notice: configure the applicable threshold and verify the current requirement. No portal integration is provided." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="4,6" />
             <TextBox ToolTip="Invoice notes" Padding="6" Margin="0,5" Text="{Binding Path=Notes, UpdateSourceTrigger=PropertyChanged}" />
-            <WrapPanel Margin="0,8,0,0">
-              <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
-              <Button Margin="8,0,0,0" Content="Save as quotation" Style="{StaticResource SecondaryButton}" Command="{Binding SaveQuotationCommand}" ToolTip="Save these lines as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
-              <ComboBox Margin="8,0,0,0" Width="120" Height="36" ItemsSource="{Binding QuoteValidityOptions}" SelectedItem="{Binding QuoteValidityDays}" ItemStringFormat="Valid {0} days" ToolTip="How long the quotation stays valid." />
-              <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
-                      ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
-                <StackPanel>
-                  <TextBlock Text="F10 Print &amp; Save" FontWeight="Bold" HorizontalAlignment="Center" />
-                  <TextBlock Text="Tax Invoice" FontSize="11" HorizontalAlignment="Center" Opacity="0.9" />
-                </StackPanel>
-              </Button>
-              <Button Content="Tax invoice PDF" Padding="12,8" Margin="8,0,0,0" Command="{Binding ExportTaxInvoiceCommand}" />
-              <Button Content="Delivery challan PDF" Padding="12,8" Margin="8,0,0,0" Command="{Binding ExportDeliveryChallanCommand}" />
-            </WrapPanel>
+            <Border Margin="0,10,0,0" Padding="14,12" CornerRadius="14" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+              <StackPanel>
+                <DockPanel LastChildFill="False">
+                  <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button Height="40" Padding="14,0" Content="Save as quotation" Style="{StaticResource SecondaryButton}" Command="{Binding SaveQuotationCommand}" ToolTip="Save these lines as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
+                    <ComboBox Margin="8,0,0,0" Width="120" Height="40" ItemsSource="{Binding QuoteValidityOptions}" SelectedItem="{Binding QuoteValidityDays}" ItemStringFormat="Valid {0} days" ToolTip="How long the quotation stays valid." />
+                    <Button Margin="8,0,0,0" Height="40" Padding="14,0" Content="↺ Repeat last invoice" Style="{StaticResource SecondaryButton}" Command="{Binding RepeatLastInvoiceCommand}" ToolTip="Load the lines of this buyer's most recent posted invoice as a new draft." />
+                  </StackPanel>
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Height="40" Padding="12,0" Content="Tax invoice PDF" Command="{Binding ExportTaxInvoiceCommand}" />
+                    <Button Margin="8,0,0,0" Height="40" Padding="12,0" Content="Delivery challan PDF" Command="{Binding ExportDeliveryChallanCommand}" />
+                    <Button Margin="8,0,0,0" Height="40" Padding="14,0" Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
+                    <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
+                            ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
+                      <StackPanel>
+                        <TextBlock Text="F10 Print &amp; Save" FontWeight="Bold" HorizontalAlignment="Center" />
+                        <TextBlock Text="Tax Invoice" FontSize="11" HorizontalAlignment="Center" Opacity="0.9" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </DockPanel>
+                <TextBlock Margin="2,8,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding DraftSavedText}" />
+              </StackPanel>
+            </Border>
             <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="3,8,3,0" Text="{Binding StatusMessage}" />
             <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="3,4,3,0" Text="{Binding ErrorMessage}" />
           </StackPanel>

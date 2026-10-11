@@ -59,6 +59,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	private IAsyncRelayCommand? importBuyersCommand;
 
+	private IAsyncRelayCommand? repeatLastInvoiceCommand;
+
+	private readonly WholesaleDraftStore _drafts = new WholesaleDraftStore();
+
 	private string _pharmacyName = "Pharmacy";
 
 	private string _upiId = string.Empty;
@@ -402,6 +406,45 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	public decimal EstimatedTax => Items.Sum((WholesaleInvoiceLineDraft item) => decimal.Round(item.LineAmount * (item.StockChoice?.GstRate ?? 0m) / 100m, 2, MidpointRounding.AwayFromZero));
 
 	public decimal EstimatedTotal => decimal.Round(Subtotal + EstimatedTax, 0, MidpointRounding.AwayFromZero);
+
+	public int LineCount => Items.Count;
+
+	private string _draftSavedText = string.Empty;
+
+	/// <summary>Shown under the actions: when the unsaved invoice was last written to disk.</summary>
+	public string DraftSavedText
+	{
+		get => _draftSavedText;
+		set => SetProperty(ref _draftSavedText, value);
+	}
+
+	private bool _hasCreditLimit;
+
+	/// <summary>True when the buyer has a credit limit, so the credit bar is shown.</summary>
+	public bool HasCreditLimit
+	{
+		get => _hasCreditLimit;
+		private set => SetProperty(ref _hasCreditLimit, value);
+	}
+
+	private double _creditUsedPercent;
+
+	/// <summary>Credit used, including this bill, as a percentage of the limit (capped at 100).</summary>
+	public double CreditUsedPercent
+	{
+		get => _creditUsedPercent;
+		private set => SetProperty(ref _creditUsedPercent, value);
+	}
+
+	private string _creditBarText = string.Empty;
+
+	public string CreditBarText
+	{
+		get => _creditBarText;
+		private set => SetProperty(ref _creditBarText, value);
+	}
+
+	public IAsyncRelayCommand RepeatLastInvoiceCommand => repeatLastInvoiceCommand ??= new AsyncRelayCommand(RepeatLastInvoiceAsync);
 
 	/// <summary>Bump token to focus Qty on the selected invoice line.</summary>
 	public string FocusQtyRequest
@@ -1122,6 +1165,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			await RefreshBuyerHeaderAsync(cancellationToken);
 			ApplyPendingReissue();
 			ApplyPendingQuotation();
+			RestoreDraftIfEmpty();
 		}
 		finally
 		{
@@ -2166,6 +2210,8 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes), appUser.Id, appUser.Role);
 			LastInvoiceId = wholesaleInvoiceResult.Invoice.Id;
+			_drafts.Clear();
+			DraftSavedText = string.Empty;
 			if (_quotationConversionId is Guid convertedQuoteId)
 			{
 				await scope.ServiceProvider.GetRequiredService<QuotationService>().MarkConvertedAsync(convertedQuoteId, wholesaleInvoiceResult.Invoice.InvoiceNo);
@@ -2227,6 +2273,8 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		OnPropertyChanged("Subtotal");
 		OnPropertyChanged("EstimatedTax");
 		OnPropertyChanged("EstimatedTotal");
+		OnPropertyChanged("LineCount");
+		SaveDraft();
 		RefreshCreditGateAsync();
 	}
 
@@ -2234,6 +2282,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	{
 		if (SelectedCustomer == null)
 		{
+			HasCreditLimit = false;
 			CreditLockAlert = string.Empty;
 			return;
 		}
@@ -2252,6 +2301,20 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				creditLockAlert = string.Empty;
 			}
 			wholesaleBillingPageViewModel.CreditLockAlert = creditLockAlert;
+
+			// Credit bar: how much of the buyer's limit is used, including the bill on screen.
+			CustomerCreditProfile? profile = creditGateAlert.Profile;
+			if (profile == null || profile.CreditLimit <= 0m)
+			{
+				HasCreditLimit = false;
+			}
+			else
+			{
+				decimal projected = profile.OutstandingAmount + EstimatedTotal;
+				HasCreditLimit = true;
+				CreditUsedPercent = Math.Min(100d, (double)(projected / profile.CreditLimit) * 100d);
+				CreditBarText = $"₹{profile.OutstandingAmount:N0} of ₹{profile.CreditLimit:N0} used · with this bill ₹{projected:N0}";
+			}
 		}
 		catch
 		{
@@ -2337,6 +2400,134 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		{
 			// User is editing away from the selected retailer — clear selection until they pick again.
 			SelectedCustomer = null;
+		}
+	}
+
+	// Loads the lines of this buyer's most recent posted invoice as a new draft.
+	private async Task RepeatLastInvoiceAsync()
+	{
+		if (SelectedCustomer == null)
+		{
+			ErrorMessage = "Select a retailer first, then repeat their last invoice.";
+			return;
+		}
+
+		ErrorMessage = string.Empty;
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			WholesaleInvoice? last = await context.WholesaleInvoices.AsNoTracking()
+				.Where((WholesaleInvoice invoice) => invoice.CustomerId == SelectedCustomer.Id && invoice.Status == "Posted")
+				.OrderByDescending((WholesaleInvoice invoice) => invoice.InvoiceAtUtc)
+				.FirstOrDefaultAsync();
+			if (last == null)
+			{
+				ErrorMessage = $"{SelectedCustomer.Name} has no earlier invoice to repeat.";
+				return;
+			}
+
+			List<WholesaleInvoiceItem> lines = await context.WholesaleInvoiceItems.AsNoTracking()
+				.Where((WholesaleInvoiceItem line) => line.WholesaleInvoiceId == last.Id)
+				.ToListAsync();
+			int missing = 0;
+			Items.Clear();
+			foreach (WholesaleInvoiceItem line in lines)
+			{
+				WholesaleStockChoice? choice = StockChoices.FirstOrDefault((WholesaleStockChoice item) => item.BatchId == line.BatchId);
+				if (choice == null)
+				{
+					missing++;
+					continue;
+				}
+				AddDraftLine(choice, line.Quantity, line.FreeQuantity, line.UnitPrice, line.DiscountAmount);
+			}
+
+			Notes = $"Repeated from invoice {last.InvoiceNo}.";
+			NotifyTotalsChanged();
+			StatusMessage = $"Loaded {Items.Count} line(s) from invoice {last.InvoiceNo}. Check quantities, then save.";
+			if (missing > 0)
+			{
+				ErrorMessage = $"{missing} line(s) skipped: their batch is no longer in stock.";
+			}
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private void AddDraftLine(WholesaleStockChoice choice, decimal quantity, decimal freeQuantity, decimal unitPrice, decimal discountAmount)
+	{
+		WholesaleInvoiceLineDraft draft = new WholesaleInvoiceLineDraft
+		{
+			StockChoice = choice,
+			Quantity = quantity,
+			FreeQuantity = freeQuantity,
+			UnitPrice = unitPrice,
+			DiscountAmount = discountAmount,
+			SaleUnit = "Unit"
+		};
+		draft.SetBatchOptions(StockChoices.Where((WholesaleStockChoice item) => item.DrugId == choice.DrugId));
+		draft.MrpCommitted += OnWholesaleMrpCommitted;
+		Items.Add(draft);
+	}
+
+	// Writes the unsaved invoice to the user's profile after every change, so closing the app loses nothing.
+	private void SaveDraft()
+	{
+		if (Items.Count == 0 && SelectedCustomer == null)
+		{
+			_drafts.Clear();
+			DraftSavedText = string.Empty;
+			return;
+		}
+
+		List<WholesaleDraftLine> lines = Items
+			.Where((WholesaleInvoiceLineDraft item) => item.StockChoice != null)
+			.Select((WholesaleInvoiceLineDraft item) => new WholesaleDraftLine(item.StockChoice!.DrugId, item.StockChoice.BatchId, item.Quantity, item.FreeQuantity, item.UnitPrice, item.DiscountAmount))
+			.ToList();
+		_drafts.Save(new WholesaleDraft(SelectedCustomer?.Id, Notes ?? string.Empty, DateTime.UtcNow, lines));
+		DraftSavedText = $"Draft saved at {DateTime.Now:HH:mm}";
+	}
+
+	// Reopens the last unsaved invoice when the page opens with nothing in progress.
+	private void RestoreDraftIfEmpty()
+	{
+		if (Items.Count > 0 || SelectedCustomer != null)
+		{
+			return;
+		}
+
+		WholesaleDraft? draft = _drafts.Load();
+		if (draft == null || (draft.Lines.Count == 0 && !draft.CustomerId.HasValue))
+		{
+			return;
+		}
+
+		Customer? customer = draft.CustomerId.HasValue ? Customers.FirstOrDefault((Customer item) => item.Id == draft.CustomerId.Value) : null;
+		int missing = 0;
+		foreach (WholesaleDraftLine line in draft.Lines)
+		{
+			WholesaleStockChoice? choice = StockChoices.FirstOrDefault((WholesaleStockChoice item) => item.BatchId == line.BatchId);
+			if (choice == null)
+			{
+				missing++;
+				continue;
+			}
+			AddDraftLine(choice, line.Quantity, line.FreeQuantity, line.UnitPrice, line.DiscountAmount);
+		}
+
+		if (customer != null)
+		{
+			SelectedCustomer = customer;
+		}
+		Notes = draft.Notes;
+		NotifyTotalsChanged();
+		StatusMessage = $"Restored your unsaved invoice from {draft.SavedAtUtc.ToLocalTime():dd-MMM HH:mm}.";
+		if (missing > 0)
+		{
+			ErrorMessage = $"{missing} draft line(s) could not be restored because their batch is no longer in stock.";
 		}
 	}
 

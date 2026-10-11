@@ -1246,6 +1246,19 @@
     </Setter>
   </Style>
 
+  <!-- Section card that lifts its shadow on hover, so the billing sections feel responsive. -->
+  <Style x:Key="SectionCardLift" TargetType="{x:Type Border}" BasedOn="{StaticResource SectionCard}">
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Effect">
+          <Setter.Value>
+            <DropShadowEffect BlurRadius="24" ShadowDepth="5" Opacity="0.16" Color="#FF0F172A" />
+          </Setter.Value>
+        </Setter>
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
   <!-- Filter tabs (Stock page): compact pills in a tab strip; the active filter takes the mode accent. -->
   <Style x:Key="FilterTabButton" TargetType="{x:Type Button}">
     <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
