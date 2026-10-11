@@ -143,6 +143,7 @@ public partial class App : Application
 				services.AddSingleton<StockTransferPageViewModel>();
 				services.AddTransient<WholesaleCustomerPageViewModel>();
 				services.AddSingleton<WholesaleInvoiceDocumentService>();
+				services.AddSingleton<PurchaseReturnDocumentService>();
 				services.AddTransient<WholesaleBillingPageViewModel>();
 				services.AddTransient<WholesalePricingPageViewModel>();
 				services.AddTransient<WholesaleAccountsPageViewModel>();

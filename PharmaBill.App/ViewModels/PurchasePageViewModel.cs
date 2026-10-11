@@ -29,7 +29,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr) : ObservableObject, ILoadablePage
+public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr, PurchaseReturnDocumentService returnDocuments) : ObservableObject, ILoadablePage
 {
 	private Supplier? _selectedSupplier;
 
@@ -603,6 +603,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(SelectedReturnBatch));
 				OnPropertyChanged(nameof(ReturnCreditRate));
 				OnPropertyChanged(nameof(ShowReturnBatchPrompt));
+
+				// The return goes back to the supplier that sent this batch. The supplier box stays editable.
+				Supplier? batchSupplier = value == null ? null : Suppliers.FirstOrDefault((Supplier supplier) => supplier.Id == value.SupplierId);
+				if (batchSupplier != null)
+				{
+					SelectedSupplier = batchSupplier;
+				}
 			}
 		}
 	}
@@ -1586,6 +1593,90 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	public IRelayCommand ViewInvoiceImageCommand => viewInvoiceImageCommand ?? (viewInvoiceImageCommand = new RelayCommand(ViewInvoiceImage, () => HasInvoiceAttachment));
 
 	private RelayCommand? viewInvoiceImageCommand;
+
+	public IRelayCommand CloseInvoiceOcrTextCommand => closeInvoiceOcrTextCommand ?? (closeInvoiceOcrTextCommand = new RelayCommand(() => InvoiceOcrText = string.Empty));
+
+	private RelayCommand? closeInvoiceOcrTextCommand;
+
+	private Guid? lastPostedReturnId;
+
+	/// <summary>The purchase return posted most recently in this session; its note can be printed or sent.</summary>
+	public Guid? LastPostedReturnId
+	{
+		get => lastPostedReturnId;
+		private set
+		{
+			if (SetProperty(ref lastPostedReturnId, value))
+			{
+				OnPropertyChanged(nameof(HasLastPostedReturn));
+			}
+		}
+	}
+
+	public bool HasLastPostedReturn => LastPostedReturnId.HasValue;
+
+	private string lastPostedReturnText = string.Empty;
+
+	public string LastPostedReturnText
+	{
+		get => lastPostedReturnText;
+		private set => SetProperty(ref lastPostedReturnText, value);
+	}
+
+	private AsyncRelayCommand? printLastReturnCommand;
+
+	public IAsyncRelayCommand PrintLastReturnCommand => printLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		PurchaseReturnDocumentService.Print(note.Path);
+		StatusMessage = "Return note sent to the printer.";
+	}));
+
+	private AsyncRelayCommand? saveLastReturnCommand;
+
+	public IAsyncRelayCommand SaveLastReturnCommand => saveLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		PurchaseReturnDocumentService.ShowInExplorer(note.Path);
+		StatusMessage = "Return note saved as PDF: " + note.Path;
+	}));
+
+	private AsyncRelayCommand? whatsAppLastReturnCommand;
+
+	public IAsyncRelayCommand WhatsAppLastReturnCommand => whatsAppLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		string message = $"Purchase return note {note.ReturnNo} for ₹{note.Total.ToString("N2", CultureInfo.GetCultureInfo("en-IN"))}. The PDF is attached.";
+		PurchaseReturnDocumentService.OpenWhatsApp(note.SupplierPhone, message);
+		PurchaseReturnDocumentService.ShowInExplorer(note.Path);
+		StatusMessage = "WhatsApp opened. Attach the PDF shown in Explorer; WhatsApp links cannot carry files.";
+	}));
+
+	private AsyncRelayCommand? emailLastReturnCommand;
+
+	public IAsyncRelayCommand EmailLastReturnCommand => emailLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		PurchaseReturnDocumentService.OpenEmail(note.SupplierEmail, "Purchase return note " + note.ReturnNo, $"Please find the purchase return note {note.ReturnNo} attached. The PDF is saved at: {note.Path}");
+		PurchaseReturnDocumentService.ShowInExplorer(note.Path);
+		StatusMessage = "Mail draft opened. Attach the PDF shown in Explorer; mail links cannot carry files.";
+	}));
+
+	/// <summary>Builds the note PDF for the last posted return, then runs one of the send actions on it.</summary>
+	private async Task ActOnLastReturnAsync(Action<PurchaseReturnNote> action)
+	{
+		if (LastPostedReturnId is not Guid id)
+		{
+			return;
+		}
+
+		ErrorMessage = string.Empty;
+		try
+		{
+			PurchaseReturnNote note = await returnDocuments.ExportAsync(id);
+			action(note);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -4644,7 +4735,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			try
 			{
 				using IServiceScope scope = scopeFactory.CreateScope();
-				await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<PurchaseService>().SavePurchaseReturnAsync(SelectedSupplier.Id, ReturnNo, DateOnly.FromDateTime(DateTime.Today), array, ReturnReason, currentSession.User.Id, currentSession.User.Role));
+				PurchaseReturn? posted = null;
+				await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+				{
+					posted = await scope.ServiceProvider.GetRequiredService<PurchaseService>().SavePurchaseReturnAsync(SelectedSupplier.Id, ReturnNo, DateOnly.FromDateTime(DateTime.Today), array, ReturnReason, currentSession.User.Id, currentSession.User.Role);
+				});
+				LastPostedReturnId = posted?.Id;
+				LastPostedReturnText = posted == null ? string.Empty : $"Return {posted.ReturnNo} to {SelectedSupplier.Name} · ₹{posted.TotalAmount.ToString("N2", CultureInfo.GetCultureInfo("en-IN"))}";
 				ReturnNo = string.Empty;
 				ReturnQuantity = 0m;
 				ReturnReason = string.Empty;

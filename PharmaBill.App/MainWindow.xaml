@@ -3474,12 +3474,14 @@
             </Border>
             <Border Margin="0,4,0,0" Padding="8,6" CornerRadius="6" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1"
                     Visibility="{Binding HasInvoiceOcrText, Converter={StaticResource BooleanToVisibilityConverter}}">
-              <StackPanel>
-                <TextBlock Text="Recognised text" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
-                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
-                  <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding InvoiceOcrText}" />
-                </ScrollViewer>
-              </StackPanel>
+              <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                  <Button DockPanel.Dock="Right" Content="✕ Close" Padding="8,2" Style="{StaticResource SecondaryButton}" Command="{Binding CloseInvoiceOcrTextCommand}" ToolTip="Hide the recognised text." />
+                  <TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Text="Recognised text (select and Ctrl+C to copy into any field)" />
+                </DockPanel>
+                <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxHeight="120" FontSize="12"
+                         BorderThickness="0" Background="Transparent" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding InvoiceOcrText, Mode=OneWay}" />
+              </DockPanel>
             </Border>
             <Border Margin="0,4,0,0" Padding="8,4" CornerRadius="6" Background="#FFFFFBEB" BorderBrush="#FFFDE68A" BorderThickness="1"
                     Visibility="{Binding HasTotalMismatch, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -3939,6 +3941,23 @@
           <!-- Row 3: Footer — purchase return (left) + totals + Transfer (right) -->
           <DockPanel Grid.Row="3" Margin="0,6,0,0" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+              <Border Padding="10,6" CornerRadius="6" Background="#FFFFF7ED" BorderBrush="#FFFDBA74" BorderThickness="1" Margin="0,0,10,0" VerticalAlignment="Center"
+                      Visibility="{Binding HasLastPostedReturn, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12.5" Foreground="#FF9A3412" Text="{Binding LastPostedReturnText}" />
+                  <Button Content="Return note ▾" Padding="10,4" Height="30" Style="{StaticResource SecondaryButton}" Click="OpenPillMenu_Click"
+                          ToolTip="Print, save as PDF, or send the purchase return note to the supplier.">
+                    <FrameworkElement.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="🖨 Print" Command="{Binding PrintLastReturnCommand}" />
+                        <MenuItem Header="💾 Save as PDF (show in folder)" Command="{Binding SaveLastReturnCommand}" />
+                        <MenuItem Header="💬 Send on WhatsApp" Command="{Binding WhatsAppLastReturnCommand}" />
+                        <MenuItem Header="✉ Send by email" Command="{Binding EmailLastReturnCommand}" />
+                      </ContextMenu>
+                    </FrameworkElement.ContextMenu>
+                  </Button>
+                </StackPanel>
+              </Border>
               <Border Padding="10,6" CornerRadius="6" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" Margin="0,0,10,0" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
                   <TextBlock VerticalAlignment="Center" Foreground="#FF334155" FontSize="12.5" Text="{Binding Subtotal, StringFormat=Subtotal: ₹{0:N2}, ConverterCulture=en-IN}" />
@@ -3956,6 +3975,16 @@
               <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="150">
                 <StackPanel>
                   <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" Height="80" Margin="0,0,0,6" ItemsSource="{Binding ReturnLines}">
+                    <DataGrid.Style>
+                      <Style TargetType="{x:Type DataGrid}" BasedOn="{StaticResource {x:Type DataGrid}}">
+                        <Style.Triggers>
+                          <!-- Shown only once return rows are extracted; the manual entry below works without it. -->
+                          <DataTrigger Binding="{Binding ReturnLines.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </DataGrid.Style>
                     <DataGrid.Columns>
                       <DataGridComboBoxColumn Header="Select Batch / Medicine" DisplayMemberPath="Display" Width="*" ItemsSource="{Binding DataContext.ReturnBatches, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItemBinding="{Binding Batch, UpdateSourceTrigger=PropertyChanged}" />
                       <DataGridTextColumn Header="Return Qty" Width="110" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
