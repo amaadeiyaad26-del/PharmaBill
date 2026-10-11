@@ -7,4 +7,6 @@ public sealed record StatutoryRegisterRow(Guid EntryId, DateTime EntryAtUtc, str
 	public string Composition { get; init; } = string.Empty;
 
 	public string ExpiryLabel { get; init; } = string.Empty;
+
+	public string PrescriptionFilePath { get; init; } = string.Empty;
 }

@@ -106,8 +106,8 @@ public sealed class FilePickerService : IFilePickerService
 	{
 		OpenFileDialog openFileDialog = new OpenFileDialog
 		{
-			Title = "Choose prescription image or PDF",
-			Filter = "Prescription documents (*.pdf;*.png;*.jpg;*.jpeg;*.bmp)|*.pdf;*.png;*.jpg;*.jpeg;*.bmp",
+			Title = "Attach prescription (PDF, JPG, or PNG)",
+			Filter = "Prescription files (*.pdf;*.jpg;*.jpeg;*.png)|*.pdf;*.jpg;*.jpeg;*.png",
 			CheckFileExists = true,
 			Multiselect = false
 		};

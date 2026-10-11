@@ -35,6 +35,8 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 
 	public DateTime InwardDate { get; set; }
 
+	public bool AcceptMedicineEdits { get; set; }
+
 	public decimal BaseAmount => Round(Quantity * Rate - DiscountAmount);
 
 	public decimal TaxAmount => Round(BaseAmount * GstRate / 100m);
@@ -81,6 +83,12 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 			{
 				OnPropertyChanging(nameof(MedicineName));
 				_medicineName = next;
+				if (AcceptMedicineEdits && _drug != null && !string.Equals(_drug.Name?.Trim(), next, StringComparison.OrdinalIgnoreCase) && !string.Equals(_drug.BrandName?.Trim(), next, StringComparison.OrdinalIgnoreCase))
+				{
+					_drug = null;
+					OnPropertyChanged(nameof(Drug));
+				}
+
 				OnPropertyChanged(nameof(MedicineName));
 			}
 		}

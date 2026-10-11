@@ -8,12 +8,17 @@
         <Button Content="Refresh" DockPanel.Dock="Left" Padding="12,4" Margin="8,0,0,0" Click="Refresh_Click" />
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
           <Button Content="Cancel" IsCancel="True" Padding="18,8" Margin="0,0,8,0" />
-          <Button Name="CaptureButton" Content="Capture Frame &amp; Scan" IsDefault="True" IsEnabled="False" Padding="22,8" FontWeight="SemiBold" Background="#FF2563EB" Foreground="#FFFFFFFF" BorderBrush="#FF1D4ED8" Click="Capture_Click" />
+          <Button Name="CaptureButton" Content="Capture Frame" IsDefault="True" IsEnabled="False" Padding="22,8" FontWeight="SemiBold" Background="#FF2563EB" Foreground="#FFFFFFFF" BorderBrush="#FF1D4ED8" Click="Capture_Click" />
         </StackPanel>
       </DockPanel>
     </StackPanel>
     <Border Background="#FF0F172A" CornerRadius="8">
-      <Image Name="PreviewImage" Stretch="Uniform" />
+      <Grid>
+        <Image Name="PreviewImage" Stretch="Uniform" />
+        <Border Name="OcrGuide" Visibility="Collapsed" Margin="36" BorderBrush="#CCFDE68A" BorderThickness="2" CornerRadius="8" IsHitTestVisible="False">
+          <TextBlock Text="Hold prescription steady within frame and ensure adequate lighting." TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="12" Padding="12,8" Foreground="#FFFFFFFF" Background="#CC0F172A" />
+        </Border>
+      </Grid>
     </Border>
   </DockPanel>
 </Window>

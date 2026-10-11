@@ -197,6 +197,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 					string text = ((settings.PrintCustomerPhone && !string.IsNullOrWhiteSpace(bill.PatientPhone)) ? ("Patient: " + bill.PatientName + "  Phone: " + bill.PatientPhone) : ("Patient: " + bill.PatientName));
 					column.Item().Text(text);
 					AddIfPresent(column, bill.PatientAddress);
+					AddIfPresent(column, string.IsNullOrWhiteSpace(bill.MrdNumber) ? null : ("MRD / IPD No: " + bill.MrdNumber));
 					if (settings.PrintDoctorName && !string.IsNullOrWhiteSpace(bill.PrescriberName))
 					{
 						column.Item().Text("Doctor: " + bill.PrescriberName + (string.IsNullOrWhiteSpace(bill.PrescriberRegistrationNumber) ? string.Empty : ("  Reg. No: " + bill.PrescriberRegistrationNumber)));

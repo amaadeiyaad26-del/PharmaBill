@@ -246,7 +246,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			ArgumentException.ThrowIfNullOrWhiteSpace(input.PatientAddress, "input.PatientAddress");
 			ArgumentException.ThrowIfNullOrWhiteSpace(input.PrescriberName, "input.PrescriberName");
 			ArgumentException.ThrowIfNullOrWhiteSpace(input.PrescriberRegistrationNumber, "input.PrescriberRegistrationNumber");
-			if (string.IsNullOrWhiteSpace(input.PrescriptionDocumentPath))
+			if (string.IsNullOrWhiteSpace(input.PrescriptionDocumentPath) && !input.PrescriptionAdminOverride)
 			{
 				throw new InvalidOperationException("Attach a prescription image or PDF for H1, X, and NDPS items.");
 			}
@@ -259,7 +259,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		decimal num2 = input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase)).Sum((RetailPaymentInput retailPaymentInput) => (!(retailPaymentInput.TenderedAmount > 0m)) ? retailPaymentInput.AppliedAmount : retailPaymentInput.TenderedAmount);
 		decimal num3 = input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase)).Sum((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount);
 		decimal changeDue = RetailTaxCalculator.RoundMoney(Math.Max(0m, num2 - num3));
-		string attachmentPath = await CopyPrescriptionAsync(input.PrescriptionDocumentPath, controlledItems.Length != 0, prescriptionStorageDirectory, cancellationToken);
+		string? attachmentPath = null;
+		string? stagedPendingPath = IsPendingArchive(input.PrescriptionDocumentPath) ? Path.GetFullPath(input.PrescriptionDocumentPath) : null;
 		bool shouldKeepAttachment = false;
 		try
 		{
@@ -282,6 +283,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					patient.Name = input.PatientName.Trim();
 					patient.Address = NullIfWhiteSpace(input.PatientAddress);
 				}
+				string invoicePrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
+				Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
+				string invoiceNo = await numberSeriesService.AllocateAsync(invoicePrefix, today, cancellationToken);
+				attachmentPath = await PrescriptionArchive.StoreForBillAsync(input.PrescriptionDocumentPath, controlledItems.Length != 0 && !input.PrescriptionAdminOverride, string.IsNullOrWhiteSpace(prescriptionStorageDirectory) ? null : prescriptionStorageDirectory, invoiceNo, cancellationToken);
 				Prescription prescription = null;
 				if (controlledItems.Length != 0 || attachmentPath != null || !string.IsNullOrWhiteSpace(input.PrescriberName) || !string.IsNullOrWhiteSpace(input.PrescriberRegistrationNumber))
 				{
@@ -295,14 +300,12 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					};
 					context.Prescriptions.Add(prescription);
 				}
-				string invoicePrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
-				Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
-				string invoiceNo = await numberSeriesService.AllocateAsync(invoicePrefix, today, cancellationToken);
 				decimal paidAmount = appliedPayments;
 				Sale sale = new Sale
 				{
 					PatientId = patient.Id,
 					PrescriptionId = prescription?.Id,
+					PrescriptionFilePath = attachmentPath,
 					InvoiceNo = invoiceNo,
 					SaleAtUtc = DateTime.UtcNow,
 					Subtotal = subtotal,
@@ -312,6 +315,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					PaidAmount = paidAmount,
 					PaymentStatus = ((paidAmount >= totalAmount) ? "Paid" : ((paidAmount > 0m) ? "Partial" : "Credit")),
 					Notes = NullIfWhiteSpace(input.Notes),
+					MrdNumber = NullIfWhiteSpace(input.MrdNumber),
 					IsLocked = true,
 					BilledByUserId = actingUserId,
 					BranchId = branch.Id
@@ -361,7 +365,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 							PatientName = patient.Name,
 							PrescriberName = prescription?.PrescriberName,
 							PrescriberRegistrationNumber = prescription?.PrescriberRegistrationNumber,
-							Notes = (prepared.IsHabitForming ? "Habit-forming classification is reference data; verify against the prescription and applicable rules." : null)
+							Notes = BuildRegisterNotes(prepared.IsHabitForming, attachmentPath, input.PrescriptionAdminOverride)
 						});
 					}
 				}
@@ -402,6 +406,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			if (!shouldKeepAttachment && attachmentPath != null && File.Exists(attachmentPath))
 			{
 				File.Delete(attachmentPath);
+			}
+			else if (shouldKeepAttachment && stagedPendingPath != null && !string.Equals(stagedPendingPath, attachmentPath, StringComparison.OrdinalIgnoreCase) && File.Exists(stagedPendingPath))
+			{
+				File.Delete(stagedPendingPath);
 			}
 		}
 	}
@@ -559,7 +567,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			Drug valueOrDefault = drugs.GetValueOrDefault(item.DrugId);
 			decimal taxAmount = RetailTaxCalculator.SplitInclusive(item.Quantity, item.UnitPrice, item.TaxRate, item.DiscountAmount).TaxAmount;
 			return new RetailBillPrintLine(valueOrDefault?.Name ?? "Unknown medicine", batches.GetValueOrDefault(item.BatchId)?.BatchNo ?? "Unknown batch", batches.GetValueOrDefault(item.BatchId)?.ExpiryDate, item.Quantity, item.UnitPrice, item.TaxRate, taxAmount, item.DiscountAmount, item.LineTotal, valueOrDefault?.HsnCode);
-		}).ToArray(), prescription?.PrescriberName, prescription?.PrescriberRegistrationNumber, null, null, null, cgstAmount, sgstAmount);
+		}).ToArray(), prescription?.PrescriberName, prescription?.PrescriberRegistrationNumber, null, null, null, cgstAmount, sgstAmount, sale.MrdNumber);
 	}
 
 	public async Task<IReadOnlyList<RetailSaleReturnableLine>> GetSaleReturnLinesAsync(Guid saleId, CancellationToken cancellationToken = default(CancellationToken))
@@ -796,55 +804,23 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		return RetailTaxCalculator.RoundMoney(num);
 	}
 
-	private static async Task<string?> CopyPrescriptionAsync(string? sourcePath, bool required, string? storageDirectory, CancellationToken cancellationToken)
+	private static bool IsPendingArchive(string? path)
 	{
-		if (string.IsNullOrWhiteSpace(sourcePath))
+		if (string.IsNullOrWhiteSpace(path))
 		{
-			if (required)
-			{
-				throw new InvalidOperationException("Attach a prescription image or PDF for H1, X, and NDPS items.");
-			}
-			return null;
+			return false;
 		}
-		string fullPath = Path.GetFullPath(sourcePath);
-		string text = Path.GetExtension(fullPath).ToLowerInvariant();
-		bool flag;
-		switch (text)
-		{
-		case ".pdf":
-		case ".png":
-		case ".jpg":
-		case ".jpeg":
-		case ".bmp":
-			flag = true;
-			break;
-		default:
-			flag = false;
-			break;
-		}
-		if (!flag)
-		{
-			throw new InvalidOperationException("Prescription attachment must be a PDF or image.");
-		}
-		if (!File.Exists(fullPath))
-		{
-			throw new FileNotFoundException("The prescription attachment could not be found.", fullPath);
-		}
-		string text2 = storageDirectory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "prescriptions");
-		Directory.CreateDirectory(text2);
-		string destination = Path.Combine(text2, $"{Guid.NewGuid():N}{text}");
-		string result;
-		await using (FileStream source = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true))
-		{
-			string text3;
-			await using (FileStream target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
-			{
-				await source.CopyToAsync(target, cancellationToken);
-				text3 = destination;
-			}
-			result = text3;
-		}
-		return result;
+
+		return Path.GetFullPath(path).Contains($"{Path.DirectorySeparatorChar}_pending{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string? BuildRegisterNotes(bool habitForming, string? attachmentPath, bool adminOverride)
+	{
+		string habit = habitForming ? "Habit-forming classification is reference data; verify against the prescription and applicable rules." : string.Empty;
+		string file = string.IsNullOrWhiteSpace(attachmentPath) ? string.Empty : "PrescriptionFile=" + attachmentPath;
+		string waived = adminOverride && string.IsNullOrWhiteSpace(attachmentPath) ? "Prescription attachment waived by admin override." : string.Empty;
+		string combined = string.Join(" ", new[] { habit, file, waived }.Where(part => !string.IsNullOrWhiteSpace(part)));
+		return string.IsNullOrWhiteSpace(combined) ? null : combined;
 	}
 
 	private static CatalogInfo? FindCatalogInfo(Drug drug, IReadOnlyCollection<CatalogInfo> infos)

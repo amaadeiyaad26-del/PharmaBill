@@ -676,11 +676,13 @@ internal class PharmaBillDbContextModelSnapshot : ModelSnapshot
 			b.Property<string>("InvoiceNo").IsRequired().HasColumnType("TEXT");
 			b.Property<bool>("IsDeleted").HasColumnType("INTEGER");
 			b.Property<bool>("IsLocked").HasColumnType("INTEGER");
+			b.Property<string>("MrdNumber").HasColumnType("TEXT");
 			b.Property<string>("Notes").HasColumnType("TEXT");
 			b.Property<decimal>("PaidAmount").HasColumnType("decimal(18,2)");
 			b.Property<Guid?>("PatientId").HasColumnType("TEXT");
 			b.Property<string>("PaymentStatus").HasColumnType("TEXT");
 			b.Property<Guid?>("PrescriptionId").HasColumnType("TEXT");
+			b.Property<string>("PrescriptionFilePath").HasColumnType("TEXT");
 			b.Property<DateTime>("SaleAtUtc").HasColumnType("TEXT");
 			b.Property<decimal>("Subtotal").HasColumnType("decimal(18,2)");
 			b.Property<int>("SyncState").HasColumnType("INTEGER");

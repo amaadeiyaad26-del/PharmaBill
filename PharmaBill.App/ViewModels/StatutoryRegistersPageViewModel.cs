@@ -203,6 +203,21 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand SearchCommand => searchCommand ?? (searchCommand = new AsyncRelayCommand(SearchAsync));
 
+	public IRelayCommand<string?> OpenPrescriptionCommand => openPrescriptionCommand ?? (openPrescriptionCommand = new RelayCommand<string?>(OpenPrescription));
+
+	private RelayCommand<string?>? openPrescriptionCommand;
+
+	private void OpenPrescription(string? path)
+	{
+		if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+		{
+			ErrorMessage = "The archived prescription file could not be found.";
+			return;
+		}
+
+		Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand AppendCorrectionCommand => appendCorrectionCommand ?? (appendCorrectionCommand = new AsyncRelayCommand(AppendCorrectionAsync));

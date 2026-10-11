@@ -43,6 +43,7 @@ public static class ThermalReceiptFormatter
 			handler.AppendFormatted(bill.PatientPhone);
 			stringBuilder5.AppendLine(ref handler);
 		}
+		AppendLineIfPresent(stringBuilder, string.IsNullOrWhiteSpace(bill.MrdNumber) ? null : ("MRD / IPD No: " + Ascii(bill.MrdNumber)));
 		if (settings.PrintDoctorName && !string.IsNullOrWhiteSpace(bill.PrescriberName))
 		{
 			stringBuilder2 = stringBuilder;

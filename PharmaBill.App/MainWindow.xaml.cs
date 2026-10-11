@@ -89,6 +89,8 @@ public partial class MainWindow : Window
 			{
 				Key navKey = e.Key == Key.System ? e.SystemKey : e.Key;
 				bool alt = e.Key == Key.System || (mods & ModifierKeys.Alt) == ModifierKeys.Alt;
+				bool ctrl = (mods & ModifierKeys.Control) == ModifierKeys.Control;
+				bool shift = (mods & ModifierKeys.Shift) == ModifierKeys.Shift;
 				if (alt && navKey == Key.Left)
 				{
 					if (purchasePage.PreviousPageCommand.CanExecute(null))
@@ -132,9 +134,29 @@ public partial class MainWindow : Window
 					return;
 				}
 
-				if (e.Key == Key.F10 || (e.Key == Key.S && (mods & ModifierKeys.Control) == ModifierKeys.Control))
+				if (ctrl && alt && navKey == Key.S)
+				{
+					_ = purchasePage.ScanPurchaseWithHandheldScannerCommand.ExecuteAsync(null);
+					e.Handled = true;
+					return;
+				}
+
+				if (e.Key == Key.F10 || (navKey == Key.S && ctrl && !alt && !shift))
 				{
 					_ = purchasePage.TransferToStockCommand.ExecuteAsync(null);
+					e.Handled = true;
+					return;
+				}
+			}
+
+			if (_viewModel.CurrentPage is RetailBillingViewModel retailPage)
+			{
+				Key retailKey = e.Key == Key.System ? e.SystemKey : e.Key;
+				if (retailKey == Key.S
+					&& (mods & ModifierKeys.Control) == ModifierKeys.Control
+					&& (mods & ModifierKeys.Shift) == ModifierKeys.Shift)
+				{
+					_ = retailPage.ScanPrescriptionWithHandheldScannerCommand.ExecuteAsync(null);
 					e.Handled = true;
 					return;
 				}

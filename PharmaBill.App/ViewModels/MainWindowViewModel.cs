@@ -2459,11 +2459,11 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
 		NavigationItems.Add(new NavigationItem("StockTransfer", "Stock transfer"));
 		NavigationItems.Add(new NavigationItem("Purchases", _languageService.GetString("NavPurchases")));
-		NavigationItems.Add(new NavigationItem("Customers", _languageService.GetString("NavCustomers")));
+		NavigationItems.Add(new NavigationItem("Customers", mode == BusinessMode.Retail ? "Retail Customers" : _languageService.GetString("NavCustomers")));
+		NavigationItems.Add(new NavigationItem("Accounts", mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts"));
 		if (mode != BusinessMode.Retail)
 		{
 			NavigationItems.Add(new NavigationItem("Pricing", "Pack levels & pricing"));
-			NavigationItems.Add(new NavigationItem("Accounts", "Accounts"));
 			NavigationItems.Add(new NavigationItem("BankReconciliation", "Bank & Ledger Reconciliation"));
 			NavigationItems.Add(new NavigationItem("CollectionsDunning", "Collections & Smart Dunning"));
 			NavigationItems.Add(new NavigationItem("Returns", "Returns & credit notes"));

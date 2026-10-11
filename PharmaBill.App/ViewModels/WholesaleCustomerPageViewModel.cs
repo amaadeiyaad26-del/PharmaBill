@@ -12,10 +12,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Wholesale;
+using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
@@ -119,6 +121,40 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 	public ObservableCollection<string> LicenceTypeOptions { get; } = new ObservableCollection<string>();
 
 	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string> { "Distributor", "Retailer", "Hospital", "Institution", "Other" };
+
+	public ObservableCollection<string> PatientTypeOptions { get; } = new ObservableCollection<string> { "Walk-in", "Regular", "Chronic Patient", "Staff", "Admitted/MRD" };
+
+	private bool _isRetailMode;
+
+	public bool IsRetailMode => _isRetailMode;
+
+	public bool IsWholesaleMode => !_isRetailMode;
+
+	public string PageTitle => _isRetailMode ? "Retail Customers & Patients" : "Wholesale customers";
+
+	public string DetailsHeader => _isRetailMode ? "Customer / Patient Details" : "Buyer details";
+
+	public string NameFieldLabel => _isRetailMode ? "Patient / Customer Name" : "Customer / legal name";
+
+	public string TypeFieldLabel => _isRetailMode ? "Patient Type" : "Buyer type";
+
+	public string PhoneFieldLabel => _isRetailMode ? "Mobile Phone Number" : "Phone";
+
+	public string AddressFieldLabel => _isRetailMode ? "Address / Area" : "Address";
+
+	public string BalanceFieldLabel => _isRetailMode ? "Running Balance (₹)" : "Opening balance (₹)";
+
+	public string TagsFieldLabel => _isRetailMode ? "Chronic Disease / Refill Tags" : "Route";
+
+	public string SaveButtonLabel => _isRetailMode ? "Save Customer / Patient" : "Save Customer";
+
+	public string NewButtonLabel => _isRetailMode ? "New patient" : "New customer";
+
+	public string ActiveFlagLabel => _isRetailMode ? "Active (clear to block credit billing)" : "Active (clear to block buyer)";
+
+	public string RetailSuppliersHint => "Medicine distributors and wholesalers (e.g. stock creditors) are managed under Purchases → Supplier — never as retail customers.";
+
+	public IEnumerable<string> TypeOptions => _isRetailMode ? PatientTypeOptions : BuyerTypeOptions;
 
 	public ObservableCollection<CustomerLicenceDraft> Licences { get; } = new ObservableCollection<CustomerLicenceDraft>();
 
@@ -671,6 +707,23 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		using IServiceScope scope = _scopeFactory.CreateScope();
+		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+		BusinessMode mode = await context.PharmacyProfiles.AsNoTracking().Select((PharmacyProfile profile) => profile.BusinessMode).FirstOrDefaultAsync(cancellationToken);
+		_isRetailMode = mode == BusinessMode.Retail;
+		OnPropertyChanged(nameof(IsRetailMode));
+		OnPropertyChanged(nameof(IsWholesaleMode));
+		OnPropertyChanged(nameof(PageTitle));
+		OnPropertyChanged(nameof(DetailsHeader));
+		OnPropertyChanged(nameof(NameFieldLabel));
+		OnPropertyChanged(nameof(TypeFieldLabel));
+		OnPropertyChanged(nameof(PhoneFieldLabel));
+		OnPropertyChanged(nameof(AddressFieldLabel));
+		OnPropertyChanged(nameof(BalanceFieldLabel));
+		OnPropertyChanged(nameof(TagsFieldLabel));
+		OnPropertyChanged(nameof(SaveButtonLabel));
+		OnPropertyChanged(nameof(NewButtonLabel));
+		OnPropertyChanged(nameof(ActiveFlagLabel));
+		OnPropertyChanged(nameof(TypeOptions));
 		WholesaleCustomerService service = scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>();
 		BuyerLicenceRuleTypes = ((await service.GetBuyerLicenceRulesAsync(cancellationToken)).TryGetValue(BuyerLicenceRuleType, out var value) ? string.Join(", ", value) : string.Empty);
 		await ReloadCustomersAsync(service, cancellationToken);
@@ -681,7 +734,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		_editingCustomerId = Guid.NewGuid();
 		SelectedRecord = null;
 		Name = string.Empty;
-		BuyerType = "Distributor";
+		BuyerType = _isRetailMode ? "Walk-in" : "Distributor";
 		Phone = string.Empty;
 		Email = string.Empty;
 		Address = string.Empty;

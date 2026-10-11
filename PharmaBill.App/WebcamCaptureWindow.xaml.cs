@@ -44,9 +44,16 @@ public partial class WebcamCaptureWindow : Window
 
 	public string? CapturedPath { get; private set; }
 
-	public WebcamCaptureWindow()
+	public WebcamCaptureWindow(bool prescriptionOcrMode = false)
 	{
 		InitializeComponent();
+		if (prescriptionOcrMode)
+		{
+			Title = "Extract prescription from webcam";
+			CaptureButton.Content = "Capture Frame & Extract";
+			OcrGuide.Visibility = Visibility.Visible;
+			StatusText.Text = "Hold prescription steady within frame and ensure adequate lighting.";
+		}
 		Loaded += async (object _, RoutedEventArgs _) =>
 		{
 			await LoadDevicesAsync();

@@ -55,6 +55,8 @@ public sealed class DbInitializer(
 		await EnsurePurchaseAttachmentColumnsAsync(cancellationToken);
 		await EnsureDrugStockQuantityColumnAsync(cancellationToken);
 		await EnsureAuditComplianceColumnsAsync(cancellationToken);
+		await EnsureSaleMrdNumberColumnAsync(cancellationToken);
+		await TryAddNullableTextColumnAsync("Sales", "PrescriptionFilePath", indexName: null, cancellationToken);
 
 		// 4) SEED ONLY AFTER TABLES EXIST — skip cleanly when defaults already present.
 		try
@@ -232,6 +234,11 @@ public sealed class DbInitializer(
 		await context.Database.ExecuteSqlRawAsync(
 			"""ALTER TABLE "Drugs" ADD COLUMN "StockQuantity" decimal(18,2) NOT NULL DEFAULT 0;""",
 			cancellationToken);
+	}
+
+	private Task EnsureSaleMrdNumberColumnAsync(CancellationToken cancellationToken)
+	{
+		return TryAddNullableTextColumnAsync("Sales", "MrdNumber", indexName: null, cancellationToken);
 	}
 
 	private async Task EnsureAuditComplianceColumnsAsync(CancellationToken cancellationToken)

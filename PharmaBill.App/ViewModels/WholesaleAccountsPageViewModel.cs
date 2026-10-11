@@ -51,9 +51,15 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 
 	private string _supplierPaymentReference = string.Empty;
 
+	private string _supplierPaymentMethod = "Bank";
+
+	private DateTime? _supplierPaymentDate = DateTime.Today;
+
 	private string _errorMessage = string.Empty;
 
 	private string _statusMessage = string.Empty;
+
+	private bool _isRetailMode;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? recordReceiptCommand;
@@ -84,6 +90,30 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 	public ObservableCollection<(Guid SupplierId, string SupplierName, decimal Payable)> SupplierPayables { get; } = new ObservableCollection<(Guid, string, decimal)>();
 
 	public string[] PaymentMethods { get; } = new string[4] { "Cash", "UPI", "Card", "Cheque" };
+
+	public string[] SupplierPaymentMethods { get; } = new string[4] { "Bank", "UPI", "Cheque", "Cash" };
+
+	public string PageTitle => "Accounts & Supplier Ledgers";
+
+	public string PageSubtitle => _isRetailMode
+		? "Track what you owe medicine distributors, and collect dues from retail credit customers."
+		: "Supplier payables and wholesale buyer receivables.";
+
+	public string CustomerAccountsTabHeader => _isRetailMode
+		? "👤 Retail Customer Accounts & Dues"
+		: "👤 Wholesale Buyer Ledgers & Receivables";
+
+	public string CustomerPaymentSectionTitle => _isRetailMode
+		? "Customer Dues / Receive Payment"
+		: "Record receipt (buyer payment — choose invoice or leave blank for on-account)";
+
+	public string CustomerPaymentSaveLabel => _isRetailMode ? "Receive Payment" : "Save receipt";
+
+	public string AgeingPartyHeader => _isRetailMode ? "Customer / Patient" : "Buyer";
+
+	public bool IsRetailMode => _isRetailMode;
+
+	public bool IsWholesaleMode => !_isRetailMode;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -303,6 +333,38 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	public string SupplierPaymentMethod
+	{
+		get
+		{
+			return _supplierPaymentMethod;
+		}
+		set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_supplierPaymentMethod, value))
+			{
+				_supplierPaymentMethod = value;
+				OnPropertyChanged(nameof(SupplierPaymentMethod));
+			}
+		}
+	}
+
+	public DateTime? SupplierPaymentDate
+	{
+		get
+		{
+			return _supplierPaymentDate;
+		}
+		set
+		{
+			if (!EqualityComparer<DateTime?>.Default.Equals(_supplierPaymentDate, value))
+			{
+				_supplierPaymentDate = value;
+				OnPropertyChanged(nameof(SupplierPaymentDate));
+			}
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public string ErrorMessage
@@ -371,6 +433,15 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 	{
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+		BusinessMode mode = await context.PharmacyProfiles.AsNoTracking().Select((PharmacyProfile profile) => profile.BusinessMode).FirstOrDefaultAsync(cancellationToken);
+		_isRetailMode = mode == BusinessMode.Retail;
+		OnPropertyChanged(nameof(IsRetailMode));
+		OnPropertyChanged(nameof(IsWholesaleMode));
+		OnPropertyChanged(nameof(PageSubtitle));
+		OnPropertyChanged(nameof(CustomerAccountsTabHeader));
+		OnPropertyChanged(nameof(CustomerPaymentSectionTitle));
+		OnPropertyChanged(nameof(CustomerPaymentSaveLabel));
+		OnPropertyChanged(nameof(AgeingPartyHeader));
 		List<Customer> list = await (from item in context.Customers.AsNoTracking()
 			orderby item.Name
 			select item).ToListAsync(cancellationToken);
@@ -422,10 +493,11 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().RecordSupplierPaymentAsync(SelectedSupplier.Id, result, PaymentMethod, SupplierPaymentReference, ChequeNumber, ChequeDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(ChequeDate.Value)) : ((DateOnly?)null), BankName, (_session.User ?? throw new UnauthorizedAccessException("Sign in before recording supplier payments.")).Id);
+			DateOnly? paymentDate = SupplierPaymentDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(SupplierPaymentDate.Value)) : (ChequeDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(ChequeDate.Value)) : null);
+			await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().RecordSupplierPaymentAsync(SelectedSupplier.Id, result, SupplierPaymentMethod, SupplierPaymentReference, ChequeNumber, paymentDate, BankName, (_session.User ?? throw new UnauthorizedAccessException("Sign in before recording supplier payments.")).Id);
 			SupplierPaymentAmount = string.Empty;
 			ErrorMessage = string.Empty;
-			StatusMessage = "Supplier payment saved.";
+			StatusMessage = "Supplier payment (outward) saved.";
 			await ReloadAsync();
 			await LoadSupplierAsync(SelectedSupplier.Id);
 		}

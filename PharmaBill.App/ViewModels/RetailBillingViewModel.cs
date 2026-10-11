@@ -3,6 +3,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -38,6 +39,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private string _doctorName = string.Empty;
 
 	private string _doctorRegistrationNumber = string.Empty;
+
+	private string? _patientMrdNumber;
 
 	private string _patientNameError = string.Empty;
 
@@ -253,7 +256,15 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	public IAsyncRelayCommand ExtractOrderDocumentsCommand => extractOrderDocumentsCommand ?? (extractOrderDocumentsCommand = new AsyncRelayCommand(ExtractOrderDocumentsAsync));
 
-	public IAsyncRelayCommand ExtractPrescriptionCommand => extractPrescriptionCommand ?? (extractPrescriptionCommand = new AsyncRelayCommand(AttachPrescriptionAsync));
+	public IAsyncRelayCommand ExtractPrescriptionCommand => extractPrescriptionCommand ?? (extractPrescriptionCommand = new AsyncRelayCommand(ExtractPrescriptionAsync));
+
+	public IAsyncRelayCommand ExtractPrescriptionFromWebcamCommand => extractPrescriptionFromWebcamCommand ?? (extractPrescriptionFromWebcamCommand = new AsyncRelayCommand(ExtractPrescriptionFromWebcamAsync));
+
+	public IAsyncRelayCommand ScanPrescriptionWithHandheldScannerCommand => scanPrescriptionWithHandheldScannerCommand ?? (scanPrescriptionWithHandheldScannerCommand = new AsyncRelayCommand(ScanPrescriptionWithHandheldScannerAsync));
+
+	private AsyncRelayCommand? scanPrescriptionWithHandheldScannerCommand;
+
+	private AsyncRelayCommand? extractPrescriptionFromWebcamCommand;
 
 	private AsyncRelayCommand? extractPrescriptionCommand;
 
@@ -282,6 +293,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	public bool IsUpiPayment => UpiPaymentPayload.IsUpi(PaymentMethod);
 
 	public bool HasControlledItems => BillItems.Any((RetailBillLineViewModel line) => line.RequiresPrescription);
+
+	public bool RequiresPrescriptionArchive => BillItems.Any(RequiresArchivedPrescription);
 
 	public bool HasPrescription => !string.IsNullOrWhiteSpace(PrescriptionDocumentPath);
 
@@ -430,6 +443,12 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
+	public string? PatientMrdNumber
+	{
+		get => _patientMrdNumber;
+		set => SetProperty(ref _patientMrdNumber, value);
+	}
+
 	public string DoctorRegistrationNumber
 	{
 		get
@@ -1288,6 +1307,14 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand AttachPrescriptionCommand => attachPrescriptionCommand ?? (attachPrescriptionCommand = new AsyncRelayCommand(AttachPrescriptionAsync));
 
+	public IRelayCommand PreviewPrescriptionCommand => previewPrescriptionCommand ?? (previewPrescriptionCommand = new RelayCommand(PreviewPrescription, () => HasPrescription));
+
+	private RelayCommand? previewPrescriptionCommand;
+
+	private bool _prescriptionAdminOverride;
+
+	private string? _prescriptionOriginalFileName;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand OpenCameraCommand => openCameraCommand ?? (openCameraCommand = new AsyncRelayCommand(OpenCameraAsync));
@@ -1984,22 +2011,141 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		IsSubstituteFlyoutOpen = false;
 	}
 
+	private async Task ExtractPrescriptionAsync()
+	{
+		string? picked = filePicker.PickPrescriptionDocument();
+		if (picked != null)
+		{
+			await ScanPrescriptionAsync(picked);
+		}
+	}
+
 	private async Task AttachPrescriptionAsync()
 	{
-		string text = filePicker.PickPrescriptionDocument();
-		if (text != null)
+		string? picked = filePicker.PickPrescriptionDocument();
+		if (picked != null)
 		{
-			await AttachAndScanAsync(text);
+			await ArchivePickedFileAsync(picked);
 		}
 	}
 
 	private async Task OpenCameraAsync()
 	{
-		string text = prescriptionDialogs.CaptureFromWebcam();
-		if (text != null)
+		string? captured;
+		if (!prescriptionDialogs.HasHardwareScanner())
 		{
-			await AttachAndScanAsync(text);
+			captured = prescriptionDialogs.CaptureFromWebcam();
 		}
+		else
+		{
+			bool? choice = confirmationService.Choose(
+				"Choose how to capture the prescription for the compliance archive.",
+				"Webcam / Scanner",
+				"Capture from Webcam / Document Camera",
+				"Scan from Hardware Scanner (WIA / Flatbed)");
+			if (choice == null)
+			{
+				return;
+			}
+
+			try
+			{
+				captured = choice == true
+					? prescriptionDialogs.CaptureFromWebcam()
+					: prescriptionDialogs.CaptureFromHardwareScanner();
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+				return;
+			}
+		}
+
+		if (captured != null)
+		{
+			await ArchivePickedFileAsync(captured);
+		}
+	}
+
+	private async Task ExtractPrescriptionFromWebcamAsync()
+	{
+		string? captured = prescriptionDialogs.CaptureFromWebcam(prescriptionOcrMode: true);
+		if (captured == null)
+		{
+			return;
+		}
+
+		await ArchivePickedFileAsync(captured);
+		if (!string.IsNullOrWhiteSpace(PrescriptionDocumentPath))
+		{
+			await ScanPrescriptionAsync(PrescriptionDocumentPath);
+		}
+	}
+
+	private async Task ScanPrescriptionWithHandheldScannerAsync()
+	{
+		ErrorMessage = string.Empty;
+		try
+		{
+			HardwareScannerService scanner = new HardwareScannerService();
+			string? captured = await scanner.CaptureFromHardwareScannerAsync();
+			if (string.IsNullOrWhiteSpace(captured) || !File.Exists(captured))
+			{
+				StatusMessage = scanner.HasWiaScanner()
+					? "Scanner capture cancelled."
+					: "No WIA scanner found. Connect a USB document scanner, or use Webcam / Scanner.";
+				return;
+			}
+
+			await ArchivePickedFileAsync(captured);
+			if (!string.IsNullOrWhiteSpace(PrescriptionDocumentPath))
+			{
+				await ScanPrescriptionAsync(PrescriptionDocumentPath);
+			}
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task ArchivePickedFileAsync(string picked)
+	{
+		try
+		{
+			string stored = await PrescriptionArchive.StageAsync(picked);
+			_prescriptionOriginalFileName = Path.GetFileName(picked);
+			PrescriptionDocumentPath = stored;
+			PrescriptionFileName = "✔ Attached: " + _prescriptionOriginalFileName;
+			_prescriptionAdminOverride = false;
+			ErrorMessage = string.Empty;
+			StatusMessage = "Prescription archived for compliance. It is filed under this bill number when you save.";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private void PreviewPrescription()
+	{
+		if (string.IsNullOrWhiteSpace(PrescriptionDocumentPath) || !File.Exists(PrescriptionDocumentPath))
+		{
+			ErrorMessage = "The archived prescription file could not be found.";
+			return;
+		}
+
+		Process.Start(new ProcessStartInfo(PrescriptionDocumentPath) { UseShellExecute = true });
+	}
+
+	private static bool RequiresArchivedPrescription(RetailBillLineViewModel line)
+	{
+		if (line.IsHabitForming || line.RequiresPrescription)
+		{
+			return true;
+		}
+
+		return line.Schedule is "H" or "H1" or "X" or "NDPS";
 	}
 
 	private async Task AttachAndScanAsync(string path)
@@ -2047,7 +2193,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				StatusMessage = (result.Message + " No medicines were detected; the prescription is attached to the bill.").Trim();
 				return;
 			}
-			PrescriptionReviewViewModel prescriptionReviewViewModel = new PrescriptionReviewViewModel(result, fefo, matchedNames);
+			PrescriptionReviewViewModel prescriptionReviewViewModel = new PrescriptionReviewViewModel(result, fefo, matchedNames, scopeFactory, currentSession);
 			IReadOnlyList<ConfirmedPrescriptionItem> readOnlyList = prescriptionDialogs.ReviewMatches(prescriptionReviewViewModel);
 			if (prescriptionReviewViewModel.OpenSettingsRequested)
 			{
@@ -2141,7 +2287,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			ErrorMessage = "Up to 10 bills can be held at a time.";
 			return;
 		}
-		HeldBills.Add(new HeldRetailBill($"{(string.IsNullOrWhiteSpace(PatientName) ? "Patient" : PatientName.Trim())} - ₹{TotalAmount:N2} ({DateTime.Now:HH:mm})", PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToSnapshot()).ToArray()));
+		HeldBills.Add(new HeldRetailBill($"{(string.IsNullOrWhiteSpace(PatientName) ? "Patient" : PatientName.Trim())} - ₹{TotalAmount:N2} ({DateTime.Now:HH:mm})", PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToSnapshot()).ToArray(), PatientMrdNumber ?? string.Empty));
 		ClearBill();
 		StatusMessage = $"{HeldBills.Count} bill(s) held. Resume them from the held-bill list.";
 	}
@@ -2173,8 +2319,9 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			PatientAddress = bill.PatientAddress;
 			DoctorName = bill.DoctorName;
 			DoctorRegistrationNumber = bill.DoctorRegistrationNumber;
+			PatientMrdNumber = bill.PatientMrdNumber;
 			PrescriptionDocumentPath = bill.PrescriptionDocumentPath;
-			PrescriptionFileName = ((bill.PrescriptionDocumentPath == null) ? "No prescription attached" : Path.GetFileName(bill.PrescriptionDocumentPath));
+			PrescriptionFileName = string.IsNullOrWhiteSpace(bill.PrescriptionDocumentPath) ? "No prescription attached" : "✔ Attached: " + Path.GetFileName(bill.PrescriptionDocumentPath);
 			foreach (RetailBillLineSnapshot item in bill.Items)
 			{
 				RetailBillLineViewModel retailBillLineViewModel = RetailBillLineViewModel.FromSnapshot(item);
@@ -2237,6 +2384,39 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				confirmationService.Notify("Cart is empty", ErrorMessage);
 				return;
 			}
+			if (RequiresPrescriptionArchive && !HasPrescription)
+			{
+				bool? choice = confirmationService.Choose(
+					"Prescription attachment required for Schedule H1/X/Habit-forming drugs under statutory regulations. Attach prescription file now?",
+					"Prescription required",
+					"Attach Now",
+					"Admin Override");
+				if (choice == null)
+				{
+					return;
+				}
+				if (choice == true)
+				{
+					await AttachPrescriptionAsync();
+					if (!HasPrescription)
+					{
+						return;
+					}
+				}
+				else
+				{
+					using IServiceScope accessScope = scopeFactory.CreateScope();
+					SensitiveAccessService access = accessScope.ServiceProvider.GetRequiredService<SensitiveAccessService>();
+					Window? owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive);
+					(bool Success, _) = await access.RequestAdminOverrideAsync(owner, "save a controlled bill without a prescription attachment");
+					if (!Success)
+					{
+						ErrorMessage = "Admin override was not granted. Attach the prescription to continue.";
+						return;
+					}
+					_prescriptionAdminOverride = true;
+				}
+			}
 			if (IsUpiPayment && (string.IsNullOrWhiteSpace(UpiId) || string.IsNullOrWhiteSpace(UpiLink)))
 			{
 				ErrorMessage = "Enter the pharmacy UPI ID in Settings and ensure the payment QR is available.";
@@ -2270,7 +2450,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 					using (IServiceScope scope = scopeFactory.CreateScope())
 					{
 						RetailBillingService service = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
-						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived), currentSession.User.Id, currentSession.User.Role);
+						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride), currentSession.User.Id, currentSession.User.Role);
 						BillNumber = result.InvoiceNo;
 						_lastSavedSaleId = result.Sale.Id;
 						ChangeDueText = ((result.ChangeDue > 0m) ? ("Change due: " + MoneyFormat.Rupees(result.ChangeDue)) : string.Empty);
@@ -2500,6 +2680,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		OnPropertyChanged("HasSearchResults");
 		OnPropertyChanged("HasControlledItems");
 		OnPropertyChanged("HasHabitFormingItems");
+		OnPropertyChanged(nameof(RequiresPrescriptionArchive));
 		UpdateTotals();
 		if (SelectedBillLine != null && SelectedBillLine.Mrp <= 0m)
 		{
@@ -2574,6 +2755,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		OnPropertyChanged("TotalAmount");
 		OnPropertyChanged("HasControlledItems");
 		OnPropertyChanged("HasHabitFormingItems");
+		OnPropertyChanged(nameof(RequiresPrescriptionArchive));
 		OnPropertyChanged("SplitBalanceRemaining");
 		if (PaymentAmount <= 0m || PaymentAmount > TotalAmount)
 		{
@@ -2642,7 +2824,10 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		PatientAddress = string.Empty;
 		DoctorName = string.Empty;
 		DoctorRegistrationNumber = string.Empty;
+		PatientMrdNumber = string.Empty;
 		PrescriptionDocumentPath = null;
+		_prescriptionOriginalFileName = null;
+		_prescriptionAdminOverride = false;
 		PrescriptionFileName = "No prescription attached";
 		ItemSearch = string.Empty;
 		SearchResults.Clear();
@@ -2706,6 +2891,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private void OnPrescriptionDocumentPathChanged(string? value)
 	{
 		OnPropertyChanged("HasPrescription");
+		OnPropertyChanged(nameof(RequiresPrescriptionArchive));
+		previewPrescriptionCommand?.NotifyCanExecuteChanged();
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
