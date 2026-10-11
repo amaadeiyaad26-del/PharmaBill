@@ -1890,6 +1890,15 @@
                           Content="{Binding AddNewRetailerCaption}"
                           ToolTip="Save this typed name as a new retailer in Customers master"
                           Command="{Binding AddNewRetailerCommand}" />
+                  <Button DockPanel.Dock="Right"
+                          Margin="8,0,0,0"
+                          MinHeight="36"
+                          Padding="12,6"
+                          VerticalAlignment="Top"
+                          Style="{StaticResource SecondaryButton}"
+                          Content="⬆ Import buyers (Excel)"
+                          ToolTip="Import buyers and retailers from an Excel file into Customers master"
+                          Command="{Binding ImportBuyersCommand}" />
                   <Grid MaxWidth="520" HorizontalAlignment="Left">
                     <ComboBox x:Name="WholesaleRetailerSearchBox"
                               MinHeight="36"

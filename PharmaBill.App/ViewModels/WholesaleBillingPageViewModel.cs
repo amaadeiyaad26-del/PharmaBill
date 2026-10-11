@@ -53,6 +53,12 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	private readonly ISmartDrugLookupService _smartLookup;
 
+	private readonly IFilePickerService _filePicker;
+
+	private readonly PurchaseSpreadsheetReader _spreadsheetReader;
+
+	private IAsyncRelayCommand? importBuyersCommand;
+
 	private string _pharmacyName = "Pharmacy";
 
 	private string _upiId = string.Empty;
@@ -1008,8 +1014,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ExportDeliveryChallanCommand => exportDeliveryChallanCommand ?? (exportDeliveryChallanCommand = new AsyncRelayCommand(ExportDeliveryChallanAsync));
 
-	public WholesaleBillingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IConfirmationService confirmation, WholesaleInvoiceDocumentService documents, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, INavigationService navigation, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, WholesaleReissueHandoff reissue, QuotationConversionHandoff quoteHandoff)
+	public WholesaleBillingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IConfirmationService confirmation, WholesaleInvoiceDocumentService documents, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, INavigationService navigation, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, WholesaleReissueHandoff reissue, QuotationConversionHandoff quoteHandoff, IFilePickerService filePicker, PurchaseSpreadsheetReader spreadsheetReader)
 	{
+		_filePicker = filePicker;
+		_spreadsheetReader = spreadsheetReader;
 		_reissue = reissue;
 		_quoteHandoff = quoteHandoff;
 		_scopeFactory = scopeFactory;
@@ -2329,6 +2337,49 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		{
 			// User is editing away from the selected retailer — clear selection until they pick again.
 			SelectedCustomer = null;
+		}
+	}
+
+	public IAsyncRelayCommand ImportBuyersCommand => importBuyersCommand ??= new AsyncRelayCommand(ImportBuyersAsync);
+
+	// Imports buyers and retailers from a spreadsheet, using the same columns as the Customers page import.
+	private async Task ImportBuyersAsync()
+	{
+		string? path = _filePicker.PickCustomerExcel();
+		if (string.IsNullOrWhiteSpace(path))
+		{
+			return;
+		}
+
+		try
+		{
+			ErrorMessage = string.Empty;
+			AppUser user = _session.User ?? throw new UnauthorizedAccessException("Sign in before importing buyers.");
+			IReadOnlyList<WholesaleCustomerImportRecord> imports = WholesaleCustomerPageViewModel.ParseCustomerRows(await _spreadsheetReader.ReadAsync(path), out IReadOnlyList<string> rowErrors);
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			WholesaleCustomerService service = scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>();
+			string[] licenceTypes = (await service.GetLicenceTypesAsync(CancellationToken.None)).ToArray();
+			WholesaleCustomerImportResult result = await service.ImportAsync(imports, licenceTypes, user.Id);
+
+			// Refresh the saved-buyer list without touching the invoice being edited.
+			List<Customer> saved = await (from customer in scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().Customers.AsNoTracking()
+				where customer.IsActive
+				orderby customer.Name
+				select customer).ToListAsync(CancellationToken.None);
+			Customers.Clear();
+			foreach (Customer item in saved)
+			{
+				Customers.Add(item);
+			}
+			ApplyCustomerFilter();
+
+			string[] problems = rowErrors.Concat(result.Errors).Take(5).ToArray();
+			StatusMessage = $"Imported {result.Imported} buyer(s); skipped duplicates {result.SkippedDuplicates}; invalid rows {rowErrors.Count + result.Errors.Count}.";
+			ErrorMessage = string.Join(Environment.NewLine, problems);
+		}
+		catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or InvalidOperationException or UnauthorizedAccessException)
+		{
+			ErrorMessage = ex.Message;
 		}
 	}
 

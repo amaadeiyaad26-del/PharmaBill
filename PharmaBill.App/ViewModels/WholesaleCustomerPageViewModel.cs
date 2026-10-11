@@ -1001,7 +1001,8 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		};
 	}
 
-	private static IReadOnlyList<WholesaleCustomerImportRecord> ParseCustomerRows(PurchaseSpreadsheetData sheet, out IReadOnlyList<string> errors)
+	// Shared with the B2B billing screen so both read the same buyer spreadsheet columns.
+	internal static IReadOnlyList<WholesaleCustomerImportRecord> ParseCustomerRows(PurchaseSpreadsheetData sheet, out IReadOnlyList<string> errors)
 	{
 		List<string> list = new List<string>();
 		Dictionary<string, WholesaleCustomerImportRecord> dictionary = new Dictionary<string, WholesaleCustomerImportRecord>(StringComparer.OrdinalIgnoreCase);
