@@ -4788,13 +4788,7 @@
                 <TextBlock Text="Access simulator (debug)" />
               </StackPanel>
             </Button>
-            <Button Style="{StaticResource SidebarNavButtonStyle}" CommandParameter="Settings" Command="{Binding NavigateCommand}">
-              <FrameworkElement.Tag>
-                <MultiBinding Converter="{StaticResource SectionActiveConverter}">
-                  <Binding Path="CurrentSectionKey" />
-                  <Binding Source="Settings" />
-                </MultiBinding>
-              </FrameworkElement.Tag>
+            <Button Style="{StaticResource SidebarNavButtonStyle}" CommandParameter="Settings" Command="{Binding NavigateCommand}" controls:NavActive.IsActive="{Binding IsSettingsActive}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource NavIconText}" Text="" />
                 <TextBlock Text="{DynamicResource NavSettings}" />
@@ -4820,13 +4814,7 @@
             <ItemsControl ItemsSource="{Binding NavigationItemsView}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Button Style="{StaticResource SidebarNavButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding SectionKey}">
-                    <FrameworkElement.Tag>
-                      <MultiBinding Converter="{StaticResource SectionActiveConverter}">
-                        <Binding Path="DataContext.CurrentSectionKey" RelativeSource="{RelativeSource AncestorType=Window}" />
-                        <Binding Path="SectionKey" />
-                      </MultiBinding>
-                    </FrameworkElement.Tag>
+                  <Button Style="{StaticResource SidebarNavButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding SectionKey}" controls:NavActive.IsActive="{Binding IsActive}">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Style="{StaticResource NavIconText}" Text="{Binding SectionKey, Converter={StaticResource NavIconConverter}}" />
                       <TextBlock Text="{Binding Title}">

@@ -851,6 +851,12 @@
                 </BeginStoryboard>
               </TriggerBase.ExitActions>
             </Trigger>
+            <Trigger Property="controls:NavActive.IsActive" Value="True">
+              <Setter TargetName="ButtonBorder" Value="{DynamicResource SidebarActiveBrush}" Property="Border.Background" />
+              <Setter TargetName="ActivePill" Property="Visibility" Value="Visible" />
+              <Setter Value="{DynamicResource SidebarActiveTextBrush}" Property="Foreground" />
+              <Setter Property="FontWeight" Value="Bold" />
+            </Trigger>
             <Trigger Property="FrameworkElement.Tag" Value="True">
               <Setter TargetName="ButtonBorder" Value="{DynamicResource SidebarActiveBrush}" Property="Border.Background" />
               <Setter TargetName="ActivePill" Property="Visibility" Value="Visible" />

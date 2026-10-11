@@ -2569,6 +2569,7 @@ public class MainWindowViewModel : ObservableObject
 	{
 		string section = _navigationService.CurrentSectionKey;
 		OnPropertyChanged("CurrentSectionKey");
+		UpdateActiveNavigation();
 		if (section == "Sync")
 		{
 			RefreshUsbBackupReminder();
@@ -2776,7 +2777,21 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Backup", "Backup & move PC"));
 		NavigationItems.Add(new NavigationItem("Sync", "Sync"));
 		NavigationItems.Add(new NavigationItem("Inspector", _languageService.GetString("NavInspector")));
+		UpdateActiveNavigation();
 	}
+
+	// The sidebar lights up the screen that is open. Called on every navigation and after the list is rebuilt.
+	private void UpdateActiveNavigation()
+	{
+		string current = _navigationService.CurrentSectionKey;
+		foreach (NavigationItem item in NavigationItems)
+		{
+			item.IsActive = string.Equals(item.SectionKey, current, StringComparison.OrdinalIgnoreCase);
+		}
+		OnPropertyChanged(nameof(IsSettingsActive));
+	}
+
+	public bool IsSettingsActive => string.Equals(_navigationService.CurrentSectionKey, "Settings", StringComparison.OrdinalIgnoreCase);
 
 	private void AddPrimaryBillingNavigationItems()
 	{
