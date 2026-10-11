@@ -3024,7 +3024,7 @@
                     <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
                   <controls:FloatingField Grid.Row="0" Grid.Column="0" Label="Payment mode (F9)" IsRequired="True" ToolTip="Switch payment mode (F9)">
-                    <ComboBox ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" />
+                    <ComboBox ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" ItemContainerStyle="{StaticResource PaymentModeItem}" />
                   </controls:FloatingField>
                   <controls:FloatingField Grid.Row="0" Grid.Column="1" Label="Amount received (₹)" ToolTip="Amount received (partial payment allowed)" Visibility="{Binding IsPaymentAmountVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBox Name="PaymentAmountBox" Text="{Binding Path=PaymentAmount, UpdateSourceTrigger=PropertyChanged}" />

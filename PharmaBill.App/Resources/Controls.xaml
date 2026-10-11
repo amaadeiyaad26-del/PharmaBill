@@ -5,6 +5,7 @@
   </ResourceDictionary.MergedDictionaries>
   <BooleanToVisibilityConverter x:Key="FieldBoolToVisibility" />
   <local:ComboSelectionDisplayConverter x:Key="ComboSelectionDisplayConverter" />
+  <local:PaymentModeAccentConverter x:Key="PaymentModeAccentConverter" />
   <Style x:Key="{x:Type controls:FloatingField}" TargetType="{x:Type controls:FloatingField}">
     <Setter Property="IsTabStop" Value="False" />
     <Setter Property="Margin" Value="2" />
@@ -153,6 +154,89 @@
               </Border>
             </Popup>
           </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <!-- Payment mode dropdown: each option slides and fades in when the list opens, takes its mode colour, washes on hover and ticks when chosen. -->
+  <Style x:Key="PaymentModeItem" TargetType="{x:Type ComboBoxItem}">
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="3,2" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+          <Border x:Name="Card" CornerRadius="9" RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform>
+              <TranslateTransform x:Name="Slide" Y="0" />
+            </Border.RenderTransform>
+            <Border.Triggers>
+              <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.26" />
+                    <DoubleAnimation Storyboard.TargetName="Slide" Storyboard.TargetProperty="Y" From="8" To="0" Duration="0:0:0.26">
+                      <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </Border.Triggers>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <Border x:Name="Accent" Grid.Column="0" Width="5" CornerRadius="3" Margin="8,8,0,8" RenderTransformOrigin="0.5,0.5"
+                      Background="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource PaymentModeAccentConverter}}">
+                <Border.RenderTransform>
+                  <ScaleTransform x:Name="AccentScale" ScaleY="0.4" />
+                </Border.RenderTransform>
+              </Border>
+              <Border x:Name="Tint" Grid.ColumnSpan="3" CornerRadius="9" Opacity="0"
+                      Background="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource PaymentModeAccentConverter}, ConverterParameter=tint}" />
+              <ContentPresenter Grid.Column="1" Margin="12,10,12,10" VerticalAlignment="Center" />
+              <TextBlock x:Name="Tick" Grid.Column="2" Margin="0,0,14,0" VerticalAlignment="Center" Text="✓" FontWeight="Bold" FontSize="16" Opacity="0"
+                         Foreground="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource PaymentModeAccentConverter}}" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="AccentScale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.18">
+                      <DoubleAnimation.EasingFunction>
+                        <BackEase EasingMode="EaseOut" Amplitude="0.3" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.12" />
+                    <DoubleAnimation Storyboard.TargetName="AccentScale" Storyboard.TargetProperty="ScaleY" To="0.4" Duration="0:0:0.12" />
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Tick" Property="Opacity" Value="1" />
+              <Setter Property="FontWeight" Value="SemiBold" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
