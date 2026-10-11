@@ -22,6 +22,7 @@ public partial class QuickAddMedicineWindow : Window
 		BrandBox.Text = brandName?.Trim() ?? string.Empty;
 		BarcodeBox.Text = barcode?.Trim() ?? string.Empty;
 		ApplySuggestion(suggestion, notice);
+		PreviewKeyDown += OnArrowKeyNavigate;
 		Loaded += (_, _) =>
 		{
 			if (string.IsNullOrWhiteSpace(BrandBox.Text))
@@ -37,6 +38,25 @@ public partial class QuickAddMedicineWindow : Window
 				GenericBox.Focus();
 			}
 		};
+	}
+
+	// Up and Down move between the fields, like Enter moves forward. Only when a text box has focus.
+	private void OnArrowKeyNavigate(object sender, System.Windows.Input.KeyEventArgs e)
+	{
+		if (e.Key is not (System.Windows.Input.Key.Up or System.Windows.Input.Key.Down) || System.Windows.Input.Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
+		{
+			return;
+		}
+
+		e.Handled = true;
+		if (e.Key == System.Windows.Input.Key.Down)
+		{
+			Behaviors.KeyboardFocusManager.MoveNext();
+		}
+		else
+		{
+			Behaviors.KeyboardFocusManager.MovePrevious();
+		}
 	}
 
 	private void ApplySuggestion(SmartDrugSuggestion? suggestion, string? notice)
