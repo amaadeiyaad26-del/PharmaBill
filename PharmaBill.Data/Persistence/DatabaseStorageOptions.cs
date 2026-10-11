@@ -2,14 +2,31 @@ using System.IO;
 
 namespace PharmaBill.Data.Persistence;
 
-public sealed class DatabaseStorageOptions(string rootDirectory)
+public sealed class DatabaseStorageOptions
 {
-	public string RootDirectory { get; } = Path.GetFullPath(rootDirectory);
+	private readonly ActiveStoreContext? _activeStore;
 
-	/// <summary>Persistent data folder (%LocalAppData%\PharmaBill\data) — survives app reinstalls.</summary>
+	public DatabaseStorageOptions(string rootDirectory)
+	{
+		RootDirectory = Path.GetFullPath(rootDirectory);
+	}
+
+	public DatabaseStorageOptions(string rootDirectory, ActiveStoreContext activeStore)
+	{
+		RootDirectory = Path.GetFullPath(rootDirectory);
+		_activeStore = activeStore;
+	}
+
+	public string RootDirectory { get; }
+
+	/// <summary>Shared data folder for logs, backups, and the encryption key — survives store switches.</summary>
 	public string DataDirectory => Path.Combine(RootDirectory, "data");
 
-	public string DatabasePath => Path.Combine(DataDirectory, "pharmabill.db");
+	/// <summary>
+	/// Active pharmacy database. Prefer per-store path via <see cref="ActiveStoreContext"/>;
+	/// tests and legacy callers without a store context use <c>data/pharmabill.db</c>.
+	/// </summary>
+	public string DatabasePath => _activeStore?.DatabasePath ?? Path.Combine(DataDirectory, "pharmabill.db");
 
 	public string KeyPath => Path.Combine(DataDirectory, "database.key");
 

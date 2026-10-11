@@ -20,7 +20,10 @@ public static class WindowsFirewallPortOpener
 
 	private const int ActionAllow = 1;
 
-	public static Result EnsureAllowRule(int port = 5055, string? ruleName = null)
+	/// <param name="includePublicProfile">
+	/// When true, allows Domain+Private+Public (profiles=7). Home Wi-Fi is often Public; phone LAN sync needs this.
+	/// </param>
+	public static Result EnsureAllowRule(int port = 5055, string? ruleName = null, bool includePublicProfile = false)
 	{
 		if (!OperatingSystem.IsWindows())
 		{
@@ -30,6 +33,8 @@ public static class WindowsFirewallPortOpener
 		{
 			ruleName = "PharmaBill Sync Station (Port 5055)";
 		}
+		// NET_FW_PROFILE2_DOMAIN|PRIVATE = 3; add PUBLIC (4) => 7 for phone Wi-Fi on Public networks.
+		int profiles = includePublicProfile ? 7 : 3;
 		try
 		{
 			dynamic val = Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FwPolicy2") ?? throw new InvalidOperationException("Windows Firewall COM (HNetCfg.FwPolicy2) is unavailable.")) ?? throw new InvalidOperationException("Could not create FwPolicy2.");
@@ -46,7 +51,7 @@ public static class WindowsFirewallPortOpener
 			val3.Direction = 1;
 			val3.Action = 1;
 			val3.Enabled = true;
-			val3.Profiles = 3;
+			val3.Profiles = profiles;
 			val3.Grouping = "PharmaBill";
 			val2.Add(val3);
 			return new Result(RulePresent: true, CreatedNow: true, $"Firewall rule added for TCP {port}.");

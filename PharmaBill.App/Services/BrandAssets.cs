@@ -30,9 +30,9 @@ public static class BrandAssets
 
 	public const string MicrosoftStoreProductId = "";
 
-	public const string BrandIconPackUri = "pack://application:,,,/PharmaBill.App;component/Assets/Icons/pharma_bill_3d.png";
+	public const string BrandIconPackUri = "pack://application:,,,/PharmaBill.App;component/Resources/logo_final_3d.png";
 
-	public const string PdfWatermarkPackUri = "pack://application:,,,/PharmaBill.App;component/Assets/Icons/pharma_bill_3d_watermark.png";
+	public const string PdfWatermarkPackUri = "pack://application:,,,/PharmaBill.App;component/Resources/logo_final_3d.png";
 
 	private static readonly object Gate = new object();
 
@@ -64,7 +64,13 @@ public static class BrandAssets
 
 	private static byte[]? LoadWatermarkPng()
 	{
-		string[] array = new string[2] { "assets/icons/pharma_bill_3d_watermark.png", "assets/icons/pharma_bill_3d.png" };
+		string[] array = new string[4]
+		{
+			"resources/logo_final_3d.png",
+			"assets/icons/pharma_bill_3d_watermark.png",
+			"assets/icons/logo_watermark.png",
+			"assets/icons/pharma_bill_3d.png"
+		};
 		foreach (string text in array)
 		{
 			byte[] array2 = TryLoadPack("pack://application:,,,/PharmaBill.App;component/" + text);
@@ -142,19 +148,19 @@ public static class BrandAssets
 	private static IEnumerable<string> EnumerateFileCandidates()
 	{
 		string baseDir = AppContext.BaseDirectory;
+		yield return Path.Combine(baseDir, "Resources", "logo_final_3d.png");
 		yield return Path.Combine(baseDir, "Assets", "Icons", "pharma_bill_3d_watermark.png");
+		yield return Path.Combine(baseDir, "Assets", "Icons", "logo_watermark.png");
 		yield return Path.Combine(baseDir, "Assets", "Icons", "pharma_bill_3d.png");
-		InlineArray5<string> buffer = default;
-		buffer[0] = baseDir;
-		buffer[1] = "PharmaBill.App";
-		buffer[2] = "Assets";
-		buffer[3] = "Icons";
-		buffer[4] = "pharma_bill_3d_watermark.png";
-		yield return Path.Combine(buffer);
-		string asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+		yield return Path.Combine(baseDir, "PharmaBill.App", "Resources", "logo_final_3d.png");
+		yield return Path.Combine(baseDir, "PharmaBill.App", "Assets", "Icons", "pharma_bill_3d_watermark.png");
+		yield return Path.Combine(baseDir, "PharmaBill.App", "Assets", "Icons", "logo_watermark.png");
+		string? asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 		if (!string.IsNullOrWhiteSpace(asmDir))
 		{
+			yield return Path.Combine(asmDir, "Resources", "logo_final_3d.png");
 			yield return Path.Combine(asmDir, "Assets", "Icons", "pharma_bill_3d_watermark.png");
+			yield return Path.Combine(asmDir, "Assets", "Icons", "logo_watermark.png");
 			yield return Path.Combine(asmDir, "Assets", "Icons", "pharma_bill_3d.png");
 		}
 	}

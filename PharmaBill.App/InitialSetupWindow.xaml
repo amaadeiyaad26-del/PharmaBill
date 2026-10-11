@@ -177,6 +177,7 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <StackPanel Margin="0,0,8,10">
               <TextBlock Text="Legal name" />
@@ -202,18 +203,24 @@
               <TextBlock Text="Registration number" />
               <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding CompetentPersonRegistrationNumber}" />
             </StackPanel>
-            <StackPanel Grid.Row="2" Margin="0,0,8,0">
+            <StackPanel Grid.Row="2" Margin="0,0,8,10">
               <TextBlock Text="Bank name" />
               <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankName}" />
             </StackPanel>
-            <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,0">
-              <TextBlock Text="Account name / number" />
+            <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,10">
+              <TextBlock Text="Account holder name" />
               <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankAccountName}" />
+            </StackPanel>
+            <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,0,10">
+              <TextBlock Text="Account number" />
               <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankAccountNumber}" />
             </StackPanel>
-            <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,0,0">
-              <TextBlock Text="IFSC / UPI ID" />
+            <StackPanel Grid.Row="3" Margin="0,0,8,0">
+              <TextBlock Text="IFSC code" />
               <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding BankIfsc}" />
+            </StackPanel>
+            <StackPanel Grid.Row="3" Grid.Column="1" Margin="8,0,8,0">
+              <TextBlock Text="UPI ID / QR VPA" />
               <TextBox Margin="0,5,0,0" Padding="6" MinHeight="36" Text="{Binding UpiId}" />
             </StackPanel>
           </Grid>

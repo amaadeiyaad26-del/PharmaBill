@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -252,10 +253,11 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			{
 				CustomerId = customer.Id,
 				EntryAtUtc = invoiceAtUtc,
-				EntryType = "WholesaleInvoice",
+				EntryType = LedgerEntryTypes.WholesaleInvoice,
 				ReferenceId = invoice.Id,
 				ReferenceNo = text2,
 				Debit = roundedTotal,
+				Credit = 0m,
 				Notes = ((input.OverrideReason == null) ? null : ("Owner override: " + input.OverrideReason.Trim()))
 			});
 			if (input.PaidAmount > 0m)
@@ -276,9 +278,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				{
 					CustomerId = customer.Id,
 					EntryAtUtc = invoiceAtUtc,
-					EntryType = "Receipt",
+					EntryType = LedgerEntryTypes.Receipt,
 					ReferenceId = receipt.Id,
 					ReferenceNo = receipt.ReceiptNo,
+					Debit = 0m,
 					Credit = input.PaidAmount,
 					Notes = receipt.PaymentMethod
 				});
@@ -317,6 +320,13 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			throw new InvalidOperationException("Only a posted wholesale invoice can be cancelled.");
 		}
 		List<WholesaleInvoiceItem> lines = await context.WholesaleInvoiceItems.Where((WholesaleInvoiceItem item) => item.WholesaleInvoiceId == invoice.Id).ToListAsync(cancellationToken);
+		List<Guid> lineIds = lines.Select(line => line.Id).ToList();
+		if (await context.WholesaleReturnItems.AnyAsync(item => lineIds.Contains(item.WholesaleInvoiceItemId), cancellationToken))
+		{
+			// Cancelling restores every line in full and credits the full total, which would double-count
+			// anything already returned or credited. Those invoices must be corrected with a credit note instead.
+			throw new InvalidOperationException("This invoice already has credit notes, so it cannot be cancelled. Issue a credit note for the remaining quantity instead.");
+		}
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 		invoice.Status = "Cancelled";
 		invoice.CancelledAtUtc = DateTime.UtcNow;
@@ -352,9 +362,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		{
 			CustomerId = invoice.CustomerId,
 			EntryAtUtc = correction.ReturnAtUtc,
-			EntryType = "WholesaleInvoiceCancellation",
+			EntryType = LedgerEntryTypes.WholesaleInvoiceCancellation,
 			ReferenceId = correction.Id,
 			ReferenceNo = correction.ReturnNo,
+			Debit = 0m,
 			Credit = invoice.TotalAmount,
 			Notes = reason.Trim()
 		});

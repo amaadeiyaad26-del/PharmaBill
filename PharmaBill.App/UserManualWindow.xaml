@@ -13,7 +13,7 @@
       <DockPanel>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Content="Print Guide" Padding="14,8" Margin="0,0,8,0" Command="{Binding PrintGuideCommand}" />
-          <Button Content="Close" Padding="14,8" IsCancel="True" Style="{StaticResource PrimaryButton}" Background="#FF2563EB" BorderBrush="#FF2563EB" Command="{Binding CloseCommand}" />
+          <Button Content="Close" Padding="14,8" IsCancel="True" Style="{StaticResource PrimaryButton}" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding CloseCommand}" />
         </StackPanel>
         <StackPanel>
           <TextBlock Text="PharmaBill Quick Guides &amp; User Manual" FontSize="18" FontWeight="SemiBold" />

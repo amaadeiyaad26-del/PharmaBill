@@ -97,9 +97,18 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		new ReportChoice(ReportKind.GstSummary, "Tax & GST Summary"),
 		new ReportChoice(ReportKind.Purchases, "Purchases (invoices)"),
 		new ReportChoice(ReportKind.Profit, "Profit by drug"),
+		new ReportChoice(ReportKind.DailyMis, "Today's Gross Profit & Daily MIS"),
+		new ReportChoice(ReportKind.AbcAnalysis, "ABC Analysis (A/B/C)"),
+		new ReportChoice(ReportKind.SaleBookDaily, "Sale Book (daily)"),
+		new ReportChoice(ReportKind.SaleBookMonthly, "Sale Book (monthly)"),
+		new ReportChoice(ReportKind.PrescriberWise, "Doctor / Prescriber-wise"),
 		new ReportChoice(ReportKind.TopSellingDrugs, "Top-selling drugs"),
 		new ReportChoice(ReportKind.Expiry, "Expiry"),
-		new ReportChoice(ReportKind.LowStock, "Low stock")
+		new ReportChoice(ReportKind.LowStock, "Low stock"),
+		new ReportChoice(ReportKind.PurchaseReturnBook, "Purchase return book"),
+		new ReportChoice(ReportKind.SaleReturnBook, "Sale return book (credit notes)"),
+		new ReportChoice(ReportKind.DayBook, "Day book (cash & bank receipts / payments)"),
+		new ReportChoice(ReportKind.PartyBalances, "Party balances (debtors & creditors)")
 	};
 
 	public IReadOnlyList<ReportBranchFilterChoice> BranchFilterChoices { get; }

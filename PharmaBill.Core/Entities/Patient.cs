@@ -13,4 +13,6 @@ public sealed class Patient : EntityBase
 	public DateOnly? DateOfBirth { get; set; }
 
 	public string? Sex { get; set; }
+
+	public int LoyaltyPoints { get; set; }
 }

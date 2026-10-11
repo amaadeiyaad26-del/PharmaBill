@@ -7,7 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -62,6 +64,12 @@ public class MainWindowViewModel : ObservableObject
 
 	private readonly WholesaleReturnsPageViewModel _wholesaleReturnsPage;
 
+	private readonly QuotationsPageViewModel _quotationsPage;
+
+	private readonly ToolsPageViewModel _toolsPage;
+
+	private readonly BillingDeskState _billingDeskState;
+
 	private readonly StockInHandPageViewModel _stockInHandPage;
 
 	private readonly WholesaleReportsPageViewModel _wholesaleReportsPage;
@@ -71,6 +79,8 @@ public class MainWindowViewModel : ObservableObject
 	private readonly GstReturnsPageViewModel _gstReturnsPage;
 
 	private readonly DashboardPageViewModel _dashboardPage;
+
+	private readonly WholesaleDashboardPageViewModel _wholesaleDashboardPage;
 
 	private readonly BackupPageViewModel _backupPage;
 
@@ -277,6 +287,20 @@ public class MainWindowViewModel : ObservableObject
 
 	private RelayCommand? shortcutFocusMedicineCommand;
 
+	private AsyncRelayCommand? shortcutShowSubstitutesCommand;
+
+	private RelayCommand? shortcutHoldBillCommand;
+
+	private RelayCommand? shortcutFocusPaymentCommand;
+
+	private AsyncRelayCommand? shortcutScanDocumentCommand;
+
+	private AsyncRelayCommand? shortcutShowPaymentQrCommand;
+
+	private RelayCommand? shortcutOpenCalculatorCommand;
+
+	private RelayCommand? shortcutCancelCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? focusSettingsSearchCommand;
 
@@ -339,6 +363,36 @@ public class MainWindowViewModel : ObservableObject
 		?? "Your annual license is approaching expiry. Contact support to renew.";
 
 	public ObservableCollection<NavigationItem> NavigationItems { get; } = new ObservableCollection<NavigationItem>();
+
+	private string _navFilter = string.Empty;
+
+	private ICollectionView? _navigationItemsView;
+
+	/// <summary>Text typed in the sidebar search box. Filters the navigation list by title.</summary>
+	public string NavFilter
+	{
+		get => _navFilter;
+		set
+		{
+			if (_navFilter != value)
+			{
+				_navFilter = value;
+				OnPropertyChanged(nameof(NavFilter));
+				NavigationItemsView.Refresh();
+			}
+		}
+	}
+
+	/// <summary>The sidebar list, filtered by <see cref="NavFilter"/>. Stays in step with <see cref="NavigationItems"/>.</summary>
+	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
+
+	private ICollectionView BuildNavigationItemsView()
+	{
+		ICollectionView view = CollectionViewSource.GetDefaultView(NavigationItems);
+		view.Filter = item => item is NavigationItem navigationItem
+			&& (string.IsNullOrWhiteSpace(NavFilter) || navigationItem.Title.Contains(NavFilter.Trim(), StringComparison.OrdinalIgnoreCase));
+		return view;
+	}
 
 	public string CurrentSectionKey => _navigationService.CurrentSectionKey;
 
@@ -1226,13 +1280,36 @@ public class MainWindowViewModel : ObservableObject
 	/// <summary>F4 — medicine search bar.</summary>
 	public IRelayCommand ShortcutFocusMedicineCommand => shortcutFocusMedicineCommand ?? (shortcutFocusMedicineCommand = new RelayCommand(ShortcutFocusMedicine));
 
+	/// <summary>F5 / Ctrl+5 / Ctrl+Alt+S — salt substitutes.</summary>
+	public IAsyncRelayCommand ShortcutShowSubstitutesCommand => shortcutShowSubstitutesCommand ??= new AsyncRelayCommand(ShortcutShowSubstitutesAsync);
+
+	/// <summary>F8 / Ctrl+8 / Ctrl+H — hold bill.</summary>
+	public IRelayCommand ShortcutHoldBillCommand => shortcutHoldBillCommand ??= new RelayCommand(ShortcutHoldBill);
+
+	/// <summary>F9 / Ctrl+9 / Ctrl+T — payment mode.</summary>
+	public IRelayCommand ShortcutFocusPaymentCommand => shortcutFocusPaymentCommand ??= new RelayCommand(ShortcutFocusPayment);
+
+	/// <summary>F7 / Ctrl+7 / Ctrl+D — scan document / invoice / camera.</summary>
+	public IAsyncRelayCommand ShortcutScanDocumentCommand => shortcutScanDocumentCommand ??= new AsyncRelayCommand(ShortcutScanDocumentAsync);
+
+	/// <summary>F11 / Ctrl+Q — payment QR.</summary>
+	public IAsyncRelayCommand ShortcutShowPaymentQrCommand => shortcutShowPaymentQrCommand ??= new AsyncRelayCommand(ShortcutShowPaymentQrAsync);
+
+	/// <summary>F12 / Ctrl+K — floating calculator.</summary>
+	public IRelayCommand ShortcutOpenCalculatorCommand => shortcutOpenCalculatorCommand ??= new RelayCommand(ShortcutOpenCalculator);
+
+	/// <summary>Esc / Ctrl+W — cancel / clear active line or bill.</summary>
+	public IRelayCommand ShortcutCancelCommand => shortcutCancelCommand ??= new RelayCommand(ShortcutCancel);
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand FocusSettingsSearchCommand => focusSettingsSearchCommand ?? (focusSettingsSearchCommand = new RelayCommand(FocusSettingsSearch, CanFocusSettingsSearch));
 
 	public event EventHandler? LockRequested;
 
-	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, DashboardPageViewModel dashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
+	public event EventHandler? CalculatorRequested;
+
+	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, QuotationsPageViewModel quotationsPage, ToolsPageViewModel toolsPage, BillingDeskState billingDeskState, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
 	{
 		_navigationService = navigationService;
 		_languageService = languageService;
@@ -1250,11 +1327,15 @@ public class MainWindowViewModel : ObservableObject
 		_wholesaleReconciliationPage = wholesaleReconciliationPage;
 		_dunningDashboardPage = dunningDashboardPage;
 		_wholesaleReturnsPage = wholesaleReturnsPage;
+		_quotationsPage = quotationsPage;
+		_toolsPage = toolsPage;
+		_billingDeskState = billingDeskState;
 		_stockInHandPage = stockInHandPage;
 		_wholesaleReportsPage = wholesaleReportsPage;
 		_reportsPage = reportsPage;
 		_gstReturnsPage = gstReturnsPage;
 		_dashboardPage = dashboardPage;
+		_wholesaleDashboardPage = wholesaleDashboardPage;
 		_backupPage = backupPage;
 		_syncPage = syncPage;
 		_retailBillingPage = retailBillingPage;
@@ -1377,6 +1458,7 @@ public class MainWindowViewModel : ObservableObject
 		PharmacyName = pharmacyProfile.Name;
 		_businessMode = pharmacyProfile.BusinessMode;
 		_activeBillingDeskMode = _activeBillingDeskModeStore.Load(pharmacyProfile.BusinessMode);
+		_billingDeskState.Current = _activeBillingDeskMode;
 		ApplyMode(pharmacyProfile.BusinessMode);
 		_settingsPage.SelectedBusinessMode = pharmacyProfile.BusinessMode;
 		try
@@ -1497,27 +1579,35 @@ public class MainWindowViewModel : ObservableObject
 		{
 			try
 			{
+				Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
 				await Application.Current.Dispatcher.InvokeAsync(() =>
 				{
 					CatalogueImportProgress = 0.0;
 					CatalogueImportStatus = "Indexing 253,973 medicines in background...";
 					IsImportingCatalogue = true;
-				});
+				}, DispatcherPriority.Background);
+				int lastReportedItems = -1;
 				await _catalogueService.EnsureCatalogueSeededAsync((CatalogueSeedProgress progress) =>
 				{
+					if (progress.ProcessedItems == lastReportedItems && progress.Percent < 100.0)
+					{
+						return;
+					}
+
+					lastReportedItems = (int)progress.ProcessedItems;
 					Application.Current?.Dispatcher.InvokeAsync(() =>
 					{
 						CatalogueImportProgress = progress.Percent;
 						CatalogueImportStatus = $"{progress.ProcessedItems:N0} records processed...";
-					});
+					}, DispatcherPriority.Background);
 				});
 				await Application.Current.Dispatcher.InvokeAsync(() =>
 				{
 					CatalogueImportProgress = 100.0;
 					CatalogueImportStatus = "Database up to date ✓";
-				});
+				}, DispatcherPriority.Background);
 				await Task.Delay(1500);
-				await Application.Current.Dispatcher.InvokeAsync(() => IsImportingCatalogue = false);
+				await Application.Current.Dispatcher.InvokeAsync(() => IsImportingCatalogue = false, DispatcherPriority.Background);
 			}
 			catch (Exception exception)
 			{
@@ -1526,7 +1616,7 @@ public class MainWindowViewModel : ObservableObject
 				{
 					CatalogueImportStatus = "Import paused — resume from Import medicine data.";
 					CatalogueImportProgress = Math.Max(CatalogueImportProgress, 0.0);
-				});
+				}, DispatcherPriority.Background);
 			}
 		});
 	}
@@ -2116,7 +2206,7 @@ public class MainWindowViewModel : ObservableObject
 		if (CanUseRetailBilling)
 		{
 			SetActiveBillingDeskMode(ActiveBillingDeskMode.Retail);
-			Navigate("Billing");
+			Navigate("Dashboard");
 		}
 	}
 
@@ -2125,7 +2215,7 @@ public class MainWindowViewModel : ObservableObject
 		if (CanUseWholesaleBilling)
 		{
 			SetActiveBillingDeskMode(ActiveBillingDeskMode.Wholesale);
-			Navigate("WholesaleBilling");
+			Navigate("Dashboard");
 		}
 	}
 
@@ -2145,6 +2235,12 @@ public class MainWindowViewModel : ObservableObject
 
 	private void ShortcutNewBill()
 	{
+		if (CurrentPage is PurchasePageViewModel purchase)
+		{
+			purchase.BeginNewEntry();
+			return;
+		}
+
 		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
 		{
 			if (wholesale.NewBillCommand.CanExecute(null))
@@ -2186,6 +2282,16 @@ public class MainWindowViewModel : ObservableObject
 
 	private async Task ShortcutSaveAndPrintAsync()
 	{
+		if (CurrentPage is PurchasePageViewModel purchase)
+		{
+			if (purchase.TransferToStockCommand.CanExecute(null))
+			{
+				await purchase.TransferToStockCommand.ExecuteAsync(null);
+			}
+
+			return;
+		}
+
 		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
 		{
 			if (wholesale.SaveAndPrintCommand.CanExecute(null))
@@ -2216,6 +2322,116 @@ public class MainWindowViewModel : ObservableObject
 		{
 			Navigate("Billing");
 			await _retailBillingPage.SaveAndPrintCommand.ExecuteAsync(null);
+		}
+	}
+
+	private async Task ShortcutShowSubstitutesAsync()
+	{
+		// Purchases already use Ctrl+Alt+S for handheld invoice scan — preserve that.
+		if (CurrentPage is PurchasePageViewModel purchase
+			&& purchase.ScanPurchaseWithHandheldScannerCommand.CanExecute(null))
+		{
+			await purchase.ScanPurchaseWithHandheldScannerCommand.ExecuteAsync(null);
+			return;
+		}
+
+		EnsureBillingSectionForShortcuts();
+		if (CurrentPage is RetailBillingViewModel retail && retail.ShowSubstitutesCommand.CanExecute(null))
+		{
+			await retail.ShowSubstitutesCommand.ExecuteAsync(null);
+		}
+	}
+
+	private void ShortcutHoldBill()
+	{
+		if (CurrentPage is RetailBillingViewModel retail && retail.HoldBillCommand.CanExecute(null))
+		{
+			retail.HoldBillCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale && wholesale.HoldBillCommand.CanExecute(null))
+		{
+			wholesale.HoldBillCommand.Execute(null);
+		}
+	}
+
+	private void ShortcutFocusPayment()
+	{
+		EnsureBillingSectionForShortcuts();
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale)
+		{
+			wholesale.FocusPaymentCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail)
+		{
+			retail.FocusPaymentCommand.Execute(null);
+		}
+	}
+
+	private async Task ShortcutScanDocumentAsync()
+	{
+		if (CurrentPage is PurchasePageViewModel purchase && purchase.ScanInvoiceCommand.CanExecute(null))
+		{
+			await purchase.ScanInvoiceCommand.ExecuteAsync(null);
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail)
+		{
+			if (retail.ExtractPrescriptionFromWebcamCommand.CanExecute(null))
+			{
+				await retail.ExtractPrescriptionFromWebcamCommand.ExecuteAsync(null);
+			}
+
+			return;
+		}
+
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale && wholesale.ExtractOrderDocumentsCommand.CanExecute(null))
+		{
+			await wholesale.ExtractOrderDocumentsCommand.ExecuteAsync(null);
+		}
+	}
+
+	private async Task ShortcutShowPaymentQrAsync()
+	{
+		EnsureBillingSectionForShortcuts();
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale && wholesale.ShowPaymentQrCommand.CanExecute(null))
+		{
+			await wholesale.ShowPaymentQrCommand.ExecuteAsync(null);
+			return;
+		}
+
+		if (CurrentPage is RetailBillingViewModel retail && retail.ShowPaymentQrCommand.CanExecute(null))
+		{
+			await retail.ShowPaymentQrCommand.ExecuteAsync(null);
+		}
+	}
+
+	private void ShortcutOpenCalculator()
+	{
+		CalculatorRequested?.Invoke(this, EventArgs.Empty);
+	}
+
+	private void ShortcutCancel()
+	{
+		if (CurrentPage is RetailBillingViewModel retail && retail.CancelBillCommand.CanExecute(null))
+		{
+			retail.CancelBillCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is WholesaleBillingPageViewModel wholesale && wholesale.CancelBillCommand.CanExecute(null))
+		{
+			wholesale.CancelBillCommand.Execute(null);
+			return;
+		}
+
+		if (CurrentPage is PurchasePageViewModel purchase && purchase.CancelAddItemCommand.CanExecute(null))
+		{
+			purchase.CancelAddItemCommand.Execute(null);
 		}
 	}
 
@@ -2403,6 +2619,7 @@ public class MainWindowViewModel : ObservableObject
 		CanUseRetailBilling = mode != BusinessMode.Wholesaler;
 		CanUseWholesaleBilling = mode != BusinessMode.Retail;
 		_activeBillingDeskMode = ActiveBillingDeskModeStore.Clamp(_activeBillingDeskMode, mode);
+		_billingDeskState.Current = _activeBillingDeskMode;
 		RefreshModeBadge();
 		OnPropertyChanged("CanUseCombinedDeskMode");
 		bool flag = mode == BusinessMode.Wholesaler;
@@ -2453,14 +2670,19 @@ public class MainWindowViewModel : ObservableObject
 	/// </summary>
 	private void RebuildNavigationItems(BusinessMode mode)
 	{
+		bool wholesaleDesk = _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale;
 		NavigationItems.Clear();
-		NavigationItems.Add(new NavigationItem("Dashboard", "Dashboard"));
+		NavigationItems.Add(new NavigationItem("Dashboard", wholesaleDesk ? "Wholesale Dashboard" : "Dashboard"));
 		AddPrimaryBillingNavigationItems();
 		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
-		NavigationItems.Add(new NavigationItem("StockTransfer", "Stock transfer"));
-		NavigationItems.Add(new NavigationItem("Purchases", _languageService.GetString("NavPurchases")));
-		NavigationItems.Add(new NavigationItem("Customers", mode == BusinessMode.Retail ? "Retail Customers" : _languageService.GetString("NavCustomers")));
-		NavigationItems.Add(new NavigationItem("Accounts", mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts"));
+		NavigationItems.Add(new NavigationItem("StockTransfer", wholesaleDesk ? "Godown / Counter Challan" : "Stock transfer"));
+		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
+		string customersLabel = wholesaleDesk
+			? "Buyers & Pharmacies"
+			: (mode == BusinessMode.Retail ? "Retail Customers" : _languageService.GetString("NavCustomers"));
+		NavigationItems.Add(new NavigationItem("Customers", customersLabel));
+		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
+		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
 		if (mode != BusinessMode.Retail)
 		{
 			NavigationItems.Add(new NavigationItem("Pricing", "Pack levels & pricing"));
@@ -2474,8 +2696,9 @@ public class MainWindowViewModel : ObservableObject
 			NavigationItems.Add(new NavigationItem("Registers", _languageService.GetString("NavRegisters")));
 			NavigationItems.Add(new NavigationItem("DrugRecords", _languageService.GetString("NavDrugRecords")));
 		}
-		NavigationItems.Add(new NavigationItem("Reports", _languageService.GetString("NavReports")));
-		NavigationItems.Add(new NavigationItem("GstReturns", "GST Returns"));
+		NavigationItems.Add(new NavigationItem("Tools", "🧰 Tools: calendar, notepad, narrations"));
+		NavigationItems.Add(new NavigationItem("Reports", "📈 Reports & Daily MIS"));
+		NavigationItems.Add(new NavigationItem("GstReturns", "📊 GST & e-Way"));
 		NavigationItems.Add(new NavigationItem("Backup", "Backup & move PC"));
 		NavigationItems.Add(new NavigationItem("Sync", "Sync"));
 		NavigationItems.Add(new NavigationItem("Inspector", _languageService.GetString("NavInspector")));
@@ -2503,7 +2726,7 @@ public class MainWindowViewModel : ObservableObject
 
 		if (showWholesale)
 		{
-			NavigationItems.Add(new NavigationItem("WholesaleBilling", _languageService.GetString("NavWholesaleInvoice")));
+			NavigationItems.Add(new NavigationItem("WholesaleBilling", "B2B Invoicing / Challans"));
 		}
 	}
 
@@ -2520,22 +2743,29 @@ public class MainWindowViewModel : ObservableObject
 	private void SetActiveBillingDeskMode(ActiveBillingDeskMode mode)
 	{
 		ActiveBillingDeskMode mode2 = (_activeBillingDeskMode = ActiveBillingDeskModeStore.Clamp(mode, _businessMode));
+		_billingDeskState.Current = mode2;
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
 		RebuildNavigationItems(_businessMode);
+		if (CurrentPage is DashboardPageViewModel or WholesaleDashboardPageViewModel)
+		{
+			CurrentPage = CreatePage("Dashboard");
+			_ = LoadCurrentPageAsync();
+		}
 	}
 
 	private void RefreshModeBadge()
 	{
 		(ModeStatus, ModeBadgeKind) = _activeBillingDeskMode switch
 		{
-			ActiveBillingDeskMode.Retail => ("You are in RTL Mode", "Retail"), 
-			ActiveBillingDeskMode.Wholesale => ("You are in WS Mode", "Wholesale"), 
-			_ => ("MODE: 2-IN-1 (RTL + WS)", "Combined"), 
+			ActiveBillingDeskMode.Retail => ("🛒 Retail Counter", "Retail"),
+			ActiveBillingDeskMode.Wholesale => ("🏢 Wholesale B2B", "Wholesale"),
+			_ => ("MODE: 2-IN-1 (RTL + WS)", "Combined"),
 		};
 		OnPropertyChanged("IsRetailDeskActive");
 		OnPropertyChanged("IsWholesaleDeskActive");
 		OnPropertyChanged("IsCombinedDeskActive");
+		BillingModeAccent.Apply(_activeBillingDeskMode);
 	}
 
 	private string? PreferredBillingSection()
@@ -2563,7 +2793,9 @@ public class MainWindowViewModel : ObservableObject
 	{
 		return sectionKey switch
 		{
-			"Dashboard" => (object)_dashboardPage, 
+			"Dashboard" => _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale && CanUseWholesaleBilling
+				? _wholesaleDashboardPage
+				: _dashboardPage, 
 			"Backup" => _backupPage, 
 			"Sync" => _syncPage, 
 			"Settings" => _settingsPage, 
@@ -2576,7 +2808,9 @@ public class MainWindowViewModel : ObservableObject
 			"Accounts" => _wholesaleAccountsPage, 
 			"BankReconciliation" => _wholesaleReconciliationPage, 
 			"CollectionsDunning" => _dunningDashboardPage, 
-			"Returns" => _wholesaleReturnsPage, 
+			"Returns" => _wholesaleReturnsPage,
+			"Quotations" => _quotationsPage,
+			"Tools" => _toolsPage,
 			"StockInHand" => _stockInHandPage, 
 			"Billing" => _retailBillingPage, 
 			"Reports" => _reportsPage, 

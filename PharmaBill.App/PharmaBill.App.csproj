@@ -105,4 +105,15 @@
     <None Include="Package.appxmanifest" />
   </ItemGroup>
 
+  <ItemGroup>
+        <Resource Include="Assets\Icons\logo_watermark.png" Condition="Exists('Assets\Icons\logo_watermark.png')" />
+        <!-- Desktop / installer icon beside the EXE; also embedded via ApplicationIcon. -->
+        <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('app.ico')" />
+        <Resource Include="app.ico" Condition="Exists('app.ico')" />
+        <!-- Locked raster snapshot of PharmaBill3DLogo (UI still uses the live vector control). -->
+        <Content Remove="Resources\logo*.png" />
+        <Resource Include="Resources\logo_final_3d.png" Condition="Exists('Resources\logo_final_3d.png')" />
+        <None Include="Resources\logo_3d.png" Condition="Exists('Resources\logo_3d.png')" />
+  </ItemGroup>
+
 </Project>

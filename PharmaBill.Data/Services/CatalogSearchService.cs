@@ -18,7 +18,20 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 
 	private const int MaxSubstituteCandidates = 400;
 
-	public async Task<MedicineSearchResults> SearchAsync(string query, CancellationToken cancellationToken = default(CancellationToken))
+	private static async Task<T> Db<T>(SearchPerfTrace? trace, Func<Task<T>> work)
+	{
+		long start = SearchPerfTrace.Start();
+		try
+		{
+			return await work();
+		}
+		finally
+		{
+			trace?.AddDb(start);
+		}
+	}
+
+	public async Task<MedicineSearchResults> SearchAsync(string query, CancellationToken cancellationToken = default(CancellationToken), SearchPerfTrace? trace = null)
 	{
 		ArgumentNullException.ThrowIfNull(query, "query");
 		if (query.Trim().Length < 2)
@@ -33,15 +46,26 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		List<Guid> matchingIds = new List<Guid>();
 		try
 		{
-			matchingIds = await FindCatalogIdsAsync(text, cancellationToken);
+			matchingIds = await Db(trace, () => FindCatalogIdsAsync(text, cancellationToken));
+		}
+		catch (OperationCanceledException)
+		{
+			throw;
 		}
 		catch (Exception)
 		{
-			// FTS is created by catalogue import. Custom and local medicines are still matched below.
+			// The full-text index can be missing or still building (for example during a catalogue import).
+			matchingIds = new List<Guid>();
+		}
+		if (matchingIds.Count == 0)
+		{
+			// Fall back to a plain name search when the index is missing, still building, or has no hit,
+			// so the drug bank still answers.
+			matchingIds = await Db(trace, () => FindCatalogIdsByNameAsync(query.Trim(), cancellationToken));
 		}
 
 		string like = "%" + query.Trim().Replace("%", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal) + "%";
-		List<Guid> customIds = await context.CatalogMedicines.AsNoTracking()
+		List<Guid> customIds = await Db(trace, () => context.CatalogMedicines.AsNoTracking()
 			.Where(medicine => !medicine.IsDiscontinued && medicine.IsCustom && (
 				EF.Functions.Like(medicine.Name, like)
 				|| EF.Functions.Like(medicine.GenericName ?? string.Empty, like)
@@ -50,7 +74,7 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 				|| EF.Functions.Like(medicine.Manufacturer ?? string.Empty, like)))
 			.Select(medicine => medicine.Id)
 			.Take(40)
-			.ToListAsync(cancellationToken);
+			.ToListAsync(cancellationToken));
 		foreach (Guid customId in customIds)
 		{
 			if (!matchingIds.Contains(customId))
@@ -59,14 +83,14 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 			}
 		}
 
-		List<Drug> localDrugs = await context.Drugs.AsNoTracking()
+		List<Drug> localDrugs = await Db(trace, () => context.Drugs.AsNoTracking()
 			.Where(drug => drug.IsActive && (
 				EF.Functions.Like(drug.Name, like)
 				|| EF.Functions.Like(drug.GenericName ?? string.Empty, like)
 				|| EF.Functions.Like(drug.BrandName ?? string.Empty, like)))
 			.OrderBy(drug => drug.Name)
 			.Take(40)
-			.ToListAsync(cancellationToken);
+			.ToListAsync(cancellationToken));
 		foreach (Drug localDrug in localDrugs)
 		{
 			if (localDrug.CatalogMedicineId is Guid catalogId && !matchingIds.Contains(catalogId))
@@ -82,23 +106,24 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 
 		List<CatalogMedicine> medicines = matchingIds.Count == 0
 			? new List<CatalogMedicine>()
-			: await (from medicine in context.CatalogMedicines.AsNoTracking()
+			: await Db(trace, () => (from medicine in context.CatalogMedicines.AsNoTracking()
 				where matchingIds.Contains(medicine.Id) && !medicine.IsDiscontinued
-				select medicine).ToListAsync(cancellationToken);
+				select medicine).ToListAsync(cancellationToken));
 		string[] localNames = medicines.Select((CatalogMedicine medicine) => medicine.Name.ToLower()).Distinct().ToArray();
 		HashSet<string> habits = localNames.Length == 0
 			? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-			: await (from info in context.CatalogInfos.AsNoTracking()
+			: await Db(trace, () => (from info in context.CatalogInfos.AsNoTracking()
 				where info.IsHabitForming && localNames.Contains(info.NameKey)
-				select info.NameKey).ToHashSetAsync(cancellationToken);
-		var drugLinks = await (from drug in context.Drugs.AsNoTracking()
+				select info.NameKey).ToHashSetAsync(cancellationToken));
+		var drugLinks = await Db(trace, () => (from drug in context.Drugs.AsNoTracking()
 			where drug.CatalogMedicineId.HasValue && matchingIds.Contains(drug.CatalogMedicineId.Value) && drug.IsActive
-			select new { drug.Id, drug.CatalogMedicineId, drug.Name }).ToListAsync(cancellationToken);
-		Dictionary<Guid, decimal> stockByDrug = await GetLiveStockByDrugAsync(drugLinks.Select(link => link.Id).ToArray(), cancellationToken);
+			select new { drug.Id, drug.CatalogMedicineId, drug.Name }).ToListAsync(cancellationToken));
+		Dictionary<Guid, decimal> stockByDrug = await Db(trace, () => GetLiveStockByDrugAsync(drugLinks.Select(link => link.Id).ToArray(), cancellationToken));
 		Dictionary<Guid, decimal> stockByCatalogId = (from link in drugLinks
 			where stockByDrug.GetValueOrDefault(link.Id) > 0m
 			group link by link.CatalogMedicineId.Value).ToDictionary(group => group.Key, group => group.Sum(link => stockByDrug.GetValueOrDefault(link.Id)));
-		Dictionary<Guid, (Guid? DrugId, string? Rack, decimal? Mrp, DateOnly? NearestExpiry)> shelfByCatalog = await GetShelfAndMrpByCatalogAsync(drugLinks.Select(link => (Id: link.Id, Value: link.CatalogMedicineId.Value)).ToArray(), stockByDrug, cancellationToken);
+		Dictionary<Guid, (Guid? DrugId, string? Rack, decimal? Mrp, DateOnly? NearestExpiry)> shelfByCatalog = await Db(trace, () => GetShelfAndMrpByCatalogAsync(drugLinks.Select(link => (Id: link.Id, Value: link.CatalogMedicineId.Value)).ToArray(), stockByDrug, cancellationToken));
+		long convertStart = SearchPerfTrace.Start();
 		HashSet<Guid> linkedCatalogIds = (from link in drugLinks
 			where stockByDrug.GetValueOrDefault(link.Id) > 0m
 			select link.CatalogMedicineId.Value).ToHashSet();
@@ -113,9 +138,11 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 			.Where(drug => source.All(result => result.DrugId != drug.Id) && (drug.CatalogMedicineId == null || source.All(result => result.CatalogMedicineId != drug.CatalogMedicineId)))
 			.Select(drug => new MedicineSearchResult(drug.CatalogMedicineId ?? Guid.Empty, drug.Name, drug.GenericName, drug.GenericName ?? string.Empty, null, drug.Unit ?? drug.DosageForm, drug.Mrp, false, 0m, false, null, null, drug.Mrp, drug.Id))
 			.ToArray();
-		return new MedicineSearchResults(
+		MedicineSearchResults shaped = new MedicineSearchResults(
 			source.Where((MedicineSearchResult result) => result.IsInStock).Take(25).ToArray(),
 			source.Where((MedicineSearchResult result) => !linkedCatalogIds.Contains(result.CatalogMedicineId)).Concat(unlinked).Take(25).ToArray());
+		trace?.AddConvert(convertStart);
+		return shaped;
 	}
 
 	public async Task<List<SubstituteStockResult>> FindSubstitutesAsync(string saltComposition, Guid? excludeCatalogMedicineId = null, CancellationToken cancellationToken = default(CancellationToken))
@@ -271,6 +298,18 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 			}
 		}
 		return hashSet;
+	}
+
+	/// <summary>Plain name search used when the full-text index can't answer. Slower, so only the fallback path calls it.</summary>
+	private async Task<List<Guid>> FindCatalogIdsByNameAsync(string query, CancellationToken cancellationToken)
+	{
+		string like = "%" + query.Replace("%", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal) + "%";
+		return await context.CatalogMedicines.AsNoTracking()
+			.Where(medicine => !medicine.IsDiscontinued && (EF.Functions.Like(medicine.Name, like) || EF.Functions.Like(medicine.GenericName ?? string.Empty, like)))
+			.OrderBy(medicine => medicine.Name)
+			.Select(medicine => medicine.Id)
+			.Take(200)
+			.ToListAsync(cancellationToken);
 	}
 
 	private async Task<List<Guid>> FindCatalogIdsAsync(string ftsQuery, CancellationToken cancellationToken)

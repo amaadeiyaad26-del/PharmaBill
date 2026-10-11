@@ -11,7 +11,11 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class PharmacySetupService(IUnitOfWork unitOfWork, ProtectedAccessStateStore protectedAccessStateStore)
+public sealed class PharmacySetupService(
+	IUnitOfWork unitOfWork,
+	ProtectedAccessStateStore protectedAccessStateStore,
+	ActiveStoreContext activeStore,
+	StoreDatabaseIsolationService storeIsolation)
 {
 	[SupportedOSPlatform("windows")]
 	public async Task<AppUser> CompleteSetupAsync(PharmacyProfile profile, IEnumerable<LicenceRecord> licences, AppUser owner, string ownerSecret, CancellationToken cancellationToken = default(CancellationToken))
@@ -36,7 +40,36 @@ public sealed class PharmacySetupService(IUnitOfWork unitOfWork, ProtectedAccess
 		{
 			throw new InvalidOperationException("Setup requires: " + string.Join(", ", missingLicenceTypes) + ".");
 		}
-		return (existing != null) ? (await ReconfigureAsync(existing, profile, licenceList, owner, ownerSecret, cancellationToken)) : (await CompleteFirstRunAsync(profile, licenceList, owner, ownerSecret, cancellationToken));
+
+		bool hasActiveOwner = await unitOfWork.Context.AppUsers.AnyAsync(
+			(AppUser user) => user.IsActive && !user.IsDeleted && (user.Role == UserRole.Owner || user.Role == UserRole.Manager),
+			cancellationToken);
+		string targetSlug = ActiveStoreContext.SanitizeStoreName(profile.Name);
+		bool pharmacyIdentityChanged = existing != null
+			&& !string.Equals(ActiveStoreContext.SanitizeStoreName(existing.Name), targetSlug, StringComparison.OrdinalIgnoreCase);
+
+		// Brand-new pharmacy, first owner on a dirty DB, or rename: isolate into an empty per-store database.
+		// Do not force a wipe solely because a legacy install still uses the shared "data" folder.
+		if (existing == null || !hasActiveOwner || pharmacyIdentityChanged)
+		{
+			return await storeIsolation.CompleteSetupOnFreshStoreAsync(profile, licenceList, owner, ownerSecret, cancellationToken);
+		}
+
+		return await ReconfigureAsync(existing, profile, licenceList, owner, ownerSecret, cancellationToken);
+	}
+
+	/// <summary>
+	/// Writes the first-run profile into the already-active store database (must be empty / freshly migrated).
+	/// </summary>
+	[SupportedOSPlatform("windows")]
+	public Task<AppUser> CompleteFirstRunOnCurrentStoreAsync(
+		PharmacyProfile profile,
+		IEnumerable<LicenceRecord> licences,
+		AppUser owner,
+		string ownerSecret,
+		CancellationToken cancellationToken = default)
+	{
+		return CompleteFirstRunAsync(profile, licences.ToList(), owner, ownerSecret, cancellationToken);
 	}
 
 	[SupportedOSPlatform("windows")]
@@ -63,7 +96,7 @@ public sealed class PharmacySetupService(IUnitOfWork unitOfWork, ProtectedAccess
 				EntityId = profile.Id,
 				// Branch may not exist yet during first-run setup; leave null.
 				BranchId = null,
-				Details = $"Business mode: {profile.BusinessMode}"
+				Details = $"Business mode: {profile.BusinessMode}; store DB: {activeStore.StoreSlug}"
 			});
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			WriteAccessState(now);

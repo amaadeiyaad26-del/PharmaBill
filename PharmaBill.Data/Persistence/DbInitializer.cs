@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.Data.Persistence;
@@ -23,18 +24,13 @@ public sealed class DbInitializer(
 		// Preloaded Drug Bank catalogues (116–119MB) must survive schema upgrades in-place.
 		EnsureDatabaseDirectory();
 
-		// Patch critical columns before migrate/seed so setup never hits "no such column".
-		await TryAddAuditLogsBranchIdAsync(cancellationToken);
+		// 1) CREATE / MIGRATE SCHEMA — must run before any PharmacyProfiles / AppUsers query.
+		// Tolerate migrate failures on older preloaded DBs that already have tables, but never
+		// leave a wiped/empty file without core tables (startup would crash on PharmacyProfiles).
+		await EnsureCoreSchemaAsync(cancellationToken);
 
-		// 1) CREATE / MIGRATE SCHEMA — tolerate existing preloaded DBs that already have tables.
-		try
-		{
-			await context.Database.MigrateAsync(cancellationToken);
-		}
-		catch (Exception)
-		{
-			// Keep the existing SQLite file. Safety-net DDL below brings schema up to date.
-		}
+		// Patch critical columns so setup never hits "no such column".
+		await TryAddAuditLogsBranchIdAsync(cancellationToken);
 
 		// 2) Safety net for tables present in the model but missing from older migration history.
 		try
@@ -57,8 +53,12 @@ public sealed class DbInitializer(
 		await EnsureAuditComplianceColumnsAsync(cancellationToken);
 		await EnsureSaleMrdNumberColumnAsync(cancellationToken);
 		await TryAddNullableTextColumnAsync("Sales", "PrescriptionFilePath", indexName: null, cancellationToken);
+		await EnsureBanAndReorderColumnsAsync(cancellationToken);
+		await EnsureModelColumnsAsync(cancellationToken);
 
 		// 4) SEED ONLY AFTER TABLES EXIST — skip cleanly when defaults already present.
+		// Never inject demo/sample inventory, stock batches, sales, or statutory register rows.
+		// New pharmacies start empty until purchases are inwarded or items are imported.
 		try
 		{
 			await storageLocations.EnsureDefaultRetailLocationAsync(cancellationToken);
@@ -75,6 +75,67 @@ public sealed class DbInitializer(
 		catch (Exception)
 		{
 			// Branch seed is best-effort when a preloaded DB already has branch rows.
+		}
+
+		// 5) Repair orphaned purchase bills missing SupplierLedger PurchaseBill credits.
+		try
+		{
+			await new LedgerRepairService(context).SyncOrphanedInvoicesToLedgerAsync(cancellationToken);
+		}
+		catch (Exception)
+		{
+			// Ledger backfill must never block app startup.
+		}
+	}
+
+	private async Task EnsureCoreSchemaAsync(CancellationToken cancellationToken)
+	{
+		Exception? migrateError = null;
+		try
+		{
+			await context.Database.MigrateAsync(cancellationToken);
+		}
+		catch (Exception ex)
+		{
+			// Keep the existing SQLite file when an older catalogue DB trips migrate.
+			migrateError = ex;
+		}
+
+		if (await TableExistsAsync("PharmacyProfiles", cancellationToken))
+		{
+			return;
+		}
+
+		// Wiped or brand-new database: migrations must create core tables before any probe/UI.
+		try
+		{
+			await context.Database.MigrateAsync(cancellationToken);
+		}
+		catch (Exception ex)
+		{
+			migrateError ??= ex;
+		}
+
+		if (await TableExistsAsync("PharmacyProfiles", cancellationToken))
+		{
+			return;
+		}
+
+		try
+		{
+			await context.Database.EnsureCreatedAsync(cancellationToken);
+		}
+		catch (Exception ex)
+		{
+			migrateError ??= ex;
+		}
+
+		if (!await TableExistsAsync("PharmacyProfiles", cancellationToken))
+		{
+			throw new InvalidOperationException(
+				"PharmaBill could not create the database schema (PharmacyProfiles is missing). " +
+				"Delete a corrupted empty pharmabill.db if testing, or restore from backup.",
+				migrateError);
 		}
 	}
 
@@ -149,6 +210,47 @@ public sealed class DbInitializer(
 				"SyncState" INTEGER NOT NULL
 			);
 			CREATE UNIQUE INDEX IF NOT EXISTS "IX_Branches_Code" ON "Branches" ("Code");
+
+			CREATE TABLE IF NOT EXISTS "Quotations" (
+				"Id" TEXT NOT NULL CONSTRAINT "PK_Quotations" PRIMARY KEY,
+				"Mode" TEXT NOT NULL,
+				"QuoteNo" TEXT NOT NULL,
+				"QuoteDate" TEXT NOT NULL,
+				"ValidUntil" TEXT NULL,
+				"CustomerId" TEXT NULL,
+				"PartyName" TEXT NOT NULL,
+				"PartyPhone" TEXT NULL,
+				"EstimatedTotal" decimal(18,2) NOT NULL,
+				"Status" TEXT NOT NULL,
+				"ConvertedInvoiceNo" TEXT NULL,
+				"Notes" TEXT NULL,
+				"CreatedAtUtc" TEXT NOT NULL,
+				"UpdatedAtUtc" TEXT NOT NULL,
+				"DeviceId" TEXT NOT NULL,
+				"IsDeleted" INTEGER NOT NULL,
+				"HlcStamp" TEXT NOT NULL,
+				"SyncState" INTEGER NOT NULL
+			);
+
+			CREATE TABLE IF NOT EXISTS "QuotationItems" (
+				"Id" TEXT NOT NULL CONSTRAINT "PK_QuotationItems" PRIMARY KEY,
+				"QuotationId" TEXT NOT NULL,
+				"DrugId" TEXT NOT NULL,
+				"BatchId" TEXT NULL,
+				"DrugName" TEXT NOT NULL,
+				"Quantity" decimal(18,2) NOT NULL,
+				"FreeQuantity" decimal(18,2) NOT NULL,
+				"UnitPrice" decimal(18,2) NOT NULL,
+				"DiscountAmount" decimal(18,2) NOT NULL,
+				"LineTotal" decimal(18,2) NOT NULL,
+				"CreatedAtUtc" TEXT NOT NULL,
+				"UpdatedAtUtc" TEXT NOT NULL,
+				"DeviceId" TEXT NOT NULL,
+				"IsDeleted" INTEGER NOT NULL,
+				"HlcStamp" TEXT NOT NULL,
+				"SyncState" INTEGER NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS "IX_QuotationItems_QuotationId" ON "QuotationItems" ("QuotationId");
 
 			CREATE TABLE IF NOT EXISTS "StockTransfers" (
 				"Id" TEXT NOT NULL CONSTRAINT "PK_StockTransfers" PRIMARY KEY,
@@ -241,6 +343,66 @@ public sealed class DbInitializer(
 		return TryAddNullableTextColumnAsync("Sales", "MrdNumber", indexName: null, cancellationToken);
 	}
 
+	private async Task EnsureBanAndReorderColumnsAsync(CancellationToken cancellationToken)
+	{
+		await TryAddIntegerColumnAsync("Drugs", "IsBanned", defaultValue: 0, cancellationToken);
+		await TryAddDecimalColumnAsync("Drugs", "MaxStockLevel", "0", cancellationToken);
+		await TryAddIntegerColumnAsync("Batches", "IsBanned", defaultValue: 0, cancellationToken);
+		await TryAddNullableTextColumnAsync("Batches", "BanReason", indexName: null, cancellationToken);
+	}
+
+	private async Task TryAddIntegerColumnAsync(string tableName, string columnName, int defaultValue, CancellationToken cancellationToken)
+	{
+		if (!await TableExistsAsync(tableName, cancellationToken))
+		{
+			return;
+		}
+
+		HashSet<string> columns = await GetTableColumnsAsync(tableName, cancellationToken);
+		if (columns.Contains(columnName))
+		{
+			return;
+		}
+
+		try
+		{
+			await context.Database.ExecuteSqlRawAsync(
+				$"""ALTER TABLE "{tableName}" ADD COLUMN "{columnName}" INTEGER NOT NULL DEFAULT {defaultValue};""",
+				cancellationToken);
+		}
+		catch (SqliteException ex) when (
+			ex.SqliteErrorCode == 1
+			&& ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+		{
+		}
+	}
+
+	private async Task TryAddDecimalColumnAsync(string tableName, string columnName, string defaultLiteral, CancellationToken cancellationToken)
+	{
+		if (!await TableExistsAsync(tableName, cancellationToken))
+		{
+			return;
+		}
+
+		HashSet<string> columns = await GetTableColumnsAsync(tableName, cancellationToken);
+		if (columns.Contains(columnName))
+		{
+			return;
+		}
+
+		try
+		{
+			await context.Database.ExecuteSqlRawAsync(
+				$"""ALTER TABLE "{tableName}" ADD COLUMN "{columnName}" decimal(18,2) NOT NULL DEFAULT {defaultLiteral};""",
+				cancellationToken);
+		}
+		catch (SqliteException ex) when (
+			ex.SqliteErrorCode == 1
+			&& ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+		{
+		}
+	}
+
 	private async Task EnsureAuditComplianceColumnsAsync(CancellationToken cancellationToken)
 	{
 		await TryAddNullableTextColumnAsync("AuditLogs", "EntityType", indexName: null, cancellationToken);
@@ -256,6 +418,8 @@ public sealed class DbInitializer(
 	{
 		await TryAddNullableTextColumnAsync("PurchaseInvoices", "AttachedInvoicePath", indexName: null, cancellationToken);
 		await TryAddNullableTextColumnAsync("PurchaseInvoices", "OriginalFileName", indexName: null, cancellationToken);
+		// Entity/snapshot column that no historical migration created; missing it breaks every purchase / Quick Inward save.
+		await TryAddNullableTextColumnAsync("PurchaseInvoices", "StorageLocationId", indexName: null, cancellationToken);
 	}
 
 	private async Task EnsureBranchIdColumnsAsync(CancellationToken cancellationToken)
@@ -266,6 +430,85 @@ public sealed class DbInitializer(
 		await TryAddNullableTextColumnAsync("PurchaseInvoices", "BranchId", "IX_PurchaseInvoices_BranchId", cancellationToken);
 		await TryAddNullableTextColumnAsync("Sales", "BranchId", "IX_Sales_BranchId", cancellationToken);
 		await TryAddNullableTextColumnAsync("WholesaleInvoices", "BranchId", indexName: null, cancellationToken);
+	}
+
+	// Adds any column present in the EF model but missing from an installed database (older builds skipped migrations).
+	private async Task EnsureModelColumnsAsync(CancellationToken cancellationToken)
+	{
+		foreach (IEntityType entityType in context.Model.GetEntityTypes())
+		{
+			string? tableName = entityType.GetTableName();
+			if (string.IsNullOrWhiteSpace(tableName) || entityType.GetViewName() != null)
+			{
+				continue;
+			}
+
+			if (!await TableExistsAsync(tableName, cancellationToken))
+			{
+				continue;
+			}
+
+			StoreObjectIdentifier table = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
+			HashSet<string> existing = await GetTableColumnsAsync(tableName, cancellationToken);
+			foreach (IProperty property in entityType.GetProperties())
+			{
+				string? columnName = property.GetColumnName(table);
+				string? columnType = property.GetColumnType(table);
+				if (string.IsNullOrWhiteSpace(columnName) || string.IsNullOrWhiteSpace(columnType) || existing.Contains(columnName))
+				{
+					continue;
+				}
+
+				string definition = property.IsNullable
+					? $"{columnType} NULL"
+					: $"{columnType} NOT NULL DEFAULT {DefaultLiteral(property)}";
+				try
+				{
+					await context.Database.ExecuteSqlRawAsync(
+						$"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {definition};",
+						cancellationToken);
+				}
+				catch (Exception ex) when (ex.ToString().Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+				{
+				}
+			}
+		}
+	}
+
+	private static string DefaultLiteral(IProperty property)
+	{
+		Type type = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+		if (type == typeof(Guid))
+		{
+			return "'00000000-0000-0000-0000-000000000000'";
+		}
+
+		if (type == typeof(string))
+		{
+			return "''";
+		}
+
+		if (type == typeof(DateTime) || type == typeof(DateTimeOffset))
+		{
+			return "'0001-01-01 00:00:00'";
+		}
+
+		if (type == typeof(DateOnly))
+		{
+			return "'0001-01-01'";
+		}
+
+		if (type == typeof(TimeOnly) || type == typeof(TimeSpan))
+		{
+			return "'00:00:00'";
+		}
+
+		if (type == typeof(byte[]))
+		{
+			return "X''";
+		}
+
+		return "0";
 	}
 
 	private async Task TryAddNullableTextColumnAsync(

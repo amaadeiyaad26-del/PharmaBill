@@ -31,6 +31,8 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 
 	private CancellationTokenSource? _searchCancellation;
 
+	private static readonly TimeSpan _debounceDelay = TimeSpan.FromMilliseconds(250.0);
+
 	private string _query = string.Empty;
 
 	private const string DebounceMarker = "debounce";
@@ -397,25 +399,44 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 		{
 			if (flag)
 			{
-				await Task.Delay(180, token);
+				try
+				{
+					await Task.Delay(_debounceDelay, token);
+				}
+				catch (OperationCanceledException)
+				{
+					return;
+				}
 			}
 			IsSearching = true;
-			using IServiceScope scope = _scopeFactory.CreateScope();
-			MedicineSearchResults medicineSearchResults = await scope.ServiceProvider.GetRequiredService<CatalogSearchService>().SearchAsync(Query.Trim(), token);
+			string searchText = Query.Trim();
+			MedicineSearchResults medicineSearchResults = await Task.Run(async () =>
+			{
+				using IServiceScope scope = _scopeFactory.CreateScope();
+				return await scope.ServiceProvider.GetRequiredService<CatalogSearchService>().SearchAsync(searchText, token);
+			}, token).ConfigureAwait(false);
 			token.ThrowIfCancellationRequested();
-			InStockResults.Clear();
-			CatalogResults.Clear();
-			SubstituteResults.Clear();
-			OnPropertyChanged("HasSubstitutes");
-			foreach (MedicineSearchResult item in medicineSearchResults.InStock)
+			await App.Current.Dispatcher.InvokeAsync(() =>
 			{
-				InStockResults.Add(item);
-			}
-			foreach (MedicineSearchResult item2 in medicineSearchResults.FromCatalog)
-			{
-				CatalogResults.Add(item2);
-			}
-			RefreshHint(searched: true);
+				if (token.IsCancellationRequested)
+				{
+					return;
+				}
+
+				InStockResults.Clear();
+				CatalogResults.Clear();
+				SubstituteResults.Clear();
+				OnPropertyChanged("HasSubstitutes");
+				foreach (MedicineSearchResult item in medicineSearchResults.InStock)
+				{
+					InStockResults.Add(item);
+				}
+				foreach (MedicineSearchResult item2 in medicineSearchResults.FromCatalog)
+				{
+					CatalogResults.Add(item2);
+				}
+				RefreshHint(searched: true);
+			});
 		}
 		catch (OperationCanceledException) when (token.IsCancellationRequested)
 		{
@@ -423,13 +444,25 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 		catch (Exception exception)
 		{
 			_logger.LogError(exception, "Medicine catalogue search failed.");
-			ErrorMessage = "Search could not be completed. Please try again.";
+			await App.Current.Dispatcher.InvokeAsync(() =>
+			{
+				if (!token.IsCancellationRequested)
+				{
+					ErrorMessage = "Search could not be completed. Please try again.";
+				}
+			});
 		}
 		finally
 		{
 			if (!token.IsCancellationRequested)
 			{
-				IsSearching = false;
+				await App.Current.Dispatcher.InvokeAsync(() =>
+				{
+					if (!token.IsCancellationRequested)
+					{
+						IsSearching = false;
+					}
+				});
 			}
 		}
 	}
@@ -475,6 +508,7 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 	private void OnQueryChanged(string value)
 	{
 		NotifyCreateUnlisted();
+		_searchCancellation?.Cancel();
 		SearchCommand.ExecuteAsync("debounce");
 	}
 }

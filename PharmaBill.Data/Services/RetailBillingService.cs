@@ -7,8 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core;
+using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Loyalty;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 
@@ -17,6 +19,20 @@ namespace PharmaBill.Data.Services;
 public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, CatalogSearchService catalogSearchService, StorageLocationService storageLocations, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard, string? prescriptionStorageDirectory = null)
 {
 	private sealed record PreparedSaleLine(RetailSaleLineInput Input, Drug Drug, Batch Batch, string? Schedule, bool RequiresPrescription, bool IsHabitForming, string? RegisterType, InclusiveTaxLine Tax);
+
+	/// <summary>Loyalty points for the saved patient with this phone number, or null when there is none.</summary>
+	public async Task<int?> GetLoyaltyPointsAsync(string phone, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		if (string.IsNullOrWhiteSpace(phone))
+		{
+			return null;
+		}
+		string normalized = NormalizePhone(phone);
+		return await unitOfWork.Context.Patients.AsNoTracking()
+			.Where((Patient patient) => patient.Phone == normalized)
+			.Select((Patient patient) => (int?)patient.LoyaltyPoints)
+			.SingleOrDefaultAsync(cancellationToken);
+	}
 
 	public async Task<IReadOnlyList<RetailStockChoice>> SearchStockAsync(string query, CancellationToken cancellationToken = default(CancellationToken))
 	{
@@ -80,7 +96,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				select batch).ThenBy((Batch batch) => batch.BatchNo, StringComparer.OrdinalIgnoreCase).Select((Batch batch) =>
 			{
 				CatalogInfo catalogInfo2 = FindCatalogInfo(drug, catalogInfo);
-				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate.GetValueOrDefault(), ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType);
+				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate.GetValueOrDefault(), ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType, drug.IsBanned || batch.IsBanned);
 			}))
 			orderby choice.Barcode == searchTerm descending
 			select choice).ThenBy((RetailStockChoice choice) => choice.DrugName, StringComparer.OrdinalIgnoreCase).ThenBy((RetailStockChoice choice) => choice.ExpiryDate ?? DateOnly.MaxValue).ToArray();
@@ -301,6 +317,19 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					context.Prescriptions.Add(prescription);
 				}
 				decimal paidAmount = appliedPayments;
+				decimal loyaltyRedeemed = RetailTaxCalculator.RoundMoney(input.Payments.Where((RetailPaymentInput payment) => IsLoyalty(payment.Method)).Sum((RetailPaymentInput payment) => payment.AppliedAmount));
+				if (loyaltyRedeemed > 0m)
+				{
+					if (loyaltyRedeemed > patient.LoyaltyPoints)
+					{
+						throw new InvalidOperationException($"Only {patient.LoyaltyPoints} loyalty points are available for this patient.");
+					}
+					if (RetailTaxCalculator.RoundMoney(totalAmount - paidAmount) > 0m)
+					{
+						throw new InvalidOperationException("Loyalty points cover only part of the bill. Add the rest as cash, UPI or card.");
+					}
+					patient.LoyaltyPoints -= (int)loyaltyRedeemed;
+				}
 				Sale sale = new Sale
 				{
 					PatientId = patient.Id,
@@ -369,9 +398,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						});
 					}
 				}
-				foreach (RetailPaymentInput payment in input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount > 0m))
+				foreach (RetailPaymentInput payment in input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount > 0m && !IsLoyalty(retailPaymentInput.Method)))
 				{
 					string receiptNo = await numberSeriesService.AllocateAsync(invoicePrefix + "-R", today, cancellationToken);
+					// Cash/UPI/Card: Receipt is the cash/bank debit side; Sale row is the sales credit side.
 					context.Receipts.Add(new Receipt
 					{
 						ReceiptNo = receiptNo,
@@ -379,6 +409,24 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						Amount = RetailTaxCalculator.RoundMoney(payment.AppliedAmount),
 						PaymentMethod = payment.Method.Trim(),
 						Notes = $"SaleId={sale.Id:D}; InvoiceNo={invoiceNo}"
+					});
+				}
+				patient.LoyaltyPoints += LoyaltyPolicy.PointsForAmount(totalAmount - loyaltyRedeemed);
+				decimal unpaid = RetailTaxCalculator.RoundMoney(totalAmount - paidAmount);
+				if (unpaid > 0m)
+				{
+					// Credit sale: Debit CustomerLedger (receivable ↑); sales credit remains on the Sale document.
+					Customer creditCustomer = await EnsureRetailCreditCustomerAsync(context, patient, cancellationToken);
+					context.CustomerLedgerEntries.Add(new CustomerLedgerEntry
+					{
+						CustomerId = creditCustomer.Id,
+						EntryAtUtc = sale.SaleAtUtc,
+						EntryType = LedgerEntryTypes.RetailSale,
+						ReferenceId = sale.Id,
+						ReferenceNo = invoiceNo,
+						Debit = unpaid,
+						Credit = 0m,
+						Notes = "Retail credit sale " + invoiceNo
 					});
 				}
 				context.AuditLogs.Add(new AuditLog
@@ -480,6 +528,11 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		await unitOfWork.SaveChangesAsync(cancellationToken);
 	}
 
+	/// <summary>
+	/// Admin void of a retail bill. It is reversed the same way a full credit note reverses it: every item still on the
+	/// bill goes back to stock, the unpaid part comes off the customer ledger, and the cash received for it is refunded
+	/// with a "Refund" receipt so the day book reconciles. The bill is kept as an audited, deleted record.
+	/// </summary>
 	public async Task VoidSaleAsync(Guid saleId, Guid adminUserId, UserRole adminRole, string reason, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		if (!PermissionMatrix.Allows(adminRole, AppPermission.EditPrintedBills))
@@ -487,23 +540,57 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			throw new UnauthorizedAccessException("Only an Admin can void a finalized bill.");
 		}
 		ArgumentException.ThrowIfNullOrWhiteSpace(reason, "reason");
-		Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale item) => item.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The selected bill could not be found.");
-		if (sale.IsDeleted)
-		{
-			throw new InvalidOperationException("This bill is already voided.");
-		}
+
+		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+		Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale item) => item.Id == saleId, cancellationToken))
+			?? throw new InvalidOperationException("The selected bill could not be found, or it has already been voided.");
 		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes });
-		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "VOIDED_AFTER_LOCK");
+
+		Dictionary<Guid, decimal> returnedBySaleItem = (await GetPriorReturnItemsAsync(saleId, cancellationToken))
+			.GroupBy(item => item.SaleItemId)
+			.ToDictionary(group => group.Key, group => group.Sum(item => item.Quantity));
+		RetailSaleReturnLineInput[] openLines = (await unitOfWork.Context.SaleItems.AsNoTracking()
+			.Where(item => item.SaleId == saleId)
+			.ToListAsync(cancellationToken))
+			.Select(item => new RetailSaleReturnLineInput(item.Id, item.Quantity - returnedBySaleItem.GetValueOrDefault(item.Id)))
+			.Where(line => line.Quantity > 0m)
+			.ToArray();
+		if (openLines.Length == 0)
+		{
+			throw new InvalidOperationException("Every item on this bill has already been returned, so there is nothing left to void.");
+		}
+
+		RetailSaleReturnResult creditNote = await IssueSalesReturnCoreAsync(saleId, openLines, "Void of " + sale.InvoiceNo + ": " + reason.Trim(), true, adminUserId, cancellationToken);
+
+		string saleIdText = saleId.ToString("D");
+		decimal cashReceived = await unitOfWork.Context.Receipts.AsNoTracking()
+			.Where(receipt => receipt.PaymentMethod != "Refund" && receipt.Notes != null && receipt.Notes.Contains(saleIdText))
+			.SumAsync(receipt => (decimal?)receipt.Amount, cancellationToken) ?? 0m;
+		decimal refund = RetailTaxCalculator.RoundMoney(Math.Min(cashReceived, creditNote.CreditAmount));
+		if (refund > 0m)
+		{
+			PharmacyProfile profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
+			string refundNo = await numberSeriesService.AllocateAsync(profile.InvoicePrefix + "-RF", DateOnly.FromDateTime(DateTime.Today), cancellationToken);
+			unitOfWork.Context.Receipts.Add(new Receipt
+			{
+				ReceiptNo = refundNo,
+				ReceiptAtUtc = DateTime.UtcNow,
+				Amount = refund,
+				PaymentMethod = "Refund",
+				Notes = $"Refund for voided {sale.InvoiceNo}; credit note {creditNote.ReturnNo}; SaleId={saleIdText}"
+			});
+		}
+
 		sale.IsDeleted = true;
 		sale.IsLocked = true;
-		sale.Notes = (string.IsNullOrWhiteSpace(sale.Notes) ? ("VOIDED: " + reason.Trim()) : (sale.Notes + " | VOIDED: " + reason.Trim()));
+		sale.Notes = string.IsNullOrWhiteSpace(sale.Notes) ? ("VOIDED: " + reason.Trim()) : (sale.Notes + " | VOIDED: " + reason.Trim());
 		unitOfWork.Context.AuditLogs.Add(new AuditLog
 		{
 			UserId = adminUserId,
 			Action = "RetailSaleVoided",
 			EntityName = "Sale",
 			EntityId = sale.Id,
-			Details = "Admin override void for " + sale.InvoiceNo + ". Reason: " + reason.Trim()
+			Details = $"Admin void of {sale.InvoiceNo}. Credit note {creditNote.ReturnNo} for {creditNote.CreditAmount:F2}; restocked {creditNote.RestockedQuantity:N2}; refunded {refund:F2}. Reason: {reason.Trim()}"
 		});
 		await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
 		{
@@ -513,10 +600,11 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			AuthorizedBy = string.Empty,
 			Reason = reason.Trim(),
 			OldSnapshotJson = oldSnapshot,
-			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsLocked, sale.IsDeleted, sale.Notes }),
+			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.IsDeleted, sale.Notes, creditNote.ReturnNo, refund }),
 			UserId = adminUserId
 		}, cancellationToken);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
+		await transaction.CommitAsync(cancellationToken);
 	}
 
 	public async Task DemandUnlockedForMutationAsync(Guid saleId, CancellationToken cancellationToken = default(CancellationToken))
@@ -626,127 +714,206 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		RetailSaleReturnResult result;
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
-			Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale sale2) => sale2.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The original bill could not be found.");
-			string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsDeleted });
-			RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
-			List<ReturnNote> priorNotes = await unitOfWork.Context.ReturnNotes.Where((ReturnNote returnNote) => returnNote.SourceType == "Sale" && returnNote.SourceId == saleId).ToListAsync(cancellationToken);
-			IReadOnlyList<SaleReturnItem> priorReturns = await GetPriorReturnItemsAsync(saleId, cancellationToken);
-			HashSet<Guid> priorNoteIdsWithItems = priorReturns.Select((SaleReturnItem saleReturnItem) => saleReturnItem.ReturnNoteId).ToHashSet();
-			if (priorNotes.Any((ReturnNote returnNote) => !priorNoteIdsWithItems.Contains(returnNote.Id)))
-			{
-				throw new InvalidOperationException("An older credit note has no item-level return details. Review it before processing another return.");
-			}
-			Dictionary<Guid, SaleItem> saleItems = await unitOfWork.Context.SaleItems.Where((SaleItem saleItem) => saleItem.SaleId == saleId).ToDictionaryAsync((SaleItem saleItem) => saleItem.Id, cancellationToken);
-			Guid[] batchIds = saleItems.Values.Select((SaleItem line) => line.BatchId).Distinct().ToArray();
-			Dictionary<Guid, Batch> dictionary = await unitOfWork.Context.Batches.Where((Batch batch) => batchIds.Contains(batch.Id)).ToDictionaryAsync((Batch batch) => batch.Id, cancellationToken);
-			Dictionary<Guid, decimal> dictionary2 = (from saleReturnItem in priorReturns
-				group saleReturnItem by saleReturnItem.SaleItemId).ToDictionary((IGrouping<Guid, SaleReturnItem> group) => group.Key, (IGrouping<Guid, SaleReturnItem> group) => group.Sum((SaleReturnItem saleReturnItem) => saleReturnItem.Quantity));
-			Dictionary<Guid, decimal> dictionary3 = (from saleReturnItem in priorReturns
-				group saleReturnItem by saleReturnItem.SaleItemId).ToDictionary((IGrouping<Guid, SaleReturnItem> group) => group.Key, (IGrouping<Guid, SaleReturnItem> group) => group.Sum((SaleReturnItem saleReturnItem) => saleReturnItem.CreditAmount));
-			List<(SaleItem SaleItem, Batch Batch, decimal Quantity, decimal CreditAmount)> processed = new List<(SaleItem, Batch, decimal, decimal)>();
-			foreach (RetailSaleReturnLineInput requestedLine in requestedLines)
-			{
-				if (!saleItems.TryGetValue(requestedLine.SaleItemId, out var value) || !dictionary.TryGetValue(value.BatchId, out var value2))
-				{
-					throw new InvalidOperationException("A selected return line does not belong to the original bill.");
-				}
-				decimal valueOrDefault = dictionary2.GetValueOrDefault(value.Id);
-				decimal num = value.Quantity - valueOrDefault;
-				if (requestedLine.Quantity > num)
-				{
-					throw new InvalidOperationException($"Return quantity for {value.Id} exceeds the remaining bill quantity ({num}).");
-				}
-				if (restock)
-				{
-					DateOnly? expiryDate = value2.ExpiryDate;
-					if (expiryDate.HasValue)
-					{
-						DateOnly valueOrDefault2 = expiryDate.GetValueOrDefault();
-						if (valueOrDefault2 <= DateOnly.FromDateTime(DateTime.Today))
-						{
-							throw new InvalidOperationException("Expired batch " + value2.BatchNo + " cannot be returned to saleable stock. Clear restock confirmation to issue a credit-only return.");
-						}
-					}
-				}
-				decimal num2 = RetailTaxCalculator.RoundMoney(value.LineTotal - dictionary3.GetValueOrDefault(value.Id));
-				decimal val = ((requestedLine.Quantity == num) ? num2 : RetailTaxCalculator.RoundMoney(value.LineTotal * requestedLine.Quantity / value.Quantity));
-				val = Math.Min(val, num2);
-				processed.Add((value, value2, requestedLine.Quantity, val));
-			}
-			decimal creditTotal = RetailTaxCalculator.RoundMoney(processed.Sum(((SaleItem SaleItem, Batch Batch, decimal Quantity, decimal CreditAmount) tuple) => tuple.CreditAmount));
-			if (creditTotal <= 0m)
-			{
-				throw new InvalidOperationException("The selected bill quantities have no remaining amount to credit.");
-			}
-			PharmacyProfile pharmacyProfile = await unitOfWork.Context.PharmacyProfiles.SingleAsync(cancellationToken);
-			string returnNo = await numberSeriesService.AllocateAsync(pharmacyProfile.InvoicePrefix + "-CN", DateOnly.FromDateTime(DateTime.Today), cancellationToken);
-			ReturnNote note = new ReturnNote
-			{
-				ReturnNo = returnNo,
-				SourceType = "Sale",
-				SourceId = sale.Id,
-				ReturnAtUtc = DateTime.UtcNow,
-				TotalAmount = creditTotal,
-				Reason = reason.Trim(),
-				Notes = $"Credit note against invoice {sale.InvoiceNo}; restocked={restock}."
-			};
-			unitOfWork.Context.ReturnNotes.Add(note);
-			decimal restockedQuantity = 0m;
-			foreach (var item in processed)
-			{
-				SaleReturnItem entity = new SaleReturnItem
-				{
-					ReturnNoteId = note.Id,
-					SaleItemId = item.SaleItem.Id,
-					BatchId = item.Batch.Id,
-					DrugId = item.SaleItem.DrugId,
-					Quantity = item.Quantity,
-					CreditAmount = item.CreditAmount,
-					Restocked = restock
-				};
-				unitOfWork.Context.SaleReturnItems.Add(entity);
-				if (restock)
-				{
-					decimal valueOrDefault3 = (await unitOfWork.Context.StockMovements.Where((StockMovement movement) => movement.BatchId == item.Batch.Id).SumAsync((Expression<Func<StockMovement, decimal?>>)((StockMovement movement) => movement.QuantityChange), cancellationToken)).GetValueOrDefault();
-					item.Batch.Quantity = valueOrDefault3 + item.Quantity;
-					restockedQuantity += item.Quantity;
-					unitOfWork.Context.StockMovements.Add(new StockMovement
-					{
-						BatchId = item.Batch.Id,
-						DrugId = item.SaleItem.DrugId,
-						QuantityChange = item.Quantity,
-						MovementType = "RetailSaleReturn",
-						ReferenceType = "ReturnNote",
-						ReferenceId = note.Id,
-						MovementAtUtc = note.ReturnAtUtc,
-						Notes = returnNo
-					});
-				}
-			}
-			unitOfWork.Context.AuditLogs.Add(new AuditLog
-			{
-				UserId = actingUserId,
-				Action = "RetailSalesReturnProcessed",
-				EntityName = "ReturnNote",
-				EntityId = note.Id,
-				Details = $"Credit note {returnNo} against {sale.InvoiceNo}; amount {creditTotal:F2}; restocked: {restockedQuantity}; reason: {reason.Trim()}"
-			});
-			await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
-			{
-				EntityType = "RetailBill",
-				EntityId = sale.Id,
-				Action = "MODIFIED_AFTER_LOCK",
-				AuthorizedBy = string.Empty,
-				Reason = reason.Trim(),
-				OldSnapshotJson = oldSnapshot,
-				NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, returnNo, creditTotal, restockedQuantity, reason = reason.Trim() }),
-				UserId = actingUserId
-			}, cancellationToken);
-			await unitOfWork.SaveChangesAsync(cancellationToken);
+			result = await IssueSalesReturnCoreAsync(saleId, requestedLines, reason, restock, actingUserId, cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
-			result = new RetailSaleReturnResult(returnNo, creditTotal, restockedQuantity);
 		}
 		return result;
+	}
+
+	/// <summary>Credit note work. Runs inside a transaction opened by the caller, so a void can share it.</summary>
+	private async Task<RetailSaleReturnResult> IssueSalesReturnCoreAsync(Guid saleId, IReadOnlyCollection<RetailSaleReturnLineInput> requestedLines, string reason, bool restock, Guid actingUserId, CancellationToken cancellationToken)
+	{
+		Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale sale2) => sale2.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The original bill could not be found.");
+		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsDeleted });
+		RecordLockGuard.Demand(sale.SaleAtUtc, "RetailBill", sale.Id, "MODIFIED_AFTER_LOCK");
+		List<ReturnNote> priorNotes = await unitOfWork.Context.ReturnNotes.Where((ReturnNote returnNote) => returnNote.SourceType == "Sale" && returnNote.SourceId == saleId).ToListAsync(cancellationToken);
+		IReadOnlyList<SaleReturnItem> priorReturns = await GetPriorReturnItemsAsync(saleId, cancellationToken);
+		HashSet<Guid> priorNoteIdsWithItems = priorReturns.Select((SaleReturnItem saleReturnItem) => saleReturnItem.ReturnNoteId).ToHashSet();
+		if (priorNotes.Any((ReturnNote returnNote) => !priorNoteIdsWithItems.Contains(returnNote.Id)))
+		{
+			throw new InvalidOperationException("An older credit note has no item-level return details. Review it before processing another return.");
+		}
+		Dictionary<Guid, SaleItem> saleItems = await unitOfWork.Context.SaleItems.Where((SaleItem saleItem) => saleItem.SaleId == saleId).ToDictionaryAsync((SaleItem saleItem) => saleItem.Id, cancellationToken);
+		Guid[] batchIds = saleItems.Values.Select((SaleItem line) => line.BatchId).Distinct().ToArray();
+		Dictionary<Guid, Batch> dictionary = await unitOfWork.Context.Batches.Where((Batch batch) => batchIds.Contains(batch.Id)).ToDictionaryAsync((Batch batch) => batch.Id, cancellationToken);
+		Dictionary<Guid, decimal> dictionary2 = (from saleReturnItem in priorReturns
+			group saleReturnItem by saleReturnItem.SaleItemId).ToDictionary((IGrouping<Guid, SaleReturnItem> group) => group.Key, (IGrouping<Guid, SaleReturnItem> group) => group.Sum((SaleReturnItem saleReturnItem) => saleReturnItem.Quantity));
+		Dictionary<Guid, decimal> dictionary3 = (from saleReturnItem in priorReturns
+			group saleReturnItem by saleReturnItem.SaleItemId).ToDictionary((IGrouping<Guid, SaleReturnItem> group) => group.Key, (IGrouping<Guid, SaleReturnItem> group) => group.Sum((SaleReturnItem saleReturnItem) => saleReturnItem.CreditAmount));
+		List<(SaleItem SaleItem, Batch Batch, decimal Quantity, decimal CreditAmount)> processed = new List<(SaleItem, Batch, decimal, decimal)>();
+		foreach (RetailSaleReturnLineInput requestedLine in requestedLines)
+		{
+			if (!saleItems.TryGetValue(requestedLine.SaleItemId, out var value) || !dictionary.TryGetValue(value.BatchId, out var value2))
+			{
+				throw new InvalidOperationException("A selected return line does not belong to the original bill.");
+			}
+			decimal valueOrDefault = dictionary2.GetValueOrDefault(value.Id);
+			decimal num = value.Quantity - valueOrDefault;
+			if (requestedLine.Quantity > num)
+			{
+				throw new InvalidOperationException($"Return quantity for {value.Id} exceeds the remaining bill quantity ({num}).");
+			}
+			if (restock)
+			{
+				DateOnly? expiryDate = value2.ExpiryDate;
+				if (expiryDate.HasValue)
+				{
+					DateOnly valueOrDefault2 = expiryDate.GetValueOrDefault();
+					if (valueOrDefault2 <= DateOnly.FromDateTime(DateTime.Today))
+					{
+						throw new InvalidOperationException("Expired batch " + value2.BatchNo + " cannot be returned to saleable stock. Clear restock confirmation to issue a credit-only return.");
+					}
+				}
+			}
+			decimal num2 = RetailTaxCalculator.RoundMoney(value.LineTotal - dictionary3.GetValueOrDefault(value.Id));
+			decimal val = ((requestedLine.Quantity == num) ? num2 : RetailTaxCalculator.RoundMoney(value.LineTotal * requestedLine.Quantity / value.Quantity));
+			val = Math.Min(val, num2);
+			processed.Add((value, value2, requestedLine.Quantity, val));
+		}
+		decimal creditTotal = RetailTaxCalculator.RoundMoney(processed.Sum(((SaleItem SaleItem, Batch Batch, decimal Quantity, decimal CreditAmount) tuple) => tuple.CreditAmount));
+		if (creditTotal <= 0m)
+		{
+			throw new InvalidOperationException("The selected bill quantities have no remaining amount to credit.");
+		}
+		PharmacyProfile pharmacyProfile = await unitOfWork.Context.PharmacyProfiles.SingleAsync(cancellationToken);
+		string returnNo = await numberSeriesService.AllocateAsync(pharmacyProfile.InvoicePrefix + "-CN", DateOnly.FromDateTime(DateTime.Today), cancellationToken);
+		ReturnNote note = new ReturnNote
+		{
+			ReturnNo = returnNo,
+			SourceType = "Sale",
+			SourceId = sale.Id,
+			ReturnAtUtc = DateTime.UtcNow,
+			TotalAmount = creditTotal,
+			Reason = reason.Trim(),
+			Notes = $"Credit note against invoice {sale.InvoiceNo}; restocked={restock}."
+		};
+		unitOfWork.Context.ReturnNotes.Add(note);
+		decimal restockedQuantity = 0m;
+		foreach (var item in processed)
+		{
+			SaleReturnItem entity = new SaleReturnItem
+			{
+				ReturnNoteId = note.Id,
+				SaleItemId = item.SaleItem.Id,
+				BatchId = item.Batch.Id,
+				DrugId = item.SaleItem.DrugId,
+				Quantity = item.Quantity,
+				CreditAmount = item.CreditAmount,
+				Restocked = restock
+			};
+			unitOfWork.Context.SaleReturnItems.Add(entity);
+			if (restock)
+			{
+				decimal valueOrDefault3 = (await unitOfWork.Context.StockMovements.Where((StockMovement movement) => movement.BatchId == item.Batch.Id).SumAsync((Expression<Func<StockMovement, decimal?>>)((StockMovement movement) => movement.QuantityChange), cancellationToken)).GetValueOrDefault();
+				item.Batch.Quantity = valueOrDefault3 + item.Quantity;
+				restockedQuantity += item.Quantity;
+				unitOfWork.Context.StockMovements.Add(new StockMovement
+				{
+					BatchId = item.Batch.Id,
+					DrugId = item.SaleItem.DrugId,
+					QuantityChange = item.Quantity,
+					MovementType = "RetailSaleReturn",
+					ReferenceType = "ReturnNote",
+					ReferenceId = note.Id,
+					MovementAtUtc = note.ReturnAtUtc,
+					Notes = returnNo
+				});
+			}
+		}
+		await PostRetailSaleReturnLedgerAsync(unitOfWork.Context, sale, note, creditTotal, cancellationToken);
+		unitOfWork.Context.AuditLogs.Add(new AuditLog
+		{
+			UserId = actingUserId,
+			Action = "RetailSalesReturnProcessed",
+			EntityName = "ReturnNote",
+			EntityId = note.Id,
+			Details = $"Credit note {returnNo} against {sale.InvoiceNo}; amount {creditTotal:F2}; restocked: {restockedQuantity}; reason: {reason.Trim()}"
+		});
+		await ComplianceAuditWriter.AppendIfUnlockedAsync(unitOfWork.Context, sale.SaleAtUtc, new ComplianceAuditEntry
+		{
+			EntityType = "RetailBill",
+			EntityId = sale.Id,
+			Action = "MODIFIED_AFTER_LOCK",
+			AuthorizedBy = string.Empty,
+			Reason = reason.Trim(),
+			OldSnapshotJson = oldSnapshot,
+			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, returnNo, creditTotal, restockedQuantity, reason = reason.Trim() }),
+			UserId = actingUserId
+		}, cancellationToken);
+		await unitOfWork.SaveChangesAsync(cancellationToken);
+		return new RetailSaleReturnResult(returnNo, creditTotal, restockedQuantity);
+	}
+
+	private static async Task PostRetailSaleReturnLedgerAsync(
+		PharmaBillDbContext context,
+		Sale sale,
+		ReturnNote note,
+		decimal creditTotal,
+		CancellationToken cancellationToken)
+	{
+		// Reverse receivable for the unpaid portion of the original bill (Credit CustomerLedger).
+		CustomerLedgerEntry? saleLedger = await context.CustomerLedgerEntries
+			.AsNoTracking()
+			.FirstOrDefaultAsync(
+				entry => entry.ReferenceId == sale.Id && entry.EntryType == LedgerEntryTypes.RetailSale,
+				cancellationToken);
+		if (saleLedger == null)
+		{
+			return;
+		}
+
+		decimal priorReturnCredits = await context.CustomerLedgerEntries.AsNoTracking()
+			.Where(entry => entry.CustomerId == saleLedger.CustomerId
+				&& entry.EntryType == LedgerEntryTypes.RetailSaleReturn
+				&& entry.Notes != null
+				&& entry.Notes.Contains(sale.InvoiceNo))
+			.SumAsync(entry => (decimal?)entry.Credit, cancellationToken) ?? 0m;
+		decimal remainingReceivable = RetailTaxCalculator.RoundMoney(Math.Max(0m, saleLedger.Debit - priorReturnCredits));
+		decimal receivableCredit = RetailTaxCalculator.RoundMoney(Math.Min(creditTotal, remainingReceivable));
+		if (receivableCredit <= 0m)
+		{
+			return;
+		}
+
+		context.CustomerLedgerEntries.Add(new CustomerLedgerEntry
+		{
+			CustomerId = saleLedger.CustomerId,
+			EntryAtUtc = note.ReturnAtUtc,
+			EntryType = LedgerEntryTypes.RetailSaleReturn,
+			ReferenceId = note.Id,
+			ReferenceNo = note.ReturnNo,
+			Debit = 0m,
+			Credit = receivableCredit,
+			Notes = "Retail return against " + sale.InvoiceNo
+		});
+	}
+
+	private static async Task<Customer> EnsureRetailCreditCustomerAsync(
+		PharmaBillDbContext context,
+		Patient patient,
+		CancellationToken cancellationToken)
+	{
+		string phone = patient.Phone.Trim();
+		Customer? existing = await context.Customers
+			.FirstOrDefaultAsync(
+				customer => customer.IsActive && customer.Phone == phone,
+				cancellationToken);
+		if (existing != null)
+		{
+			return existing;
+		}
+
+		Customer created = new Customer
+		{
+			Name = patient.Name.Trim(),
+			Phone = phone,
+			Address = patient.Address,
+			BuyerType = "Retail",
+			IsActive = true,
+			CreditDays = 30
+		};
+		context.Customers.Add(created);
+		return created;
 	}
 
 	private async Task<IReadOnlyList<SaleReturnItem>> GetPriorReturnItemsAsync(Guid saleId, CancellationToken cancellationToken)
@@ -769,6 +936,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			case "UPI":
 			case "Card":
 			case "Credit":
+			case "Loyalty":
 				flag = true;
 				break;
 			default:
@@ -791,6 +959,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			{
 				throw new InvalidOperationException("Confirm that the UPI payment was received before saving.");
 			}
+			if (IsLoyalty(payment.Method) && payment.AppliedAmount != decimal.Truncate(payment.AppliedAmount))
+			{
+				throw new InvalidOperationException("Loyalty points are redeemed in whole points.");
+			}
 			if (payment.Method == "Credit" && payment.AppliedAmount != 0m)
 			{
 				throw new InvalidOperationException("Credit is the unpaid balance, not a received payment.");
@@ -803,6 +975,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		}
 		return RetailTaxCalculator.RoundMoney(num);
 	}
+
+	private static bool IsLoyalty(string? method) => string.Equals(method, "Loyalty", StringComparison.Ordinal);
 
 	private static bool IsPendingArchive(string? path)
 	{

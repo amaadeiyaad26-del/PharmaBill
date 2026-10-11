@@ -28,6 +28,13 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 {
 	private readonly IServiceScopeFactory _scopeFactory;
 
+	private readonly WholesaleReissueHandoff _reissue;
+
+	private readonly QuotationConversionHandoff _quoteHandoff;
+
+	/// <summary>Quotation being converted into the invoice on screen; marked converted only once it is saved.</summary>
+	private Guid? _quotationConversionId;
+
 	private readonly CurrentSession _session;
 
 	private readonly IConfirmationService _confirmation;
@@ -968,6 +975,29 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public IRelayCommand FocusSearchCommand => FocusMedicineCommand;
 
+	public IRelayCommand FocusMedicineSearchCommand => FocusMedicineCommand;
+
+	private RelayCommand? holdBillCommand;
+
+	private RelayCommand? cancelBillCommand;
+
+	private RelayCommand? showSubstitutesCommand;
+
+	/// <summary>F8 / Ctrl+H — wholesale has no hold queue; prompts to save or start a new invoice.</summary>
+	public IRelayCommand HoldBillCommand => holdBillCommand ??= new RelayCommand(() =>
+	{
+		StatusMessage = "Wholesale bills are not parked — use Save & Print (F10) or New Invoice (F2).";
+	});
+
+	/// <summary>Esc / Ctrl+W — clear the active wholesale invoice draft.</summary>
+	public IRelayCommand CancelBillCommand => cancelBillCommand ??= new RelayCommand(NewBill);
+
+	/// <summary>F5 substitutes are retail-oriented; keep binding safe on wholesale.</summary>
+	public IRelayCommand ShowSubstitutesCommand => showSubstitutesCommand ??= new RelayCommand(() =>
+	{
+		StatusMessage = "Salt substitutes are available on the Retail Counter desk.";
+	});
+
 	public IRelayCommand RemoveSelectedLineCommand => removeSelectedLineCommand ?? (removeSelectedLineCommand = new RelayCommand(RemoveSelectedLine));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -978,8 +1008,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ExportDeliveryChallanCommand => exportDeliveryChallanCommand ?? (exportDeliveryChallanCommand = new AsyncRelayCommand(ExportDeliveryChallanAsync));
 
-	public WholesaleBillingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IConfirmationService confirmation, WholesaleInvoiceDocumentService documents, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, INavigationService navigation, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup)
+	public WholesaleBillingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IConfirmationService confirmation, WholesaleInvoiceDocumentService documents, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, INavigationService navigation, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, WholesaleReissueHandoff reissue, QuotationConversionHandoff quoteHandoff)
 	{
+		_reissue = reissue;
+		_quoteHandoff = quoteHandoff;
 		_scopeFactory = scopeFactory;
 		_session = session;
 		_confirmation = confirmation;
@@ -1080,12 +1112,179 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			_upiId = pharmacyProfile.UpiId ?? string.Empty;
 			InvoiceNoPreview = await series.PreviewNextAsync(BranchService.WholesaleInvoicePrefix, null, cancellationToken);
 			await RefreshBuyerHeaderAsync(cancellationToken);
+			ApplyPendingReissue();
+			ApplyPendingQuotation();
 		}
 		finally
 		{
 			IsStockChoicesLoading = false;
 			OnPropertyChanged("StockPickerPlaceholder");
 			OnPropertyChanged(nameof(HasMedicinePickerItems));
+		}
+	}
+
+	/// <summary>Loads a wholesale quotation's lines as a draft. Each line keeps the batch it was quoted with.</summary>
+	private void ApplyPendingQuotation()
+	{
+		QuotationConversionRequest? request = _quoteHandoff.Pending;
+		if (request == null || request.Mode != QuotationService.WholesaleMode)
+		{
+			return;
+		}
+		if (Items.Count > 0)
+		{
+			ErrorMessage = $"Clear the current invoice before converting quotation {request.QuoteNo}.";
+			return;
+		}
+
+		_quoteHandoff.Pending = null;
+		Customer? customer = request.CustomerId.HasValue ? Customers.FirstOrDefault(item => item.Id == request.CustomerId.Value) : null;
+		if (customer == null)
+		{
+			ErrorMessage = $"Quotation {request.QuoteNo} has no active buyer. Select the buyer, then re-enter the lines.";
+			return;
+		}
+
+		SelectedCustomer = customer;
+		int missing = 0;
+		foreach (QuotationLineInput line in request.Lines)
+		{
+			WholesaleStockChoice? choice = line.BatchId.HasValue ? StockChoices.FirstOrDefault(item => item.BatchId == line.BatchId.Value) : null;
+			if (choice == null)
+			{
+				missing++;
+				continue;
+			}
+
+			WholesaleInvoiceLineDraft draft = new WholesaleInvoiceLineDraft
+			{
+				StockChoice = choice,
+				Quantity = line.Quantity,
+				FreeQuantity = line.FreeQuantity,
+				UnitPrice = line.UnitPrice,
+				DiscountAmount = line.DiscountAmount,
+				SaleUnit = "Unit"
+			};
+			draft.SetBatchOptions(StockChoices.Where(item => item.DrugId == choice.DrugId));
+			draft.MrpCommitted += OnWholesaleMrpCommitted;
+			Items.Add(draft);
+		}
+
+		_quotationConversionId = request.QuotationId;
+		Notes = $"Against quotation {request.QuoteNo}.";
+		NotifyTotalsChanged();
+		StatusMessage = $"Lines from quotation {request.QuoteNo} are loaded. Check them, then save the invoice.";
+		if (missing > 0)
+		{
+			ErrorMessage = $"{missing} line(s) could not be loaded because their batch is no longer in stock. Add them again from the medicine search.";
+		}
+	}
+
+	/// <summary>Saves the invoice on screen as a quotation. Nothing is billed, reserved or posted to the ledger.</summary>
+	private async Task SaveAsQuotationAsync()
+	{
+		ErrorMessage = string.Empty;
+		if (_session.User == null)
+		{
+			ErrorMessage = "Sign in before saving a quotation.";
+			return;
+		}
+		if (SelectedCustomer == null)
+		{
+			ErrorMessage = "Select the buyer before saving a quotation.";
+			return;
+		}
+		if (Items.Count == 0)
+		{
+			ErrorMessage = "Add at least one medicine to the quotation.";
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			Quotation quotation = await scope.ServiceProvider.GetRequiredService<QuotationService>().CreateAsync(
+				QuotationService.WholesaleMode,
+				SelectedCustomer.Id,
+				SelectedCustomer.Name,
+				SelectedCustomer.Phone,
+				DateOnly.FromDateTime(DateTime.Today.AddDays(QuoteValidityDays)),
+				Items.Select(item => new QuotationLineInput(item.StockChoice!.DrugId, item.StockChoice.BatchId, item.StockChoice.DrugName, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToList(),
+				null,
+				_session.User.Id,
+				_session.User.Role);
+			StatusMessage = $"Quotation {quotation.QuoteNo} saved for {MoneyFormat.Rupees(quotation.EstimatedTotal)}. No stock was reserved.";
+		}
+		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	public IAsyncRelayCommand SaveQuotationCommand => saveQuotationCommand ??= new AsyncRelayCommand(SaveAsQuotationAsync);
+
+	private AsyncRelayCommand? saveQuotationCommand;
+
+	private int _quoteValidityDays = 15;
+
+	/// <summary>How many days a quotation from this invoice stays valid: 15 or 30.</summary>
+	public int QuoteValidityDays
+	{
+		get => _quoteValidityDays;
+		set => SetProperty(ref _quoteValidityDays, value);
+	}
+
+	public IReadOnlyList<int> QuoteValidityOptions { get; } = new[] { 15, 30 };
+
+	/// <summary>Loads the lines of a cancelled invoice as a new draft (the customer and batches must still exist).</summary>
+	private void ApplyPendingReissue()
+	{
+		WholesaleReissueRequest? request = _reissue.Pending;
+		if (request == null)
+		{
+			return;
+		}
+
+		_reissue.Pending = null;
+		Customer? customer = Customers.FirstOrDefault(item => item.Id == request.CustomerId);
+		if (customer == null)
+		{
+			ErrorMessage = $"Invoice {request.OriginalInvoiceNo} was cancelled, but its customer is inactive. Activate the customer or select another, then re-enter the lines.";
+			return;
+		}
+
+		SelectedCustomer = customer;
+		Items.Clear();
+		int missing = 0;
+		foreach (WholesaleInvoiceLineInput line in request.Lines)
+		{
+			WholesaleStockChoice? choice = StockChoices.FirstOrDefault(item => item.BatchId == line.BatchId);
+			if (choice == null)
+			{
+				missing++;
+				continue;
+			}
+
+			WholesaleInvoiceLineDraft draft = new WholesaleInvoiceLineDraft
+			{
+				StockChoice = choice,
+				Quantity = line.Quantity,
+				FreeQuantity = line.FreeQuantity,
+				UnitPrice = line.UnitPrice,
+				DiscountAmount = line.DiscountAmount,
+				SaleUnit = "Unit"
+			};
+			draft.SetBatchOptions(StockChoices.Where(item => item.DrugId == choice.DrugId));
+			draft.MrpCommitted += OnWholesaleMrpCommitted;
+			Items.Add(draft);
+		}
+
+		Notes = $"Re-issued after cancelling invoice {request.OriginalInvoiceNo}.";
+		NotifyTotalsChanged();
+		StatusMessage = $"Lines from cancelled invoice {request.OriginalInvoiceNo} are loaded. Check them, then post the corrected bill.";
+		if (missing > 0)
+		{
+			ErrorMessage = $"{missing} line(s) could not be loaded because their batch is no longer in stock. Add them again from the medicine search.";
 		}
 	}
 
@@ -1851,6 +2050,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 
 		Items.Clear();
+		_quotationConversionId = null;
 		SelectedCustomer = null;
 		CustomerSearchText = string.Empty;
 		ClearMedicinePickerAfterAdd();
@@ -1958,6 +2158,11 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes), appUser.Id, appUser.Role);
 			LastInvoiceId = wholesaleInvoiceResult.Invoice.Id;
+			if (_quotationConversionId is Guid convertedQuoteId)
+			{
+				await scope.ServiceProvider.GetRequiredService<QuotationService>().MarkConvertedAsync(convertedQuoteId, wholesaleInvoiceResult.Invoice.InvoiceNo);
+				_quotationConversionId = null;
+			}
 			StatusMessage = $"Invoice {wholesaleInvoiceResult.Invoice.InvoiceNo} saved. Total {MoneyFormat.Rupees(wholesaleInvoiceResult.Invoice.TotalAmount)}; outstanding {MoneyFormat.Rupees(wholesaleInvoiceResult.OutstandingAfterPosting)}.";
 			ErrorMessage = string.Empty;
 			Items.Clear();

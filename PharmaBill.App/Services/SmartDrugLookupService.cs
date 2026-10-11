@@ -3,35 +3,41 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PharmaBill.Core.Ai;
+using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.Services;
 
 public sealed class SmartDrugLookupService : ISmartDrugLookupService
 {
-	public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
-
-	private const string GeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent";
-
-	private const string OpenRouterEndpoint = "https://openrouter.ai/api/v1/chat/completions";
+	public static readonly TimeSpan RequestTimeout = GeminiGenerateContent.OverallTimeout;
 
 	private readonly HttpClient _http;
 
 	private readonly Func<string?> _readApiKey;
 
+	private readonly IServiceScopeFactory? _scopes;
+
 	private readonly ILogger<SmartDrugLookupService>? _logger;
 
-	public SmartDrugLookupService(HttpClient http, GeminiApiKeyStore apiKeys, ILogger<SmartDrugLookupService>? logger = null)
-		: this(http, apiKeys.Read, logger)
+	public SmartDrugLookupService(HttpClient http, GeminiApiKeyStore apiKeys, IServiceScopeFactory scopes, ILogger<SmartDrugLookupService>? logger = null)
+		: this(http, apiKeys.Read, scopes, logger)
 	{
 	}
 
 	public SmartDrugLookupService(HttpClient http, Func<string?> readApiKey, ILogger<SmartDrugLookupService>? logger = null)
+		: this(http, readApiKey, scopes: null, logger)
+	{
+	}
+
+	public SmartDrugLookupService(HttpClient http, Func<string?> readApiKey, IServiceScopeFactory? scopes, ILogger<SmartDrugLookupService>? logger = null)
 	{
 		_http = http;
 		_readApiKey = readApiKey;
+		_scopes = scopes;
 		_logger = logger;
 	}
 
@@ -53,18 +59,26 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 		timeout.CancelAfter(RequestTimeout);
 		try
 		{
+			// The built-in drug bank and local medicines answer at once and work offline, so try them before the network.
+			SmartDrugSuggestion? localFirst = await TryLocalFallbackAsync(typed, timeout.Token);
+			if (localFirst != null)
+			{
+				return new SmartDrugLookupOutcome(localFirst, "Filled from your local medicine list. Check the MRP and purchase rate before saving.");
+			}
+
 			string? saved = ReadConfiguredKey();
 			string? openRouter = IsOpenRouterKey(saved) ? saved : NullIfEmpty(Environment.GetEnvironmentVariable("OPENROUTER_API_KEY"));
 			string? gemini = IsOpenRouterKey(saved) ? null : saved;
 			SmartDrugSuggestion? suggestion = null;
 			string? aiFailure = null;
+			bool aiBusy = false;
 			if (!string.IsNullOrWhiteSpace(gemini))
 			{
-				(suggestion, aiFailure) = await AskGeminiAsync(gemini, typed, timeout.Token);
+				(suggestion, aiFailure, aiBusy) = await AskGeminiAsync(gemini, typed, timeout.Token);
 			}
 			else if (!string.IsNullOrWhiteSpace(openRouter))
 			{
-				(suggestion, aiFailure) = await AskOpenRouterAsync(openRouter, typed, timeout.Token);
+				(suggestion, aiFailure, aiBusy) = await AskOpenRouterAsync(openRouter, typed, timeout.Token);
 			}
 			else
 			{
@@ -80,7 +94,7 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 			if (timeout.IsCancellationRequested)
 			{
 				_logger?.LogWarning("Medicine lookup timed out for {Query}", typed);
-				return new SmartDrugLookupOutcome(null, "Network timeout");
+				return new SmartDrugLookupOutcome(null, GeminiGenerateContent.NetworkUserMessage);
 			}
 
 			(SmartDrugSuggestion? publicMatch, string? publicFailure) = await AskOpenFdaAsync(typed, timeout.Token);
@@ -91,46 +105,79 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 
 			if (timeout.IsCancellationRequested)
 			{
-				return new SmartDrugLookupOutcome(null, "Network timeout");
+				return new SmartDrugLookupOutcome(null, GeminiGenerateContent.NetworkUserMessage);
 			}
 
-			string detail = CombineFailure(aiFailure, publicFailure) ?? "No online match found for '" + typed + "'.";
+			if (aiBusy || GeminiGenerateContent.IsUserFacingHttpNoise(aiFailure) || GeminiGenerateContent.IsUserFacingHttpNoise(publicFailure))
+			{
+				_logger?.LogWarning("Medicine lookup busy for {Query}: {Detail}", typed, CombineFailure(aiFailure, publicFailure));
+				return new SmartDrugLookupOutcome(null, GeminiGenerateContent.BusyUserMessage);
+			}
+
+			string detail = CombineFailure(SanitizeFailure(aiFailure), SanitizeFailure(publicFailure))
+				?? "No online match found for '" + typed + "'.";
 			_logger?.LogWarning("Medicine lookup found nothing for {Query}: {Detail}", typed, detail);
 			return new SmartDrugLookupOutcome(null, detail);
 		}
 		catch (OperationCanceledException)
 		{
 			_logger?.LogWarning("Medicine lookup timed out for {Query}", typed);
-			return new SmartDrugLookupOutcome(null, "Network timeout");
+			SmartDrugSuggestion? local = await TryLocalFallbackAsync(typed, CancellationToken.None);
+			return local != null
+				? new SmartDrugLookupOutcome(local, "Filled from your local medicine list. Check the MRP and purchase rate before saving.")
+				: new SmartDrugLookupOutcome(null, GeminiGenerateContent.NetworkUserMessage);
 		}
 		catch (Exception ex)
 		{
 			_logger?.LogWarning(ex, "Medicine lookup failed for {Query}", typed);
-			return new SmartDrugLookupOutcome(null, DescribeTransport(ex, typed));
+			SmartDrugSuggestion? local = await TryLocalFallbackAsync(typed, CancellationToken.None);
+			if (local != null)
+			{
+				return new SmartDrugLookupOutcome(local, "Filled from your local medicine list. Check the MRP and purchase rate before saving.");
+			}
+
+			return new SmartDrugLookupOutcome(null, SanitizeFailure(DescribeTransport(ex, typed)) ?? GeminiGenerateContent.NetworkUserMessage);
 		}
 	}
 
-	private async Task<(SmartDrugSuggestion? Suggestion, string? Failure)> AskGeminiAsync(string apiKey, string typed, CancellationToken cancellationToken)
+	private async Task<SmartDrugSuggestion?> TryLocalFallbackAsync(string typed, CancellationToken cancellationToken)
+	{
+		if (_scopes == null)
+		{
+			return null;
+		}
+
+		try
+		{
+			using IServiceScope scope = _scopes.CreateScope();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			return await LocalDrugSuggestionLookup.FindAsync(context, typed, cancellationToken);
+		}
+		catch (Exception ex)
+		{
+			_logger?.LogWarning(ex, "Local medicine fallback failed for {Query}", typed);
+			return null;
+		}
+	}
+
+	private async Task<(SmartDrugSuggestion? Suggestion, string? Failure, bool Busy)> AskGeminiAsync(string apiKey, string typed, CancellationToken cancellationToken)
 	{
 		try
 		{
-			using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, GeminiEndpoint)
-			{
-				Content = JsonContent.Create(BuildBody(typed))
-			};
-			request.Headers.TryAddWithoutValidation("x-goog-api-key", apiKey);
-			using HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+			object body = BuildBody(typed);
+			using HttpResponseMessage response = await GeminiGenerateContent.SendAsync(_http, apiKey, body, cancellationToken, _logger);
 			string payload = await response.Content.ReadAsStringAsync(cancellationToken);
 			if (!response.IsSuccessStatusCode)
 			{
 				_logger?.LogWarning("Gemini medicine lookup returned HTTP {Status} for {Query}", (int)response.StatusCode, typed);
-				return (null, "Gemini returned HTTP " + (int)response.StatusCode + ".");
+				bool busy = GeminiGenerateContent.IsTransient(response.StatusCode);
+				return (null, GeminiGenerateContent.UserMessageFor(response.StatusCode), busy);
 			}
 
 			SmartDrugSuggestion? suggestion = ParseProviderPayload(payload, typed);
 			return suggestion == null
-				? (null, "Gemini replied, but the medicine details could not be read.")
-				: (suggestion, null);
+				? (null, "Gemini replied, but the medicine details could not be read.", false)
+				: (suggestion, null, false);
 		}
 		catch (OperationCanceledException)
 		{
@@ -139,40 +186,57 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 		catch (Exception ex)
 		{
 			_logger?.LogWarning(ex, "Gemini medicine lookup failed for {Query}", typed);
-			return (null, DescribeTransport(ex, typed));
+			return (null, GeminiGenerateContent.UserMessageFor(ex), false);
 		}
 	}
 
-	private async Task<(SmartDrugSuggestion? Suggestion, string? Failure)> AskOpenRouterAsync(string apiKey, string typed, CancellationToken cancellationToken)
+	private async Task<(SmartDrugSuggestion? Suggestion, string? Failure, bool Busy)> AskOpenRouterAsync(string apiKey, string typed, CancellationToken cancellationToken)
 	{
 		try
 		{
-			using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, OpenRouterEndpoint)
+			for (int attempt = 0; attempt <= 3; attempt++)
 			{
-				Content = JsonContent.Create(new
+				if (attempt > 0)
 				{
-					model = "google/gemini-3.8-flash",
-					messages = new[]
+					await Task.Delay(attempt == 1 ? 500 : attempt == 2 ? 1200 : 2500, cancellationToken);
+				}
+
+				using HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, "https://openrouter.ai/api/v1/chat/completions")
+				{
+					Content = JsonContent.Create(new
 					{
-						new { role = "user", content = Prompt(typed) }
-					}
-				})
-			};
-			request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-			request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://pharmabill.local");
-			request.Headers.TryAddWithoutValidation("X-Title", "PharmaBill");
-			using HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-			string payload = await response.Content.ReadAsStringAsync(cancellationToken);
-			if (!response.IsSuccessStatusCode)
-			{
-				_logger?.LogWarning("OpenRouter medicine lookup returned HTTP {Status} for {Query}", (int)response.StatusCode, typed);
-				return (null, "OpenRouter returned HTTP " + (int)response.StatusCode + ".");
+						model = GeminiGenerateContent.OpenRouterModel,
+						messages = new[]
+						{
+							new { role = "user", content = Prompt(typed) }
+						}
+					})
+				};
+				request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+				request.Headers.TryAddWithoutValidation("HTTP-Referer", "https://pharmabill.local");
+				request.Headers.TryAddWithoutValidation("X-Title", "PharmaBill");
+
+				using CancellationTokenSource attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+				attemptTimeout.CancelAfter(GeminiGenerateContent.PerAttemptTimeout);
+				using HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, attemptTimeout.Token);
+				string payload = await response.Content.ReadAsStringAsync(cancellationToken);
+				if (response.IsSuccessStatusCode)
+				{
+					SmartDrugSuggestion? suggestion = ParseOpenRouterPayload(payload, typed);
+					return suggestion == null
+						? (null, "OpenRouter replied, but the medicine details could not be read.", false)
+						: (suggestion, null, false);
+				}
+
+				_logger?.LogWarning("OpenRouter medicine lookup returned HTTP {Status} for {Query} (attempt {Attempt})", (int)response.StatusCode, typed, attempt + 1);
+				if (!GeminiGenerateContent.IsTransient(response.StatusCode) || attempt == 3)
+				{
+					bool busy = GeminiGenerateContent.IsTransient(response.StatusCode);
+					return (null, GeminiGenerateContent.UserMessageFor(response.StatusCode), busy);
+				}
 			}
 
-			SmartDrugSuggestion? suggestion = ParseOpenRouterPayload(payload, typed);
-			return suggestion == null
-				? (null, "OpenRouter replied, but the medicine details could not be read.")
-				: (suggestion, null);
+			return (null, GeminiGenerateContent.NetworkUserMessage, false);
 		}
 		catch (OperationCanceledException)
 		{
@@ -181,7 +245,7 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 		catch (Exception ex)
 		{
 			_logger?.LogWarning(ex, "OpenRouter medicine lookup failed for {Query}", typed);
-			return (null, DescribeTransport(ex, typed));
+			return (null, GeminiGenerateContent.UserMessageFor(ex), false);
 		}
 	}
 
@@ -220,7 +284,9 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 			if (!response.IsSuccessStatusCode)
 			{
 				_logger?.LogWarning("OpenFDA medicine lookup returned HTTP {Status} for {Query}", (int)response.StatusCode, typed);
-				return (null, "OpenFDA returned HTTP " + (int)response.StatusCode + ".", false);
+				return (null, GeminiGenerateContent.IsTransient(response.StatusCode)
+					? GeminiGenerateContent.BusyUserMessage
+					: "Online lookup could not complete.", false);
 			}
 
 			SmartDrugSuggestion? suggestion = ParseOpenFdaPayload(payload, typed);
@@ -549,16 +615,28 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 		return first.Trim() + " " + second.Trim();
 	}
 
+	private static string? SanitizeFailure(string? message)
+	{
+		if (string.IsNullOrWhiteSpace(message))
+		{
+			return null;
+		}
+
+		return GeminiGenerateContent.IsUserFacingHttpNoise(message)
+			? GeminiGenerateContent.BusyUserMessage
+			: message.Trim();
+	}
+
 	private static string DescribeTransport(Exception ex, string typed)
 	{
 		if (ex is OperationCanceledException or TaskCanceledException)
 		{
-			return "Network timeout";
+			return GeminiGenerateContent.NetworkUserMessage;
 		}
 
 		if (ex is HttpRequestException)
 		{
-			return "Network error: " + ex.Message;
+			return GeminiGenerateContent.NetworkUserMessage;
 		}
 
 		return "No online match found for '" + typed + "'.";

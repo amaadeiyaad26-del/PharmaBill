@@ -35,4 +35,8 @@ public sealed class Drug : EntityBase
 	public Guid? CatalogMedicineId { get; set; }
 
 	public bool IsActive { get; set; } = true;
+
+	public bool IsBanned { get; set; }
+
+	public decimal MaxStockLevel { get; set; }
 }

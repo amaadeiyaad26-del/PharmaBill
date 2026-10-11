@@ -30,7 +30,7 @@
           <DataTrigger Value="True" Binding="{Binding Tag, RelativeSource={RelativeSource Self}}">
             <Setter Property="Background" Value="#222563EB" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#FF1D4ED8" />
+            <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}" />
           </DataTrigger>
         </Style.Triggers>
       </Style>
@@ -132,7 +132,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightAppearanceSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -184,7 +184,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightBusinessModeSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -205,7 +205,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightFirmProfileSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -275,7 +275,7 @@
               </Grid>
               <TextBlock Style="{StaticResource FieldLabel}" Text="FSSAI" />
               <TextBox Padding="8" Margin="0,0,0,10" Text="{Binding FssaiNumber, UpdateSourceTrigger=PropertyChanged}" />
-              <Button Content="Save Profile" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="#FF2563EB" BorderBrush="#FF2563EB" Command="{Binding SaveFirmProfileCommand}" />
+              <Button Content="Save Profile" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding SaveFirmProfileCommand}" />
               <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#FF027A48" Text="{Binding FirmProfileStatus}" />
             </StackPanel>
           </Border>
@@ -284,7 +284,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightBranchSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -331,7 +331,7 @@
                 </StackPanel>
               </Grid>
               <CheckBox Content="This desktop is the head office" Margin="0,0,0,10" IsChecked="{Binding BranchIsHeadOffice}" />
-              <Button Content="Save Branch" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="#FF2563EB" BorderBrush="#FF2563EB" Command="{Binding SaveBranchCommand}" />
+              <Button Content="Save Branch" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding SaveBranchCommand}" />
               <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#FF027A48" Text="{Binding BranchStatus}" />
             </StackPanel>
           </Border>
@@ -340,7 +340,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightGeminiSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -361,7 +361,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightPaymentSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -397,7 +397,7 @@
               <TextBox Padding="8" Margin="0,0,0,8" Text="{Binding UpiPayeeName, UpdateSourceTrigger=PropertyChanged}" />
               <CheckBox Content="Show Customer QR Window (secondary monitor when available)" Margin="0,0,0,10" IsChecked="{Binding ShowCustomerQrWindow}" />
               <WrapPanel>
-                <Button Content="Save UPI Settings" Style="{StaticResource PrimaryButton}" Height="36" MinWidth="140" Margin="0,0,8,0" Background="#FF2563EB" BorderBrush="#FF2563EB" Command="{Binding SaveUpiSettingsCommand}" />
+                <Button Content="Save UPI Settings" Style="{StaticResource PrimaryButton}" Height="36" MinWidth="140" Margin="0,0,8,0" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding SaveUpiSettingsCommand}" />
                 <Button Content="Preview QR Code" Style="{StaticResource SecondaryButton}" Height="36" Command="{Binding PreviewUpiQrCommand}" />
               </WrapPanel>
               <TextBlock Margin="0,8,0,0" Foreground="#FF027A48" TextWrapping="Wrap" Text="{Binding UpiSettingsStatus}" />
@@ -408,7 +408,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightPrinterSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -432,7 +432,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightDocumentOutputSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -497,7 +497,7 @@
               <PasswordBox Name="SmtpPasswordBox" Margin="0,0,0,6" Padding="7" PasswordChanged="SmtpPasswordBox_PasswordChanged" />
               <CheckBox Content="Use SSL/TLS" Margin="0,0,0,8" IsChecked="{Binding SmtpEnableSsl}" />
               <WrapPanel>
-                <Button Content="Save print &amp; invoice settings" Style="{StaticResource PrimaryButton}" Background="#FF2563EB" BorderBrush="#FF2563EB" Margin="0,0,8,0" Click="SaveDocumentOutputSettings_Click" />
+                <Button Content="Save print &amp; invoice settings" Style="{StaticResource PrimaryButton}" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Margin="0,0,8,0" Click="SaveDocumentOutputSettings_Click" />
                 <Button Content="Remove SMTP password" Style="{StaticResource SecondaryButton}" Command="{Binding RemoveSmtpPasswordCommand}" />
               </WrapPanel>
               <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#FF027A48" Text="{Binding DocumentOutputStatus}" />
@@ -508,7 +508,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightOperatorsSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -545,7 +545,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightInspectorSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -556,7 +556,7 @@
               <TextBlock Style="{StaticResource FieldLabel}" Text="Owner only â€” read-only view access" />
               <PasswordBox Name="InspectorPinBox" Padding="7" Margin="0,0,0,6" PasswordChanged="InspectorPinBox_PasswordChanged" />
               <PasswordBox Name="InspectorPinConfirmationBox" Padding="7" Margin="0,0,0,8" PasswordChanged="InspectorPinConfirmationBox_PasswordChanged" />
-              <Button Content="Save inspector PIN" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="#FF2563EB" BorderBrush="#FF2563EB" Click="SaveInspectorPin_Click" />
+              <Button Content="Save inspector PIN" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Click="SaveInspectorPin_Click" />
             </StackPanel>
           </Border>
           <Border Visibility="{Binding ShowSyncShortcut, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -564,7 +564,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightSyncShortcut}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -581,7 +581,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightBackupShortcut}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -601,7 +601,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightDataBackupSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -615,6 +615,9 @@
                 <Button Content="Refresh summary" Padding="12,7" Margin="0,0,8,0" Command="{Binding RefreshRetentionSummaryCommand}" />
                 <Button Content="Export &amp; Archive" Style="{StaticResource PrimaryButton}" Command="{Binding ArchivePreRetentionRecordsCommand}" IsEnabled="{Binding CanArchive}" />
               </WrapPanel>
+              <TextBlock Margin="0,12,0,4" Text="Fresh rollout" FontSize="14" FontWeight="SemiBold" />
+              <TextBlock TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#FF64748B" Text="Clear inventory, sales, purchases, and statutory registers without removing the pharmacy profile or users. New stores created in Initial Setup already start on an empty per-store database." />
+              <Button Content="Reset Database / Clear All Data" Padding="12,7" HorizontalAlignment="Left" Background="#FFFEF2F2" BorderBrush="#FFDC2626" Foreground="#FFB91C1C" Command="{Binding ResetDatabaseCommand}" IsEnabled="{Binding CanArchive}" />
               <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding RetentionStatus}" />
             </StackPanel>
           </Border>
@@ -629,7 +632,7 @@
                 <Setter Property="Margin" Value="0,0,0,12" />
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightUserManualSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -640,10 +643,10 @@
             </UIElement.Effect>
             <StackPanel>
               <TextBlock Text="User Manual &amp; Guides" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
-              <TextBlock Text="PharmaBill Quick Guides &amp; User Manual" FontSize="14" FontWeight="SemiBold" Foreground="#FF1D4ED8" Margin="0,0,0,4" />
+              <TextBlock Text="PharmaBill Quick Guides &amp; User Manual" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Margin="0,0,0,4" />
               <TextBlock TextWrapping="Wrap" Foreground="#FF64748B" FontSize="12.5" Margin="0,0,0,14" Text="Step-by-step instructions, shortcut keys, and workflow tutorials directly inside the app." />
               <WrapPanel>
-                <Button Padding="14,9" Margin="0,0,8,8" Cursor="Hand" Background="#FF2563EB" BorderBrush="#FF2563EB" Foreground="#FFFFFFFF" ToolTip="Open searchable chapters inside PharmaBill (also F1)" Command="{Binding OpenInteractiveUserManualCommand}">
+                <Button Padding="14,9" Margin="0,0,8,8" Cursor="Hand" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Foreground="#FFFFFFFF" ToolTip="Open searchable chapters inside PharmaBill (also F1)" Command="{Binding OpenInteractiveUserManualCommand}">
                   <Control.Template>
                     <ControlTemplate TargetType="{x:Type Button}">
                       <Border Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Control.Padding}">
@@ -701,7 +704,7 @@
               <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
                 <Style.Triggers>
                   <DataTrigger Value="True" Binding="{Binding HighlightAboutSection}">
-                    <Setter Property="BorderBrush" Value="#FF2563EB" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                     <Setter Property="BorderThickness" Value="2" />
                   </DataTrigger>
                 </Style.Triggers>
@@ -742,7 +745,7 @@
                   </Style>
                 </FrameworkElement.Style>
               </TextBlock>
-              <Button Content="Go to Pharmacy Email field -&gt;" HorizontalAlignment="Left" Margin="0,4,0,0" Padding="0" BorderThickness="0" Background="#00FFFFFF" Cursor="Hand" Foreground="#FF2563EB" FontWeight="SemiBold" Click="JumpToPharmacyEmail_Click">
+              <Button Content="Go to Pharmacy Email field -&gt;" HorizontalAlignment="Left" Margin="0,4,0,0" Padding="0" BorderThickness="0" Background="#00FFFFFF" Cursor="Hand" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" Click="JumpToPharmacyEmail_Click">
                 <FrameworkElement.Style>
                   <Style TargetType="{x:Type Button}">
                     <Setter Property="Visibility" Value="Visible" />

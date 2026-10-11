@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 
@@ -57,9 +58,10 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 			{
 				CustomerId = customer.Id,
 				EntryAtUtc = receipt.ReceiptAtUtc,
-				EntryType = ((invoice == null) ? "OnAccountReceipt" : "Receipt"),
+				EntryType = invoice == null ? LedgerEntryTypes.OnAccountReceipt : LedgerEntryTypes.Receipt,
 				ReferenceId = receipt.Id,
 				ReferenceNo = receipt.ReceiptNo,
+				Debit = 0m,
 				Credit = receipt.Amount,
 				Notes = receipt.Notes
 			});
@@ -114,10 +116,11 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 			{
 				SupplierId = supplier.Id,
 				EntryAtUtc = utcNow,
-				EntryType = "SupplierPayment",
+				EntryType = LedgerEntryTypes.SupplierPayment,
 				ReferenceId = payment.Id,
 				ReferenceNo = payment.ReceiptNo,
 				Debit = payment.Amount,
+				Credit = 0m,
 				Notes = payment.Notes
 			});
 			context.AuditLogs.Add(new AuditLog
@@ -268,10 +271,12 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 		{
 			throw new InvalidOperationException("Supplier not found.");
 		}
+		await EnsureMissingPurchaseBillLedgerEntriesAsync(supplierId, cancellationToken);
 		List<SupplierLedgerEntry> source = await (from entry in unitOfWork.Context.SupplierLedgerEntries.AsNoTracking()
 			where entry.SupplierId == supplierId
 			orderby entry.EntryAtUtc, entry.CreatedAtUtc
 			select entry).ToListAsync(cancellationToken);
+		// Payable balance: bills increase Credit; payments/returns increase Debit.
 		decimal balance = 0m;
 		return source.Select((SupplierLedgerEntry entry) =>
 		{
@@ -280,11 +285,76 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 		}).ToArray();
 	}
 
+	/// <summary>
+	/// Backfills SupplierLedger PurchaseBill credits for committed purchases that never posted a ledger row.
+	/// Idempotent per invoice Id / invoice number. Accepts legacy PurchaseInvoice EntryType as already linked.
+	/// </summary>
+	internal async Task EnsureMissingPurchaseBillLedgerEntriesAsync(Guid supplierId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		PharmaBillDbContext context = unitOfWork.Context;
+		var invoices = await context.PurchaseInvoices.AsNoTracking()
+			.Where(invoice => invoice.SupplierId == supplierId)
+			.Select(invoice => new { invoice.Id, invoice.InvoiceNo, invoice.InvoiceDate, invoice.TotalAmount })
+			.ToListAsync(cancellationToken);
+		if (invoices.Count == 0)
+		{
+			return;
+		}
+
+		var existing = await context.SupplierLedgerEntries.AsNoTracking()
+			.Where(entry => entry.SupplierId == supplierId
+				&& (entry.EntryType == LedgerEntryTypes.PurchaseBill || entry.EntryType == LedgerEntryTypes.PurchaseInvoiceLegacy))
+			.Select(entry => new { entry.ReferenceId, entry.ReferenceNo })
+			.ToListAsync(cancellationToken);
+		HashSet<Guid> linkedIds = existing
+			.Where(entry => entry.ReferenceId.HasValue)
+			.Select(entry => entry.ReferenceId!.Value)
+			.ToHashSet();
+		HashSet<string> linkedNos = existing
+			.Where(entry => !string.IsNullOrWhiteSpace(entry.ReferenceNo))
+			.Select(entry => entry.ReferenceNo!.Trim())
+			.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+		bool added = false;
+		foreach (var invoice in invoices)
+		{
+			string invoiceNo = invoice.InvoiceNo.Trim();
+			if (linkedIds.Contains(invoice.Id) || linkedNos.Contains(invoiceNo))
+			{
+				continue;
+			}
+
+			context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
+			{
+				SupplierId = supplierId,
+				EntryAtUtc = invoice.InvoiceDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+				EntryType = LedgerEntryTypes.PurchaseBill,
+				ReferenceId = invoice.Id,
+				ReferenceNo = invoice.InvoiceNo,
+				Debit = 0m,
+				Credit = decimal.Round(invoice.TotalAmount, 2, MidpointRounding.AwayFromZero),
+				Notes = "Purchase bill " + invoiceNo
+			});
+			linkedIds.Add(invoice.Id);
+			linkedNos.Add(invoiceNo);
+			added = true;
+		}
+
+		if (added)
+		{
+			await unitOfWork.SaveChangesAsync(cancellationToken);
+		}
+	}
+
 	public async Task<IReadOnlyList<(Guid SupplierId, string SupplierName, decimal Payable)>> GetSupplierPayablesAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		List<Supplier> suppliers = await (from item in unitOfWork.Context.Suppliers.AsNoTracking()
 			where item.IsActive
 			select item).ToListAsync(cancellationToken);
+		foreach (Supplier supplier in suppliers)
+		{
+			await EnsureMissingPurchaseBillLedgerEntriesAsync(supplier.Id, cancellationToken);
+		}
 		var entries = await (from item in unitOfWork.Context.SupplierLedgerEntries.AsNoTracking()
 			group item by item.SupplierId into @group
 			select new

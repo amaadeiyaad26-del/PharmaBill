@@ -50,7 +50,7 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
 OutputBaseFilename=PharmaBill_Setup
-SetupIconFile=PharmaBill.App\Assets\Icons\app.ico
+SetupIconFile=PharmaBill.App\app.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 Compression=lzma2/ultra64
@@ -81,12 +81,17 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 ; Start Menu
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\{#AppExe}"
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
 ; Desktop (task checked by default via checkedonce)
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\{#AppExe}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; Tasks: desktopicon
 
 [Run]
+; Allow inbound TCP to PharmaBill.App.exe so the Android Mobile Bridge (LAN bill scan) can reach this PC.
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""PharmaBill Mobile Bridge"" dir=in action=allow protocol=TCP program=""{app}\{#AppExe}"""; Flags: runhidden
 Filename: "{app}\{#AppExe}"; Description: "Launch PharmaBill"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""PharmaBill Mobile Bridge"""; Flags: runhidden
 
 ; -----------------------------------------------------------------------------
 ; INTENTIONALLY OMITTED:

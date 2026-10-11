@@ -192,6 +192,12 @@ public partial class QuickInwardWindow : Window
 			DialogResult = true;
 			Close();
 		}
+		catch (DbUpdateException dbEx)
+		{
+			string message = dbEx.InnerException != null ? dbEx.InnerException.Message : dbEx.Message;
+			StatusText.Text = $"Database error: {message}";
+			System.Diagnostics.Debug.WriteLine($"[QuickInward Save Error]: {dbEx}");
+		}
 		catch (Exception ex)
 		{
 			StatusText.Text = ex.Message;

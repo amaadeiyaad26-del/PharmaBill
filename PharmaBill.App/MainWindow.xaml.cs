@@ -169,6 +169,65 @@ public partial class MainWindow : Window
 				return;
 			}
 
+			Key erpKey = e.Key == Key.System ? e.SystemKey : e.Key;
+			bool erpCtrl = (mods & ModifierKeys.Control) == ModifierKeys.Control;
+			bool erpShift = (mods & ModifierKeys.Shift) == ModifierKeys.Shift;
+
+			// Shift+F12 — compliance calendar (plain F12 / Ctrl+K open calculator via InputBindings)
+			if (erpKey == Key.F12 && erpShift && !erpCtrl)
+			{
+				new ComplianceCalendarWindow(_scopeFactory) { Owner = this }.Show();
+				e.Handled = true;
+				return;
+			}
+
+			// Ctrl+F3 — quick search / modify bill (distinct from Ctrl+3 patient focus)
+			if (erpCtrl && erpKey == Key.F3)
+			{
+				_viewModel.NavigateCommand.Execute("Billing");
+				if (_viewModel.CurrentPage is RetailBillingViewModel retail)
+				{
+					retail.ItemSearch = string.Empty;
+					retail.StatusMessage = "Quick search / modify bill — type invoice no. or medicine (Ctrl+F3).";
+				}
+
+				e.Handled = true;
+				return;
+			}
+
+			// Ctrl+I — quick item / salt stock lookup
+			if (erpCtrl && erpKey == Key.I)
+			{
+				_viewModel.NavigateCommand.Execute("Stock");
+				try
+				{
+					if (FindName("GlobalMedicineSearchBox") is TextBox searchBox)
+					{
+						searchBox.Focus();
+						Keyboard.Focus(searchBox);
+					}
+					else
+					{
+						_viewModel.CatalogSearch.Query = string.Empty;
+					}
+				}
+				catch
+				{
+					// Focus best-effort
+				}
+
+				e.Handled = true;
+				return;
+			}
+
+			// Ctrl+L — supplier / customer ledger
+			if (erpCtrl && erpKey == Key.L)
+			{
+				_viewModel.NavigateCommand.Execute("Accounts");
+				e.Handled = true;
+				return;
+			}
+
 			_barcodeListener.ProcessKeyDown(e);
 		};
 		PreviewTextInput += (object _, TextCompositionEventArgs e) =>
@@ -181,6 +240,7 @@ public partial class MainWindow : Window
 	{
 		_viewModel.PropertyChanged += OnMainViewModelPropertyChanged;
 		_viewModel.LockRequested += OnLockRequested;
+		_viewModel.CalculatorRequested += OnCalculatorRequested;
 		AttachRetailPage(_viewModel.CurrentPage);
 		InitAnimatedSearchHint();
 		await _viewModel.InitializeAsync();
@@ -207,6 +267,7 @@ public partial class MainWindow : Window
 		InputManager.Current.PreProcessInput -= OnPreProcessInput;
 		_viewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
 		_viewModel.LockRequested -= OnLockRequested;
+		_viewModel.CalculatorRequested -= OnCalculatorRequested;
 		AttachRetailPage(null);
 	}
 
@@ -630,6 +691,26 @@ public partial class MainWindow : Window
 		}
 	}
 
+	private void OnCalculatorRequested(object? sender, EventArgs e)
+	{
+		try
+		{
+			System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("calc.exe")
+			{
+				UseShellExecute = true
+			});
+		}
+		catch (Exception ex)
+		{
+			MessageBox.Show(
+				this,
+				"Could not open Windows Calculator.\n\n" + ex.Message,
+				"PharmaBill",
+				MessageBoxButton.OK,
+				MessageBoxImage.Warning);
+		}
+	}
+
 	private void OnLockRequested(object? sender, EventArgs e)
 	{
 		if (!_showingLockScreen)
@@ -949,6 +1030,51 @@ public partial class MainWindow : Window
 		}
 	}
 
+	private void NavSearchBox_KeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.Key == Key.Escape)
+		{
+			_viewModel.NavFilter = string.Empty;
+			e.Handled = true;
+			return;
+		}
+
+		if (e.Key is Key.Enter or Key.Return && !string.IsNullOrWhiteSpace(_viewModel.NavFilter))
+		{
+			string typed = _viewModel.NavFilter.Trim();
+			_viewModel.NavFilter = string.Empty;
+			if (_viewModel.NavigationItemsView.Cast<NavigationItem>().FirstOrDefault() is { } first)
+			{
+				_viewModel.NavigateCommand.Execute(first.SectionKey);
+			}
+			else
+			{
+				OpenSidebarToolMatch(typed, e);
+				// A dialog hands focus back to whatever was focused before it, which can be a sidebar button.
+				// Return it to the search box so the next Enter doesn't activate that button.
+				Dispatcher.BeginInvoke(() => NavSearchBox.Focus(), DispatcherPriority.Input);
+			}
+			e.Handled = true;
+		}
+	}
+
+	/// <summary>The sidebar tools at the bottom are not menu items, so search opens them by name.</summary>
+	private void OpenSidebarToolMatch(string text, RoutedEventArgs e)
+	{
+		if ("settings".Contains(text, StringComparison.OrdinalIgnoreCase))
+		{
+			_viewModel.NavigateCommand.Execute("Settings");
+		}
+		else if ("diagnostics".Contains(text, StringComparison.OrdinalIgnoreCase))
+		{
+			OpenDiagnostics_Click(this, e);
+		}
+		else if ("import medicine data".Contains(text, StringComparison.OrdinalIgnoreCase))
+		{
+			OpenCatalogImport_Click(this, e);
+		}
+	}
+
 	private void RetailItemSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
 	{
 		if (_viewModel.CurrentPage is not RetailBillingViewModel retail)
@@ -995,6 +1121,15 @@ public partial class MainWindow : Window
 		if (FindVisualChildByName(this, "RetailMedicineSuggestionList") is ListBox list && retail.SelectedSearchResult != null)
 		{
 			list.ScrollIntoView(retail.SelectedSearchResult);
+		}
+	}
+
+	private void InvoiceToolsButton_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is FrameworkElement { ContextMenu: { } menu } button)
+		{
+			menu.PlacementTarget = button;
+			menu.IsOpen = true;
 		}
 	}
 

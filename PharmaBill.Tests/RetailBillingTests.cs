@@ -204,6 +204,145 @@ public sealed class RetailBillingTests
     }
 
     [Fact]
+    public async Task SaveSale_AwardsLoyaltyPointsOnBillValue()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+
+        var result = await service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Cash", 100m, 100m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner);
+
+        Assert.Equal(100m, result.TotalAmount);
+        Assert.Equal(1, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+    }
+
+    [Fact]
+    public async Task SaveSale_LoyaltyRedemptionReducesBalanceAndWritesNoCashReceipt()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9876543210", LoyaltyPoints = 150 });
+        await database.Context.SaveChangesAsync();
+
+        var result = await service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Loyalty", 60m, 60m), new RetailPaymentInput("Cash", 40m, 40m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner);
+
+        Assert.Equal("Paid", result.Sale.PaymentStatus);
+        // 150 - 60 redeemed; the ₹40 cash paid earns nothing (below ₹100).
+        Assert.Equal(90, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+        var receipt = await database.Context.Receipts.SingleAsync();
+        Assert.Equal("Cash", receipt.PaymentMethod);
+        Assert.Equal(40m, receipt.Amount);
+    }
+
+    [Fact]
+    public async Task SaveSale_FullyPaidByLoyaltyPointsLeavesNoCreditOrReceipt()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9876543210", LoyaltyPoints = 100 });
+        await database.Context.SaveChangesAsync();
+
+        var result = await service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Loyalty", 100m, 100m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner);
+
+        Assert.Equal("Paid", result.Sale.PaymentStatus);
+        Assert.Equal(0, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+        Assert.Empty(await database.Context.Receipts.ToListAsync());
+        Assert.Empty(await database.Context.CustomerLedgerEntries.ToListAsync());
+    }
+
+    [Fact]
+    public async Task SaveSale_SplitCashAndLoyaltyPointsPaysTheBill()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9876543210", LoyaltyPoints = 60 });
+        await database.Context.SaveChangesAsync();
+
+        var result = await service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Cash", 50m, 50m), new RetailPaymentInput("Loyalty", 50m, 50m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner);
+
+        Assert.Equal("Paid", result.Sale.PaymentStatus);
+        // 60 - 50 redeemed; the ₹50 cash paid earns nothing (below ₹100).
+        Assert.Equal(10, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+        Assert.Equal("Cash", (await database.Context.Receipts.SingleAsync()).PaymentMethod);
+    }
+
+    [Fact]
+    public async Task SaveSale_RejectsLoyaltyRedemptionAboveBalance()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9876543210", LoyaltyPoints = 10 });
+        await database.Context.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Loyalty", 100m, 100m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner));
+
+        Assert.Contains("Only 10 loyalty points", ex.Message);
+        Assert.Equal(10, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+        Assert.Empty(await database.Context.Sales.ToListAsync());
+    }
+
+    [Fact]
+    public async Task SaveSale_RejectsLoyaltyThatLeavesPartOfTheBillUnpaid()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9876543210", LoyaltyPoints = 150 });
+        await database.Context.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with
+            {
+                Payments = [new RetailPaymentInput("Loyalty", 60m, 60m)]
+            },
+            Guid.NewGuid(),
+            UserRole.Owner));
+
+        Assert.Equal(150, (await database.Context.Patients.SingleAsync()).LoyaltyPoints);
+    }
+
+    [Fact]
+    public async Task GetLoyaltyPoints_ReturnsBalanceForSavedPatientOnly()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, _, _) = await CreateServiceAsync(database);
+        database.Context.Patients.Add(new Patient { Name = "Loyal", Phone = "9123456780", LoyaltyPoints = 7 });
+        await database.Context.SaveChangesAsync();
+
+        Assert.Equal(7, await service.GetLoyaltyPointsAsync(" 91234-56780 "));
+        Assert.Null(await service.GetLoyaltyPointsAsync("9000000000"));
+        Assert.Null(await service.GetLoyaltyPointsAsync("  "));
+    }
+
+    [Fact]
     public async Task SaveSale_ReusesPatientAndCreatesHabitRegisterAndMovement()
     {
         await using var database = await DatabaseTestContext.CreateAsync();

@@ -5,8 +5,10 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,7 +26,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup) : ObservableObject, ILoadablePage
+public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, QuotationConversionHandoff quoteHandoff, RetailReissueHandoff reissueHandoff, IAddStockDialogService? addStockDialog = null) : ObservableObject, ILoadablePage
 {
 	private string _billNumber = "Assigned on save";
 
@@ -118,6 +120,9 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private RetailBillLineViewModel? _selectedBillLine;
 
+	/// <summary>Quotation being converted into the bill on screen; marked converted only once that bill is saved.</summary>
+	private Guid? _quotationConversionId;
+
 	private HeldRetailBill? _selectedHeldBill;
 
 	private MedicineSearchResult? _selectedOutOfStockMedicine;
@@ -125,6 +130,10 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private MedicineSearchResult? _selectedSubstitute;
 
 	private bool _isSubstituteFlyoutOpen;
+
+	private string _substituteDrawerTitle = "Salt substitutes";
+
+	private string _substituteDrawerSubtitle = string.Empty;
 
 	private bool _isSearching;
 
@@ -193,6 +202,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? saveAndPrintCommand;
 
+	private RelayCommand? sendViaWhatsAppCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? previewOrPickPrintFormatCommand;
 
@@ -206,6 +217,43 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private bool _showOnlineLookup;
 
 	public ObservableCollection<RetailStockChoice> SearchResults { get; } = new ObservableCollection<RetailStockChoice>();
+
+	/// <summary>Drug bank medicines matching the search that have no stock. Shown for reference; they can't be billed.</summary>
+	public ObservableCollection<MedicineSearchResult> CatalogOnlyMatches { get; } = new ObservableCollection<MedicineSearchResult>();
+
+	public bool HasCatalogOnlyMatches => CatalogOnlyMatches.Count > 0;
+
+	private AsyncRelayCommand<MedicineSearchResult?>? addCatalogToStockCommand;
+
+	public IAsyncRelayCommand<MedicineSearchResult?> AddCatalogToStockCommand => addCatalogToStockCommand ?? (addCatalogToStockCommand = new AsyncRelayCommand<MedicineSearchResult?>(AddCatalogToStockAsync));
+
+	/// <summary>Opens the add-stock form for a drug bank medicine, then searches again so it can be billed.</summary>
+	private async Task AddCatalogToStockAsync(MedicineSearchResult? medicine)
+	{
+		if (medicine == null || addStockDialog == null)
+		{
+			return;
+		}
+		bool saved = await addStockDialog.ShowAsync(new AddStockRequest(null, medicine.CatalogMedicineId, medicine.Name, medicine.Composition, medicine.Manufacturer));
+		if (saved)
+		{
+			StatusMessage = medicine.Name + " added to stock. It can be billed now.";
+			await DebouncedLiveSearchAsync(ItemSearch);
+		}
+	}
+
+	private void SetCatalogOnlyMatches(IReadOnlyList<MedicineSearchResult>? matches)
+	{
+		CatalogOnlyMatches.Clear();
+		if (matches != null)
+		{
+			foreach (MedicineSearchResult match in matches)
+			{
+				CatalogOnlyMatches.Add(match);
+			}
+		}
+		OnPropertyChanged(nameof(HasCatalogOnlyMatches));
+	}
 
 	public ObservableCollection<RetailBillLineViewModel> BillItems { get; } = new ObservableCollection<RetailBillLineViewModel>();
 
@@ -276,11 +324,15 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	public bool HasSubstitutes => Substitutes.Count > 0;
 
-	public IReadOnlyList<string> PaymentMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[6] { "Cash", "UPI / QR", "Card / POS", "Cheque / Bank Transfer", "Credit / Ledger", "Split Payment" });
+	public IReadOnlyList<string> PaymentMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[7] { "Cash", "UPI / QR", "Card / POS", "Cheque / Bank Transfer", "Credit / Ledger", "Loyalty points", "Split Payment" });
 
 	public ObservableCollection<HeldRetailBill> HeldBills { get; } = new ObservableCollection<HeldRetailBill>();
 
-	public IReadOnlyList<string> SplitSecondMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[3] { "UPI / QR", "Card / POS", "Credit / Ledger" });
+	public bool HasHeldBills => HeldBills.Count > 0;
+
+	public string HeldBillsPlaceholder => HasHeldBills ? "Select Paused Bill..." : "No Paused Bills";
+
+	public IReadOnlyList<string> SplitSecondMethods { get; } = new _003C_003Ez__ReadOnlyArray<string>(new string[4] { "UPI / QR", "Card / POS", "Loyalty points", "Credit / Ledger" });
 
 	public decimal Subtotal => BillItems.Sum((RetailBillLineViewModel line) => line.NetAmount);
 
@@ -1256,6 +1308,32 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 	}
 
+	public string SubstituteDrawerTitle
+	{
+		get => _substituteDrawerTitle;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_substituteDrawerTitle, value))
+			{
+				_substituteDrawerTitle = value;
+				OnPropertyChanged(nameof(SubstituteDrawerTitle));
+			}
+		}
+	}
+
+	public string SubstituteDrawerSubtitle
+	{
+		get => _substituteDrawerSubtitle;
+		private set
+		{
+			if (!EqualityComparer<string>.Default.Equals(_substituteDrawerSubtitle, value))
+			{
+				_substituteDrawerSubtitle = value;
+				OnPropertyChanged(nameof(SubstituteDrawerSubtitle));
+			}
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public bool IsSearching
@@ -1334,6 +1412,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	/// <summary>F4 — medicine / barcode search (alias of FocusSearch).</summary>
 	public IRelayCommand FocusMedicineCommand => FocusSearchCommand;
 
+	public IRelayCommand FocusMedicineSearchCommand => FocusSearchCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand FocusPaymentCommand => focusPaymentCommand ?? (focusPaymentCommand = new RelayCommand(FocusPayment));
@@ -1365,6 +1445,23 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand SaveAndPrintCommand => saveAndPrintCommand ?? (saveAndPrintCommand = new AsyncRelayCommand(SaveAndPrintAsync));
+
+	public IRelayCommand SendViaWhatsAppCommand => sendViaWhatsAppCommand ?? (sendViaWhatsAppCommand = new RelayCommand(SendViaWhatsApp));
+
+	public IAsyncRelayCommand SaveQuotationCommand => saveQuotationCommand ??= new AsyncRelayCommand(SaveAsQuotationAsync);
+
+	private AsyncRelayCommand? saveQuotationCommand;
+
+	private int _quoteValidityDays = 15;
+
+	/// <summary>How many days a quotation from this bill stays valid: 15 or 30.</summary>
+	public int QuoteValidityDays
+	{
+		get => _quoteValidityDays;
+		set => SetProperty(ref _quoteValidityDays, value);
+	}
+
+	public IReadOnlyList<int> QuoteValidityOptions { get; } = new[] { 15, 30 };
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -1402,6 +1499,119 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		_pharmacyName = pharmacyProfile.Name;
 		UpiId = pharmacyProfile.UpiId ?? string.Empty;
 		BillNumber = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().PreviewNextInvoiceNoAsync(cancellationToken);
+		await ApplyPendingQuotationAsync(scope, cancellationToken);
+		await ApplyPendingRetailReissueAsync(scope, cancellationToken);
+	}
+
+	/// <summary>Loads the items of a retail bill that was cancelled for re-issue, so they can be billed again.</summary>
+	private async Task ApplyPendingRetailReissueAsync(IServiceScope scope, CancellationToken cancellationToken)
+	{
+		RetailReissueRequest? request = reissueHandoff.Pending;
+		if (request == null)
+		{
+			return;
+		}
+		if (BillItems.Count > 0)
+		{
+			ErrorMessage = $"Clear the current bill before re-billing {request.OriginalInvoiceNo}.";
+			return;
+		}
+
+		reissueHandoff.Pending = null;
+		PatientName = request.PatientName;
+		PatientPhone = request.PatientPhone ?? string.Empty;
+		IReadOnlyDictionary<Guid, RetailStockChoice> choices = await scope.ServiceProvider.GetRequiredService<RetailBillingService>()
+			.GetFefoChoicesAsync(request.Lines.Select(line => line.DrugId).Distinct().ToArray(), cancellationToken);
+		List<string> missing = new List<string>();
+		foreach (RetailReissueLine line in request.Lines)
+		{
+			if (!choices.TryGetValue(line.DrugId, out RetailStockChoice? choice))
+			{
+				missing.Add(line.DrugName);
+				continue;
+			}
+			AddStockChoice(choice, line.Quantity);
+		}
+
+		StatusMessage = $"Items from {request.OriginalInvoiceNo} are loaded. Check them, then save the new bill.";
+		if (missing.Count > 0)
+		{
+			ErrorMessage = "Out of stock now, add these manually: " + string.Join(", ", missing);
+		}
+	}
+
+	/// <summary>Loads a quotation's lines as a retail draft. Batches are picked FEFO, as they are for any retail bill.</summary>
+	private async Task ApplyPendingQuotationAsync(IServiceScope scope, CancellationToken cancellationToken)
+	{
+		QuotationConversionRequest? request = quoteHandoff.Pending;
+		if (request == null || request.Mode != QuotationService.RetailMode)
+		{
+			return;
+		}
+		if (BillItems.Count > 0)
+		{
+			ErrorMessage = $"Clear the current bill before converting quotation {request.QuoteNo}.";
+			return;
+		}
+
+		quoteHandoff.Pending = null;
+		PatientName = request.PartyName;
+		PatientPhone = request.PartyPhone ?? string.Empty;
+		IReadOnlyDictionary<Guid, RetailStockChoice> choices = await scope.ServiceProvider.GetRequiredService<RetailBillingService>()
+			.GetFefoChoicesAsync(request.Lines.Select(line => line.DrugId).Distinct().ToArray(), cancellationToken);
+		List<string> missing = new List<string>();
+		foreach (QuotationLineInput line in request.Lines)
+		{
+			if (!choices.TryGetValue(line.DrugId, out RetailStockChoice? choice))
+			{
+				missing.Add(line.DrugName);
+				continue;
+			}
+			AddStockChoice(choice, line.Quantity);
+		}
+
+		_quotationConversionId = request.QuotationId;
+		StatusMessage = $"Lines from quotation {request.QuoteNo} are loaded. Check them, then save the bill.";
+		if (missing.Count > 0)
+		{
+			ErrorMessage = "Out of stock now, add these manually: " + string.Join(", ", missing);
+		}
+	}
+
+	/// <summary>Saves the bill on screen as a quotation. Nothing is billed or reserved.</summary>
+	private async Task SaveAsQuotationAsync()
+	{
+		ErrorMessage = string.Empty;
+		if (currentSession.User == null)
+		{
+			ErrorMessage = "Sign in before saving a quotation.";
+			return;
+		}
+		if (BillItems.Count == 0)
+		{
+			ErrorMessage = "Add at least one medicine to the quotation.";
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			Quotation quotation = await scope.ServiceProvider.GetRequiredService<QuotationService>().CreateAsync(
+				QuotationService.RetailMode,
+				null,
+				PatientName,
+				PatientPhone,
+				DateOnly.FromDateTime(DateTime.Today.AddDays(QuoteValidityDays)),
+				BillItems.Select(line => new QuotationLineInput(line.Choice.DrugId, null, line.Choice.DrugName, line.Quantity, 0m, line.Quantity == 0m ? 0m : line.GrossAmount / line.Quantity, 0m)).ToList(),
+				null,
+				currentSession.User.Id,
+				currentSession.User.Role);
+			StatusMessage = $"Quotation {quotation.QuoteNo} saved for about {MoneyFormat.Rupees(quotation.EstimatedTotal)}. No stock was reserved.";
+		}
+		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private async Task DebouncedLiveSearchAsync(string value)
@@ -1416,6 +1626,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			if (value.Trim().Length < 2)
 			{
 				SearchResults.Clear();
+				SetCatalogOnlyMatches(null);
 				OnPropertyChanged("HasSearchResults");
 				SetOnlineLookup(false);
 				SetNoMedicineMatches(false);
@@ -1423,58 +1634,9 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				return;
 			}
 			IsSearching = true;
-			using IServiceScope scope = scopeFactory.CreateScope();
-			IReadOnlyList<RetailStockChoice> readOnlyList = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchStockAsync(value, token);
+			LiveSearchOutcome outcome = await Task.Run(() => QueryLiveSearchAsync(value, token), token);
 			token.ThrowIfCancellationRequested();
-			SearchResults.Clear();
-			foreach (RetailStockChoice item in readOnlyList)
-			{
-				SearchResults.Add(item);
-			}
-			OnPropertyChanged("HasSearchResults");
-			OnPropertyChanged(nameof(ShowNamedQuickAdd));
-			if (readOnlyList.Count > 0)
-			{
-				ClearSubstitutes();
-				_explicitBatchPick = false;
-				SelectedSearchResult = readOnlyList[0];
-				SetOnlineLookup(false);
-				SetNoMedicineMatches(false);
-				SetRetailSearchSettled(true);
-				return;
-			}
-			CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
-			MedicineSearchResults medicineSearchResults = await catalog.SearchAsync(value, token);
-			token.ThrowIfCancellationRequested();
-			MedicineSearchResult medicineSearchResult = medicineSearchResults.FromCatalog.FirstOrDefault() ?? medicineSearchResults.InStock.FirstOrDefault();
-			if ((object)medicineSearchResult == null || string.IsNullOrWhiteSpace(medicineSearchResult.CompositionKey))
-			{
-				ClearSubstitutes();
-				SetOnlineLookup(medicineSearchResult == null && value.Trim().Length >= 2);
-				SetNoMedicineMatches(medicineSearchResult == null && value.Trim().Length >= 2);
-				SetRetailSearchSettled(value.Trim().Length >= 2);
-				return;
-			}
-
-			SetOnlineLookup(false);
-			SetNoMedicineMatches(false);
-			SetRetailSearchSettled(true);
-			SelectedOutOfStockMedicine = medicineSearchResult;
-			List<SubstituteStockResult> list = await catalog.FindSubstitutesAsync(medicineSearchResult.CompositionKey, medicineSearchResult.CatalogMedicineId, token);
-			token.ThrowIfCancellationRequested();
-			catalogSearch.SubstituteResults.Clear();
-			foreach (SubstituteStockResult item2 in list)
-			{
-				catalogSearch.SubstituteResults.Add(CatalogSearchService.ToMedicineSearchResult(item2));
-			}
-			OnPropertyChanged("Substitutes");
-			OnPropertyChanged("HasSubstitutes");
-			IsSubstituteFlyoutOpen = list.Count > 0;
-			if (list.Count > 0)
-			{
-				SelectedSubstitute = Substitutes.FirstOrDefault((MedicineSearchResult item) => item.IsInStock) ?? Substitutes.FirstOrDefault();
-				StatusMessage = "No saleable stock while typing — review salt substitutes (F5).";
-			}
+			ApplyLiveSearchOutcome(value, outcome);
 		}
 		catch (OperationCanceledException)
 		{
@@ -1492,14 +1654,85 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 	}
 
+	private sealed record LiveSearchOutcome(IReadOnlyList<RetailStockChoice> Stock, MedicineSearchResult? Medicine, List<SubstituteStockResult>? Substitutes, IReadOnlyList<MedicineSearchResult>? CatalogMatches = null);
+
+	/// <summary>
+	/// Runs the database queries on a thread-pool thread with its own scope. SQLite queries block
+	/// the calling thread, so running them here keeps the search box responsive while typing.
+	/// </summary>
+	private async Task<LiveSearchOutcome> QueryLiveSearchAsync(string value, CancellationToken token)
+	{
+		using IServiceScope scope = scopeFactory.CreateScope();
+		IReadOnlyList<RetailStockChoice> stock = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchStockAsync(value, token);
+		if (stock.Count > 0)
+		{
+			return new LiveSearchOutcome(stock, null, null);
+		}
+		CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
+		MedicineSearchResults medicineSearchResults = await catalog.SearchAsync(value, token);
+		MedicineSearchResult? medicine = medicineSearchResults.FromCatalog.FirstOrDefault() ?? medicineSearchResults.InStock.FirstOrDefault();
+		// Drug bank medicines with no stock are listed so they can be found; they can't be billed until stocked.
+		List<MedicineSearchResult> catalogMatches = medicineSearchResults.FromCatalog.Concat(medicineSearchResults.InStock)
+			.Where(match => !match.IsInStock)
+			.GroupBy(match => match.Name, StringComparer.OrdinalIgnoreCase)
+			.Select(group => group.First())
+			.Take(25)
+			.ToList();
+		if (medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
+		{
+			return new LiveSearchOutcome(stock, medicine, null, catalogMatches);
+		}
+		List<SubstituteStockResult> substitutes = await catalog.FindSubstitutesAsync(medicine.CompositionKey, medicine.CatalogMedicineId, token);
+		return new LiveSearchOutcome(stock, medicine, substitutes, catalogMatches);
+	}
+
+	/// <summary>Applies a finished search to the bound UI state. Must run on the UI thread.</summary>
+	private void ApplyLiveSearchOutcome(string value, LiveSearchOutcome outcome)
+	{
+		SetCatalogOnlyMatches(outcome.CatalogMatches);
+		SearchResults.Clear();
+		foreach (RetailStockChoice item in outcome.Stock)
+		{
+			SearchResults.Add(item);
+		}
+		OnPropertyChanged("HasSearchResults");
+		OnPropertyChanged(nameof(ShowNamedQuickAdd));
+		if (outcome.Stock.Count > 0)
+		{
+			ClearSubstitutes();
+			_explicitBatchPick = false;
+			SelectedSearchResult = OldestValidBatch(outcome.Stock, value) ?? outcome.Stock[0];
+			SetOnlineLookup(false);
+			SetNoMedicineMatches(false);
+			SetRetailSearchSettled(true);
+			return;
+		}
+		MedicineSearchResult? medicine = outcome.Medicine;
+		if (medicine == null || string.IsNullOrWhiteSpace(medicine.CompositionKey))
+		{
+			ClearSubstitutes();
+			SetOnlineLookup(medicine == null && value.Trim().Length >= 2);
+			SetNoMedicineMatches(medicine == null && value.Trim().Length >= 2);
+			SetRetailSearchSettled(value.Trim().Length >= 2);
+			return;
+		}
+		SetOnlineLookup(false);
+		SetNoMedicineMatches(false);
+		SetRetailSearchSettled(true);
+		SelectedOutOfStockMedicine = medicine;
+		PresentSubstituteDrawer(outcome.Substitutes ?? new List<SubstituteStockResult>(), medicine.Name, inStockOnly: true);
+	}
+
 	private void ClearSubstitutes()
 	{
 		catalogSearch.SubstituteResults.Clear();
 		SelectedOutOfStockMedicine = null;
 		SelectedSubstitute = null;
 		IsSubstituteFlyoutOpen = false;
-		OnPropertyChanged("Substitutes");
-		OnPropertyChanged("HasSubstitutes");
+		SubstituteDrawerTitle = "Salt substitutes";
+		SubstituteDrawerSubtitle = string.Empty;
+		OnPropertyChanged(nameof(Substitutes));
+		OnPropertyChanged(nameof(HasSubstitutes));
 	}
 
 	public async Task<bool> TryAddByBarcodeAsync(string barcode)
@@ -1613,14 +1846,27 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 		if (choice != null)
 		{
-			List<RetailStockChoice> options = SearchResults.Where(item => item.DrugId == choice.DrugId).ToList();
-			AddStockChoice(choice, 1m, options);
+			List<RetailStockChoice> options = SearchResults
+				.Where(item => item.DrugId == choice.DrugId && item.AvailableQuantity > 0m)
+				.OrderBy(item => item.ExpiryDate ?? DateOnly.MaxValue)
+				.ThenBy(item => item.BatchNo, StringComparer.OrdinalIgnoreCase)
+				.ToList();
+			if (!_explicitBatchPick)
+			{
+				choice = options.FirstOrDefault() ?? choice;
+			}
+
+			AddStockChoice(choice, 1m, options, "FEFO batch " + choice.BatchNo + " selected · change batch only if needed.");
 		}
 	}
 
 	private static RetailStockChoice? OldestValidBatch(IEnumerable<RetailStockChoice> results, string? typed)
 	{
-		List<RetailStockChoice> list = results.ToList();
+		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		List<RetailStockChoice> list = results
+			.Where(item => item.AvailableQuantity > 0m)
+			.Where(item => !item.ExpiryDate.HasValue || item.ExpiryDate.Value >= today)
+			.ToList();
 		if (list.Count == 0)
 		{
 			return null;
@@ -1629,7 +1875,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		string needle = typed?.Trim() ?? string.Empty;
 		List<RetailStockChoice> named = needle.Length == 0
 			? list
-			: list.Where(item => item.DrugName.Contains(needle, StringComparison.OrdinalIgnoreCase)).ToList();
+			: list.Where(item => item.DrugName.Contains(needle, StringComparison.OrdinalIgnoreCase)
+				|| (!string.IsNullOrWhiteSpace(item.Barcode) && string.Equals(item.Barcode, needle, StringComparison.OrdinalIgnoreCase))).ToList();
 		List<RetailStockChoice> pool = named.Count > 0 ? named : list;
 		Guid drugId = pool.OrderBy(item => item.DrugName, StringComparer.OrdinalIgnoreCase).First().DrugId;
 		return pool.Where(item => item.DrugId == drugId)
@@ -1762,17 +2009,26 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private async Task AddMatchedItemAsync()
 	{
-		if (SelectedSearchResult != null)
-		{
-			RetailStockChoice choice = SelectedSearchResult;
-			AddStockChoice(choice, 1m, SearchResults.Where(item => item.DrugId == choice.DrugId).ToList());
-			return;
-		}
-
 		if (SearchResults.Count > 0)
 		{
-			CommitSearchHighlight();
-			return;
+			// FEFO unless the cashier explicitly picked another batch in the suggestion list.
+			RetailStockChoice? choice = _explicitBatchPick ? SelectedSearchResult : null;
+			choice ??= OldestValidBatch(SearchResults, ItemSearch);
+			if (choice != null)
+			{
+				List<RetailStockChoice> options = SearchResults
+					.Where(item => item.DrugId == choice.DrugId && item.AvailableQuantity > 0m)
+					.OrderBy(item => item.ExpiryDate ?? DateOnly.MaxValue)
+					.ThenBy(item => item.BatchNo, StringComparer.OrdinalIgnoreCase)
+					.ToList();
+				if (!_explicitBatchPick)
+				{
+					choice = options.FirstOrDefault() ?? choice;
+				}
+
+				AddStockChoice(choice, 1m, options, "FEFO batch " + choice.BatchNo + " selected · change batch only if needed.");
+				return;
+			}
 		}
 
 		await SearchItemsAsync();
@@ -1829,7 +2085,12 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			if (readOnlyList.Count > 0)
 			{
 				RetailStockChoice fefo = OldestValidBatch(readOnlyList, ItemSearch) ?? readOnlyList[0];
-				AddStockChoice(fefo, 1m, readOnlyList.Where(item => item.DrugId == fefo.DrugId).ToList());
+				List<RetailStockChoice> options = readOnlyList
+					.Where(item => item.DrugId == fefo.DrugId && item.AvailableQuantity > 0m)
+					.OrderBy(item => item.ExpiryDate ?? DateOnly.MaxValue)
+					.ThenBy(item => item.BatchNo, StringComparer.OrdinalIgnoreCase)
+					.ToList();
+				AddStockChoice(fefo, 1m, options, "FEFO batch " + fefo.BatchNo + " selected · change batch only if needed.");
 				SetOnlineLookup(false);
 				SetNoMedicineMatches(false);
 				SetRetailSearchSettled(ItemSearch.Trim().Length >= 2);
@@ -1842,16 +2103,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			if ((object)SelectedOutOfStockMedicine != null)
 			{
 				List<SubstituteStockResult> list = await catalog.FindSubstitutesAsync(SelectedOutOfStockMedicine.CompositionKey, SelectedOutOfStockMedicine.CatalogMedicineId, token);
-				catalogSearch.SubstituteResults.Clear();
-				foreach (SubstituteStockResult item2 in list)
-				{
-					catalogSearch.SubstituteResults.Add(CatalogSearchService.ToMedicineSearchResult(item2));
-				}
-				OnPropertyChanged("Substitutes");
-				OnPropertyChanged("HasSubstitutes");
-				IsSubstituteFlyoutOpen = list.Count > 0;
-				SelectedSubstitute = Substitutes.FirstOrDefault((MedicineSearchResult item) => item.IsInStock) ?? Substitutes.FirstOrDefault();
-				StatusMessage = "No saleable stock found. Review substitutes; pharmacist must confirm suitability.";
+				PresentSubstituteDrawer(list, SelectedOutOfStockMedicine.Name, inStockOnly: true);
 				FocusRequest = "SubstituteFlyout";
 			}
 			else
@@ -1914,10 +2166,11 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			decimal quantityBefore = BillItems.Sum(line => line.Quantity);
 			ItemSearch = medicine.Name;
 			IsSubstituteFlyoutOpen = false;
+			_explicitBatchPick = false;
 			await SearchItemsAsync();
 			if (BillItems.Count > linesBefore || BillItems.Sum(line => line.Quantity) > quantityBefore)
 			{
-				StatusMessage = "Substituted with " + medicine.Name + ". Enter the quantity.";
+				StatusMessage = "Substituted with " + medicine.Name + " (FEFO batch). Enter the quantity.";
 				return;
 			}
 		}
@@ -1986,24 +2239,52 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				return;
 			}
 			List<SubstituteStockResult> list = await catalog.FindSubstitutesAsync(medicineSearchResult.CompositionKey, medicineSearchResult.CatalogMedicineId);
-			catalogSearch.SubstituteResults.Clear();
-			foreach (SubstituteStockResult item in list)
-			{
-				catalogSearch.SubstituteResults.Add(CatalogSearchService.ToMedicineSearchResult(item));
-			}
-			OnPropertyChanged("Substitutes");
-			OnPropertyChanged("HasSubstitutes");
-			IsSubstituteFlyoutOpen = list.Count > 0;
-			SelectedSubstitute = Substitutes.FirstOrDefault((MedicineSearchResult item) => item.IsInStock) ?? Substitutes.FirstOrDefault();
-			StatusMessage = list.Count == 0
-				? "No salt substitutes found in the catalogue."
-				: $"Found {list.Count} substitute brand(s). Enter adds an in-stock row. Zero stock opens a counter batch.";
+			// F5 shows every alternate brand (in-stock first); cashier can still open a quick batch for zero stock.
+			PresentSubstituteDrawer(list, medicineSearchResult.Name, inStockOnly: false);
 			FocusRequest = "SubstituteFlyout";
 		}
 		catch (Exception ex)
 		{
 			ErrorMessage = ex.Message;
 		}
+	}
+
+	private void PresentSubstituteDrawer(IReadOnlyList<SubstituteStockResult> substitutes, string? outOfStockName, bool inStockOnly)
+	{
+		IEnumerable<SubstituteStockResult> filtered = inStockOnly
+			? substitutes.Where(item => item.CurrentStock > 0m)
+			: substitutes;
+		List<SubstituteStockResult> rows = filtered
+			.OrderByDescending(item => item.CurrentStock > 0m)
+			.ThenBy(item => item.BrandName, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+
+		catalogSearch.SubstituteResults.Clear();
+		foreach (SubstituteStockResult item in rows)
+		{
+			catalogSearch.SubstituteResults.Add(CatalogSearchService.ToMedicineSearchResult(item));
+		}
+
+		OnPropertyChanged(nameof(Substitutes));
+		OnPropertyChanged(nameof(HasSubstitutes));
+		SubstituteDrawerTitle = string.IsNullOrWhiteSpace(outOfStockName)
+			? "Salt substitutes"
+			: "Out of stock: " + outOfStockName.Trim();
+		SubstituteDrawerSubtitle = inStockOnly
+			? (rows.Count == 0
+				? "No in-stock brands share this salt composition."
+				: rows.Count + " in-stock alternate brand(s). One click adds the FEFO batch.")
+			: (rows.Count == 0
+				? "No salt substitutes found in the catalogue."
+				: rows.Count + " alternate brand(s). In-stock rows add immediately; zero stock opens a counter batch.");
+
+		IsSubstituteFlyoutOpen = rows.Count > 0;
+		SelectedSubstitute = Substitutes.FirstOrDefault(item => item.IsInStock) ?? Substitutes.FirstOrDefault();
+		StatusMessage = rows.Count > 0
+			? SubstituteDrawerSubtitle
+			: (inStockOnly
+				? "No saleable stock and no in-stock salt substitutes for " + (outOfStockName ?? "this medicine") + "."
+				: "No salt substitutes found in the catalogue.");
 	}
 
 	private void CloseSubstituteFlyout()
@@ -2288,6 +2569,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			return;
 		}
 		HeldBills.Add(new HeldRetailBill($"{(string.IsNullOrWhiteSpace(PatientName) ? "Patient" : PatientName.Trim())} - ₹{TotalAmount:N2} ({DateTime.Now:HH:mm})", PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToSnapshot()).ToArray(), PatientMrdNumber ?? string.Empty));
+		NotifyHeldBillsChanged();
 		ClearBill();
 		StatusMessage = $"{HeldBills.Count} bill(s) held. Resume them from the held-bill list.";
 	}
@@ -2314,6 +2596,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				HoldBill();
 			}
 			HeldBills.Remove(bill);
+			NotifyHeldBillsChanged();
+			SelectedHeldBill = null;
 			PatientName = bill.PatientName;
 			PatientPhone = bill.PatientPhone;
 			PatientAddress = bill.PatientAddress;
@@ -2329,6 +2613,16 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				BillItems.Add(retailBillLineViewModel);
 			}
 			UpdateTotals();
+		}
+	}
+
+	private void NotifyHeldBillsChanged()
+	{
+		OnPropertyChanged(nameof(HasHeldBills));
+		OnPropertyChanged(nameof(HeldBillsPlaceholder));
+		if (!HasHeldBills)
+		{
+			SelectedHeldBill = null;
 		}
 	}
 
@@ -2452,6 +2746,11 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 						RetailBillingService service = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
 						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride), currentSession.User.Id, currentSession.User.Role);
 						BillNumber = result.InvoiceNo;
+						if (_quotationConversionId is Guid convertedQuoteId)
+						{
+							await scope.ServiceProvider.GetRequiredService<QuotationService>().MarkConvertedAsync(convertedQuoteId, result.InvoiceNo);
+							_quotationConversionId = null;
+						}
 						_lastSavedSaleId = result.Sale.Id;
 						ChangeDueText = ((result.ChangeDue > 0m) ? ("Change due: " + MoneyFormat.Rupees(result.ChangeDue)) : string.Empty);
 						StatusMessage = $"Bill {result.InvoiceNo} saved. Total {MoneyFormat.Rupees(result.TotalAmount)}; paid {MoneyFormat.Rupees(result.PaidAmount)}.";
@@ -2480,6 +2779,84 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			}
 			ErrorMessage = "Enter an owner override reason for Credit / Ledger.";
 		}
+	}
+
+	private void SendViaWhatsApp()
+	{
+		ErrorMessage = string.Empty;
+		string digits = RetailBillPdfService.NormalizeWhatsAppPhone(PatientPhone);
+		if (digits.Length == 0)
+		{
+			StatusMessage = "Please enter customer phone number first.";
+			PatientPhoneError = "Phone number is required for WhatsApp";
+			RequestFocus("PatientPhone");
+			return;
+		}
+
+		if (BillItems.Count == 0)
+		{
+			StatusMessage = "Add at least one medicine to the bill before sending via WhatsApp.";
+			return;
+		}
+
+		try
+		{
+			string message = BuildWhatsAppDigitalInvoiceMessage();
+			string url = "https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(message);
+			if (Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }) == null)
+			{
+				ErrorMessage = "Windows could not open WhatsApp.";
+				return;
+			}
+
+			StatusMessage = "WhatsApp opened with the digital invoice for " + PatientPhone.Trim() + ".";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+			StatusMessage = "Could not open WhatsApp.";
+		}
+	}
+
+	private string BuildWhatsAppDigitalInvoiceMessage()
+	{
+		string shop = string.IsNullOrWhiteSpace(_pharmacyName) ? "Pharmacy" : _pharmacyName.Trim();
+		string patient = string.IsNullOrWhiteSpace(PatientName) ? "Customer" : PatientName.Trim();
+		string phone = string.IsNullOrWhiteSpace(PatientPhone) ? "-" : PatientPhone.Trim();
+		string billNo = string.IsNullOrWhiteSpace(BillNumber) || BillNumber.Contains("Assigned", StringComparison.OrdinalIgnoreCase)
+			? "Pending save"
+			: BillNumber.Trim();
+		string dateText = BillDate.ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture);
+		string payment = string.IsNullOrWhiteSpace(PaymentMethod) ? "Cash" : PaymentMethod.Trim();
+
+		StringBuilder builder = new StringBuilder();
+		builder.AppendLine("🧾 *DIGITAL INVOICE*");
+		builder.AppendLine("🏪 *" + shop + "*");
+		builder.AppendLine("----------------------------------------");
+		builder.AppendLine("*Bill No:* " + billNo);
+		builder.AppendLine("*Date:* " + dateText);
+		builder.AppendLine("*Patient:* " + patient);
+		builder.AppendLine("*Phone:* " + phone);
+		builder.AppendLine();
+		builder.AppendLine("*Items / Medicines:*");
+		foreach (RetailBillLineViewModel line in BillItems)
+		{
+			builder.AppendLine("• " + line.DrugName + " (" + line.BatchNo + ")");
+			builder.AppendLine(
+				"   Qty: " + line.Quantity.ToString("0.##", CultureInfo.InvariantCulture)
+				+ " | MRP: ₹" + line.Mrp.ToString("0.00", CultureInfo.InvariantCulture)
+				+ " | Rate: ₹" + line.UnitPrice.ToString("0.00", CultureInfo.InvariantCulture)
+				+ " | Amt: ₹" + line.GrossAmount.ToString("0.00", CultureInfo.InvariantCulture));
+		}
+
+		builder.AppendLine("----------------------------------------");
+		builder.AppendLine("*Taxable Value:* ₹" + Subtotal.ToString("0.00", CultureInfo.InvariantCulture));
+		builder.AppendLine("*GST:* ₹" + GstAmount.ToString("0.00", CultureInfo.InvariantCulture));
+		builder.AppendLine("*Grand Total:* ₹" + TotalAmount.ToString("0.00", CultureInfo.InvariantCulture));
+		builder.AppendLine("*Payment Mode:* " + payment + " (Status: Paid)");
+		builder.AppendLine("----------------------------------------");
+		builder.Append("Thank you for visiting " + shop + "! Wishing you good health.");
+		return builder.ToString();
 	}
 
 	private async Task PreviewOrPickPrintFormatAsync()
@@ -2543,6 +2920,12 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private IReadOnlyList<RetailPaymentInput> BuildPaymentInputs()
 	{
+		if (UpiPaymentPayload.NormalizeMethod(PaymentMethod) == "Loyalty")
+		{
+			// Whole points only; the service rejects a redemption that leaves any part of the bill unpaid.
+			decimal points = Math.Floor(Math.Min(_loyaltyBalance, TotalAmount));
+			return new _003C_003Ez__ReadOnlySingleElementList<RetailPaymentInput>(new RetailPaymentInput("Loyalty", points, points));
+		}
 		if (IsCreditPayment || (PaymentAmount <= 0m && !IsSplitPayment))
 		{
 			return Array.Empty<RetailPaymentInput>();
@@ -2640,6 +3023,13 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private void AddStockChoice(RetailStockChoice choice, decimal quantity = 1m, IReadOnlyList<RetailStockChoice>? batchOptions = null, string? statusAfter = null)
 	{
+		if (choice.IsBanned)
+		{
+			ErrorMessage = "Dispensing prohibited by Drug Control Authority";
+			confirmationService.Notify("Dispensing prohibited", "Dispensing prohibited by Drug Control Authority");
+			return;
+		}
+
 		RetailBillLineViewModel retailBillLineViewModel = BillItems.FirstOrDefault((RetailBillLineViewModel line) => line.Choice.BatchId == choice.BatchId);
 		if (retailBillLineViewModel != null)
 		{
@@ -2819,6 +3209,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private void ClearBill()
 	{
+		_quotationConversionId = null;
 		PatientName = string.Empty;
 		PatientPhone = string.Empty;
 		PatientAddress = string.Empty;
@@ -2855,6 +3246,60 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private void OnPatientPhoneChanged(string value)
 	{
 		PatientPhoneError = string.Empty;
+		_ = RefreshLoyaltyPointsAsync(value);
+	}
+
+	private string _loyaltyPointsText = string.Empty;
+
+	/// <summary>Shown under the phone field when the typed number belongs to a saved patient with points.</summary>
+	public string LoyaltyPointsText
+	{
+		get => _loyaltyPointsText;
+		private set
+		{
+			if (_loyaltyPointsText != value)
+			{
+				_loyaltyPointsText = value;
+				OnPropertyChanged(nameof(LoyaltyPointsText));
+			}
+		}
+	}
+
+	private int _loyaltyLookupVersion;
+
+	private int _loyaltyBalance;
+
+	private async Task RefreshLoyaltyPointsAsync(string phone)
+	{
+		int version = ++_loyaltyLookupVersion;
+		if (phone.Trim().Length < 6)
+		{
+			_loyaltyBalance = 0;
+			LoyaltyPointsText = string.Empty;
+			return;
+		}
+		try
+		{
+			// Off the UI thread: SQLite queries block the caller.
+			int? points = await Task.Run(async () =>
+			{
+				using IServiceScope scope = scopeFactory.CreateScope();
+				return await scope.ServiceProvider.GetRequiredService<RetailBillingService>().GetLoyaltyPointsAsync(phone);
+			});
+			if (version == _loyaltyLookupVersion)
+			{
+				_loyaltyBalance = points ?? 0;
+				LoyaltyPointsText = _loyaltyBalance > 0 ? $"Loyalty points: {_loyaltyBalance}" : string.Empty;
+			}
+		}
+		catch (Exception)
+		{
+			// The balance is a convenience; a failed lookup must not block billing.
+			if (version == _loyaltyLookupVersion)
+			{
+				LoyaltyPointsText = string.Empty;
+			}
+		}
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
@@ -2905,6 +3350,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		{
 			IsSearching = false;
 			SearchResults.Clear();
+			SetCatalogOnlyMatches(null);
 			OnPropertyChanged("HasSearchResults");
 			ClearSubstitutes();
 			SetOnlineLookup(false);

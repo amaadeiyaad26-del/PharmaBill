@@ -71,9 +71,13 @@ public static class CyclingPlaceholder
 			{
 				return;
 			}
-			bool flag = string.IsNullOrEmpty(_box.Text) && !_box.IsKeyboardFocusWithin;
-			_adorner.Visibility = ((!flag) ? Visibility.Collapsed : Visibility.Visible);
-			if (flag)
+			bool show = string.IsNullOrEmpty(_box.Text)
+				&& !_box.IsKeyboardFocusWithin
+				&& !_box.IsFocused
+				&& !_box.IsKeyboardFocused;
+			_adorner.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+			_adorner.Opacity = show ? 1.0 : 0.0;
+			if (show)
 			{
 				if (!_timer.IsEnabled)
 				{

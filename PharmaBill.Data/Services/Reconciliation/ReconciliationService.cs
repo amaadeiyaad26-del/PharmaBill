@@ -318,6 +318,7 @@ public sealed class ReconciliationService(IUnitOfWork unitOfWork) : IReconciliat
 			EntryType = ((!wholesaleInvoiceId.HasValue) ? "OnAccountReceipt" : "Receipt"),
 			ReferenceId = receipt.Id,
 			ReferenceNo = receipt.ReceiptNo,
+			Debit = 0m,
 			Credit = receipt.Amount,
 			Notes = receipt.Notes
 		});

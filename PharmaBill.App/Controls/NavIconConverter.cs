@@ -24,6 +24,8 @@ public sealed class NavIconConverter : IValueConverter
 		["Registers"] = "\ue8a5",
 		["DrugRecords"] = "\ueb51",
 		["Reports"] = "\ue9d2",
+		["GstReturns"] = "\ue8ef",
+		["StockTransfer"] = "\ue8ab",
 		["Backup"] = "\ue74e",
 		["Sync"] = "\ue895",
 		["Inspector"] = "\ue721",

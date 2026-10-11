@@ -9,14 +9,17 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Compliance;
+using PharmaBill.Core.Entities;
+using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, RetailBillPdfService pdfService, CurrentSession currentSession, IUserSessionService userSession, SensitiveAccessService sensitiveAccess, IConfirmationService confirmationService, IPromptService promptService) : ObservableObject
+public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, RetailBillPdfService pdfService, CurrentSession currentSession, IUserSessionService userSession, SensitiveAccessService sensitiveAccess, IConfirmationService confirmationService, IPromptService promptService, INavigationService navigation, RetailReissueHandoff reissue) : ObservableObject
 {
 	private string _searchText = string.Empty;
 
@@ -236,6 +239,84 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand IssueSalesReturnCommand => issueSalesReturnCommand ?? (issueSalesReturnCommand = new AsyncRelayCommand(IssueSalesReturnAsync));
+
+	private AsyncRelayCommand? cancelAndReissueCommand;
+
+	public IAsyncRelayCommand CancelAndReissueCommand => cancelAndReissueCommand ??= new AsyncRelayCommand(CancelAndReissueAsync);
+
+	/// <summary>
+	/// Cancels the selected retail bill with a full credit note that returns the goods to stock, then opens Retail
+	/// Billing with the same customer and items as a new draft to re-bill. Needs the reason and the restock confirmation.
+	/// </summary>
+	private async Task CancelAndReissueAsync()
+	{
+		if ((object)SelectedBill == null || currentSession.User == null || string.IsNullOrWhiteSpace(ReturnReason))
+		{
+			ErrorMessage = "Select a bill and enter the reason for cancelling it.";
+			return;
+		}
+		if (!RestockReturnedItems)
+		{
+			ErrorMessage = "Tick \"restock\" to re-issue: the goods must be back on the shelf, sealed and unopened, so they can be billed again.";
+			return;
+		}
+		if (SelectedBill.IsLocked && !userSession.CanEditPrintedBills)
+		{
+			ErrorMessage = "This bill is locked. Unlock it with Admin override before cancelling it.";
+			return;
+		}
+		if (!confirmationService.Confirm($"Cancel {SelectedBill.InvoiceNo} with a full credit note and open Retail Billing with the same items to re-bill?", "Cancel & re-issue"))
+		{
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			RetailBillingService billing = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			Guid saleId = SelectedBill.SaleId;
+			string invoiceNo = SelectedBill.InvoiceNo;
+			IReadOnlyList<RetailSaleReturnableLine> remaining = await billing.GetSaleReturnLinesAsync(saleId);
+			List<RetailSaleReturnableLine> open = remaining.Where(line => line.RemainingQuantity > 0m).ToList();
+			if (open.Count == 0)
+			{
+				ErrorMessage = "Every item on this bill has already been returned, so there is nothing to re-issue.";
+				return;
+			}
+
+			Dictionary<Guid, Guid> drugBySaleItem = await context.SaleItems.AsNoTracking()
+				.Where(item => item.SaleId == saleId)
+				.ToDictionaryAsync(item => item.Id, item => item.DrugId);
+			Dictionary<Guid, string> drugNames = await context.Drugs.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name);
+			RetailBillPrintData bill = await billing.GetPrintableBillAsync(saleId);
+			RetailSaleReturnLineInput[] inputs = open.Select(line => new RetailSaleReturnLineInput(line.SaleItemId, line.RemainingQuantity)).ToArray();
+
+			RetailSaleReturnResult creditNote = null!;
+			await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+			{
+				creditNote = await billing.IssueSalesReturnAsync(saleId, inputs, ReturnReason, true, currentSession.User.Id, currentSession.User.Role);
+			});
+
+			List<RetailReissueLine> lines = open
+				.Where(line => drugBySaleItem.ContainsKey(line.SaleItemId))
+				.GroupBy(line => drugBySaleItem[line.SaleItemId])
+				.Select(group => new RetailReissueLine(group.Key, drugNames.GetValueOrDefault(group.Key, string.Empty), group.Sum(line => line.RemainingQuantity)))
+				.ToList();
+			reissue.Pending = new RetailReissueRequest(invoiceNo, bill.PatientName, bill.PatientPhone, lines);
+
+			ReturnReason = string.Empty;
+			RestockReturnedItems = false;
+			ErrorMessage = string.Empty;
+			StatusMessage = $"{invoiceNo} cancelled with credit note {creditNote.ReturnNo}. Opening Retail Billing to re-bill the items.";
+			navigation.Navigate("Billing");
+			await LoadReturnableLinesAsync();
+		}
+		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]

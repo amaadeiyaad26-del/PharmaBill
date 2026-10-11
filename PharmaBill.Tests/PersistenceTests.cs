@@ -97,9 +97,9 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_BranchIdColumns",
+            "_AddQuotations",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
-        Assert.Equal(49, database.Context.Model.GetEntityTypes().Count());
+        Assert.Equal(51, database.Context.Model.GetEntityTypes().Count());
 
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using (var command = database.Connection.CreateCommand())
@@ -114,6 +114,19 @@ public sealed class PersistenceTests
 
         Assert.Contains("BranchId", columns);
 
+        var purchaseColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var command = database.Connection.CreateCommand())
+        {
+            command.CommandText = "PRAGMA table_info(\"PurchaseInvoices\");";
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                purchaseColumns.Add(reader.GetString(1));
+            }
+        }
+
+        Assert.Contains("StorageLocationId", purchaseColumns);
+
         database.Context.AuditLogs.Add(new AuditLog
         {
             Action = "SchemaSmokeTest",
@@ -121,6 +134,27 @@ public sealed class PersistenceTests
             BranchId = null,
         });
         await database.Context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task DbInitializer_AddsModelColumnsMissingFromInstalledDatabase()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        await database.Context.Database.ExecuteSqlRawAsync(
+            "ALTER TABLE \"PurchaseInvoices\" DROP COLUMN \"StorageLocationId\";");
+
+        await database.CreateDbInitializer().InitializeAsync();
+
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var command = database.Connection.CreateCommand();
+        command.CommandText = "PRAGMA table_info(\"PurchaseInvoices\");";
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(1));
+        }
+
+        Assert.Contains("StorageLocationId", columns);
     }
 
     [Fact]
@@ -135,9 +169,20 @@ public sealed class PersistenceTests
             .Initialize(snapshot.Model, designTime: true);
         var differ = database.Context.GetService<IMigrationsModelDiffer>();
         var currentModel = database.Context.GetService<IDesignTimeModel>().Model;
+        // Columns intentionally added by DbInitializer.EnsureBanAndReorderColumnsAsync rather than a migration.
+        var runtimeGuardedColumns = new HashSet<(string Table, string Column)>
+        {
+            ("Drugs", "IsBanned"),
+            ("Drugs", "MaxStockLevel"),
+            ("Batches", "IsBanned"),
+            ("Batches", "BanReason"),
+        };
         var differences = differ.GetDifferences(
-            snapshotModel.GetRelationalModel(),
-            currentModel.GetRelationalModel());
+                snapshotModel.GetRelationalModel(),
+                currentModel.GetRelationalModel())
+            .Where(operation => operation is not Microsoft.EntityFrameworkCore.Migrations.Operations.AddColumnOperation add ||
+                                !runtimeGuardedColumns.Contains((add.Table, add.Name)))
+            .ToList();
         Assert.True(differences.Count == 0,
             string.Join(Environment.NewLine, differences.Select(operation =>
                 operation switch

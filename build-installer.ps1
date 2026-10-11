@@ -92,7 +92,8 @@ if (-not $iscc) {
     if ($cmd) { $iscc = $cmd.Source }
 }
 if (-not $iscc) {
-    throw 'Inno Setup 6 (ISCC.exe) was not found. Install it (winget install JRSoftware.InnoSetup) or pass -InnoSetupPath.'
+    Write-Warning 'Inno Setup 6 (ISCC.exe) was not found — publish succeeded, installer skipped. Install via `winget install JRSoftware.InnoSetup` or pass -InnoSetupPath.'
+    return
 }
 
 if (-not (Test-Path $issScript)) {

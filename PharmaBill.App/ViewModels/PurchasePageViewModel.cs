@@ -10,6 +10,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -28,7 +29,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr) : ObservableObject, ILoadablePage
+public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr, PurchaseReturnDocumentService returnDocuments) : ObservableObject, ILoadablePage
 {
 	private Supplier? _selectedSupplier;
 
@@ -139,6 +140,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	private int _loadedDocumentCount;
 
 	private PurchaseSpreadsheetData? _spreadsheet;
+
+	/// <summary>Stable id for the last loaded CSV/Excel content — blocks double Transfer of the same file.</summary>
+	private string? _spreadsheetFingerprint;
+
+	private string? _spreadsheetFileName;
+
+	private IReadOnlyList<Drug> _drugIndex = Array.Empty<Drug>();
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? addSupplierCommand;
@@ -254,7 +262,6 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(PdfBadgeText));
 				OnPropertyChanged(nameof(AttachmentSummary));
 				viewInvoiceImageCommand?.NotifyCanExecuteChanged();
-				extractInvoiceTextCommand?.NotifyCanExecuteChanged();
 			}
 		}
 	}
@@ -300,7 +307,6 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(InvoiceThumbnail));
 				OnPropertyChanged(nameof(HasInvoiceThumbnail));
 				OnPropertyChanged(nameof(ShowPdfTile));
-				extractInvoiceTextCommand?.NotifyCanExecuteChanged();
 			}
 		}
 	}
@@ -387,26 +393,28 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		new SpreadsheetColumnMapping("Expiry", isRequired: true, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Quantity", isRequired: true, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Free quantity", isRequired: false, new ObservableCollection<string>()),
-		new SpreadsheetColumnMapping("MRP", isRequired: true, new ObservableCollection<string>()),
+		new SpreadsheetColumnMapping("MRP", isRequired: false, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Rate", isRequired: true, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("GST", isRequired: false, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Discount", isRequired: false, new ObservableCollection<string>()),
-		new SpreadsheetColumnMapping("Amount", isRequired: true, new ObservableCollection<string>())
+		new SpreadsheetColumnMapping("Amount", isRequired: false, new ObservableCollection<string>())
 	};
 
 	public int CurrentPage => _currentPage;
 
-	public int TotalItems => Lines.Count(MatchesDateFilter);
+	public int TotalItems => Lines?.Count(MatchesDateFilter) ?? 0;
 
 	public int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalItems / (double)PurchaseLinesPerPage));
 
-	public string PageSummary => $"Page {CurrentPage} of {TotalPages} ({TotalItems} total items, 20 per view)";
+	public string PageSummary => TotalItems == 0
+		? "No purchase lines yet"
+		: $"{TotalItems} line(s) in the purchase table — scroll to review all";
 
 	public bool CanGoPrevious => _currentPage > 1;
 
 	public bool CanGoNext => _currentPage < TotalPages;
 
-	public bool ShowDateFilterEmpty => _dateFilterActive && Lines.Count > 0 && PagedLines.Count == 0;
+	public bool ShowDateFilterEmpty => _dateFilterActive && (Lines?.Count ?? 0) > 0 && (PagedLines?.Count ?? 0) == 0;
 
 	public DateTime? FilterFromDate
 	{
@@ -442,9 +450,9 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	public IRelayCommand ClearDateFilterCommand => _clearDateFilterCommand ??= new RelayCommand(ClearDateFilter);
 
-	public decimal Subtotal => Lines.Sum((PurchaseLineDraft line) => line.BaseAmount);
+	public decimal Subtotal => Lines?.Sum((PurchaseLineDraft line) => line.BaseAmount) ?? 0m;
 
-	public decimal TaxTotal => Lines.Sum((PurchaseLineDraft line) => line.TaxAmount);
+	public decimal TaxTotal => Lines?.Sum((PurchaseLineDraft line) => line.TaxAmount) ?? 0m;
 
 	public decimal GrandTotal => Subtotal + TaxTotal;
 
@@ -595,6 +603,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(SelectedReturnBatch));
 				OnPropertyChanged(nameof(ReturnCreditRate));
 				OnPropertyChanged(nameof(ShowReturnBatchPrompt));
+
+				// The return goes back to the supplier that sent this batch. The supplier box stays editable.
+				Supplier? batchSupplier = value == null ? null : Suppliers.FirstOrDefault((Supplier supplier) => supplier.Id == value.SupplierId);
+				if (batchSupplier != null)
+				{
+					SelectedSupplier = batchSupplier;
+				}
 			}
 		}
 	}
@@ -1353,6 +1368,10 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand AddLineCommand => addLineCommand ?? (addLineCommand = new RelayCommand(AddLine));
 
+	private RelayCommand? _addBlankRowCommand;
+
+	public IRelayCommand AddBlankRowCommand => _addBlankRowCommand ??= new RelayCommand(AddBlankRow);
+
 	public IRelayCommand OpenMedicineSuggestionsCommand => openMedicineSuggestionsCommand ?? (openMedicineSuggestionsCommand = new RelayCommand(OpenMedicineSuggestions));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -1379,11 +1398,11 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private IAsyncRelayCommand? extractInvoicesCommand;
 
-	public IRelayCommand ApplyStagedItemsCommand => applyStagedItemsCommand ?? (applyStagedItemsCommand = new RelayCommand(ApplyStagedItems, () => StagedItems.Count > 0));
+	public IRelayCommand ApplyStagedItemsCommand => applyStagedItemsCommand ?? (applyStagedItemsCommand = new RelayCommand(ApplyStagedItems, () => (StagedItems?.Count ?? 0) > 0));
 
 	private RelayCommand? applyStagedItemsCommand;
 
-	public IRelayCommand DiscardStagedItemsCommand => discardStagedItemsCommand ?? (discardStagedItemsCommand = new RelayCommand(DiscardStagedItems, () => StagedItems.Count > 0));
+	public IRelayCommand DiscardStagedItemsCommand => discardStagedItemsCommand ?? (discardStagedItemsCommand = new RelayCommand(DiscardStagedItems, () => (StagedItems?.Count ?? 0) > 0));
 
 	private RelayCommand? discardStagedItemsCommand;
 
@@ -1405,7 +1424,43 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	public IRelayCommand NewEntryCommand => newEntryCommand ?? (newEntryCommand = new RelayCommand(BeginNewEntry));
 
+	/// <summary>Dual-binding alias for F2 / Ctrl+N / Ctrl+2 (same as New Entry).</summary>
+	public IRelayCommand NewBillCommand => NewEntryCommand;
+
 	public IRelayCommand FocusMedicineCommand => focusMedicineCommand ?? (focusMedicineCommand = new RelayCommand(RequestFocusMedicineSearch));
+
+	public IRelayCommand FocusMedicineSearchCommand => FocusMedicineCommand;
+
+	/// <summary>F3 focuses supplier search on purchases when available.</summary>
+	public IRelayCommand FocusPatientCommand => focusPatientCommand ??= new RelayCommand(() =>
+	{
+		StatusMessage = "Purchases: choose a distributor, then press F4 (or Ctrl+M) to add items.";
+	});
+
+	private RelayCommand? focusPatientCommand;
+
+	public IRelayCommand FocusPaymentCommand => focusPaymentCommand ??= new RelayCommand(() => { });
+
+	private RelayCommand? focusPaymentCommand;
+
+	public IRelayCommand HoldBillCommand => holdBillCommand ??= new RelayCommand(() =>
+	{
+		StatusMessage = "Purchase inward has no hold queue — use F2 for a new entry.";
+	});
+
+	private RelayCommand? holdBillCommand;
+
+	public IRelayCommand CancelBillCommand => CancelAddItemCommand;
+
+	public IAsyncRelayCommand SaveAndPrintCommand => TransferToStockCommand;
+
+	public IAsyncRelayCommand ShowPaymentQrCommand => showPaymentQrCommand ??= new AsyncRelayCommand(() => Task.CompletedTask);
+
+	private AsyncRelayCommand? showPaymentQrCommand;
+
+	public IAsyncRelayCommand ShowSubstitutesCommand => showSubstitutesCommand ??= new AsyncRelayCommand(() => Task.CompletedTask);
+
+	private AsyncRelayCommand? showSubstitutesCommand;
 
 	private RelayCommand? focusMedicineCommand;
 
@@ -1429,13 +1484,19 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private PhoneIncomingBill? _loadedPhoneBill;
 
+	private PhoneIncomingBill? _selectedPhoneBill;
+
 	private int _phoneBillSequence;
 
 	private bool _inwardAllPhoneBills;
 
 	private ImageSource? _phonePairingQr;
 
-	private string _phoneListenStatus = "Listening for incoming bills from phone... (Connect phone to same Wi-Fi network)";
+	private string _phoneListenStatus = "Phone scan is stopped.";
+
+	private bool _isPhoneListening;
+
+	private bool _isExtractingPhoneBill;
 
 	public bool InwardAllPhoneBills
 	{
@@ -1479,6 +1540,46 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 	}
 
+	public bool IsPhoneListening
+	{
+		get => _isPhoneListening;
+		private set
+		{
+			if (_isPhoneListening != value)
+			{
+				_isPhoneListening = value;
+				OnPropertyChanged(nameof(IsPhoneListening));
+			}
+		}
+	}
+
+	/// <summary>Phone bill currently shown on the purchase grid.</summary>
+	public PhoneIncomingBill? SelectedPhoneBill
+	{
+		get => _selectedPhoneBill;
+		set
+		{
+			if (!ReferenceEquals(_selectedPhoneBill, value))
+			{
+				_selectedPhoneBill = value;
+				OnPropertyChanged(nameof(SelectedPhoneBill));
+			}
+		}
+	}
+
+	public bool IsExtractingPhoneBill
+	{
+		get => _isExtractingPhoneBill;
+		private set
+		{
+			if (_isExtractingPhoneBill != value)
+			{
+				_isExtractingPhoneBill = value;
+				OnPropertyChanged(nameof(IsExtractingPhoneBill));
+			}
+		}
+	}
+
 	public IAsyncRelayCommand AttachInvoiceFileCommand => attachInvoiceFileCommand ?? (attachInvoiceFileCommand = new AsyncRelayCommand(AttachInvoiceFileAsync));
 
 	private AsyncRelayCommand? attachInvoiceFileCommand;
@@ -1493,9 +1594,89 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private RelayCommand? viewInvoiceImageCommand;
 
-	public IAsyncRelayCommand ExtractInvoiceTextCommand => extractInvoiceTextCommand ?? (extractInvoiceTextCommand = new AsyncRelayCommand(ExtractInvoiceTextAsync, () => HasInvoiceThumbnail));
+	public IRelayCommand CloseInvoiceOcrTextCommand => closeInvoiceOcrTextCommand ?? (closeInvoiceOcrTextCommand = new RelayCommand(() => InvoiceOcrText = string.Empty));
 
-	private AsyncRelayCommand? extractInvoiceTextCommand;
+	private RelayCommand? closeInvoiceOcrTextCommand;
+
+	private Guid? lastPostedReturnId;
+
+	/// <summary>The purchase return posted most recently in this session; its note can be printed or sent.</summary>
+	public Guid? LastPostedReturnId
+	{
+		get => lastPostedReturnId;
+		private set
+		{
+			if (SetProperty(ref lastPostedReturnId, value))
+			{
+				OnPropertyChanged(nameof(HasLastPostedReturn));
+			}
+		}
+	}
+
+	public bool HasLastPostedReturn => LastPostedReturnId.HasValue;
+
+	private string lastPostedReturnText = string.Empty;
+
+	public string LastPostedReturnText
+	{
+		get => lastPostedReturnText;
+		private set => SetProperty(ref lastPostedReturnText, value);
+	}
+
+	private AsyncRelayCommand? printLastReturnCommand;
+
+	public IAsyncRelayCommand PrintLastReturnCommand => printLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		PurchaseReturnDocumentService.Print(note.Path);
+		StatusMessage = "Return note sent to the printer.";
+	}));
+
+	private AsyncRelayCommand? saveLastReturnCommand;
+
+	public IAsyncRelayCommand SaveLastReturnCommand => saveLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		PurchaseReturnDocumentService.ShowInExplorer(note.Path);
+		StatusMessage = "Return note saved as PDF: " + note.Path;
+	}));
+
+	private AsyncRelayCommand? whatsAppLastReturnCommand;
+
+	public IAsyncRelayCommand WhatsAppLastReturnCommand => whatsAppLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		string message = $"Purchase return note {note.ReturnNo} for ₹{note.Total.ToString("N2", CultureInfo.GetCultureInfo("en-IN"))}. The PDF is attached.";
+		PurchaseReturnDocumentService.OpenWhatsApp(note.SupplierPhone, message);
+		PurchaseReturnDocumentService.ShowInExplorer(note.Path);
+		StatusMessage = "WhatsApp opened. Attach the PDF shown in Explorer; WhatsApp links cannot carry files.";
+	}));
+
+	private AsyncRelayCommand? emailLastReturnCommand;
+
+	public IAsyncRelayCommand EmailLastReturnCommand => emailLastReturnCommand ??= new AsyncRelayCommand(() => ActOnLastReturnAsync(note =>
+	{
+		PurchaseReturnDocumentService.OpenEmail(note.SupplierEmail, "Purchase return note " + note.ReturnNo, $"Please find the purchase return note {note.ReturnNo} attached. The PDF is saved at: {note.Path}");
+		PurchaseReturnDocumentService.ShowInExplorer(note.Path);
+		StatusMessage = "Mail draft opened. Attach the PDF shown in Explorer; mail links cannot carry files.";
+	}));
+
+	/// <summary>Builds the note PDF for the last posted return, then runs one of the send actions on it.</summary>
+	private async Task ActOnLastReturnAsync(Action<PurchaseReturnNote> action)
+	{
+		if (LastPostedReturnId is not Guid id)
+		{
+			return;
+		}
+
+		ErrorMessage = string.Empty;
+		try
+		{
+			PurchaseReturnNote note = await returnDocuments.ExportAsync(id);
+			action(note);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -1524,31 +1705,48 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		{
 			SelectedStorageLocation = StorageLocations.FirstOrDefault((StorageLocation item) => item.IsDefaultRetailLocation) ?? StorageLocations.FirstOrDefault();
 		}
-		Drugs.Clear();
-		foreach (Drug item3 in await (from item in context.Drugs
-			where item.IsActive
-			orderby item.Name
-			select item).ToListAsync(cancellationToken))
-		{
-			Drugs.Add(item3);
-		}
-		Dictionary<Guid, string> supplierNames = Suppliers.ToDictionary((Supplier supplier) => supplier.Id, (Supplier supplier) => supplier.Name);
-		Dictionary<Guid, string> drugNames = Drugs.ToDictionary((Drug drug) => drug.Id, (Drug drug) => drug.Name);
+		_ = LoadDrugIndexInBackgroundAsync(cancellationToken);
 		ReturnBatches.Clear();
-		foreach (Batch item4 in await (from item in context.Batches
-			where item.SupplierId.HasValue && item.Quantity > 0m
-			orderby item.BatchNo
-			select item).ToListAsync(cancellationToken))
+		foreach (var item4 in await (from batch in context.Batches
+			join drug in context.Drugs on batch.DrugId equals drug.Id
+			join supplier in context.Suppliers on batch.SupplierId equals supplier.Id
+			where batch.SupplierId.HasValue && batch.Quantity > 0m
+			orderby batch.BatchNo
+			select new { Batch = batch, DrugName = drug.Name, SupplierName = supplier.Name }).ToListAsync(cancellationToken))
 		{
-			Guid? supplierId = item4.SupplierId;
-			if (supplierId.HasValue)
+			Guid supplierId = item4.Batch.SupplierId!.Value;
+			ReturnBatches.Add(new BatchReturnOption(
+				item4.Batch.Id,
+				supplierId,
+				item4.Batch.BatchNo,
+				$"{item4.DrugName} / {item4.Batch.BatchNo} / {item4.SupplierName} / Qty {item4.Batch.Quantity}",
+				item4.Batch.PurchasePrice));
+		}
+	}
+
+	private async Task LoadDrugIndexInBackgroundAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			List<Drug> loadedDrugs = await Task.Run(async () =>
 			{
-				Guid valueOrDefault = supplierId.GetValueOrDefault();
-				if (supplierNames.TryGetValue(valueOrDefault, out var value) && drugNames.TryGetValue(item4.DrugId, out var value2))
-				{
-					ReturnBatches.Add(new BatchReturnOption(item4.Id, valueOrDefault, item4.BatchNo, $"{value2} / {item4.BatchNo} / {value} / Qty {item4.Quantity}", item4.PurchasePrice));
-				}
-			}
+				Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+				using IServiceScope backgroundScope = scopeFactory.CreateScope();
+				PharmaBillDbContext backgroundContext = backgroundScope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+				return await backgroundContext.Drugs.AsNoTracking()
+					.Where(item => item.IsActive)
+					.OrderBy(item => item.Name)
+					.ToListAsync(cancellationToken);
+			}, cancellationToken).ConfigureAwait(false);
+			_drugIndex = loadedDrugs;
+			await DispatchAsync(() => StatusMessage = $"Medicine master ready ({loadedDrugs.Count:N0} medicines).").ConfigureAwait(false);
+		}
+		catch (OperationCanceledException)
+		{
+		}
+		catch (Exception ex)
+		{
+			await DispatchAsync(() => ErrorMessage = $"Medicine master could not be loaded: {ex.Message}").ConfigureAwait(false);
 		}
 	}
 
@@ -1575,7 +1773,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		{
 		foreach (PurchaseIndentItem item in group.Items)
 		{
-			Drug drug = Drugs.FirstOrDefault((Drug candidate) => candidate.Id == item.DrugId);
+			Drug? drug = FindDrug(item.DrugId);
 			if (drug != null)
 			{
 				PurchaseLineDraft line = new PurchaseLineDraft(drug)
@@ -1666,6 +1864,29 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		NewItemError = string.Empty;
 		IsAddItemOpen = true;
 		RequestFocus("NewItemMedicine");
+	}
+
+	/// <summary>Insert an empty editable inward row (for OCR misses) without opening the add-item form.</summary>
+	private void AddBlankRow()
+	{
+		PurchaseLineDraft line = new PurchaseLineDraft(null)
+		{
+			MedicineName = string.Empty,
+			BatchNo = string.Empty,
+			Expiry = string.Empty,
+			Quantity = 1m,
+			FreeQuantity = 0m,
+			Mrp = 0m,
+			Rate = 0m,
+			GstRate = 0m,
+			DiscountAmount = 0m,
+			Rack = null,
+			InwardDate = InvoiceDate.Date,
+			AcceptMedicineEdits = true
+		};
+		AddDraftLine(line);
+		SelectedLine = line;
+		StatusMessage = "Blank row added — edit Medicine, Batch, Qty, and Rate in the grid.";
 	}
 
 	private void OpenMedicineSuggestions()
@@ -2147,7 +2368,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			CatalogSearchService catalog = scope.ServiceProvider.GetRequiredService<CatalogSearchService>();
 
 			List<PurchaseMedicinePickerItem> results = new List<PurchaseMedicinePickerItem>();
-			foreach (Drug drug in Drugs.Where(d =>
+			foreach (Drug drug in _drugIndex.Where(d =>
 				         d.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
 				         || (d.BrandName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
 				         || (d.GenericName?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))
@@ -2176,7 +2397,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 				if (row.DrugId is Guid linkedId)
 				{
-					Drug? linked = Drugs.FirstOrDefault(d => d.Id == linkedId)
+					Drug? linked = FindDrug(linkedId)
 						?? await context.Drugs.AsNoTracking().FirstOrDefaultAsync(d => d.Id == linkedId, cts.Token);
 					if (linked != null)
 					{
@@ -2507,8 +2728,16 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		_phoneBridge.StatusChanged -= OnPhoneStatusChanged;
 		_phoneBridge.StatusChanged += OnPhoneStatusChanged;
 		await _phoneBridge.StartAsync();
+		IsPhoneListening = _phoneBridge.IsListening;
 		PhoneListenStatus = _phoneBridge.StatusText;
 		PhonePairingQr = QrCodeImage.FromText(_phoneBridge.BuildQrPayload(), 520);
+		if (!_phoneBridge.IsListening)
+		{
+			ErrorMessage = PhoneListenStatus;
+			return;
+		}
+
+		StatusMessage = PhoneListenStatus;
 		PhoneBillPairingWindow window = new PhoneBillPairingWindow
 		{
 			DataContext = this
@@ -2519,17 +2748,60 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			window.Owner = owner;
 		}
 
+		// Modal pumps the dispatcher so BillReceived UI updates appear while the QR is open.
 		window.ShowDialog();
+		IsPhoneListening = _phoneBridge.IsListening;
+		// Prefer live extraction status over a stale bridge banner left on "Processing extraction...".
+		if (IsExtractingPhoneBill)
+		{
+			PhoneListenStatus = "Extracting items from a phone bill via AI...";
+		}
+		else if (_phoneBridge.IsListening)
+		{
+			string bridge = _phoneBridge.StatusText ?? string.Empty;
+			if (bridge.Contains("Processing extraction", StringComparison.OrdinalIgnoreCase)
+				|| bridge.Contains("extracting items", StringComparison.OrdinalIgnoreCase))
+			{
+				_phoneBridge.ReportExtractionStatus(
+					PhoneBills.Count > 0
+						? PhoneBills.Count + " phone bill(s) on this screen. Listening for more..."
+						: string.Empty);
+			}
+
+			PhoneListenStatus = _phoneBridge.StatusText;
+		}
+		else
+		{
+			PhoneListenStatus = _phoneBridge.StatusText;
+		}
 	}
 
 	private void OnPhoneStatusChanged(string status)
 	{
-		Dispatch(() => PhoneListenStatus = status);
+		Dispatch(() =>
+		{
+			// Do not clobber an in-progress / completed extraction banner with an older bridge ping.
+			if (IsExtractingPhoneBill
+				&& !string.IsNullOrWhiteSpace(status)
+				&& status.Contains("Listening at", StringComparison.OrdinalIgnoreCase))
+			{
+				IsPhoneListening = _phoneBridge?.IsListening == true;
+				return;
+			}
+
+			PhoneListenStatus = status;
+			IsPhoneListening = _phoneBridge?.IsListening == true;
+		});
 	}
 
 	private void OnPhoneBillReceived(PhonePurchaseUpload upload)
 	{
-		Dispatch(() => _ = AcceptPhoneBillAsync(upload));
+		Dispatch(() =>
+		{
+			PhoneListenStatus = "Extracting items from Bill via AI...";
+			StatusMessage = PhoneListenStatus;
+			_ = AcceptPhoneBillAsync(upload);
+		});
 	}
 
 	private static void Dispatch(Action action)
@@ -2541,78 +2813,190 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			return;
 		}
 
-		dispatcher.InvokeAsync(action);
+		// Synchronous Invoke so the Purchases table refreshes immediately on the UI thread.
+		dispatcher.Invoke(action);
+	}
+
+	private static Task DispatchAsync(Action action)
+	{
+		System.Windows.Threading.Dispatcher? dispatcher = Application.Current?.Dispatcher;
+		if (dispatcher == null || dispatcher.CheckAccess())
+		{
+			action();
+			return Task.CompletedTask;
+		}
+
+		return dispatcher.InvokeAsync(action).Task;
 	}
 
 	private async Task AcceptPhoneBillAsync(PhonePurchaseUpload upload)
 	{
+		PhoneIncomingBill bill = new PhoneIncomingBill
+		{
+			Index = ++_phoneBillSequence,
+			SupplierName = upload.Supplier?.Trim() ?? string.Empty,
+			InvoiceNo = upload.InvoiceNo?.Trim() ?? string.Empty,
+			OriginalFileName = upload.FileName,
+			FilePath = upload.SavedFilePath,
+			Status = "Extracting"
+		};
+		if (DateOnly.TryParse(upload.InvoiceDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsed)
+			|| DateOnly.TryParse(upload.InvoiceDate, CultureInfo.CurrentCulture, DateTimeStyles.None, out parsed))
+		{
+			bill.InvoiceDate = parsed.ToDateTime(TimeOnly.MinValue);
+		}
+
+		Dispatch(() =>
+		{
+			PhoneBills.Add(bill);
+			OnPropertyChanged(nameof(HasPhoneBills));
+			IsExtractingPhoneBill = true;
+			SelectedPhoneBill = bill;
+			string extracting = "Extracting items from Bill " + bill.Index + " via AI...";
+			PhoneListenStatus = extracting;
+			StatusMessage = extracting;
+			ErrorMessage = string.Empty;
+			_phoneBridge?.ReportExtractionStatus(extracting);
+		});
+
 		try
 		{
-			PhoneIncomingBill bill = new PhoneIncomingBill
+			if (!string.IsNullOrWhiteSpace(upload.SavedFilePath) && File.Exists(upload.SavedFilePath))
 			{
-				Index = ++_phoneBillSequence,
-				SupplierName = upload.Supplier?.Trim() ?? string.Empty,
-				InvoiceNo = upload.InvoiceNo?.Trim() ?? string.Empty,
-				OriginalFileName = upload.FileName,
-				FilePath = upload.SavedFilePath,
-				Status = "Received"
-			};
-			if (DateOnly.TryParse(upload.InvoiceDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly parsed)
-				|| DateOnly.TryParse(upload.InvoiceDate, CultureInfo.CurrentCulture, DateTimeStyles.None, out parsed))
-			{
-				bill.InvoiceDate = parsed.ToDateTime(TimeOnly.MinValue);
-			}
+				Debug.WriteLine($"Phone bill: image upload selected for PC extraction; Android supplied {upload.Items.Count} parsed item(s). File='{upload.SavedFilePath}'.");
+				string workingPath = await InvoiceImageNormalizer.EnsureSupportedAsync(upload.SavedFilePath).ConfigureAwait(false);
+				bill.FilePath = workingPath;
+				using IServiceScope scope = scopeFactory.CreateScope();
+				InvoiceDocumentExtractor extractor = scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>();
+				ExtractedPurchaseInvoice extracted;
+				try
+				{
+					// Gemini vision first (reads multi-column tables); falls back to local OCR inside ExtractAsync.
+					extracted = await extractor.ExtractAsync(workingPath).ConfigureAwait(false);
+				}
+				catch (Exception remoteError) when (remoteError is not OperationCanceledException)
+				{
+					System.Diagnostics.Debug.WriteLine("Phone bill extract failed, forcing local OCR: " + remoteError);
+					Dispatch(() =>
+					{
+						StatusMessage = "Online AI failed (" + remoteError.Message + "). Trying offline OCR...";
+						PhoneListenStatus = StatusMessage;
+					});
+					extracted = await extractor.ExtractLocalAsync(workingPath).ConfigureAwait(false);
+				}
 
-			if (upload.Items.Count > 0)
+				Debug.WriteLine($"Phone bill: extracted {extracted.Items.Count} row(s) via PC extractor.");
+				foreach (ExtractedPurchaseLine item in extracted.Items)
+				{
+					Debug.WriteLine($"Phone bill row: Name='{item.ItemName}'; Batch='{item.Batch}'; Expiry='{item.Expiry}'; Qty={item.Quantity}; Rate={item.Rate}; Amount={item.Amount}; Warning='{item.ValidationWarning}'.");
+				}
+				ApplyExtractedPhoneBill(bill, extracted);
+			}
+			else if (upload.Items.Count > 0)
 			{
+				Debug.WriteLine($"Phone bill: no image attachment; using {upload.Items.Count} Android-supplied parsed item(s).");
 				foreach (PhonePurchaseLineUpload item in upload.Items)
 				{
+					Debug.WriteLine($"Phone Android row: Name='{item.Name}'; Batch='{item.Batch}'; Expiry='{item.Expiry}'; Qty={item.Quantity}; Rate={item.Rate}; MRP={item.Mrp}; GST={item.Gst}.");
 					bill.Lines.Add(ToSnapshot(item.Name, item.Batch, item.Expiry, item.Quantity, item.Free, item.Mrp, item.Rate, item.Gst));
 				}
 			}
-			else if (!string.IsNullOrWhiteSpace(upload.SavedFilePath) && File.Exists(upload.SavedFilePath))
+			else
 			{
-				using IServiceScope scope = scopeFactory.CreateScope();
-				ExtractedPurchaseInvoice extracted = await scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>().ExtractAsync(upload.SavedFilePath);
-				if (string.IsNullOrWhiteSpace(bill.SupplierName))
-				{
-					bill.SupplierName = extracted.Supplier ?? string.Empty;
-				}
-
-				if (string.IsNullOrWhiteSpace(bill.InvoiceNo))
-				{
-					bill.InvoiceNo = extracted.InvoiceNo ?? string.Empty;
-				}
-
-				if (bill.InvoiceDate.Date == DateTime.Today && DateOnly.TryParse(extracted.InvoiceDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly extractedDate))
-				{
-					bill.InvoiceDate = extractedDate.ToDateTime(TimeOnly.MinValue);
-				}
-
-				foreach (ExtractedPurchaseLine item in extracted.Items)
-				{
-					bill.Lines.Add(ToSnapshot(item.ItemName, item.Batch, item.Expiry, item.Quantity, item.Free, item.Mrp, item.Rate, item.Gst));
-				}
+				throw new InvalidOperationException("The phone bill had no image attachment and no line items to import.");
 			}
 
-			PhoneBills.Add(bill);
-			OnPropertyChanged(nameof(HasPhoneBills));
-			PhoneListenStatus = "Bill " + bill.Index + " received (" + bill.Lines.Count + " line(s)). Listening for more...";
-			if (!InwardAllPhoneBills && (_loadedPhoneBill == null || Lines.Count == 0))
-			{
-				LoadPhoneBill(bill);
-			}
-			else if (InwardAllPhoneBills && Lines.Count == 0)
-			{
-				LoadPhoneBill(bill);
-			}
-
-			StatusMessage = PhoneBills.Count + " phone bill(s) received. Review the lines, or turn on Inward All Extracted Bills and press Transfer to Stock.";
+			bill.NotifyLinesChanged();
+			await DispatchAsync(() => FinishPhoneBill(bill)).ConfigureAwait(false);
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "A phone bill could not be read: " + ex.Message;
+			System.Diagnostics.Debug.WriteLine("Phone bill extraction failed: " + ex.ToString());
+			await DispatchAsync(() =>
+			{
+				IsExtractingPhoneBill = false;
+				string failure = "Extraction failed: " + ex.Message;
+				ErrorMessage = failure;
+				bill.Status = bill.Lines.Count > 0 ? "Received" : "Needs review";
+				bill.NotifyLinesChanged();
+				PhoneListenStatus = failure;
+				StatusMessage = failure;
+				_phoneBridge?.ReportExtractionStatus(
+					bill.Lines.Count > 0
+						? "Bill " + bill.Index + " partial (" + bill.Lines.Count + " lines). " + failure
+						: failure + " Listening for more...");
+				LoadPhoneBill(bill);
+			}).ConfigureAwait(false);
 		}
+	}
+
+	private void ApplyExtractedPhoneBill(PhoneIncomingBill bill, ExtractedPurchaseInvoice extracted)
+	{
+		if (string.IsNullOrWhiteSpace(bill.SupplierName)
+			|| GeminiPurchaseImportService.LooksLikeFileOrDeviceId(bill.SupplierName))
+		{
+			bill.SupplierName = GeminiPurchaseImportService.SanitizeSupplierName(extracted.Supplier);
+		}
+
+		if (string.IsNullOrWhiteSpace(bill.InvoiceNo)
+			|| GeminiPurchaseImportService.LooksLikeFileOrDeviceId(bill.InvoiceNo))
+		{
+			bill.InvoiceNo = GeminiPurchaseImportService.SanitizeInvoiceNo(extracted.InvoiceNo);
+		}
+
+		if (bill.InvoiceDate.Date == DateTime.Today && DateOnly.TryParse(extracted.InvoiceDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly extractedDate))
+		{
+			bill.InvoiceDate = extractedDate.ToDateTime(TimeOnly.MinValue);
+		}
+
+		// Replace prior partial lines so a re-extract never appends duplicates.
+		bill.Lines.Clear();
+		foreach (ExtractedPurchaseLine item in extracted.Items)
+		{
+			if (string.IsNullOrWhiteSpace(item.ItemName) || InvoiceTextParser.IsNonMedicineNoise(item.ItemName))
+			{
+				continue;
+			}
+
+			// Keep every extracted medicine row — do not drop for missing batch/expiry/rate.
+			// Reject strength-only fragments like "5m 125 mg" unless a real product form/name is present.
+			if (!InvoiceTextParser.LooksLikeMedicineProduct(item.ItemName)
+				&& !InvoiceTextParser.HasPlausibleBatchToken(item.Batch)
+				&& item.ItemName.Count(char.IsLetter) < 8)
+			{
+				continue;
+			}
+
+			string batch = item.Batch;
+			if (string.IsNullOrWhiteSpace(batch)
+				|| string.Equals(batch, "BATCH", StringComparison.OrdinalIgnoreCase)
+				|| InvoiceTextParser.IsNonMedicineNoise(batch))
+			{
+				batch = "NA";
+			}
+
+			bill.Lines.Add(ToSnapshot(item.ItemName, batch, item.Expiry, item.Quantity, item.Free, item.Mrp, item.Rate, item.Gst));
+		}
+
+		bill.NotifyLinesChanged();
+	}
+
+	private void FinishPhoneBill(PhoneIncomingBill bill)
+	{
+		IsExtractingPhoneBill = false;
+		bill.Status = bill.Lines.Count > 0 ? "Received" : "Needs review";
+		bill.NotifyLinesChanged();
+		OnPropertyChanged(nameof(HasPhoneBills));
+		string done = bill.Lines.Count > 0
+			? "Bill " + bill.Index + ": Successfully extracted " + bill.Lines.Count + " items."
+			: "Bill " + bill.Index + ": extraction finished with 0 items. Re-send a clearer photo or enter lines manually.";
+		PhoneListenStatus = done + " Listening for more...";
+		StatusMessage = done;
+		ErrorMessage = bill.Lines.Count == 0 ? done : string.Empty;
+		_phoneBridge?.ReportExtractionStatus(PhoneListenStatus);
+
+		// Always put the newest bill on the grid so items appear without a manual chip click.
+		LoadPhoneBill(bill);
 	}
 
 	private PhoneBillLineSnapshot ToSnapshot(string? name, string? batch, string? expiry, decimal quantity, decimal free, decimal mrp, decimal rate, decimal gst)
@@ -2645,57 +3029,117 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			return;
 		}
 
-		RememberLoadedPhoneBill();
-		_pagingSuspend++;
-		try
+		// Still extracting and nothing parsed yet — keep waiting; chip stays on Extracting...
+		if (bill.IsExtracting && bill.Lines.Count == 0)
 		{
-			Lines.Clear();
-			foreach (PhoneBillLineSnapshot snapshot in bill.Lines)
+			StatusMessage = "Extracting items from Bill " + bill.Index + " via AI...";
+			PhoneListenStatus = StatusMessage;
+			return;
+		}
+
+		// Snapshot before any UI mutation so RememberLoadedPhoneBill cannot wipe fresh OCR rows.
+		List<PhoneBillLineSnapshot> snapshots = bill.Lines.ToList();
+
+		void ApplyToGrid()
+		{
+			// Persist edits on a *different* previously loaded bill only — never overwrite the bill we are loading.
+			if (_loadedPhoneBill != null && !ReferenceEquals(_loadedPhoneBill, bill))
 			{
-				Drug? drug = snapshot.DrugId.HasValue ? Drugs.FirstOrDefault((Drug item) => item.Id == snapshot.DrugId.Value) : MatchDrug(snapshot.MedicineName);
-				PurchaseLineDraft line = new PurchaseLineDraft(drug)
+				RememberLoadedPhoneBill();
+			}
+
+			// Show every extracted row (date filter would hide OCR lines with mismatched inward dates).
+			_dateFilterActive = false;
+			FilterFromDate = null;
+			FilterToDate = null;
+			OnPropertyChanged(nameof(FilterFromDate));
+			OnPropertyChanged(nameof(FilterToDate));
+			OnPropertyChanged(nameof(ShowDateFilterEmpty));
+
+			EnsureLinePaging();
+			_pagingSuspend++;
+			try
+			{
+				foreach (PurchaseLineDraft existing in Lines.ToList())
 				{
-					MedicineName = snapshot.MedicineName,
-					BatchNo = snapshot.Batch,
-					Expiry = snapshot.Expiry,
-					Quantity = snapshot.Quantity,
-					FreeQuantity = snapshot.Free,
-					Mrp = snapshot.Mrp,
-					Rate = snapshot.Rate,
-					GstRate = snapshot.Gst,
-					DiscountAmount = snapshot.Discount
-				};
-				AddDraftLine(line);
+					existing.PropertyChanged -= OnLineChanged;
+				}
+
+				Lines.Clear();
+				PagedLines.Clear();
+				foreach (PhoneBillLineSnapshot snapshot in snapshots)
+				{
+					Drug? drug = snapshot.DrugId.HasValue
+						? FindDrug(snapshot.DrugId.Value)
+						: MatchDrug(snapshot.MedicineName);
+					PurchaseLineDraft line = new PurchaseLineDraft(drug)
+					{
+						MedicineName = snapshot.MedicineName,
+						BatchNo = snapshot.Batch,
+						Expiry = snapshot.Expiry,
+						Quantity = snapshot.Quantity > 0m ? snapshot.Quantity : 1m,
+						FreeQuantity = snapshot.Free,
+						Mrp = snapshot.Mrp,
+						Rate = snapshot.Rate,
+						GstRate = snapshot.Gst,
+						DiscountAmount = snapshot.Discount,
+						InwardDate = bill.InvoiceDate.Date == default ? DateTime.Today : bill.InvoiceDate.Date,
+						AcceptMedicineEdits = true
+					};
+					line.PropertyChanged += OnLineChanged;
+					Lines.Add(line);
+				}
+			}
+			finally
+			{
+				_pagingSuspend = Math.Max(0, _pagingSuspend - 1);
+				RefreshPaging(resetToFirst: true);
+			}
+
+			_loadedPhoneBill = bill;
+			SelectedPhoneBill = bill;
+			if (!bill.IsExtracting)
+			{
+				bill.Status = "Loaded";
+			}
+
+			bill.NotifyLinesChanged();
+			if (!string.IsNullOrWhiteSpace(bill.InvoiceNo))
+			{
+				InvoiceNo = bill.InvoiceNo;
+			}
+
+			InvoiceDate = bill.InvoiceDate == default ? DateTime.Today : bill.InvoiceDate;
+			_pendingSupplierName = bill.SupplierName;
+			_ = EnsureExtractedSupplierAsync(bill.SupplierName);
+			if (!string.IsNullOrWhiteSpace(bill.FilePath))
+			{
+				_ = TryAttachInvoicePreview(bill.FilePath);
+			}
+
+			NotifyTotals();
+			string loaded = snapshots.Count > 0
+				? "Bill " + bill.Index + ": Successfully extracted " + snapshots.Count + " items."
+				: "Bill " + bill.Index + " has no extracted lines yet. Add items manually or re-send a clearer photo.";
+			StatusMessage = loaded;
+			if (!IsExtractingPhoneBill)
+			{
+				PhoneListenStatus = loaded + (_phoneBridge?.IsListening == true ? " Listening for more..." : string.Empty);
 			}
 		}
-		finally
-		{
-			_pagingSuspend = Math.Max(0, _pagingSuspend - 1);
-			RefreshPaging(resetToFirst: true);
-		}
 
-		_loadedPhoneBill = bill;
-		bill.Status = "Loaded";
-		if (!string.IsNullOrWhiteSpace(bill.InvoiceNo))
-		{
-			InvoiceNo = bill.InvoiceNo;
-		}
-
-		InvoiceDate = bill.InvoiceDate;
-		_pendingSupplierName = bill.SupplierName;
-		_ = EnsureExtractedSupplierAsync(bill.SupplierName);
-		if (!string.IsNullOrWhiteSpace(bill.FilePath))
-		{
-			_ = TryAttachInvoicePreview(bill.FilePath);
-		}
-
-		NotifyTotals();
-		StatusMessage = "Bill " + bill.Index + " is on the purchase grid. Edit any cell, then press Transfer to Stock.";
+		Dispatch(ApplyToGrid);
 	}
 
 	private void RememberLoadedPhoneBill()
 	{
 		if (_loadedPhoneBill == null || _loadedPhoneBill.IsCommitted)
+		{
+			return;
+		}
+
+		// Never wipe already-parsed phone lines with an empty grid (failed bind / mid-reload).
+		if (Lines.Count == 0 && _loadedPhoneBill.Lines.Count > 0)
 		{
 			return;
 		}
@@ -2749,6 +3193,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 		Lines.Clear();
 		_loadedPhoneBill = null;
+		SelectedPhoneBill = null;
 		NotifyTotals();
 		StatusMessage = "Success! " + committed + " phone bill(s) have been added to inventory.";
 		confirmationService.Notify("Success", StatusMessage);
@@ -3232,7 +3677,9 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 
 		PurchaseLineDraft? keep = SelectedLine;
-		List<PurchaseLineDraft> page = filtered.Skip((_currentPage - 1) * PurchaseLinesPerPage).Take(PurchaseLinesPerPage).ToList();
+		// Show every filtered inward line in the review grid (CSV/Excel imports are typically 6–50 rows).
+		// Keep page math for the summary strip; do not clip the DataGrid to a single page viewport.
+		List<PurchaseLineDraft> page = filtered;
 		PagedLines.Clear();
 		foreach (PurchaseLineDraft line in page)
 		{
@@ -3253,6 +3700,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		OnPropertyChanged(nameof(ShowDateFilterEmpty));
 		_previousPageCommand?.NotifyCanExecuteChanged();
 		_nextPageCommand?.NotifyCanExecuteChanged();
+		Debug.WriteLine($"Purchase paging: PagedLines.Count = {PagedLines.Count}, Lines.Count = {Lines.Count}, current page = {_currentPage}, pages = {pages}, PurchaseLinesPerPage = {PurchaseLinesPerPage}, resetToFirst = {resetToFirst}.");
 	}
 
 	private void ClearNewItem()
@@ -3351,6 +3799,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				Mrp = staged.Mrp,
 				Rate = staged.Rate,
 				GstRate = staged.Gst,
+				ValidationWarning = staged.ValidationWarning,
 				DiscountAmount = decimal.Round(staged.Quantity * staged.Rate * staged.DiscountPercent / 100m, 2, MidpointRounding.AwayFromZero)
 			};
 			AddDraftLine(line);
@@ -3363,6 +3812,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			RefreshPaging(resetToFirst: true);
 		}
 
+		Debug.WriteLine($"Purchase import: Lines.Count after ApplyStagedItems = {Lines.Count}; added in this operation = {added}; staged before clear = {StagedItems.Count}.");
 		StagedItems.Clear();
 		OnPropertyChanged(nameof(HasStagedItems));
 		applyStagedItemsCommand?.NotifyCanExecuteChanged();
@@ -3474,7 +3924,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	private Drug? MatchDrug(string itemName)
 	{
 		string name = itemName.Trim();
-		Drug? exact = Drugs.FirstOrDefault((Drug drug) => string.Equals(drug.Name.Trim(), name, StringComparison.OrdinalIgnoreCase) || string.Equals(drug.BrandName?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+		Drug? exact = _drugIndex.Concat(Drugs).FirstOrDefault((Drug drug) => string.Equals(drug.Name.Trim(), name, StringComparison.OrdinalIgnoreCase) || string.Equals(drug.BrandName?.Trim(), name, StringComparison.OrdinalIgnoreCase));
 		if (exact != null)
 		{
 			return exact;
@@ -3483,17 +3933,21 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		string[] tokens = name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
 			.Where(token => token.Length >= 6 && !token.Equals("tablets", StringComparison.OrdinalIgnoreCase) && !token.Equals("tablet", StringComparison.OrdinalIgnoreCase) && !token.Equals("capsules", StringComparison.OrdinalIgnoreCase))
 			.ToArray();
-		return Drugs.FirstOrDefault((Drug drug) => tokens.Any(token => drug.Name.Contains(token, StringComparison.OrdinalIgnoreCase) || (drug.BrandName?.Contains(token, StringComparison.OrdinalIgnoreCase) ?? false)));
+		return _drugIndex.Concat(Drugs).FirstOrDefault((Drug drug) => tokens.Any(token => drug.Name.Contains(token, StringComparison.OrdinalIgnoreCase) || (drug.BrandName?.Contains(token, StringComparison.OrdinalIgnoreCase) ?? false)));
 	}
 
-	private async Task EnsureExtractedSupplierAsync(string? supplierName)
+	private Drug? FindDrug(Guid id) =>
+		_drugIndex.FirstOrDefault(drug => drug.Id == id)
+		?? Drugs.FirstOrDefault(drug => drug.Id == id);
+
+	private async Task EnsureExtractedSupplierAsync(string? supplierName, bool autoCreateWithoutConfirm = false)
 	{
-		if (SelectedSupplier != null || string.IsNullOrWhiteSpace(supplierName))
+		if (SelectedSupplier != null)
 		{
 			return;
 		}
 
-		string name = supplierName.Trim();
+		string name = string.IsNullOrWhiteSpace(supplierName) ? "General Supplier" : supplierName.Trim();
 		Supplier? existing = Suppliers.FirstOrDefault((Supplier supplier) => string.Equals(supplier.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
 		if (existing != null)
 		{
@@ -3507,7 +3961,9 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			return;
 		}
 
-		if (!confirmationService.Confirm("'" + name + "' is not in the supplier list. Add this supplier and use it on the purchase?", "Add supplier"))
+		bool isDefault = IsDefaultSupplierName(name);
+		if (!autoCreateWithoutConfirm && !isDefault
+			&& !confirmationService.Confirm("'" + name + "' is not in the supplier list. Add this supplier and use it on the purchase?", "Add supplier"))
 		{
 			StatusMessage = "Extracted supplier: " + name + ". Select or add that supplier before saving.";
 			return;
@@ -3515,6 +3971,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 		using IServiceScope scope = scopeFactory.CreateScope();
 		Supplier created = await scope.ServiceProvider.GetRequiredService<AddStockService>().AddSupplierAsync(name, currentSession.User.Id, currentSession.User.Role);
+		created.IsActive = true;
 		if (Suppliers.All(supplier => supplier.Id != created.Id))
 		{
 			Suppliers.Add(created);
@@ -3522,6 +3979,11 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 		SelectedSupplier = Suppliers.First(supplier => supplier.Id == created.Id);
 	}
+
+	private static bool IsDefaultSupplierName(string name) =>
+		string.Equals(name, "General Supplier", StringComparison.OrdinalIgnoreCase)
+		|| string.Equals(name, "Cash / Direct Purchase", StringComparison.OrdinalIgnoreCase)
+		|| string.Equals(name, "Cash", StringComparison.OrdinalIgnoreCase);
 
 	private void StageExtractedItems(ExtractedPurchaseInvoice extracted)
 	{
@@ -3548,7 +4010,8 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				Mrp = extractedLine.Mrp,
 				Rate = extractedLine.Rate,
 				Gst = StandardGstSlab(extractedLine.Gst),
-				DiscountPercent = discounts != null && index < discounts.Count ? discounts[index] : 0m
+				DiscountPercent = discounts != null && index < discounts.Count ? discounts[index] : 0m,
+				ValidationWarning = extractedLine.ValidationWarning
 			});
 		}
 	}
@@ -3595,12 +4058,14 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			try
 			{
 				extracted = await scope.ServiceProvider.GetRequiredService<GeminiPurchaseImportService>().ExtractAsync(path);
+				Debug.WriteLine($"Purchase import: Gemini path returned {extracted.Items.Count} extracted item(s) for '{path}'.");
 			}
 			catch (Exception remoteError) when (remoteError is not OperationCanceledException)
 			{
 				extracted = await scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>().ExtractLocalAsync(path);
+				Debug.WriteLine($"Purchase import: local OCR path returned {extracted.Items.Count} extracted item(s) for '{path}'. Gemini fallback reason: {remoteError.Message}");
 				ImportStatus = "Gemini was unavailable. The invoice was read on this PC.";
-				StatusMessage = "Gemini could not read this invoice. The rows were read locally. Review them before transferring to stock.";
+				StatusMessage = GeminiGenerateContent.UserMessageFor(remoteError) + ". The rows were read locally. Review them before transferring to stock.";
 			}
 			if (extracted.DocumentType == "PURCHASE_RETURN")
 			{
@@ -3646,6 +4111,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			await TryAttachInvoicePreview(path);
 			StagedItems.Clear();
 			StageExtractedItems(extracted);
+			Debug.WriteLine($"Purchase import: StagedItems.Count after StageExtractedItems = {StagedItems.Count}; extracted count = {extracted.Items.Count}.");
 			int unmatched = StagedItems.Count(line => line.Drug == null);
 			OnPropertyChanged(nameof(HasStagedItems));
 			applyStagedItemsCommand?.NotifyCanExecuteChanged();
@@ -3689,109 +4155,295 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		{
 			return;
 		}
+
 		try
 		{
+			ErrorMessage = string.Empty;
+			StatusMessage = "Reading spreadsheet…";
 			_spreadsheet = await spreadsheetReader.ReadAsync(text);
+			_spreadsheetFingerprint = ComputeSpreadsheetFingerprint(text, _spreadsheet);
+			_spreadsheetFileName = Path.GetFileName(text);
+			OriginalInvoiceFileName = _spreadsheetFileName;
 			SpreadsheetHeaders.Clear();
 			SpreadsheetHeaders.Add(string.Empty);
 			foreach (string header in _spreadsheet.Headers)
 			{
 				SpreadsheetHeaders.Add(header);
 			}
+
 			foreach (SpreadsheetColumnMapping spreadsheetMapping in SpreadsheetMappings)
 			{
 				spreadsheetMapping.AvailableHeaders = SpreadsheetHeaders;
 				spreadsheetMapping.SourceHeader = FindLikelyHeader(spreadsheetMapping.Target, _spreadsheet.Headers);
 			}
-			StatusMessage = $"Loaded {_spreadsheet.Rows.Count} rows. Map the columns and apply them to the review grid.";
-			ErrorMessage = string.Empty;
+
 			SpreadsheetPreview = BuildPreview(_spreadsheet);
+			bool allRequiredMapped = SpreadsheetMappings
+				.Where((SpreadsheetColumnMapping mapping) => mapping.IsRequired)
+				.All((SpreadsheetColumnMapping mapping) => !string.IsNullOrWhiteSpace(mapping.SourceHeader));
+
+			string applyError = string.Empty;
+			if (allRequiredMapped && TryApplySpreadsheetMapping(replaceWithoutConfirm: true, out applyError))
+			{
+				confirmationService.Notify("Spreadsheet loaded", StatusMessage);
+				return;
+			}
+
 			HasSpreadsheet = true;
+			OnPropertyChanged(nameof(SpreadsheetHeaders));
+			OnPropertyChanged(nameof(SpreadsheetMappings));
+			StatusMessage = allRequiredMapped
+				? $"Loaded {_spreadsheet.Rows.Count} rows. Columns were detected — click Apply to purchase table."
+				: $"Loaded {_spreadsheet.Rows.Count} rows. Choose a column for Medicine, Batch, Expiry, Qty, and Rate, then Apply.";
+			if (!string.IsNullOrWhiteSpace(applyError))
+			{
+				ErrorMessage = applyError;
+				confirmationService.Notify("Could not auto-import spreadsheet", applyError + "\n\nMap the columns below and click Apply.");
+			}
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			HasSpreadsheet = false;
+			_spreadsheet = null;
+			SpreadsheetPreview = null;
+			ErrorMessage = "Could not load CSV/Excel: " + ex.Message;
+			StatusMessage = string.Empty;
+			confirmationService.Notify("Load CSV / Excel failed", ErrorMessage);
 		}
 	}
 
 	private void ApplySpreadsheetMapping()
 	{
-		if ((object)_spreadsheet == null)
+		if (!TryApplySpreadsheetMapping(replaceWithoutConfirm: false, out string error) && !string.IsNullOrWhiteSpace(error))
 		{
-			ErrorMessage = "Choose a CSV or XLSX file first.";
+			ErrorMessage = error;
+			confirmationService.Notify("Could not apply spreadsheet", error);
 		}
-		else
+	}
+
+	private bool TryApplySpreadsheetMapping(bool replaceWithoutConfirm, out string error)
+	{
+		error = string.Empty;
+		if (_spreadsheet == null)
 		{
-			if (Lines.Count > 0 && !confirmationService.Confirm("Replace the purchase lines currently in the review grid?", "Replace purchase lines"))
-			{
-				return;
-			}
-			Dictionary<string, string> mappings = SpreadsheetMappings.ToDictionary((SpreadsheetColumnMapping mapping) => mapping.Target, (SpreadsheetColumnMapping mapping) => mapping.SourceHeader, StringComparer.Ordinal);
-			if (SpreadsheetMappings.Any((SpreadsheetColumnMapping mapping) => mapping.IsRequired && string.IsNullOrWhiteSpace(mapping.SourceHeader)))
-			{
-				ErrorMessage = "Map every required purchase field before applying the spreadsheet.";
-				return;
-			}
-			List<PurchaseLineDraft> list = new List<PurchaseLineDraft>();
-			for (int num = 0; num < _spreadsheet.Rows.Count; num++)
-			{
-				IReadOnlyDictionary<string, string> row = _spreadsheet.Rows[num];
-				string itemName = Read(row, mappings, "Medicine");
-				if (!TryDecimal(Read(row, mappings, "Quantity"), out var result) || !TryDecimal(Read(row, mappings, "MRP"), out var result2) || !TryDecimal(Read(row, mappings, "Rate"), out var result3) || !TryDecimal(Read(row, mappings, "Amount"), out var result4))
-				{
-					ErrorMessage = $"Row {num + 2} has an invalid quantity, MRP, rate or amount.";
-					return;
-				}
-				decimal num2 = OptionalDecimal(Read(row, mappings, "Free quantity"));
-				decimal num3 = OptionalDecimal(Read(row, mappings, "GST"));
-				decimal num4 = OptionalDecimal(Read(row, mappings, "Discount"));
-				if (num2 < 0m || num3 < 0m || num4 < 0m)
-				{
-					ErrorMessage = $"Row {num + 2} has an invalid free quantity, GST or discount.";
-					return;
-				}
-				if (decimal.Round(result * result3 - num4, 2, MidpointRounding.AwayFromZero) != decimal.Round(result4, 2, MidpointRounding.AwayFromZero))
-				{
-					ErrorMessage = $"Row {num + 2}: quantity × rate less discount does not equal amount.";
-					return;
-				}
-				string text = Read(row, mappings, "Expiry");
-				PurchaseLineDraft purchaseLineDraft = new PurchaseLineDraft(Drugs.FirstOrDefault((Drug item) => string.Equals(item.Name.Trim(), itemName.Trim(), StringComparison.OrdinalIgnoreCase) || string.Equals(item.BrandName?.Trim(), itemName.Trim(), StringComparison.OrdinalIgnoreCase)))
-				{
-					BatchNo = Read(row, mappings, "Batch"),
-					Expiry = (DateOnly.TryParse(text, CultureInfo.CurrentCulture, DateTimeStyles.None, out var result5) ? result5.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : text),
-					Quantity = result,
-					FreeQuantity = num2,
-					Mrp = result2,
-					Rate = result3,
-					GstRate = num3,
-					DiscountAmount = num4
-				};
-				purchaseLineDraft.PropertyChanged += OnLineChanged;
-				list.Add(purchaseLineDraft);
-			}
-			_pagingSuspend++;
-			try
-			{
-				Lines.Clear();
-				_importedExpectedGrandTotal = null;
-				foreach (PurchaseLineDraft item in list)
-				{
-					Lines.Add(item);
-				}
-			}
-			finally
-			{
-				_pagingSuspend = Math.Max(0, _pagingSuspend - 1);
-				RefreshPaging(resetToFirst: true);
-			}
-			NotifyTotals();
-			ErrorMessage = string.Empty;
-			StatusMessage = $"Mapped {Lines.Count} rows. Confirm each medicine and expiry before saving.";
-			HasSpreadsheet = false;
-			SpreadsheetPreview = null;
-			_spreadsheet = null;
+			error = "Choose a CSV or XLSX file first.";
+			return false;
 		}
+
+		if (Lines.Count > 0 && !replaceWithoutConfirm
+			&& !confirmationService.Confirm("Replace the purchase lines currently in the review grid?", "Replace purchase lines"))
+		{
+			return false;
+		}
+
+		Dictionary<string, string> mappings = SpreadsheetMappings.ToDictionary(
+			(SpreadsheetColumnMapping mapping) => mapping.Target,
+			(SpreadsheetColumnMapping mapping) => mapping.SourceHeader,
+			StringComparer.Ordinal);
+		SpreadsheetColumnMapping? missing = SpreadsheetMappings.FirstOrDefault(
+			(SpreadsheetColumnMapping mapping) => mapping.IsRequired && string.IsNullOrWhiteSpace(mapping.SourceHeader));
+		if (missing != null)
+		{
+			error = "Map required field '" + missing.Label + "' before applying the spreadsheet.";
+			return false;
+		}
+
+		List<PurchaseLineDraft> list = new List<PurchaseLineDraft>();
+		List<string> skipped = new List<string>();
+		for (int num = 0; num < _spreadsheet.Rows.Count; num++)
+		{
+			IReadOnlyDictionary<string, string> row = _spreadsheet.Rows[num];
+			string itemName = Read(row, mappings, "Medicine").Trim();
+			if (string.IsNullOrWhiteSpace(itemName))
+			{
+				skipped.Add("Row " + (num + 2) + ": blank medicine name.");
+				continue;
+			}
+
+			if (!TryDecimal(Read(row, mappings, "Quantity"), out decimal quantity) || quantity <= 0m)
+			{
+				skipped.Add("Row " + (num + 2) + " (" + itemName + "): invalid quantity.");
+				continue;
+			}
+
+			if (!TryDecimal(Read(row, mappings, "Rate"), out decimal rate) || rate < 0m)
+			{
+				skipped.Add("Row " + (num + 2) + " (" + itemName + "): invalid rate.");
+				continue;
+			}
+
+			decimal mrp = 0m;
+			string mrpText = Read(row, mappings, "MRP");
+			if (!string.IsNullOrWhiteSpace(mrpText) && !TryDecimal(mrpText, out mrp))
+			{
+				skipped.Add("Row " + (num + 2) + " (" + itemName + "): invalid MRP.");
+				continue;
+			}
+
+			if (mrp <= 0m)
+			{
+				mrp = rate;
+			}
+
+			if (!TryOptionalDecimal(Read(row, mappings, "Free quantity"), allowPercent: false, out decimal freeQty)
+				|| !TryOptionalDecimal(Read(row, mappings, "GST"), allowPercent: true, out decimal gst)
+				|| !TryOptionalDecimal(Read(row, mappings, "Discount"), allowPercent: true, out decimal discount)
+				|| freeQty < 0m || gst < 0m || discount < 0m)
+			{
+				skipped.Add("Row " + (num + 2) + " (" + itemName + "): invalid free / GST / discount.");
+				continue;
+			}
+
+			// Discount column may be % or ₹ — treat values ≤ 100 with no amount column as percent.
+			string amountText = Read(row, mappings, "Amount");
+			decimal discountAmount = discount;
+			if (discount > 0m && discount <= 100m
+				&& (string.IsNullOrWhiteSpace(amountText) || !TryDecimal(amountText, out _)))
+			{
+				discountAmount = decimal.Round(quantity * rate * discount / 100m, 2, MidpointRounding.AwayFromZero);
+			}
+
+			string expiryText = Read(row, mappings, "Expiry");
+			string expiry = NormalizeSpreadsheetExpiry(expiryText);
+
+			string batch = Read(row, mappings, "Batch").Trim();
+			if (string.IsNullOrWhiteSpace(batch))
+			{
+				batch = "NA";
+			}
+
+			PurchaseLineDraft purchaseLineDraft = new PurchaseLineDraft(MatchDrug(itemName))
+			{
+				MedicineName = itemName,
+				BatchNo = batch,
+				Expiry = expiry,
+				Quantity = quantity,
+				FreeQuantity = freeQty,
+				Mrp = mrp,
+				Rate = rate,
+				GstRate = gst,
+				DiscountAmount = discountAmount,
+				AcceptMedicineEdits = true,
+				InwardDate = InvoiceDate.Date
+			};
+			purchaseLineDraft.PropertyChanged += OnLineChanged;
+			list.Add(purchaseLineDraft);
+		}
+
+		if (list.Count == 0)
+		{
+			error = skipped.Count == 0
+				? "No purchase rows could be read from the spreadsheet."
+				: "No valid rows imported. " + string.Join(" ", skipped.Take(3));
+			return false;
+		}
+
+		_pagingSuspend++;
+		try
+		{
+			Lines.Clear();
+			_importedExpectedGrandTotal = null;
+			foreach (PurchaseLineDraft item in list)
+			{
+				Lines.Add(item);
+			}
+		}
+		finally
+		{
+			_pagingSuspend = Math.Max(0, _pagingSuspend - 1);
+			// Clear inward date filter so imported rows are not hidden by an old From/To range.
+			_dateFilterActive = false;
+			_filterFromDate = null;
+			_filterToDate = null;
+			OnPropertyChanged(nameof(FilterFromDate));
+			OnPropertyChanged(nameof(FilterToDate));
+			RefreshPaging(resetToFirst: true);
+		}
+
+		EnsurePurchaseHeaderDefaults(fromSpreadsheet: true);
+		NotifyTotals();
+		ErrorMessage = skipped.Count == 0 ? string.Empty : "Imported " + list.Count + " row(s); skipped " + skipped.Count + ". " + string.Join(" ", skipped.Take(2));
+		StatusMessage = "Loaded " + list.Count + " row(s) from spreadsheet. Confirm medicines and expiry, then Transfer to Stock.";
+		HasSpreadsheet = false;
+		SpreadsheetPreview = null;
+		_spreadsheet = null;
+		return true;
+	}
+
+	/// <summary>
+	/// Ensures Supplier + Invoice No. are filled so Transfer to Stock is not blocked after CSV/Excel import.
+	/// </summary>
+	private void EnsurePurchaseHeaderDefaults(bool fromSpreadsheet)
+	{
+		if (SelectedSupplier == null && Suppliers.Count > 0)
+		{
+			SelectedSupplier = Suppliers.FirstOrDefault((Supplier supplier) =>
+					supplier.Name.Contains("Cash", StringComparison.OrdinalIgnoreCase)
+					|| supplier.Name.Contains("Direct", StringComparison.OrdinalIgnoreCase)
+					|| supplier.Name.Contains("General", StringComparison.OrdinalIgnoreCase))
+				?? Suppliers[0];
+		}
+
+		if (string.IsNullOrWhiteSpace(InvoiceNo))
+		{
+			// Prefer a stable id from file content so re-importing the same spreadsheet
+			// hits the duplicate-invoice guard instead of minting a new CSV-HHmm each time.
+			if (fromSpreadsheet && !string.IsNullOrWhiteSpace(_spreadsheetFingerprint))
+			{
+				InvoiceNo = "CSV-" + _spreadsheetFingerprint;
+			}
+			else if (fromSpreadsheet)
+			{
+				InvoiceNo = $"CSV-{DateTime.Now:yyyyMMdd-HHmm}";
+			}
+			else
+			{
+				InvoiceNo = $"INV-{DateTime.Now:yyyyMMdd-HHmmss}";
+			}
+		}
+
+		if (string.IsNullOrWhiteSpace(OriginalInvoiceFileName) && !string.IsNullOrWhiteSpace(_spreadsheetFileName))
+		{
+			OriginalInvoiceFileName = _spreadsheetFileName;
+		}
+	}
+
+	private static string ComputeSpreadsheetFingerprint(string filePath, PurchaseSpreadsheetData data)
+	{
+		try
+		{
+			using SHA256 sha = SHA256.Create();
+			byte[] fileHash = sha.ComputeHash(File.ReadAllBytes(filePath));
+			string hex = Convert.ToHexString(fileHash.AsSpan(0, 6)).ToLowerInvariant();
+			string name = Path.GetFileNameWithoutExtension(filePath);
+			string safeName = new string(name.Where(ch => char.IsLetterOrDigit(ch)).Take(12).ToArray());
+			if (string.IsNullOrWhiteSpace(safeName))
+			{
+				safeName = "sheet";
+			}
+
+			return safeName + "-" + hex + "-r" + data.Rows.Count.ToString(CultureInfo.InvariantCulture);
+		}
+		catch
+		{
+			return "sheet-" + DateTime.UtcNow.Ticks.ToString("x", CultureInfo.InvariantCulture);
+		}
+	}
+
+	internal static string NormalizeSpreadsheetExpiry(string expiryText)
+	{
+		if (PurchaseLineDraft.TryParseExpiry(expiryText, out DateOnly expiryDate))
+		{
+			return expiryDate.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+		}
+
+		string extractedExpiry = InvoiceTextParser.ExtractExpiry(expiryText);
+		if (!string.IsNullOrWhiteSpace(extractedExpiry))
+		{
+			return extractedExpiry;
+		}
+
+		return expiryText;
 	}
 
 	private static DataView BuildPreview(PurchaseSpreadsheetData data)
@@ -3855,59 +4507,101 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 		ErrorMessage = string.Empty;
 		StatusMessage = string.Empty;
+		EnsurePurchaseHeaderDefaults(fromSpreadsheet: false);
+
+		string supplierName = !string.IsNullOrWhiteSpace(_pendingSupplierName)
+			? _pendingSupplierName!
+			: "Cash / Direct Purchase";
 		if (SelectedSupplier == null)
 		{
-			await EnsureExtractedSupplierAsync(_pendingSupplierName);
+			await EnsureExtractedSupplierAsync(supplierName, autoCreateWithoutConfirm: true);
 		}
 
-		SupplierError = ((SelectedSupplier == null) ? "Supplier is required" : string.Empty);
-		InvoiceNoError = (string.IsNullOrWhiteSpace(InvoiceNo) ? "Supplier invoice no. is required" : string.Empty);
-		InvoiceDateError = string.Empty;
-		if (SelectedSupplier == null || Lines.Count == 0)
+		if (SelectedSupplier == null)
 		{
-			ErrorMessage = "Cannot Save Purchase Yet:\n1. Please select or add a Supplier.\n2. Add at least one medicine item with batch, quantity, and purchase rate.";
-			confirmationService.Notify("Cannot Save Purchase Yet", "1. Please select or add a Supplier.\n2. Add at least one medicine item with batch, quantity, and purchase rate.");
-			return;
+			await EnsureExtractedSupplierAsync("Cash / Direct Purchase", autoCreateWithoutConfirm: true);
 		}
-		if (SupplierError.Length > 0 || InvoiceNoError.Length > 0)
+
+		if (string.IsNullOrWhiteSpace(InvoiceNo))
 		{
-			ErrorMessage = "Enter the supplier invoice number from the distributor bill before saving.";
+			InvoiceNo = $"CSV-{DateTime.Now:yyyyMMdd-HHmm}";
+		}
+
+		SupplierError = SelectedSupplier == null ? "Supplier is required" : string.Empty;
+		InvoiceNoError = string.IsNullOrWhiteSpace(InvoiceNo) ? "Supplier invoice no. is required" : string.Empty;
+		InvoiceDateError = string.Empty;
+		if (SelectedSupplier == null || string.IsNullOrWhiteSpace(InvoiceNo))
+		{
+			ErrorMessage = "Please select a Supplier and enter an Invoice Number before saving.";
 			confirmationService.Notify("Cannot Save Purchase Yet", ErrorMessage);
 			return;
 		}
-		if (SelectedSupplier == null || currentSession.User == null)
+
+		// Newly created suppliers must remain active for PurchaseService FK / IsActive checks.
+		if (!SelectedSupplier.IsActive)
 		{
-			ErrorMessage = "Select a supplier and sign in again.";
+			SelectedSupplier.IsActive = true;
+		}
+
+		if (Lines.Count == 0)
+		{
+			ErrorMessage = "Add at least one medicine item with batch, quantity, and purchase rate before transferring to stock.";
+			confirmationService.Notify("Cannot Save Purchase Yet", ErrorMessage);
 			return;
 		}
+
+		if (currentSession.User == null)
+		{
+			ErrorMessage = "Sign in again to transfer purchases into stock.";
+			return;
+		}
+
 		if (!DateOnly.TryParse(InvoiceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), out var invoiceDate))
 		{
 			ErrorMessage = "Enter a valid invoice date.";
 			return;
 		}
+
+		NormalizeLineExpiries();
 		await EnsurePurchaseMedicinesAsync();
-		if (Lines.Count == 0 || Lines.Any((PurchaseLineDraft line) => !line.TryCreateInput(out PurchaseLineInput _)))
+		PurchaseLineDraft? invalid = Lines.FirstOrDefault((PurchaseLineDraft line) => !line.TryCreateInput(out PurchaseLineInput _));
+		if (Lines.Count == 0 || invalid != null)
 		{
-			ErrorMessage = "Complete each purchase line with a medicine, batch, expiry, quantity and purchase rate.";
+			string detail = invalid == null
+				? "Add at least one medicine line."
+				: $"Check '{invalid.MedicineName}': medicine, batch, expiry (e.g. 06/2027), quantity, and rate are required.";
+			ErrorMessage = "Complete each purchase line with a medicine, batch, expiry, quantity and purchase rate. " + detail;
 			confirmationService.Notify("Cannot Save Purchase Yet", ErrorMessage);
 			return;
 		}
+
 		NotifyTotals();
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
 			PurchaseService service = scope.ServiceProvider.GetRequiredService<PurchaseService>();
-			if (await service.IsDuplicateInvoiceAsync(SelectedSupplier.Id, InvoiceNo))
+			string invoiceKey = InvoiceNo.Trim();
+			if (await service.IsDuplicateInvoiceAsync(SelectedSupplier.Id, invoiceKey))
 			{
-				ErrorMessage = "This supplier already has an invoice with that number.";
+				ErrorMessage = "Invoice '" + invoiceKey + "' was already transferred to stock for this supplier. Stock was not added again.";
+				confirmationService.Notify("Duplicate purchase invoice", ErrorMessage);
 				return;
 			}
+
+			if (!string.IsNullOrWhiteSpace(_spreadsheetFingerprint)
+				&& await service.IsDuplicateSourceFingerprintAsync(_spreadsheetFingerprint))
+			{
+				ErrorMessage = "This spreadsheet file was already transferred to stock. Re-importing it will not add quantity again.";
+				confirmationService.Notify("Duplicate spreadsheet import", ErrorMessage);
+				return;
+			}
+
 			PurchaseLineInput[] items = Lines.Select((PurchaseLineDraft line) =>
 			{
 				line.TryCreateInput(out PurchaseLineInput input);
 				return input;
 			}).ToArray();
-			string? notes = Remarks;
+			string? notes = PurchaseService.AppendSourceFingerprint(Remarks, _spreadsheetFingerprint);
 			string? attachedPath = InvoiceImagePath;
 			if (!string.IsNullOrWhiteSpace(attachedPath) && File.Exists(attachedPath))
 			{
@@ -3915,8 +4609,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				InvoiceImagePath = attachedPath;
 			}
 
+			if (string.IsNullOrWhiteSpace(OriginalInvoiceFileName) && !string.IsNullOrWhiteSpace(_spreadsheetFileName))
+			{
+				OriginalInvoiceFileName = _spreadsheetFileName;
+			}
+
 			int transferred = Lines.Count;
-			await service.SavePurchaseAsync(new SavePurchaseInput(SelectedSupplier.Id, InvoiceNo, invoiceDate, Subtotal, 0m, TaxTotal, GrandTotal, items, notes, SelectedStorageLocation?.Id, attachedPath, OriginalInvoiceFileName), currentSession.User.Id, currentSession.User.Role);
+			await service.SavePurchaseAsync(new SavePurchaseInput(SelectedSupplier.Id, invoiceKey, invoiceDate, Subtotal, 0m, TaxTotal, GrandTotal, items, notes, SelectedStorageLocation?.Id, attachedPath, OriginalInvoiceFileName), currentSession.User.Id, currentSession.User.Role);
 			_dateFilterActive = false;
 			_filterFromDate = null;
 			_filterToDate = null;
@@ -3926,13 +4625,12 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			_importedExpectedGrandTotal = null;
 			_pendingSupplierName = null;
 			LoadedDocumentCount = 0;
-			InvoiceNo = string.Empty;
-			OriginalInvoiceFileName = null;
+			// Keep invoice no. + fingerprint so a second Transfer of the same bill is blocked immediately.
+			StatusMessage = "Success! " + transferred + " items added to inventory under invoice " + invoiceKey + ". Re-importing this file will not add stock again.";
 			IsPdfAttachment = false;
 			InvoiceImagePath = null;
 			InvoiceThumbnail = null;
 			InvoiceOcrText = string.Empty;
-			StatusMessage = "Success! " + transferred + " items have been added to inventory.";
 			if (_loadedPhoneBill != null)
 			{
 				_loadedPhoneBill.Status = "Committed";
@@ -3943,12 +4641,52 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			{
 				await PurchasePosted.Invoke();
 			}
+
 			NotifyTotals();
+		}
+		catch (DbUpdateException ex)
+		{
+			ErrorMessage = FormatSaveFailure(ex);
+			confirmationService.Notify("Transfer to Stock failed", ErrorMessage);
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = FormatSaveFailure(ex);
+			confirmationService.Notify("Transfer to Stock failed", ErrorMessage);
 		}
+	}
+
+	private void NormalizeLineExpiries()
+	{
+		foreach (PurchaseLineDraft line in Lines)
+		{
+			if (string.IsNullOrWhiteSpace(line.Expiry))
+			{
+				continue;
+			}
+
+			if (PurchaseLineDraft.TryParseExpiry(line.Expiry, out DateOnly expiry))
+			{
+				line.Expiry = expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+			}
+		}
+	}
+
+	private static string FormatSaveFailure(Exception ex)
+	{
+		Exception walk = ex;
+		while (walk.InnerException != null)
+		{
+			walk = walk.InnerException;
+		}
+
+		string message = walk.Message;
+		if (string.IsNullOrWhiteSpace(message))
+		{
+			message = ex.Message;
+		}
+
+		return "Could not transfer purchase into stock: " + message;
 	}
 
 	private async Task SavePurchaseReturnAsync()
@@ -3997,7 +4735,13 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			try
 			{
 				using IServiceScope scope = scopeFactory.CreateScope();
-				await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<PurchaseService>().SavePurchaseReturnAsync(SelectedSupplier.Id, ReturnNo, DateOnly.FromDateTime(DateTime.Today), array, ReturnReason, currentSession.User.Id, currentSession.User.Role));
+				PurchaseReturn? posted = null;
+				await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
+				{
+					posted = await scope.ServiceProvider.GetRequiredService<PurchaseService>().SavePurchaseReturnAsync(SelectedSupplier.Id, ReturnNo, DateOnly.FromDateTime(DateTime.Today), array, ReturnReason, currentSession.User.Id, currentSession.User.Role);
+				});
+				LastPostedReturnId = posted?.Id;
+				LastPostedReturnText = posted == null ? string.Empty : $"Return {posted.ReturnNo} to {SelectedSupplier.Name} · ₹{posted.TotalAmount.ToString("N2", CultureInfo.GetCultureInfo("en-IN"))}";
 				ReturnNo = string.Empty;
 				ReturnQuantity = 0m;
 				ReturnReason = string.Empty;
@@ -4023,23 +4767,46 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	{
 		string[] candidates = target switch
 		{
-			"Medicine" => new string[4] { "medicine", "drug", "item", "product" }, 
-			"Batch" => new string[2] { "batch", "lot" }, 
-			"Expiry" => new string[3] { "expiry", "expdate", "expiration" }, 
-			"Quantity" => new string[2] { "quantity", "qty" }, 
-			"Free quantity" => new string[3] { "freequantity", "freeqty", "free" }, 
-			"MRP" => new string[1] { "mrp" }, 
-			"Rate" => new string[3] { "rate", "ptr", "price" }, 
-			"GST" => new string[2] { "gst", "tax" }, 
-			"Discount" => new string[1] { "discount" }, 
-			"Amount" => new string[3] { "amount", "linevalue", "total" }, 
-			_ => Array.Empty<string>(), 
+			"Medicine" => ["medicine", "drugname", "drug", "itemname", "item", "productname", "product", "particulars", "description"],
+			"Batch" => ["batchno", "batchnumber", "batch", "lotno", "lot"],
+			"Expiry" => ["expirydate", "expdate", "expiry", "expiration", "exp", "mfgexp"],
+			"Quantity" => ["quantity", "qty", "packqty", "billedqty", "units"],
+			"Free quantity" => ["freequantity", "freeqty", "schemeqty", "free"],
+			"MRP" => ["mrp", "maximumretailprice"],
+			"Rate" => ["purchaserate", "purrate", "rate", "ptr", "pts", "unitprice", "price", "cost"],
+			"GST" => ["gstrate", "gst%", "gst", "tax%", "taxrate", "tax"],
+			"Discount" => ["discount%", "discount", "disc", "tradediscount"],
+			"Amount" => ["amount", "linevalue", "linetotal", "taxable", "value", "total"],
+			_ => [],
 		};
-		return headers.FirstOrDefault((string header) =>
+
+		// Prefer exact / longer matches so "free" does not steal "Quantity".
+		string? best = null;
+		int bestScore = 0;
+		foreach (string header in headers)
 		{
-			string normalizedHeader = header.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("_", string.Empty, StringComparison.Ordinal).Replace("-", string.Empty, StringComparison.Ordinal);
-			return candidates.Any((string candidate) => normalizedHeader.Contains(candidate, StringComparison.OrdinalIgnoreCase));
-		}) ?? string.Empty;
+			string normalizedHeader = header
+				.Replace(" ", string.Empty, StringComparison.Ordinal)
+				.Replace("_", string.Empty, StringComparison.Ordinal)
+				.Replace("-", string.Empty, StringComparison.Ordinal)
+				.Replace("%", string.Empty, StringComparison.Ordinal)
+				.Replace(".", string.Empty, StringComparison.Ordinal);
+			foreach (string candidate in candidates)
+			{
+				if (string.Equals(normalizedHeader, candidate, StringComparison.OrdinalIgnoreCase))
+				{
+					return header;
+				}
+
+				if (normalizedHeader.Contains(candidate, StringComparison.OrdinalIgnoreCase) && candidate.Length > bestScore)
+				{
+					best = header;
+					bestScore = candidate.Length;
+				}
+			}
+		}
+
+		return best ?? string.Empty;
 	}
 
 	private static string Read(IReadOnlyDictionary<string, string> row, IReadOnlyDictionary<string, string> mappings, string target)
@@ -4052,21 +4819,52 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		return string.Empty;
 	}
 
+	internal static bool TryOptionalDecimal(string value, bool allowPercent, out decimal result)
+	{
+		result = 0m;
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return true;
+		}
+
+		string cleaned = value.Trim();
+		if (cleaned is "-" or "–" or "—")
+		{
+			return true;
+		}
+
+		if (allowPercent && cleaned.EndsWith('%'))
+		{
+			cleaned = cleaned[..^1].Trim();
+		}
+
+		return TryDecimal(cleaned, out result);
+	}
+
 	private static decimal OptionalDecimal(string value)
 	{
-		if (!string.IsNullOrWhiteSpace(value))
+		if (string.IsNullOrWhiteSpace(value))
 		{
-			if (!TryDecimal(value, out var result))
-			{
-				return -1m;
-			}
-			return result;
+			return 0m;
 		}
-		return 0m;
+
+		return TryDecimal(value, out decimal result) ? result : -1m;
 	}
 
 	private static bool TryDecimal(string value, out decimal result)
 	{
-		return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out result);
+		result = 0m;
+		if (string.IsNullOrWhiteSpace(value))
+		{
+			return false;
+		}
+
+		string cleaned = value.Trim()
+			.Replace("₹", string.Empty, StringComparison.Ordinal)
+			.Replace("Rs.", string.Empty, StringComparison.OrdinalIgnoreCase)
+			.Replace(",", string.Empty, StringComparison.Ordinal)
+			.Trim();
+		return decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.InvariantCulture, out result)
+			|| decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.CurrentCulture, out result);
 	}
 }

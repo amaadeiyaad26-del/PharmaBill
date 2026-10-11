@@ -13,7 +13,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type controls:FloatingField}">
           <StackPanel>
-            <Border Name="Box" Height="48" CornerRadius="10" BorderThickness="1.5" BorderBrush="{DynamicResource FieldBorderBrush}" Background="{DynamicResource FieldBackgroundBrush}" SnapsToDevicePixels="True">
+            <Border Name="Box" Height="{TemplateBinding controls:FloatingField.BoxHeight}" CornerRadius="10" BorderThickness="1.5" BorderBrush="{DynamicResource FieldBorderBrush}" Background="{DynamicResource FieldBackgroundBrush}" SnapsToDevicePixels="True">
               <Grid>
                 <Border Name="FocusRing" CornerRadius="10" Margin="-1.5" IsHitTestVisible="False" Opacity="0" BorderThickness="1.5" BorderBrush="{StaticResource FocusRingBrush}">
                   <UIElement.Effect>
@@ -345,8 +345,8 @@
             <UIElement.RenderTransform>
               <ScaleTransform x:Name="Zoom" ScaleX="1" ScaleY="1" />
             </UIElement.RenderTransform>
-            <Border Name="FocusRing" CornerRadius="10" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
-            <Border Name="Face" CornerRadius="8" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" Padding="{TemplateBinding Control.Padding}">
+            <Border Name="FocusRing" CornerRadius="12" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="10" Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="{TemplateBinding Control.BorderThickness}" Padding="{TemplateBinding Control.Padding}">
               <UIElement.Effect>
                 <DropShadowEffect x:Name="Glow" BlurRadius="12" ShadowDepth="3" Direction="270" Opacity="0.08" Color="#FF0F172A" />
               </UIElement.Effect>
@@ -465,8 +465,8 @@
     </Style.Triggers>
   </Style>
   <Style x:Key="ReportRunPeriodButton" TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#FF2563EB" />
-    <Setter Property="BorderBrush" Value="#FF2563EB" />
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     <Setter Property="Foreground" Value="#FFFFFFFF" />
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="MinHeight" Value="36" />
@@ -493,11 +493,11 @@
     </Setter>
     <Style.Triggers>
       <Trigger Property="UIElement.IsMouseOver" Value="True">
-        <Setter Property="Background" Value="#FF1D4ED8" />
-        <Setter Property="BorderBrush" Value="#FF1D4ED8" />
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
       </Trigger>
       <Trigger Property="IsPressed" Value="True">
-        <Setter Property="Background" Value="#FF1D4ED8" />
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
       </Trigger>
     </Style.Triggers>
   </Style>
@@ -628,8 +628,8 @@
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type Button}">
           <Grid>
-            <Border Name="FocusRing" CornerRadius="8" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
-            <Border Name="Face" CornerRadius="8" BorderThickness="{TemplateBinding Control.BorderThickness}" BorderBrush="{TemplateBinding Control.BorderBrush}" Background="{TemplateBinding Control.Background}" Padding="{TemplateBinding Control.Padding}">
+            <Border Name="FocusRing" CornerRadius="10" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="10" BorderThickness="{TemplateBinding Control.BorderThickness}" BorderBrush="{TemplateBinding Control.BorderBrush}" Background="{TemplateBinding Control.Background}" Padding="{TemplateBinding Control.Padding}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Control.Foreground}" TextElement.FontWeight="{TemplateBinding Control.FontWeight}" TextElement.FontSize="{TemplateBinding Control.FontSize}" />
             </Border>
             <Border Name="HoverRing" CornerRadius="8" BorderThickness="1.5" Opacity="0" IsHitTestVisible="False" BorderBrush="{StaticResource FocusRingBrush}" />
@@ -720,6 +720,7 @@
   <local:SectionActiveConverter x:Key="SectionActiveConverter" />
   <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
   <local:StringEqualsConverter x:Key="StringEqualsConverter" />
+  <local:StockTabMatchConverter x:Key="StockTabMatchConverter" />
   <Style x:Key="{x:Type Button}" TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}" />
   <Style x:Key="MenuButtonStyle" TargetType="{x:Type Button}">
     <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -740,9 +741,9 @@
                   <SolidColorBrush Color="#FF1E293B" />
                 </Border.Background>
               </Border>
-              <Border Name="ActivePill" Width="4" Height="24" CornerRadius="2" HorizontalAlignment="Left" Margin="3,0,0,0" Visibility="Collapsed" Background="{StaticResource NavPillGlowBrush}">
+              <Border Name="ActivePill" Width="4" Height="24" CornerRadius="2" HorizontalAlignment="Left" Margin="3,0,0,0" Visibility="Collapsed" Background="#FFFFFFFF">
                 <UIElement.Effect>
-                  <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.9" Color="#FF10B981" />
+                  <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.6" Color="#FFFFFFFF" />
                 </UIElement.Effect>
               </Border>
               <ContentPresenter Margin="{TemplateBinding Control.Padding}" HorizontalAlignment="{TemplateBinding Control.HorizontalContentAlignment}" VerticalAlignment="Center" />
@@ -942,12 +943,12 @@
     <Setter Property="FontSize" Value="13.5" />
   </Style>
   <Style x:Key="{x:Type DataGridColumnHeader}" TargetType="{x:Type DataGridColumnHeader}" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-    <Setter Property="Background" Value="{DynamicResource GridHeaderBrush}" />
-    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Padding" Value="10,9" />
-    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
-    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
   </Style>
   <Style x:Key="{x:Type DataGridRow}" TargetType="{x:Type DataGridRow}" BasedOn="{StaticResource {x:Type DataGridRow}}">
     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
@@ -1087,7 +1088,7 @@
                       <Setter TargetName="Chrome" Property="Border.BorderBrush" Value="#FF94A3B8" />
                     </Trigger>
                     <Trigger Property="ToggleButton.IsChecked" Value="True">
-                      <Setter TargetName="Chrome" Property="Border.BorderBrush" Value="#FF2563EB" />
+                      <Setter TargetName="Chrome" Property="Border.BorderBrush" Value="{DynamicResource AccentBrush}" />
                     </Trigger>
                     <Trigger Property="IsEnabled" Value="False">
                       <Setter TargetName="Chrome" Property="UIElement.Opacity" Value="0.55" />
@@ -1110,5 +1111,102 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+  <!-- Tabs, section boxes and expanders take the mode accent (indigo in Retail, amber in Wholesale). -->
+  <Style TargetType="{x:Type TabItem}" BasedOn="{StaticResource {x:Type TabItem}}">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Style.Triggers>
+      <Trigger Property="IsSelected" Value="True">
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style TargetType="{x:Type GroupBox}" BasedOn="{StaticResource {x:Type GroupBox}}">
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style TargetType="{x:Type Expander}" BasedOn="{StaticResource {x:Type Expander}}">
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}" />
+  </Style>
+  <!-- Wholesale page titles take the mode accent (amber in Wholesale B2B) so each B2B screen reads as its own workspace. -->
+  <Style x:Key="WholesalePageTitle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="0,0,0,10" />
+  </Style>
+
+  <!-- Modern surfaces: rounded white (or dark) cards with a soft shadow and accent-coloured titles. -->
+  <Style x:Key="PageTitle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource WholesalePageTitle}" />
+
+  <Style x:Key="SectionCard" TargetType="{x:Type Border}">
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="18" />
+    <Setter Property="Margin" Value="0,0,0,14" />
+    <Setter Property="Effect">
+      <Setter.Value>
+        <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.08" Color="#FF0F172A" />
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Filter tabs (Stock page): compact pills in a tab strip; the active filter takes the mode accent. -->
+  <Style x:Key="FilterTabButton" TargetType="{x:Type Button}">
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="MinWidth" Value="84" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="border" CornerRadius="8" SnapsToDevicePixels="True" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.FontSize="{TemplateBinding FontSize}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="border" Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <DataTrigger Value="True">
+        <DataTrigger.Binding>
+          <MultiBinding Converter="{StaticResource StockTabMatchConverter}">
+            <Binding Path="StatusFilter" />
+            <Binding Path="CommandParameter" RelativeSource="{RelativeSource Self}" />
+          </MultiBinding>
+        </DataTrigger.Binding>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
+
+  <Style x:Key="SectionCardTitle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Margin" Value="0,0,0,10" />
   </Style>
 </ResourceDictionary>

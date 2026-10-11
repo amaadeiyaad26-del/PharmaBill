@@ -20,7 +20,11 @@ namespace PharmaBill.App.ViewModels;
 
 public sealed class AddStockViewModel : ObservableObject
 {
-	private static readonly string[] ExpiryFormats = new string[6] { "MM/yyyy", "M/yyyy", "MM-yyyy", "M-yyyy", "MM/yy", "M/yy" };
+	private static readonly string[] ExpiryFormats =
+	[
+		"MM/yyyy", "M/yyyy", "MM-yyyy", "M-yyyy", "MM/yy", "M/yy",
+		"yyyy-MM", "yyyy/MM", "yyyy-MM-dd", "yyyy/MM/dd"
+	];
 
 	private readonly IServiceScopeFactory? _scopeFactory;
 

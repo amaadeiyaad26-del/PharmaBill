@@ -25,6 +25,8 @@ public sealed class StagedPurchaseLine : ObservableObject
 
 	private decimal _discountPercent;
 
+	private string? _validationWarning;
+
 	public Drug? Drug { get; set; }
 
 	public string ItemName
@@ -79,6 +81,12 @@ public sealed class StagedPurchaseLine : ObservableObject
 	{
 		get => _discountPercent;
 		set => SetProperty(ref _discountPercent, value);
+	}
+
+	public string? ValidationWarning
+	{
+		get => _validationWarning;
+		set => SetProperty(ref _validationWarning, value);
 	}
 
 	public string MatchText => Drug == null ? "Not in medicine master" : "Matched";

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
@@ -104,9 +105,10 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 			{
 				CustomerId = invoice.CustomerId,
 				EntryAtUtc = note.ReturnAtUtc,
-				EntryType = "WholesaleCreditNote",
+				EntryType = LedgerEntryTypes.WholesaleCreditNote,
 				ReferenceId = invoice.Id,
 				ReferenceNo = note.ReturnNo,
+				Debit = 0m,
 				Credit = creditTotal,
 				Notes = "Credit note " + note.ReturnNo + " against " + invoice.InvoiceNo
 			});
@@ -169,10 +171,11 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 			{
 				CustomerId = customer.Id,
 				EntryAtUtc = note.ReturnAtUtc,
-				EntryType = "WholesaleDebitNote",
+				EntryType = LedgerEntryTypes.WholesaleDebitNote,
 				ReferenceId = note.Id,
 				ReferenceNo = note.ReturnNo,
 				Debit = note.TotalAmount,
+				Credit = 0m,
 				Notes = note.Reason
 			});
 			context.AuditLogs.Add(new AuditLog

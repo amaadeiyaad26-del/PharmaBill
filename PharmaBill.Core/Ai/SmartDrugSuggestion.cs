@@ -18,9 +18,9 @@ public sealed record SmartDrugLookupOutcome(SmartDrugSuggestion? Suggestion, str
 
 public static class SmartDrugLookupPrompt
 {
-	public const string Caption = "Medicine not found locally. Search Online with AI / Web?";
+	public const string Caption = "Not found - add manually";
 
 	public const string FilledNotice = "Filled from online lookup. Check the MRP and purchase rate before saving.";
 
-	public const string UnavailableNotice = "Online lookup was unavailable. Enter the details manually.";
+	public const string UnavailableNotice = "Gemini limit reached, try again in a minute";
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,8 +14,10 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Ai;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Inventory;
+using PharmaBill.Core.Labels;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
@@ -31,6 +34,12 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	public const string FilterNearExpiry = "Near expiry";
 
 	public const string FilterMissingMrp = "Missing MRP";
+
+	public const string FilterDumpStock = "Dump Stock";
+
+	public const string FilterBanned = "Banned";
+
+	public const string FilterValuation = "Valuation";
 
 	private string _nameFilter = string.Empty;
 
@@ -98,7 +107,11 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public ObservableCollection<StockVerificationLineViewModel> VerificationItems { get; } = new ObservableCollection<StockVerificationLineViewModel>();
 
-	public string[] StatusOptions { get; } = new string[7] { "All", "In stock", "Shortage", "Near expiry", "Missing MRP", "Critical", "Expired" };
+	public string[] StatusOptions { get; } = new string[10] { "All", "In stock", "Shortage", "Near expiry", "Missing MRP", "Critical", "Expired", "Dump Stock", "Banned", "Valuation" };
+
+	public string ValuationSummaryText { get; private set; } = string.Empty;
+
+	private HashSet<Guid> _dumpBatchIds = new();
 
 	public string[] ScheduleOptions { get; } = new string[7] { "All", "OTC", "G", "H", "H1", "X", "NDPS" };
 
@@ -442,6 +455,14 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand GeneratePurchaseIndentCommand => generatePurchaseIndentCommand ?? (generatePurchaseIndentCommand = new AsyncRelayCommand(GeneratePurchaseIndentAsync));
 
+	private AsyncRelayCommand? printLabelsCommand;
+
+	public IAsyncRelayCommand PrintLabelsCommand => printLabelsCommand ?? (printLabelsCommand = new AsyncRelayCommand(PrintLabelsAsync));
+
+	private AsyncRelayCommand? reorderSuggestionsCommand;
+
+	public IAsyncRelayCommand ReorderSuggestionsCommand => reorderSuggestionsCommand ?? (reorderSuggestionsCommand = new AsyncRelayCommand(ExportReorderSuggestionsAsync));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand CreateDraftPurchaseOrderCommand => createDraftPurchaseOrderCommand ?? (createDraftPurchaseOrderCommand = new AsyncRelayCommand(CreateDraftPurchaseOrderAsync));
@@ -449,6 +470,18 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	public IAsyncRelayCommand ExtractOpeningStockCommand => extractOpeningStockCommand ?? (extractOpeningStockCommand = new AsyncRelayCommand(ExtractOpeningStockAsync));
 
 	private IAsyncRelayCommand? extractOpeningStockCommand;
+
+	private AsyncRelayCommand? banSelectedBatchCommand;
+
+	private AsyncRelayCommand? issueBrkExpReturnCommand;
+
+	private RelayCommand? openCounterChallanCommand;
+
+	public IAsyncRelayCommand BanSelectedBatchCommand => banSelectedBatchCommand ?? (banSelectedBatchCommand = new AsyncRelayCommand(BanSelectedBatchAsync));
+
+	public IAsyncRelayCommand IssueBrkExpReturnCommand => issueBrkExpReturnCommand ?? (issueBrkExpReturnCommand = new AsyncRelayCommand(IssueBrkExpReturnAsync));
+
+	public IRelayCommand OpenCounterChallanCommand => openCounterChallanCommand ?? (openCounterChallanCommand = new RelayCommand(OpenCounterChallan));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -495,6 +528,32 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			{
 				Items.Add(item2);
 			}
+
+			StockIntelligenceService intelligence = scope.ServiceProvider.GetRequiredService<StockIntelligenceService>();
+			string status = NormalizeStatus(StatusFilter);
+			_dumpBatchIds = new HashSet<Guid>();
+			if (status == FilterDumpStock)
+			{
+				IReadOnlyList<DumpStockRow> dump = await intelligence.GetDumpStockAsync(90, cancellationToken);
+				_dumpBatchIds = dump.Select(row => row.BatchId).ToHashSet();
+				ValuationSummaryText = $"Dump / dead stock (90 days idle): {_dumpBatchIds.Count} batch(es) · blocked capital ₹{dump.Sum(row => row.BlockedCapital):N2}";
+			}
+			else if (status == FilterValuation)
+			{
+				StockValuationSummary valuation = await intelligence.GetValuationSummaryAsync(cancellationToken);
+				ValuationSummaryText = $"Stock valuation · FIFO ₹{valuation.FifoPurchaseValue:N2} · MRP ₹{valuation.MrpValue:N2} · {valuation.BatchCount} batches / {valuation.DrugCount} drugs";
+			}
+			else if (status == FilterBanned)
+			{
+				IReadOnlyList<BannedDrugRow> banned = await intelligence.GetBannedRegistryAsync(cancellationToken);
+				ValuationSummaryText = $"Hold / ban registry: {banned.Count} flagged item(s)";
+			}
+			else
+			{
+				ValuationSummaryText = string.Empty;
+			}
+
+			OnPropertyChanged(nameof(ValuationSummaryText));
 			ApplyFilters();
 			ErrorMessage = string.Empty;
 		}
@@ -521,6 +580,11 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 				if (!(batch2.Quantity <= 0m) && (text2.Length <= 0 || batch2.BatchNo.Contains(text2, StringComparison.OrdinalIgnoreCase)))
 				{
 					string status = RowStatus(item, batch2);
+					if (NormalizeStatus(StatusFilter) == FilterDumpStock && !_dumpBatchIds.Contains(batch2.BatchId))
+					{
+						continue;
+					}
+
 					if (MatchesStatusFilter(StatusFilter, item, batch2))
 					{
 						list.Add(new StockRowViewModel(item.DrugId, item.DrugName, item.Schedule, batch2, status, item.ReorderLevel, item.TotalStock, CommitMrp));
@@ -554,11 +618,16 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public static string RowStatus(StockDrugRow drug, StockBatchRow batch)
 	{
+		if (drug.IsBanned || batch.IsBanned)
+		{
+			return "Banned";
+		}
+
 		return batch.ExpiryBand switch
 		{
-			BatchExpiryStatus.Critical => (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today)) ? "Expired" : "Critical", 
-			BatchExpiryStatus.Warning => "Near expiry", 
-			_ => drug.IsShortage ? "Shortage" : "OK", 
+			BatchExpiryStatus.Critical => (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today)) ? "Expired" : "Critical",
+			BatchExpiryStatus.Warning => "Near expiry",
+			_ => drug.IsShortage ? "Shortage" : "OK",
 		};
 	}
 
@@ -579,11 +648,198 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	private void SetStockFilter(string? filter)
 	{
 		StatusFilter = NormalizeStatus(filter ?? "All");
+		_ = LoadAsync();
+	}
+
+	private void OpenCounterChallan()
+	{
+		navigationService.Navigate("StockTransfer");
+		StatusMessage = "Counter challan / internal stock movement — transfer between Basement Godown and Shop Front.";
+	}
+
+	private async Task BanSelectedBatchAsync()
+	{
+		if (SelectedRow is null || SelectedRow.BatchId == Guid.Empty)
+		{
+			ErrorMessage = SelectBatchMessage;
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			StockIntelligenceService intelligence = scope.ServiceProvider.GetRequiredService<StockIntelligenceService>();
+			await intelligence.SetBanAsync(SelectedRow.DrugId, SelectedRow.BatchId, banned: true, "Banned / Not for Sale / Recalled");
+			StatusMessage = $"Batch {SelectedRow.BatchNo} flagged as Banned / Not for Sale / Recalled.";
+			ErrorMessage = string.Empty;
+			await LoadAsync();
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task IssueBrkExpReturnAsync()
+	{
+		if (!TryGetUser(out AppUser user))
+		{
+			ErrorMessage = "Sign in before posting Brk/Exp returns.";
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			BreakageExpiryReturnService service = scope.ServiceProvider.GetRequiredService<BreakageExpiryReturnService>();
+			IReadOnlyList<BrkExpCandidateRow> candidates = await service.GetCandidatesAsync();
+			BrkExpCandidateRow? pick = candidates.FirstOrDefault(c => SelectedRow != null && c.BatchId == SelectedRow.BatchId)
+				?? candidates.FirstOrDefault();
+			if (pick is null)
+			{
+				ErrorMessage = "No expired or banned batches available for Brk/Exp return.";
+				return;
+			}
+
+			if (!pick.SupplierId.HasValue)
+			{
+				ErrorMessage = "Selected batch has no supplier — cannot raise a debit note.";
+				return;
+			}
+
+			decimal qty = SelectedRow?.Quantity > 0m ? SelectedRow.Quantity : pick.Quantity;
+			string? reason = promptService.AskText(
+				"Brk / Exp return",
+				$"Issue debit note for {pick.DrugName} · {pick.BatchNo} qty {qty:0.##} to {pick.SupplierName}.",
+				"Reason",
+				pick.ReasonHint);
+			if (string.IsNullOrWhiteSpace(reason))
+			{
+				return;
+			}
+
+			await service.IssueBrkExpReturnAsync(
+				pick.SupplierId.Value,
+				new[] { new BrkExpLineInput(pick.BatchId, qty) },
+				reason,
+				user.Id,
+				user.Role);
+			StatusMessage = $"Brk/Exp return posted for {pick.DrugName} · debit note to {pick.SupplierName}.";
+			ErrorMessage = string.Empty;
+			await LoadAsync();
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private Task RefreshAsync()
 	{
 		return LoadAsync();
+	}
+
+	/// <summary>
+	/// Exports medicines that are out of stock or will run out within the cover window,
+	/// based on average daily sales, as a purchase-planning CSV.
+	/// </summary>
+	private async Task ExportReorderSuggestionsAsync()
+	{
+		StatusMessage = string.Empty;
+		ErrorMessage = string.Empty;
+		try
+		{
+			InventoryForecastReportDto report;
+			using (IServiceScope scope = scopeFactory.CreateScope())
+			{
+				report = await scope.ServiceProvider.GetRequiredService<IAiPharmacyAssistantService>().GenerateStockAdvisoryAsync();
+			}
+			List<StockAdvisoryItemDto> items = report.Items
+				.Where((StockAdvisoryItemDto item) => item.Status is StockAdvisoryStatus.StockOut or StockAdvisoryStatus.Low)
+				.ToList();
+			if (items.Count == 0)
+			{
+				StatusMessage = "No medicines need reordering based on recent sales.";
+				return;
+			}
+			string[] columns = { "Medicine", "On hand", "Avg daily sales", "Days of cover", "Suggested reorder qty", "Status", "Advice" };
+			IReadOnlyList<string>[] rows = items
+				.Select((StockAdvisoryItemDto item) => (IReadOnlyList<string>)new[]
+				{
+					item.Name,
+					item.CurrentStock.ToString("0.##", CultureInfo.InvariantCulture),
+					item.AverageDailySales.ToString("0.##", CultureInfo.InvariantCulture),
+					item.DaysOfCover?.ToString("0.#", CultureInfo.InvariantCulture) ?? "n/a",
+					item.SuggestedReorderQuantity.ToString("0.##", CultureInfo.InvariantCulture),
+					item.Status.ToString(),
+					item.Advice
+				})
+				.ToArray();
+			string? destination = filePicker.PickExportDestination("csv", $"reorder-suggestions-{DateTime.Now:yyyyMMdd-HHmm}");
+			if (destination == null)
+			{
+				return;
+			}
+			await exportService.ExportAsync(destination, "Reorder suggestions (sales-based)", columns, rows);
+			StatusMessage = $"{items.Count} reorder suggestion(s) saved to {destination}.";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	/// <summary>
+	/// Prints one shelf label per visible batch that has stock and a printable barcode.
+	/// </summary>
+	private async Task PrintLabelsAsync()
+	{
+		StatusMessage = string.Empty;
+		ErrorMessage = string.Empty;
+		try
+		{
+			List<StockRowViewModel> visible = Rows.Where((StockRowViewModel row) => row.Quantity > 0m).ToList();
+			if (visible.Count == 0)
+			{
+				StatusMessage = "No batches with stock in the current view to label.";
+				return;
+			}
+			HashSet<Guid> drugIds = visible.Select((StockRowViewModel row) => row.DrugId).ToHashSet();
+			Dictionary<Guid, (string? Barcode, string? Strength)> details;
+			using (IServiceScope scope = scopeFactory.CreateScope())
+			{
+				PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+				details = await context.Drugs
+					.AsNoTracking()
+					.Where((Drug drug) => drugIds.Contains(drug.Id))
+					.ToDictionaryAsync((Drug drug) => drug.Id, (Drug drug) => (drug.Barcode, drug.Strength));
+			}
+			List<BarcodeLabelItem> items = visible.Select((StockRowViewModel row) =>
+			{
+				details.TryGetValue(row.DrugId, out (string? Barcode, string? Strength) detail);
+				return new BarcodeLabelItem(row.Medicine, detail.Strength, detail.Barcode, row.Mrp > 0m ? row.Mrp : null, row.BatchNo, row.ExpiryDate, 1);
+			}).ToList();
+			BarcodeLabelPlan plan = BarcodeLabelPlanner.Plan(items);
+			if (plan.Cells.Count == 0)
+			{
+				StatusMessage = $"None of the {items.Count} batches has a printable barcode. Add barcodes to the medicines first.";
+				return;
+			}
+			string? destination = filePicker.PickExportDestination("pdf", $"shelf-labels-{DateTime.Now:yyyyMMdd-HHmm}");
+			if (destination == null)
+			{
+				return;
+			}
+			byte[] pdf = new BarcodeLabelPdfService().Build(plan, "Shelf labels " + DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture), columns: 3);
+			await File.WriteAllBytesAsync(destination, pdf);
+			StatusMessage = plan.SkippedWithoutBarcode > 0
+				? $"{plan.Cells.Count} labels saved to {destination}. {plan.SkippedWithoutBarcode} batch(es) skipped: no printable barcode."
+				: $"{plan.Cells.Count} labels saved to {destination}.";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private async Task GeneratePurchaseIndentAsync()
@@ -899,13 +1155,16 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	{
 		return NormalizeStatus(filter) switch
 		{
-			"In stock" => true, 
-			"Shortage" => drug.IsShortage, 
-			"Near expiry" => batch.IsNearExpiry, 
-			"Critical" => batch.ExpiryBand == BatchExpiryStatus.Critical && !(batch.ExpiryDate < DateOnly.FromDateTime(DateTime.Today)), 
-			"Expired" => batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today), 
-			"Missing MRP" => batch.Mrp <= 0m, 
-			_ => true, 
+			"In stock" => true,
+			"Shortage" => drug.IsShortage,
+			"Near expiry" => batch.IsNearExpiry,
+			"Critical" => batch.ExpiryBand == BatchExpiryStatus.Critical && !(batch.ExpiryDate < DateOnly.FromDateTime(DateTime.Today)),
+			"Expired" => batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today),
+			"Missing MRP" => batch.Mrp <= 0m,
+			"Dump Stock" => true,
+			"Banned" => drug.IsBanned || batch.IsBanned,
+			"Valuation" => batch.Quantity > 0m,
+			_ => true,
 		};
 	}
 

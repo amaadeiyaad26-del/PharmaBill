@@ -75,7 +75,7 @@ public sealed class FilePickerService : IFilePickerService
 		OpenFileDialog openFileDialog = new OpenFileDialog
 		{
 			Title = "Choose purchase spreadsheet",
-			Filter = "Purchase spreadsheets (*.csv;*.xlsx)|*.csv;*.xlsx",
+			Filter = "Purchase spreadsheets (*.csv;*.xlsx)|*.csv;*.xlsx|CSV (*.csv)|*.csv|Excel (*.xlsx)|*.xlsx|All files (*.*)|*.*",
 			CheckFileExists = true,
 			Multiselect = false
 		};

@@ -53,7 +53,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 				decimal totalStock = valueOrDefault.Sum((Batch batch) => movementQuantities.GetValueOrDefault(batch.Id));
 				string manufacturer = (drug.CatalogMedicineId.HasValue ? manufacturers.GetValueOrDefault(drug.CatalogMedicineId.Value) : null);
 				return new StockDrugRow(drug.Id, drug.Name, drug.Schedule, manufacturer, valueOrDefault.Select((Batch batch) => (!batch.SupplierId.HasValue) ? null : suppliers.GetValueOrDefault(batch.SupplierId.Value)).FirstOrDefault((string name) => name != null), totalStock, drug.ReorderLevel, (from batch in valueOrDefault.OrderBy((Batch batch) => batch.ExpiryDate ?? DateOnly.MaxValue).ThenBy((Batch batch) => batch.BatchNo, StringComparer.OrdinalIgnoreCase)
-					select new StockBatchRow(batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp.GetValueOrDefault(), batch.Ptr, batch.PurchasePrice, movementQuantities.GetValueOrDefault(batch.Id), batch.Rack)).ToArray());
+					select new StockBatchRow(batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp.GetValueOrDefault(), batch.Ptr, batch.PurchasePrice, movementQuantities.GetValueOrDefault(batch.Id), batch.Rack, batch.IsBanned, batch.BanReason)).ToArray(), drug.IsBanned);
 			})
 			where string.IsNullOrWhiteSpace(schedule) || string.Equals(row.Schedule, schedule, StringComparison.OrdinalIgnoreCase)
 			where string.IsNullOrWhiteSpace(company) || (row.Manufacturer?.Contains(company, StringComparison.OrdinalIgnoreCase) ?? false)

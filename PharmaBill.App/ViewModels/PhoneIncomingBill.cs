@@ -46,6 +46,8 @@ public sealed class PhoneIncomingBill : ObservableObject
 
 	public bool IsCommitted => string.Equals(_status, "Committed", StringComparison.Ordinal);
 
+	public bool IsExtracting => string.Equals(_status, "Extracting", StringComparison.OrdinalIgnoreCase);
+
 	public string Status
 	{
 		get
@@ -60,9 +62,40 @@ public sealed class PhoneIncomingBill : ObservableObject
 				OnPropertyChanged(nameof(Status));
 				OnPropertyChanged(nameof(ChipText));
 				OnPropertyChanged(nameof(IsCommitted));
+				OnPropertyChanged(nameof(IsExtracting));
 			}
 		}
 	}
 
-	public string ChipText => "Bill " + Index + " (" + _status + ")";
+	/// <summary>Call after Lines is filled so chip text refreshes with the item count.</summary>
+	public void NotifyLinesChanged()
+	{
+		OnPropertyChanged(nameof(ChipText));
+	}
+
+	public string ChipText
+	{
+		get
+		{
+			if (IsExtracting)
+			{
+				return "Extracting Bill " + Index + "...";
+			}
+
+			if (IsCommitted)
+			{
+				return "Bill " + Index + " (Committed)";
+			}
+
+			if (Lines.Count > 0)
+			{
+				string label = string.Equals(_status, "Loaded", StringComparison.OrdinalIgnoreCase)
+					? "Loaded"
+					: "Extracted";
+				return "Bill " + Index + " (" + label + " - " + Lines.Count + " items)";
+			}
+
+			return "Bill " + Index + " (" + _status + ")";
+		}
+	}
 }

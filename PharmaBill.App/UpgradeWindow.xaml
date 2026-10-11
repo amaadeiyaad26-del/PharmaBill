@@ -57,8 +57,8 @@
             MinHeight="44"
             Padding="16,10"
             FontWeight="SemiBold"
-            Background="#FF2563EB"
-            BorderBrush="#FF1D4ED8"
+            Background="{DynamicResource AccentBrush}"
+            BorderBrush="{DynamicResource AccentHoverBrush}"
             Foreground="White"
             Cursor="Hand"
             Click="SendEmailRequest_Click">
@@ -74,7 +74,7 @@
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="#FF1D4ED8" />
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHoverBrush}" />
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Bd" Property="Opacity" Value="0.92" />

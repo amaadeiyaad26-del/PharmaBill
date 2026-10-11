@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -23,6 +24,11 @@ namespace PharmaBill.App;
 
 public partial class App : Application
 {
+	private const string AppUserModelId = "PharmaBill.PharmacyERP.App";
+
+	[DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+	private static extern int SetCurrentProcessExplicitAppUserModelID(string appID);
+
 	private readonly string _logDirectory = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 		"PharmaBill",
@@ -37,6 +43,16 @@ public partial class App : Application
 
 	protected override async void OnStartup(StartupEventArgs e)
 	{
+		// Bind taskbar / jump-list identity to our transparent app.ico before any window opens.
+		try
+		{
+			_ = SetCurrentProcessExplicitAppUserModelID(AppUserModelId);
+		}
+		catch
+		{
+			// Non-fatal on exotic hosts; icon still comes from Window.Icon / ApplicationIcon.
+		}
+
 		ShutdownMode = ShutdownMode.OnExplicitShutdown;
 		base.OnStartup(e);
 		SoundHelper.Initialize();
@@ -127,6 +143,14 @@ public partial class App : Application
 				services.AddSingleton<StockTransferPageViewModel>();
 				services.AddTransient<WholesaleCustomerPageViewModel>();
 				services.AddSingleton<WholesaleInvoiceDocumentService>();
+				services.AddSingleton<PurchaseReturnDocumentService>();
+				services.AddSingleton<WholesaleReissueHandoff>();
+				services.AddSingleton<QuotationConversionHandoff>();
+				services.AddSingleton<RetailReissueHandoff>();
+				services.AddSingleton<BillingDeskState>();
+				services.AddSingleton<QuotationDocumentService>();
+				services.AddSingleton<QuotationsPageViewModel>();
+				services.AddSingleton<ToolsPageViewModel>();
 				services.AddTransient<WholesaleBillingPageViewModel>();
 				services.AddTransient<WholesalePricingPageViewModel>();
 				services.AddTransient<WholesaleAccountsPageViewModel>();
@@ -138,6 +162,7 @@ public partial class App : Application
 				services.AddTransient<ReportsPageViewModel>();
 				services.AddTransient<GstReturnsPageViewModel>();
 				services.AddTransient<DashboardPageViewModel>();
+				services.AddTransient<WholesaleDashboardPageViewModel>();
 				services.AddTransient<BackupPageViewModel>();
 				services.AddTransient<SyncSettingsPageViewModel>();
 				services.AddSingleton<RetailBillingViewModel>();
@@ -190,6 +215,8 @@ public partial class App : Application
 			bool setupRequired;
 			using (IServiceScope scope = _host.Services.CreateScope())
 			{
+				// Schema must exist before PharmacyProfiles / AppUsers probes (wiped DB / first run).
+				await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync();
 				setupRequired = await PharmacySetupProbe.IsInitialSetupRequiredAsync(scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>());
 			}
 			await StartupFlow.RunAsync(setupRequired, ShowSetupAsync, () => currentSession.IsAuthenticated, ShowLoginAsync, (Action shutdownWhenMainCloses) =>

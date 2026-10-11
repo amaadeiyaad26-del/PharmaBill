@@ -2,14 +2,24 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Invoices &amp; Attachments History"
-        Width="1080"
+        Width="1120"
         Height="720"
-        MinWidth="860"
+        MinWidth="900"
         MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Icon="/Assets/Icons/app.ico">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    <Style x:Key="LedgerColumnHeaderStyle" TargetType="DataGridColumnHeader">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style x:Key="LedgerCellTextStyle" TargetType="TextBlock">
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Padding" Value="4,0" />
+    </Style>
   </Window.Resources>
   <DockPanel Margin="20">
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
@@ -55,20 +65,20 @@
     </StackPanel>
     <DataGrid x:Name="InvoicesGrid" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedInvoice}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MouseDoubleClick="InvoicesGrid_MouseDoubleClick">
       <DataGrid.Columns>
-        <DataGridTextColumn Header="Invoice Date" Width="110" Binding="{Binding InvoiceDateText}" />
-        <DataGridTextColumn Header="Supplier Name" Width="180" Binding="{Binding SupplierName}" />
-        <DataGridTextColumn Header="Invoice No." Width="140" Binding="{Binding InvoiceNo}" />
-        <DataGridTextColumn Header="Items Count" Width="90" Binding="{Binding ItemCount}" />
-        <DataGridTextColumn Header="Total Amount" Width="120" Binding="{Binding TotalAmount, StringFormat=N2}" />
-        <DataGridTextColumn Header="Payment Status" Width="120" Binding="{Binding PaymentStatus}" />
-        <DataGridTemplateColumn Header="Audit" Width="150">
+        <DataGridTextColumn Header="Invoice Date" Width="110" Binding="{Binding InvoiceDateText}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTextColumn Header="Supplier Name" Width="*" MinWidth="160" Binding="{Binding SupplierName}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTextColumn Header="Invoice No." Width="Auto" MinWidth="120" Binding="{Binding InvoiceNo}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTextColumn Header="Items Count" Width="Auto" MinWidth="90" Binding="{Binding ItemCount}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTextColumn Header="Total Amount" Width="Auto" MinWidth="110" Binding="{Binding TotalAmount, StringFormat=N2}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTextColumn Header="Payment Status" Width="Auto" MinWidth="140" Binding="{Binding PaymentStatus}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTemplateColumn Header="Audit" Width="Auto" MinWidth="110" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
-              <TextBlock Text="{Binding AuditStatus}" ToolTip="{Binding AuditToolTip}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding AuditStatus}" ToolTip="{Binding AuditToolTip}" Style="{StaticResource LedgerCellTextStyle}" />
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTemplateColumn Header="Attached Bill" Width="220">
+        <DataGridTemplateColumn Header="Attached Bill" Width="220" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <StackPanel Orientation="Horizontal">
