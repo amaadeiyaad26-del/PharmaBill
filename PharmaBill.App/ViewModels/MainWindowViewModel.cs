@@ -2784,6 +2784,10 @@ public class MainWindowViewModel : ObservableObject
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
 		RebuildNavigationItems(_businessMode);
+		if (CurrentPage is WholesaleAccountsPageViewModel)
+		{
+			_ = LoadCurrentPageAsync();
+		}
 		if (CurrentPage is DashboardPageViewModel or WholesaleDashboardPageViewModel)
 		{
 			CurrentPage = CreatePage("Dashboard");
