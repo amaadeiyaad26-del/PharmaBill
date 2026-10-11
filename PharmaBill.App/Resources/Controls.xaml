@@ -13,7 +13,7 @@
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type controls:FloatingField}">
           <StackPanel>
-            <Border Name="Box" Height="48" CornerRadius="10" BorderThickness="1.5" BorderBrush="{DynamicResource FieldBorderBrush}" Background="{DynamicResource FieldBackgroundBrush}" SnapsToDevicePixels="True">
+            <Border Name="Box" Height="{TemplateBinding controls:FloatingField.BoxHeight}" CornerRadius="10" BorderThickness="1.5" BorderBrush="{DynamicResource FieldBorderBrush}" Background="{DynamicResource FieldBackgroundBrush}" SnapsToDevicePixels="True">
               <Grid>
                 <Border Name="FocusRing" CornerRadius="10" Margin="-1.5" IsHitTestVisible="False" Opacity="0" BorderThickness="1.5" BorderBrush="{StaticResource FocusRingBrush}">
                   <UIElement.Effect>

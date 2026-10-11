@@ -1,10 +1,9 @@
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Windows;
 
 namespace PharmaBill.App.Services;
 
-/// <summary>Acquires a page from a WIA flatbed / document feeder, or a USB document camera as fallback.</summary>
+/// <summary>Acquires a page from a WIA flatbed or document feeder (handheld / USB scanner).</summary>
 public sealed class HardwareScannerService
 {
 	private const int ScannerDeviceType = 1;
@@ -16,38 +15,19 @@ public sealed class HardwareScannerService
 		return WiaScannerCapture.HasScanner();
 	}
 
+	/// <summary>
+	/// Only a WIA scanner is used here. With no scanner connected this returns null, so the caller
+	/// reports it instead of opening the laptop webcam (that is what "Scan with Webcam" is for).
+	/// </summary>
 	public async Task<string?> CaptureFromHardwareScannerAsync(CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		if (HasWiaScanner())
+		if (!HasWiaScanner())
 		{
-			string? wiaPath = await Task.Run(CaptureWiaToTemp, cancellationToken).ConfigureAwait(true);
-			if (wiaPath != null)
-			{
-				return wiaPath;
-			}
-
 			return null;
 		}
 
-		return await CaptureDocumentCameraAsync().ConfigureAwait(true);
-	}
-
-	private static Task<string?> CaptureDocumentCameraAsync()
-	{
-		WebcamCaptureWindow window = new WebcamCaptureWindow(prescriptionOcrMode: false)
-		{
-			Title = "Document camera / USB scanner",
-			Owner = Application.Current?.MainWindow
-		};
-		if (window.ShowDialog() != true || string.IsNullOrWhiteSpace(window.CapturedPath))
-		{
-			return Task.FromResult<string?>(null);
-		}
-
-		string destination = NewTempScanPath(".jpg");
-		File.Copy(window.CapturedPath, destination, overwrite: true);
-		return Task.FromResult<string?>(destination);
+		return await Task.Run(CaptureWiaToTemp, cancellationToken).ConfigureAwait(true);
 	}
 
 	private static string? CaptureWiaToTemp()

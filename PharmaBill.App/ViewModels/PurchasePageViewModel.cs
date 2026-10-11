@@ -262,7 +262,6 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(PdfBadgeText));
 				OnPropertyChanged(nameof(AttachmentSummary));
 				viewInvoiceImageCommand?.NotifyCanExecuteChanged();
-				extractInvoiceTextCommand?.NotifyCanExecuteChanged();
 			}
 		}
 	}
@@ -308,7 +307,6 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(InvoiceThumbnail));
 				OnPropertyChanged(nameof(HasInvoiceThumbnail));
 				OnPropertyChanged(nameof(ShowPdfTile));
-				extractInvoiceTextCommand?.NotifyCanExecuteChanged();
 			}
 		}
 	}
@@ -1588,10 +1586,6 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 	public IRelayCommand ViewInvoiceImageCommand => viewInvoiceImageCommand ?? (viewInvoiceImageCommand = new RelayCommand(ViewInvoiceImage, () => HasInvoiceAttachment));
 
 	private RelayCommand? viewInvoiceImageCommand;
-
-	public IAsyncRelayCommand ExtractInvoiceTextCommand => extractInvoiceTextCommand ?? (extractInvoiceTextCommand = new AsyncRelayCommand(ExtractInvoiceTextAsync, () => HasInvoiceThumbnail));
-
-	private AsyncRelayCommand? extractInvoiceTextCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]

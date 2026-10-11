@@ -3211,6 +3211,7 @@
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:PurchasePageViewModel}}" DataType="{x:Type vm:PurchasePageViewModel}">
           <!-- Stretch to ContentControl so Row * receives remaining window height for the inward grid. -->
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
           <Grid Margin="16,12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                 AllowDrop="True" DragEnter="PurchaseDocument_DragEnter" Drop="PurchaseDocument_Drop">
           <Grid.InputBindings>
@@ -3396,11 +3397,11 @@
                   <ColumnDefinition Width="1.2*" />
                 </Grid.ColumnDefinitions>
                 <DockPanel Grid.Column="0" Margin="0,0,8,0">
-                  <Button DockPanel.Dock="Right" Content="+ Add" Height="30" MinWidth="56" Margin="6,14,0,0" Padding="8,2"
+                  <Button DockPanel.Dock="Right" Content="+ Add" Height="36" MinWidth="56" Margin="6,0,0,0" Padding="8,2"
                           VerticalAlignment="Bottom" Style="{StaticResource SecondaryButton}"
                           Command="{Binding AddSupplierCommand}" ToolTip="Add a supplier that is not in the list yet." />
-                  <controls:FloatingField Label="Supplier" IsRequired="True" Margin="0,4" ErrorText="{Binding SupplierError}">
-                    <ComboBox x:Name="PurchaseSupplierBox" DisplayMemberPath="Name" IsEditable="False" Height="32" Padding="4,2"
+                  <controls:FloatingField Label="Supplier" IsRequired="True" Margin="0,4" BoxHeight="36" ErrorText="{Binding SupplierError}">
+                    <ComboBox x:Name="PurchaseSupplierBox" DisplayMemberPath="Name" IsEditable="False" Height="32" Padding="4,2" FontSize="13"
                               ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier}">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
@@ -3410,8 +3411,8 @@
                     </ComboBox>
                   </controls:FloatingField>
                 </DockPanel>
-                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" ErrorText="{Binding InvoiceNoError}">
-                  <TextBox Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
+                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" BoxHeight="36" ErrorText="{Binding InvoiceNoError}">
+                  <TextBox Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" FontSize="13" Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
                 </controls:FloatingField>
                 <StackPanel Grid.Column="2" Margin="0,4,8,4">
                   <TextBlock Text="Invoice date *" FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,2" />
@@ -3445,8 +3446,8 @@
                     </TextBlock.Style>
                   </TextBlock>
                 </StackPanel>
-                <controls:FloatingField Grid.Column="3" Label="Godown" Margin="0,4,8,4" ToolTip="Where purchased goods are stored. Defaults to Shop Front (retail counter).">
-                  <ComboBox x:Name="PurchaseGodownBox" DisplayMemberPath="Name" IsEditable="False" Height="32" Padding="4,2"
+                <controls:FloatingField Grid.Column="3" Label="Godown" Margin="0,4,8,4" BoxHeight="36" ToolTip="Where purchased goods are stored. Defaults to Shop Front (retail counter).">
+                  <ComboBox x:Name="PurchaseGodownBox" DisplayMemberPath="Name" IsEditable="False" Height="32" Padding="4,2" FontSize="13"
                             ItemsSource="{Binding StorageLocations}" SelectedItem="{Binding SelectedStorageLocation}">
                     <ComboBox.ItemTemplate>
                       <DataTemplate>
@@ -3455,8 +3456,8 @@
                     </ComboBox.ItemTemplate>
                   </ComboBox>
                 </controls:FloatingField>
-                <controls:FloatingField Grid.Column="4" Label="Remarks" Margin="0,4" EnterMovesNext="False">
-                  <TextBox x:Name="PurchaseRemarksBox" Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}"
+                <controls:FloatingField Grid.Column="4" Label="Remarks" Margin="0,4" BoxHeight="36" EnterMovesNext="False">
+                  <TextBox x:Name="PurchaseRemarksBox" Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" FontSize="13" Text="{Binding Path=Remarks, UpdateSourceTrigger=PropertyChanged}"
                            ToolTip="Notes for this purchase. A barcode scanner is ignored while you type here at normal speed." />
                 </controls:FloatingField>
               </Grid>
@@ -3467,13 +3468,19 @@
               <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                   <Button Content="Open File" Margin="8,0,0,0" Padding="8,2" Style="{StaticResource SecondaryButton}" Command="{Binding ViewInvoiceImageCommand}" ToolTip="Open the attached invoice in the default Windows viewer." />
-                  <Button Content="Read Text" Margin="8,0,0,0" Padding="8,2" Style="{StaticResource SecondaryButton}" Command="{Binding ExtractInvoiceTextCommand}" ToolTip="OCR the attached invoice when Windows text recognition is available" />
                 </StackPanel>
                 <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="12.5" Text="{Binding AttachmentSummary}" />
               </DockPanel>
             </Border>
-            <TextBlock Margin="0,2,0,0" MaxHeight="36" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SecondaryTextBrush}" FontSize="11.5"
-                       Text="{Binding InvoiceOcrText}" Visibility="{Binding HasInvoiceOcrText, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <Border Margin="0,4,0,0" Padding="8,6" CornerRadius="6" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1"
+                    Visibility="{Binding HasInvoiceOcrText, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <StackPanel>
+                <TextBlock Text="Recognised text" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" />
+                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                  <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding InvoiceOcrText}" />
+                </ScrollViewer>
+              </StackPanel>
+            </Border>
             <Border Margin="0,4,0,0" Padding="8,4" CornerRadius="6" Background="#FFFFFBEB" BorderBrush="#FFFDE68A" BorderThickness="1"
                     Visibility="{Binding HasTotalMismatch, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock TextWrapping="Wrap" Foreground="#FF92400E" FontSize="12" Text="{Binding TotalMismatchNote}" />
@@ -3982,6 +3989,7 @@
             </Expander>
           </DockPanel>
         </Grid>
+          </ScrollViewer>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:StatutoryRegistersPageViewModel}}" DataType="{x:Type vm:StatutoryRegistersPageViewModel}">
         <DockPanel Margin="20">

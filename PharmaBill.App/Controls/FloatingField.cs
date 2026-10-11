@@ -18,6 +18,8 @@ public class FloatingField : ContentControl
 
 	public static readonly DependencyProperty EnterMovesNextProperty;
 
+	public static readonly DependencyProperty BoxHeightProperty;
+
 	private static readonly DependencyPropertyKey HasValuePropertyKey;
 
 	private static readonly DependencyPropertyKey HasErrorPropertyKey;
@@ -82,6 +84,18 @@ public class FloatingField : ContentControl
 		}
 	}
 
+	public double BoxHeight
+	{
+		get
+		{
+			return (double)GetValue(BoxHeightProperty);
+		}
+		set
+		{
+			SetValue(BoxHeightProperty, value);
+		}
+	}
+
 	public bool EnterMovesNext
 	{
 		get
@@ -115,6 +129,7 @@ public class FloatingField : ContentControl
 			((FloatingField)d).Refresh();
 		}));
 		EnterMovesNextProperty = DependencyProperty.Register("EnterMovesNext", typeof(bool), typeof(FloatingField), new PropertyMetadata(true));
+		BoxHeightProperty = DependencyProperty.Register("BoxHeight", typeof(double), typeof(FloatingField), new PropertyMetadata(48d));
 		HasValuePropertyKey = DependencyProperty.RegisterReadOnly("HasValue", typeof(bool), typeof(FloatingField), new PropertyMetadata(false));
 		HasErrorPropertyKey = DependencyProperty.RegisterReadOnly("HasError", typeof(bool), typeof(FloatingField), new PropertyMetadata(false));
 		IsContentReadOnlyPropertyKey = DependencyProperty.RegisterReadOnly("IsContentReadOnly", typeof(bool), typeof(FloatingField), new PropertyMetadata(false));
