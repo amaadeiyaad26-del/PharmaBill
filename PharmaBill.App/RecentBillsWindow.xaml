@@ -70,6 +70,8 @@
         <TextBox Width="300" Padding="7" ToolTip="Reason required for the credit note" Text="{Binding ReturnReason, UpdateSourceTrigger=PropertyChanged}" />
         <CheckBox Content="Restock after physical inspection" VerticalAlignment="Center" Margin="10,0" IsChecked="{Binding RestockReturnedItems}" />
         <Button Content="Process selected return" Padding="14,7" Margin="8,0,0,0" Command="{Binding IssueSalesReturnCommand}" />
+        <Button Content="Cancel &amp; re-issue bill" Padding="14,7" Margin="8,0,0,0" Command="{Binding CancelAndReissueCommand}"
+                ToolTip="Full credit note for this bill (goods back on the shelf), then Retail Billing opens with the same items to re-bill. Needs the reason and the restock box." />
       </WrapPanel>
     </StackPanel>
   </DockPanel>

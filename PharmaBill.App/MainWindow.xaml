@@ -1498,6 +1498,8 @@
                 <DockPanel>
                   <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="4">
                     <Button Content="Create credit note" Padding="12,7" Command="{Binding CreateCreditNoteCommand}" />
+                    <Button Content="Cancel &amp; re-issue invoice" Padding="12,7" Margin="8,0,0,0" Command="{Binding CancelAndReissueCommand}"
+                            ToolTip="Owner only. Cancels this invoice (stock and ledger are reversed) and opens Wholesale Billing with the same lines to correct and post again." />
                   </StackPanel>
                   <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding InvoiceLines}">
                     <DataGrid.Columns>
@@ -1529,6 +1531,97 @@
           </TabControl>
         </DockPanel>
       </DataTemplate>
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:QuotationsPageViewModel}}" DataType="{x:Type vm:QuotationsPageViewModel}">
+        <DockPanel Margin="20">
+          <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Quotations" FontSize="22" FontWeight="SemiBold" Style="{StaticResource PageTitle}" />
+            <TextBlock Margin="0,4,0,8" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                       Text="A quotation is an estimate. It reserves no stock and posts nothing. Convert it to open the billing page with its lines; the quotation closes when that bill is posted." />
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#FF047857" TextWrapping="Wrap" Margin="0,0,0,4" />
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,8" />
+            <WrapPanel Margin="0,0,0,10">
+              <Button Content="Convert to bill" Height="36" MinWidth="130" Margin="0,0,8,8" Style="{StaticResource PrimaryButton}" Command="{Binding ConvertCommand}" IsEnabled="{Binding CanConvert}" ToolTip="Open the matching billing page with this quotation's lines." />
+              <Button Content="Print / PDF" Height="36" MinWidth="110" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding PrintCommand}" />
+              <Button Content="Cancel quotation" Height="36" MinWidth="130" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding CancelCommand}" />
+            </WrapPanel>
+          </StackPanel>
+          <Grid>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <DataGrid Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" ItemsSource="{Binding Quotations}" SelectedItem="{Binding SelectedQuotation}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Quote no" Binding="{Binding QuoteNo}" Width="120" />
+                <DataGridTextColumn Header="Date" Binding="{Binding QuoteDate, StringFormat=dd-MMM-yyyy}" Width="110" />
+                <DataGridTextColumn Header="Type" Binding="{Binding Mode}" Width="90" />
+                <DataGridTextColumn Header="Party" Binding="{Binding PartyName}" Width="*" />
+                <DataGridTextColumn Header="Phone" Binding="{Binding PartyPhone}" Width="110" />
+                <DataGridTextColumn Header="Estimate" Binding="{Binding EstimatedTotal, StringFormat=N2}" Width="110" />
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100" />
+                <DataGridTextColumn Header="Bill no" Binding="{Binding ConvertedInvoiceNo}" Width="120" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Grid.Row="1" Text="Lines of the selected quotation" FontWeight="SemiBold" Margin="0,10,0,6" />
+            <DataGrid Grid.Row="2" AutoGenerateColumns="False" IsReadOnly="True" ItemsSource="{Binding SelectedItems}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Medicine" Binding="{Binding DrugName}" Width="*" />
+                <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=0.##}" Width="80" />
+                <DataGridTextColumn Header="Free" Binding="{Binding FreeQuantity, StringFormat=0.##}" Width="80" />
+                <DataGridTextColumn Header="Rate" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" />
+                <DataGridTextColumn Header="Discount" Binding="{Binding DiscountAmount, StringFormat=N2}" Width="90" />
+                <DataGridTextColumn Header="Amount" Binding="{Binding LineTotal, StringFormat=N2}" Width="100" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </Grid>
+        </DockPanel>
+      </DataTemplate>
+
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:ToolsPageViewModel}}" DataType="{x:Type vm:ToolsPageViewModel}">
+        <DockPanel Margin="20">
+          <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Tools" FontSize="22" FontWeight="SemiBold" Style="{StaticResource PageTitle}" />
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#FF047857" TextWrapping="Wrap" Margin="0,4,0,8" />
+          </StackPanel>
+          <TabControl>
+            <TabItem Header="Calendar">
+              <StackPanel Margin="12">
+                <Calendar SelectedDate="{Binding SelectedDate, Mode=TwoWay}" DisplayDate="{Binding SelectedDate, Mode=OneWay}" HorizontalAlignment="Left" />
+                <TextBlock Margin="0,10,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding SelectedDate, StringFormat=Selected: {0:dddd, dd MMMM yyyy}}" />
+              </StackPanel>
+            </TabItem>
+            <TabItem Header="Notepad">
+              <DockPanel Margin="12">
+                <TextBlock DockPanel.Dock="Top" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,6" Text="Saved automatically as you type." />
+                <TextBox AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="8" Text="{Binding NoteText, UpdateSourceTrigger=PropertyChanged}" />
+              </DockPanel>
+            </TabItem>
+            <TabItem Header="Standard narrations">
+              <DockPanel Margin="12">
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                  <Button DockPanel.Dock="Right" Content="Add" Height="34" MinWidth="80" Margin="8,0,0,0" Style="{StaticResource PrimaryButton}" Command="{Binding AddNarrationCommand}" />
+                  <TextBox Text="{Binding NewNarration, UpdateSourceTrigger=PropertyChanged}" Height="34" Padding="6,6" ToolTip="Type a narration you use often, for example a supplier credit note reason." />
+                </DockPanel>
+                <ListBox ItemsSource="{Binding Narrations}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <DockPanel Margin="2,4">
+                        <Button DockPanel.Dock="Right" Content="Remove" Padding="8,2" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding DataContext.RemoveNarrationCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" />
+                        <Button DockPanel.Dock="Right" Content="Copy" Padding="8,2" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding DataContext.CopyNarrationCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" />
+                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding}" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+            </TabItem>
+          </TabControl>
+        </DockPanel>
+      </DataTemplate>
+
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleReportsPageViewModel}}" DataType="{x:Type vm:WholesaleReportsPageViewModel}">
         <DockPanel Margin="18">
           <StackPanel DockPanel.Dock="Top">
@@ -2098,6 +2191,7 @@
             <TextBox ToolTip="Invoice notes" Padding="6" Margin="0,5" Text="{Binding Path=Notes, UpdateSourceTrigger=PropertyChanged}" />
             <WrapPanel Margin="0,8,0,0">
               <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
+              <Button Margin="8,0,0,0" Content="Save as quotation" Style="{StaticResource SecondaryButton}" Command="{Binding SaveQuotationCommand}" ToolTip="Save these lines as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
               <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
                       ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
                 <StackPanel>
@@ -2827,6 +2921,7 @@
                   <Button Grid.Row="2" Grid.Column="1" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="F10 Print &amp; Save" AutomationProperties.Name="F10 Print &amp; Save" ToolTip="Finalize this sale, deduct batch stock, save to sales register, and print receipt. Shortcut: F10" Style="{StaticResource SuccessButton}" Background="#059669" BorderBrush="#047857" Foreground="#FFFFFF" Command="{Binding SaveAndPrintCommand}" />
                   <Button Grid.Row="3" Grid.Column="0" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="F8 Pause / Hold" AutomationProperties.Name="F8 Pause / Hold" ToolTip="Temporarily pause this bill and keep it in queue while serving the next customer. Shortcut: F8" Style="{StaticResource SecondaryButton}" Command="{Binding HoldBillCommand}" />
                   <Button Grid.Row="3" Grid.Column="1" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Recent Bills" AutomationProperties.Name="Recent Past Bills" ToolTip="View, reprint, or export PDF for recently completed bills from today." Style="{StaticResource SecondaryButton}" Click="OpenRecentBills_Click" />
+                  <Button Grid.Row="5" Grid.ColumnSpan="2" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Save as quotation" Command="{Binding SaveQuotationCommand}" ToolTip="Save this bill as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
                   <Button Grid.Row="4" Grid.Column="0" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Esc Cancel" ToolTip="Discard the current unsaved bill and clear all items. Shortcut: Esc" Style="{StaticResource SecondaryButton}" Command="{Binding CancelBillCommand}" />
                   <DockPanel Grid.Row="4" Grid.Column="1" Margin="2,2" LastChildFill="True">
                     <Button DockPanel.Dock="Right" Content="Resume" Height="32" Margin="4,0,0,0" Padding="6,2" ToolTip="Reload the selected paused customer bill back into the billing table to finish checkout." Style="{StaticResource SecondaryButton}" Command="{Binding ResumeSelectedBillCommand}" IsEnabled="{Binding HasHeldBills}" />

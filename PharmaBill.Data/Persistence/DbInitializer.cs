@@ -211,6 +211,47 @@ public sealed class DbInitializer(
 			);
 			CREATE UNIQUE INDEX IF NOT EXISTS "IX_Branches_Code" ON "Branches" ("Code");
 
+			CREATE TABLE IF NOT EXISTS "Quotations" (
+				"Id" TEXT NOT NULL CONSTRAINT "PK_Quotations" PRIMARY KEY,
+				"Mode" TEXT NOT NULL,
+				"QuoteNo" TEXT NOT NULL,
+				"QuoteDate" TEXT NOT NULL,
+				"ValidUntil" TEXT NULL,
+				"CustomerId" TEXT NULL,
+				"PartyName" TEXT NOT NULL,
+				"PartyPhone" TEXT NULL,
+				"EstimatedTotal" decimal(18,2) NOT NULL,
+				"Status" TEXT NOT NULL,
+				"ConvertedInvoiceNo" TEXT NULL,
+				"Notes" TEXT NULL,
+				"CreatedAtUtc" TEXT NOT NULL,
+				"UpdatedAtUtc" TEXT NOT NULL,
+				"DeviceId" TEXT NOT NULL,
+				"IsDeleted" INTEGER NOT NULL,
+				"HlcStamp" TEXT NOT NULL,
+				"SyncState" INTEGER NOT NULL
+			);
+
+			CREATE TABLE IF NOT EXISTS "QuotationItems" (
+				"Id" TEXT NOT NULL CONSTRAINT "PK_QuotationItems" PRIMARY KEY,
+				"QuotationId" TEXT NOT NULL,
+				"DrugId" TEXT NOT NULL,
+				"BatchId" TEXT NULL,
+				"DrugName" TEXT NOT NULL,
+				"Quantity" decimal(18,2) NOT NULL,
+				"FreeQuantity" decimal(18,2) NOT NULL,
+				"UnitPrice" decimal(18,2) NOT NULL,
+				"DiscountAmount" decimal(18,2) NOT NULL,
+				"LineTotal" decimal(18,2) NOT NULL,
+				"CreatedAtUtc" TEXT NOT NULL,
+				"UpdatedAtUtc" TEXT NOT NULL,
+				"DeviceId" TEXT NOT NULL,
+				"IsDeleted" INTEGER NOT NULL,
+				"HlcStamp" TEXT NOT NULL,
+				"SyncState" INTEGER NOT NULL
+			);
+			CREATE INDEX IF NOT EXISTS "IX_QuotationItems_QuotationId" ON "QuotationItems" ("QuotationId");
+
 			CREATE TABLE IF NOT EXISTS "StockTransfers" (
 				"Id" TEXT NOT NULL CONSTRAINT "PK_StockTransfers" PRIMARY KEY,
 				"TransferNumber" TEXT NOT NULL,

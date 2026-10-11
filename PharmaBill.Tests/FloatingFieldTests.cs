@@ -87,7 +87,7 @@ public sealed class FloatingFieldTests
 
                 var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
                 var template = (DataTemplate)window.Resources[new DataTemplateKey(typeof(PharmaBill.App.ViewModels.RetailBillingViewModel))]!;
-                var viewModel = new PharmaBill.App.ViewModels.RetailBillingViewModel(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!)
+                var viewModel = new PharmaBill.App.ViewModels.RetailBillingViewModel(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!)
                 {
                     PatientNameError = "Patient name is required",
                     PrescriptionFileName = "rx-scan.pdf"

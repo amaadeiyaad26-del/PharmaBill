@@ -66,6 +66,10 @@ public sealed class PharmaBillDbContext : DbContext
 
 	public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
 
+	public DbSet<Quotation> Quotations => Set<Quotation>();
+
+	public DbSet<QuotationItem> QuotationItems => Set<QuotationItem>();
+
 	public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
 
 	public DbSet<StockVerificationSession> StockVerificationSessions => Set<StockVerificationSession>();

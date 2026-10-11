@@ -144,6 +144,12 @@ public partial class App : Application
 				services.AddTransient<WholesaleCustomerPageViewModel>();
 				services.AddSingleton<WholesaleInvoiceDocumentService>();
 				services.AddSingleton<PurchaseReturnDocumentService>();
+				services.AddSingleton<WholesaleReissueHandoff>();
+				services.AddSingleton<QuotationConversionHandoff>();
+				services.AddSingleton<RetailReissueHandoff>();
+				services.AddSingleton<QuotationDocumentService>();
+				services.AddSingleton<QuotationsPageViewModel>();
+				services.AddSingleton<ToolsPageViewModel>();
 				services.AddTransient<WholesaleBillingPageViewModel>();
 				services.AddTransient<WholesalePricingPageViewModel>();
 				services.AddTransient<WholesaleAccountsPageViewModel>();

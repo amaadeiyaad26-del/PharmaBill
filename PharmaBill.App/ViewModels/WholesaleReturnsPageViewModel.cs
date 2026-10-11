@@ -175,10 +175,16 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand CreateDebitNoteCommand => createDebitNoteCommand ?? (createDebitNoteCommand = new AsyncRelayCommand(CreateDebitNoteAsync));
 
-	public WholesaleReturnsPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session)
+	private readonly WholesaleReissueHandoff _reissue;
+
+	private readonly INavigationService _navigation;
+
+	public WholesaleReturnsPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, WholesaleReissueHandoff reissue, INavigationService navigation)
 	{
 		_scopeFactory = scopeFactory;
 		_session = session;
+		_reissue = reissue;
+		_navigation = navigation;
 	}
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -224,6 +230,46 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 			StatusMessage = $"Credit note {returnNote.ReturnNo} saved for {MoneyFormat.Rupees(returnNote.TotalAmount)}. Unrestocked items are quarantined.";
 			ErrorMessage = string.Empty;
 			await LoadInvoiceLinesAsync(SelectedInvoice.Id);
+		}
+		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException) ? true : false)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IAsyncRelayCommand CancelAndReissueCommand => cancelAndReissueCommand ?? (cancelAndReissueCommand = new AsyncRelayCommand(CancelAndReissueAsync));
+
+	private AsyncRelayCommand? cancelAndReissueCommand;
+
+	/// <summary>
+	/// Owner only. Cancels the selected invoice (stock and ledger are reversed), then opens Wholesale Billing
+	/// with the same customer and lines as a new draft to correct and post.
+	/// </summary>
+	private async Task CancelAndReissueAsync()
+	{
+		if ((object)SelectedInvoice == null || string.IsNullOrWhiteSpace(Reason))
+		{
+			ErrorMessage = "Select a posted invoice and enter the reason for cancelling it.";
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			AppUser user = _session.User ?? throw new UnauthorizedAccessException("Sign in before cancelling invoices.");
+			Guid invoiceId = SelectedInvoice.Id;
+			await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().CancelAsync(invoiceId, Reason, user.Id, user.Role));
+
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			WholesaleInvoice cancelled = await context.WholesaleInvoices.AsNoTracking().SingleAsync(item => item.Id == invoiceId);
+			List<WholesaleInvoiceLineInput> lines = await (from item in context.WholesaleInvoiceItems.AsNoTracking()
+				where item.WholesaleInvoiceId == invoiceId
+				select new WholesaleInvoiceLineInput(item.DrugId, item.BatchId, item.Quantity, item.FreeQuantity, item.UnitPrice, item.DiscountAmount)).ToListAsync();
+			_reissue.Pending = new WholesaleReissueRequest(cancelled.CustomerId, cancelled.InvoiceNo, lines);
+			ErrorMessage = string.Empty;
+			StatusMessage = $"Invoice {cancelled.InvoiceNo} cancelled. Opening Wholesale Billing to issue the corrected bill.";
+			_navigation.Navigate("WholesaleBilling");
 		}
 		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException) ? true : false)
 		{

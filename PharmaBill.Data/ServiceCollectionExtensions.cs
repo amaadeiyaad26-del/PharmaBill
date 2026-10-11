@@ -88,6 +88,7 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<IReconciliationService, ReconciliationService>();
 		services.AddScoped<IDunningService, DunningService>();
 		services.AddScoped<WholesaleReturnsService>();
+		services.AddScoped<QuotationService>();
 		services.AddScoped<StockInHandService>();
 		services.AddScoped<WholesaleGstReportsService>();
 		services.AddScoped<WholesaleDashboardService>();

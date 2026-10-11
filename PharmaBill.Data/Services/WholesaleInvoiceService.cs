@@ -320,6 +320,13 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			throw new InvalidOperationException("Only a posted wholesale invoice can be cancelled.");
 		}
 		List<WholesaleInvoiceItem> lines = await context.WholesaleInvoiceItems.Where((WholesaleInvoiceItem item) => item.WholesaleInvoiceId == invoice.Id).ToListAsync(cancellationToken);
+		List<Guid> lineIds = lines.Select(line => line.Id).ToList();
+		if (await context.WholesaleReturnItems.AnyAsync(item => lineIds.Contains(item.WholesaleInvoiceItemId), cancellationToken))
+		{
+			// Cancelling restores every line in full and credits the full total, which would double-count
+			// anything already returned or credited. Those invoices must be corrected with a credit note instead.
+			throw new InvalidOperationException("This invoice already has credit notes, so it cannot be cancelled. Issue a credit note for the remaining quantity instead.");
+		}
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 		invoice.Status = "Cancelled";
 		invoice.CancelledAtUtc = DateTime.UtcNow;

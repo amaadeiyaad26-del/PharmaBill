@@ -64,6 +64,10 @@ public class MainWindowViewModel : ObservableObject
 
 	private readonly WholesaleReturnsPageViewModel _wholesaleReturnsPage;
 
+	private readonly QuotationsPageViewModel _quotationsPage;
+
+	private readonly ToolsPageViewModel _toolsPage;
+
 	private readonly StockInHandPageViewModel _stockInHandPage;
 
 	private readonly WholesaleReportsPageViewModel _wholesaleReportsPage;
@@ -1303,7 +1307,7 @@ public class MainWindowViewModel : ObservableObject
 
 	public event EventHandler? CalculatorRequested;
 
-	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
+	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, QuotationsPageViewModel quotationsPage, ToolsPageViewModel toolsPage, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
 	{
 		_navigationService = navigationService;
 		_languageService = languageService;
@@ -1321,6 +1325,8 @@ public class MainWindowViewModel : ObservableObject
 		_wholesaleReconciliationPage = wholesaleReconciliationPage;
 		_dunningDashboardPage = dunningDashboardPage;
 		_wholesaleReturnsPage = wholesaleReturnsPage;
+		_quotationsPage = quotationsPage;
+		_toolsPage = toolsPage;
 		_stockInHandPage = stockInHandPage;
 		_wholesaleReportsPage = wholesaleReportsPage;
 		_reportsPage = reportsPage;
@@ -2670,7 +2676,8 @@ public class MainWindowViewModel : ObservableObject
 			? "Buyers & Pharmacies"
 			: (mode == BusinessMode.Retail ? "Retail Customers" : _languageService.GetString("NavCustomers"));
 		NavigationItems.Add(new NavigationItem("Customers", customersLabel));
-		NavigationItems.Add(new NavigationItem("Accounts", wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
+		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
+		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
 		if (mode != BusinessMode.Retail)
 		{
 			NavigationItems.Add(new NavigationItem("Pricing", "Pack levels & pricing"));
@@ -2684,6 +2691,7 @@ public class MainWindowViewModel : ObservableObject
 			NavigationItems.Add(new NavigationItem("Registers", _languageService.GetString("NavRegisters")));
 			NavigationItems.Add(new NavigationItem("DrugRecords", _languageService.GetString("NavDrugRecords")));
 		}
+		NavigationItems.Add(new NavigationItem("Tools", "🧰 Tools: calendar, notepad, narrations"));
 		NavigationItems.Add(new NavigationItem("Reports", "📈 Reports & Daily MIS"));
 		NavigationItems.Add(new NavigationItem("GstReturns", "📊 GST & e-Way"));
 		NavigationItems.Add(new NavigationItem("Backup", "Backup & move PC"));
@@ -2794,7 +2802,9 @@ public class MainWindowViewModel : ObservableObject
 			"Accounts" => _wholesaleAccountsPage, 
 			"BankReconciliation" => _wholesaleReconciliationPage, 
 			"CollectionsDunning" => _dunningDashboardPage, 
-			"Returns" => _wholesaleReturnsPage, 
+			"Returns" => _wholesaleReturnsPage,
+			"Quotations" => _quotationsPage,
+			"Tools" => _toolsPage,
 			"StockInHand" => _stockInHandPage, 
 			"Billing" => _retailBillingPage, 
 			"Reports" => _reportsPage, 

@@ -26,7 +26,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IAddStockDialogService? addStockDialog = null) : ObservableObject, ILoadablePage
+public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, QuotationConversionHandoff quoteHandoff, RetailReissueHandoff reissueHandoff, IAddStockDialogService? addStockDialog = null) : ObservableObject, ILoadablePage
 {
 	private string _billNumber = "Assigned on save";
 
@@ -119,6 +119,9 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	private bool _explicitBatchPick;
 
 	private RetailBillLineViewModel? _selectedBillLine;
+
+	/// <summary>Quotation being converted into the bill on screen; marked converted only once that bill is saved.</summary>
+	private Guid? _quotationConversionId;
 
 	private HeldRetailBill? _selectedHeldBill;
 
@@ -1445,6 +1448,10 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	public IRelayCommand SendViaWhatsAppCommand => sendViaWhatsAppCommand ?? (sendViaWhatsAppCommand = new RelayCommand(SendViaWhatsApp));
 
+	public IAsyncRelayCommand SaveQuotationCommand => saveQuotationCommand ??= new AsyncRelayCommand(SaveAsQuotationAsync);
+
+	private AsyncRelayCommand? saveQuotationCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand PreviewOrPickPrintFormatCommand => previewOrPickPrintFormatCommand ?? (previewOrPickPrintFormatCommand = new AsyncRelayCommand(PreviewOrPickPrintFormatAsync));
@@ -1481,6 +1488,119 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		_pharmacyName = pharmacyProfile.Name;
 		UpiId = pharmacyProfile.UpiId ?? string.Empty;
 		BillNumber = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().PreviewNextInvoiceNoAsync(cancellationToken);
+		await ApplyPendingQuotationAsync(scope, cancellationToken);
+		await ApplyPendingRetailReissueAsync(scope, cancellationToken);
+	}
+
+	/// <summary>Loads the items of a retail bill that was cancelled for re-issue, so they can be billed again.</summary>
+	private async Task ApplyPendingRetailReissueAsync(IServiceScope scope, CancellationToken cancellationToken)
+	{
+		RetailReissueRequest? request = reissueHandoff.Pending;
+		if (request == null)
+		{
+			return;
+		}
+		if (BillItems.Count > 0)
+		{
+			ErrorMessage = $"Clear the current bill before re-billing {request.OriginalInvoiceNo}.";
+			return;
+		}
+
+		reissueHandoff.Pending = null;
+		PatientName = request.PatientName;
+		PatientPhone = request.PatientPhone ?? string.Empty;
+		IReadOnlyDictionary<Guid, RetailStockChoice> choices = await scope.ServiceProvider.GetRequiredService<RetailBillingService>()
+			.GetFefoChoicesAsync(request.Lines.Select(line => line.DrugId).Distinct().ToArray(), cancellationToken);
+		List<string> missing = new List<string>();
+		foreach (RetailReissueLine line in request.Lines)
+		{
+			if (!choices.TryGetValue(line.DrugId, out RetailStockChoice? choice))
+			{
+				missing.Add(line.DrugName);
+				continue;
+			}
+			AddStockChoice(choice, line.Quantity);
+		}
+
+		StatusMessage = $"Items from {request.OriginalInvoiceNo} are loaded. Check them, then save the new bill.";
+		if (missing.Count > 0)
+		{
+			ErrorMessage = "Out of stock now, add these manually: " + string.Join(", ", missing);
+		}
+	}
+
+	/// <summary>Loads a quotation's lines as a retail draft. Batches are picked FEFO, as they are for any retail bill.</summary>
+	private async Task ApplyPendingQuotationAsync(IServiceScope scope, CancellationToken cancellationToken)
+	{
+		QuotationConversionRequest? request = quoteHandoff.Pending;
+		if (request == null || request.Mode != QuotationService.RetailMode)
+		{
+			return;
+		}
+		if (BillItems.Count > 0)
+		{
+			ErrorMessage = $"Clear the current bill before converting quotation {request.QuoteNo}.";
+			return;
+		}
+
+		quoteHandoff.Pending = null;
+		PatientName = request.PartyName;
+		PatientPhone = request.PartyPhone ?? string.Empty;
+		IReadOnlyDictionary<Guid, RetailStockChoice> choices = await scope.ServiceProvider.GetRequiredService<RetailBillingService>()
+			.GetFefoChoicesAsync(request.Lines.Select(line => line.DrugId).Distinct().ToArray(), cancellationToken);
+		List<string> missing = new List<string>();
+		foreach (QuotationLineInput line in request.Lines)
+		{
+			if (!choices.TryGetValue(line.DrugId, out RetailStockChoice? choice))
+			{
+				missing.Add(line.DrugName);
+				continue;
+			}
+			AddStockChoice(choice, line.Quantity);
+		}
+
+		_quotationConversionId = request.QuotationId;
+		StatusMessage = $"Lines from quotation {request.QuoteNo} are loaded. Check them, then save the bill.";
+		if (missing.Count > 0)
+		{
+			ErrorMessage = "Out of stock now, add these manually: " + string.Join(", ", missing);
+		}
+	}
+
+	/// <summary>Saves the bill on screen as a quotation. Nothing is billed or reserved.</summary>
+	private async Task SaveAsQuotationAsync()
+	{
+		ErrorMessage = string.Empty;
+		if (currentSession.User == null)
+		{
+			ErrorMessage = "Sign in before saving a quotation.";
+			return;
+		}
+		if (BillItems.Count == 0)
+		{
+			ErrorMessage = "Add at least one medicine to the quotation.";
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			Quotation quotation = await scope.ServiceProvider.GetRequiredService<QuotationService>().CreateAsync(
+				QuotationService.RetailMode,
+				null,
+				PatientName,
+				PatientPhone,
+				null,
+				BillItems.Select(line => new QuotationLineInput(line.Choice.DrugId, null, line.Choice.DrugName, line.Quantity, 0m, line.Quantity == 0m ? 0m : line.GrossAmount / line.Quantity, 0m)).ToList(),
+				null,
+				currentSession.User.Id,
+				currentSession.User.Role);
+			StatusMessage = $"Quotation {quotation.QuoteNo} saved for about {MoneyFormat.Rupees(quotation.EstimatedTotal)}. No stock was reserved.";
+		}
+		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
 
 	private async Task DebouncedLiveSearchAsync(string value)
@@ -2615,6 +2735,11 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 						RetailBillingService service = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
 						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride), currentSession.User.Id, currentSession.User.Role);
 						BillNumber = result.InvoiceNo;
+						if (_quotationConversionId is Guid convertedQuoteId)
+						{
+							await scope.ServiceProvider.GetRequiredService<QuotationService>().MarkConvertedAsync(convertedQuoteId, result.InvoiceNo);
+							_quotationConversionId = null;
+						}
 						_lastSavedSaleId = result.Sale.Id;
 						ChangeDueText = ((result.ChangeDue > 0m) ? ("Change due: " + MoneyFormat.Rupees(result.ChangeDue)) : string.Empty);
 						StatusMessage = $"Bill {result.InvoiceNo} saved. Total {MoneyFormat.Rupees(result.TotalAmount)}; paid {MoneyFormat.Rupees(result.PaidAmount)}.";
@@ -3073,6 +3198,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private void ClearBill()
 	{
+		_quotationConversionId = null;
 		PatientName = string.Empty;
 		PatientPhone = string.Empty;
 		PatientAddress = string.Empty;
