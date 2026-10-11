@@ -154,6 +154,8 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 
 	public string AgeingPartyHeader => _isRetailMode ? "Customer / Patient" : "Buyer";
 
+	public string CustomerPickerLabel => _isRetailMode ? "Customer / Patient" : "Buyer";
+
 	public bool IsRetailMode => _isRetailMode;
 
 	public bool IsWholesaleMode => !_isRetailMode;
@@ -691,6 +693,12 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		Customers.Clear();
 		foreach (Customer item in list)
 		{
+			// The wholesale desk receives from buyers only; patients settle on the retail desk.
+			if (!_isRetailMode && CustomerListRules.IsPatientType(item.BuyerType))
+			{
+				continue;
+			}
+
 			Customers.Add(item);
 		}
 		List<Supplier> list2 = await (from item in context.Suppliers.AsNoTracking()

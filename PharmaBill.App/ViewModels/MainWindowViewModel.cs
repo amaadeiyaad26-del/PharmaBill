@@ -392,7 +392,7 @@ public class MainWindowViewModel : ObservableObject
 	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
 
 	private static bool IsCustomersSection(string? sectionKey) =>
-		sectionKey is "Customers" or "WholesaleSuppliers";
+		sectionKey is "Customers" or "WholesaleBuyers" or "RetailBuyers" or "WholesaleSuppliers";
 
 	private string CustomersGroupTitle() => "Customers " + (_customersExpanded ? "▾" : "▸");
 
@@ -2108,7 +2108,7 @@ public class MainWindowViewModel : ObservableObject
 		}
 
 		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
-		string resolvedKey = ResolveBillingNavigation(sectionKey);
+		string resolvedKey = ResolveCustomersNavigation(ResolveBillingNavigation(sectionKey));
 
 		bool flag = IsCriticalUpdateRequired;
 		if (flag)
@@ -2128,6 +2128,11 @@ public class MainWindowViewModel : ObservableObject
 			}
 
 
+			if (IsCustomerListKey(resolvedKey))
+			{
+				_wholesaleCustomerPage.SetCustomerView(CustomerViewFor(resolvedKey));
+			}
+
 			if (IsCustomersSection(resolvedKey) && !_customersExpanded)
 			{
 				ToggleCustomers();
@@ -2136,6 +2141,32 @@ public class MainWindowViewModel : ObservableObject
 			_navigationService.Navigate(resolvedKey);
 		}
 	}
+
+	// Patients belong to the retail desk; the wholesale desk lists buyers instead. Never show a patient screen on the wholesale desk.
+	private string ResolveCustomersNavigation(string sectionKey)
+	{
+		if (IsCustomerListKey(sectionKey))
+		{
+			if (_activeBillingDeskMode != ActiveBillingDeskMode.Wholesale)
+			{
+				return "Customers";
+			}
+
+			return sectionKey == "Customers" ? "WholesaleBuyers" : sectionKey;
+		}
+
+		return sectionKey;
+	}
+
+	private static bool IsCustomerListKey(string? sectionKey) =>
+		sectionKey is "Customers" or "WholesaleBuyers" or "RetailBuyers";
+
+	private static CustomerListView CustomerViewFor(string sectionKey) => sectionKey switch
+	{
+		"Customers" => CustomerListView.Patients,
+		"RetailBuyers" => CustomerListView.RetailBuyers,
+		_ => CustomerListView.WholesaleBuyers,
+	};
 
 	private string ResolveBillingNavigation(string sectionKey)
 	{
@@ -2713,9 +2744,15 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
 		_customersExpanded = _customersExpanded || IsCustomersSection(CurrentSectionKey);
 		NavigationItems.Add(new NavigationItem(CustomersGroupKey, CustomersGroupTitle()));
-		if (mode != BusinessMode.Wholesaler)
+		// Each desk gets its own customer screen: patients on Retail/Combined, buyers on Wholesale.
+		if (!wholesaleDesk && mode != BusinessMode.Wholesaler)
 		{
 			NavigationItems.Add(new NavigationItem("Customers", "Patients & Consumers", IsSubItem: true));
+		}
+		if (wholesaleDesk && mode != BusinessMode.Retail)
+		{
+			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Wholesale Buyers", IsSubItem: true));
+			NavigationItems.Add(new NavigationItem("RetailBuyers", "Retail Buyers", IsSubItem: true));
 		}
 		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Wholesale Suppliers", IsSubItem: true));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
@@ -2784,6 +2821,11 @@ public class MainWindowViewModel : ObservableObject
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
 		RebuildNavigationItems(_businessMode);
+		if (IsCustomerListKey(CurrentSectionKey))
+		{
+			// Switching desk while on a customer screen moves to that desk's screen.
+			Navigate(CurrentSectionKey);
+		}
 		if (CurrentPage is WholesaleAccountsPageViewModel)
 		{
 			_ = LoadCurrentPageAsync();
@@ -2844,6 +2886,8 @@ public class MainWindowViewModel : ObservableObject
 			"StockTransfer" => _stockTransferPage, 
 			"Purchases" => _purchasePage, 
 			"Customers" => _wholesaleCustomerPage,
+			"WholesaleBuyers" => _wholesaleCustomerPage,
+			"RetailBuyers" => _wholesaleCustomerPage,
 				"WholesaleSuppliers" => new SupplierDirectoryPageViewModel(_scopeFactory),
 			"WholesaleBilling" => _wholesaleBillingPage, 
 			"Pricing" => _wholesalePricingPage, 
