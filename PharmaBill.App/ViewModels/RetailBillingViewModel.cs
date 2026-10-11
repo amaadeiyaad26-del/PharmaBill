@@ -3312,7 +3312,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	public bool HasPatientSuggestions
 	{
 		get => _hasPatientSuggestions;
-		private set => SetProperty(ref _hasPatientSuggestions, value);
+		set => SetProperty(ref _hasPatientSuggestions, value);
 	}
 
 	public RetailPatientMatch? SelectedPatientSuggestion
