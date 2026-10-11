@@ -2099,6 +2099,11 @@ public class MainWindowViewModel : ObservableObject
 				_ = _stockPage.LoadAsync();
 			}
 
+			if (resolvedKey is "Customers" or "WholesaleBuyers")
+			{
+				_wholesaleCustomerPage.SetPatientView(resolvedKey == "Customers");
+			}
+
 			_navigationService.Navigate(resolvedKey);
 		}
 	}
@@ -2677,10 +2682,15 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
 		NavigationItems.Add(new NavigationItem("StockTransfer", wholesaleDesk ? "Godown / Counter Challan" : "Stock transfer"));
 		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
-		string customersLabel = wholesaleDesk
-			? "Buyers & Pharmacies"
-			: (mode == BusinessMode.Retail ? "Retail Customers" : _languageService.GetString("NavCustomers"));
-		NavigationItems.Add(new NavigationItem("Customers", customersLabel));
+		if (mode != BusinessMode.Wholesaler)
+		{
+			NavigationItems.Add(new NavigationItem("Customers", "Customers · Patients & Consumers"));
+		}
+		if (mode != BusinessMode.Retail)
+		{
+			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Customers · Wholesale Buyers"));
+		}
+		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Customers · Wholesale Suppliers"));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
 		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
 		if (mode != BusinessMode.Retail)
@@ -2802,7 +2812,9 @@ public class MainWindowViewModel : ObservableObject
 			"Stock" => _stockPage, 
 			"StockTransfer" => _stockTransferPage, 
 			"Purchases" => _purchasePage, 
-			"Customers" => _wholesaleCustomerPage, 
+			"Customers" => _wholesaleCustomerPage,
+				"WholesaleBuyers" => _wholesaleCustomerPage,
+				"WholesaleSuppliers" => new SupplierDirectoryPageViewModel(_scopeFactory),
 			"WholesaleBilling" => _wholesaleBillingPage, 
 			"Pricing" => _wholesalePricingPage, 
 			"Accounts" => _wholesaleAccountsPage, 

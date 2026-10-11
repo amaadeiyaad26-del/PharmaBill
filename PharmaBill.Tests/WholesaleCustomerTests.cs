@@ -298,6 +298,7 @@ public sealed class WholesaleCustomerTests
                 session,
                 new ConfirmationService());
 
+            viewModel.SetPatientView(false);
             await viewModel.ImportExcelCommand.ExecuteAsync(null);
 
             Assert.Empty(viewModel.ErrorMessage);

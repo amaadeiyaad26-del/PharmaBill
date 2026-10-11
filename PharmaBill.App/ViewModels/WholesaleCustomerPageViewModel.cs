@@ -34,6 +34,8 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private readonly IConfirmationService _confirmation;
 
+	private bool _showPatients = true;
+
 	private Guid _editingCustomerId;
 
 	private WholesaleCustomerRecord? _selectedRecord;
@@ -118,6 +120,22 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public ObservableCollection<WholesaleCustomerRecord> Customers { get; } = new ObservableCollection<WholesaleCustomerRecord>();
 
+	public ObservableCollection<LedgerRow> CustomerLedger { get; } = new ObservableCollection<LedgerRow>();
+
+	private string _ledgerBalanceText = string.Empty;
+
+	public string LedgerBalanceText
+	{
+		get
+		{
+			return _ledgerBalanceText;
+		}
+		private set
+		{
+			SetProperty(ref _ledgerBalanceText, value);
+		}
+	}
+
 	public ObservableCollection<string> LicenceTypeOptions { get; } = new ObservableCollection<string>();
 
 	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string> { "Distributor", "Retailer", "Hospital", "Institution", "Other" };
@@ -130,11 +148,11 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public bool IsWholesaleMode => !_isRetailMode;
 
-	public string PageTitle => _isRetailMode ? "Retail Customers & Patients" : "Wholesale customers";
+	public string PageTitle => _isRetailMode ? "Patients & Consumers" : "Wholesale Suppliers";
 
-	public string DetailsHeader => _isRetailMode ? "Customer / Patient Details" : "Buyer details";
+	public string DetailsHeader => _isRetailMode ? "Patient / Consumer Details" : "Supplier details";
 
-	public string NameFieldLabel => _isRetailMode ? "Patient / Customer Name" : "Customer / legal name";
+	public string NameFieldLabel => _isRetailMode ? "Patient / Consumer Name" : "Supplier / legal name";
 
 	public string TypeFieldLabel => _isRetailMode ? "Patient Type" : "Buyer type";
 
@@ -146,9 +164,9 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public string TagsFieldLabel => _isRetailMode ? "Chronic Disease / Refill Tags" : "Route";
 
-	public string SaveButtonLabel => _isRetailMode ? "Save Customer / Patient" : "Save Customer";
+	public string SaveButtonLabel => _isRetailMode ? "Save Patient / Consumer" : "Save Supplier";
 
-	public string NewButtonLabel => _isRetailMode ? "New patient" : "New customer";
+	public string NewButtonLabel => _isRetailMode ? "New patient / consumer" : "New supplier";
 
 	public string ActiveFlagLabel => _isRetailMode ? "Active (clear to block credit billing)" : "Active (clear to block buyer)";
 
@@ -704,12 +722,16 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		_confirmation = confirmation;
 	}
 
+	// Sidebar entry decides the view: patients & consumers, or wholesale suppliers.
+	public void SetPatientView(bool showPatients)
+	{
+		_showPatients = showPatients;
+	}
+
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		using IServiceScope scope = _scopeFactory.CreateScope();
-		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-		BusinessMode mode = await context.PharmacyProfiles.AsNoTracking().Select((PharmacyProfile profile) => profile.BusinessMode).FirstOrDefaultAsync(cancellationToken);
-		_isRetailMode = mode == BusinessMode.Retail;
+		_isRetailMode = _showPatients;
 		OnPropertyChanged(nameof(IsRetailMode));
 		OnPropertyChanged(nameof(IsWholesaleMode));
 		OnPropertyChanged(nameof(PageTitle));
@@ -732,6 +754,8 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 	private void NewCustomer()
 	{
 		_editingCustomerId = Guid.NewGuid();
+		CustomerLedger.Clear();
+		LedgerBalanceText = string.Empty;
 		SelectedRecord = null;
 		Name = string.Empty;
 		BuyerType = _isRetailMode ? "Walk-in" : "Distributor";
@@ -925,7 +949,12 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		Customers.Clear();
 		foreach (WholesaleCustomerRecord item2 in readOnlyList2)
 		{
-			Customers.Add(item2);
+			if (_isRetailMode && !IsPatientCustomer(item2.Customer))
+				{
+					continue;
+				}
+
+				Customers.Add(item2);
 		}
 		if (selectedId != Guid.Empty)
 		{
@@ -1158,5 +1187,51 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		}
 		ErrorMessage = string.Empty;
 		StatusMessage = ExpiryAlertText(value.ExpiryAlert);
+		_ = LoadLedgerAsync(value.Customer.Id);
+	}
+
+	// Retail patients are customers with a patient type; "Retail" is the account
+	// created automatically for a patient's credit sale.
+	private bool IsPatientCustomer(Customer customer)
+	{
+		string type = customer.BuyerType?.Trim() ?? string.Empty;
+		return string.Equals(type, "Retail", StringComparison.OrdinalIgnoreCase)
+			|| PatientTypeOptions.Any((string patientType) => string.Equals(patientType, type, StringComparison.OrdinalIgnoreCase));
+	}
+
+	private async Task LoadLedgerAsync(Guid customerId)
+	{
+		CustomerLedger.Clear();
+		LedgerBalanceText = string.Empty;
+		if (!_isRetailMode)
+		{
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			IReadOnlyList<LedgerRow> rows = await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().GetCustomerLedgerAsync(customerId);
+			if (SelectedRecord?.Customer.Id != customerId)
+			{
+				return;
+			}
+
+			foreach (LedgerRow row in rows)
+			{
+				CustomerLedger.Add(row);
+			}
+
+			decimal balance = rows.Count == 0 ? 0m : rows[rows.Count - 1].Balance;
+			LedgerBalanceText = balance > 0m
+				? $"Amount due: ₹{balance:N2}"
+				: balance < 0m
+					? $"Advance with pharmacy: ₹{-balance:N2}"
+					: "No dues";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = "The ledger could not be loaded: " + ex.Message;
+		}
 	}
 }
