@@ -555,6 +555,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 			OnPropertyChanged(nameof(ValuationSummaryText));
 			ApplyFilters();
+			UpdateKpis();
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
@@ -643,6 +644,45 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		StatusFilter = "All";
 		NameFilter = medicineName;
 		await LoadAsync();
+	}
+
+	// Summary strip counts. They cover all stock, not just the rows on screen, so they stay true while a filter is on.
+	public int KpiBatches { get; private set; }
+
+	public int KpiShortage { get; private set; }
+
+	public int KpiNearExpiry { get; private set; }
+
+	public int KpiMissingMrp { get; private set; }
+
+	public decimal KpiMrpValue { get; private set; }
+
+	private IRelayCommand? clearFiltersCommand;
+
+	public IRelayCommand ClearFiltersCommand => clearFiltersCommand ??= new RelayCommand(ClearFilters);
+
+	private void UpdateKpis()
+	{
+		List<StockBatchRow> inStock = Items.SelectMany((StockDrugRow item) => item.Batches).Where((StockBatchRow batch) => batch.Quantity > 0m).ToList();
+		KpiBatches = inStock.Count;
+		KpiShortage = Items.Count((StockDrugRow item) => item.IsShortage);
+		KpiNearExpiry = inStock.Count((StockBatchRow batch) => batch.ExpiryBand is BatchExpiryStatus.Warning or BatchExpiryStatus.Critical);
+		KpiMissingMrp = inStock.Count((StockBatchRow batch) => batch.Mrp <= 0m);
+		KpiMrpValue = inStock.Sum((StockBatchRow batch) => batch.Quantity * batch.Mrp);
+		OnPropertyChanged(nameof(KpiBatches));
+		OnPropertyChanged(nameof(KpiShortage));
+		OnPropertyChanged(nameof(KpiNearExpiry));
+		OnPropertyChanged(nameof(KpiMissingMrp));
+		OnPropertyChanged(nameof(KpiMrpValue));
+	}
+
+	private void ClearFilters()
+	{
+		NameFilter = string.Empty;
+		BatchFilter = string.Empty;
+		ScheduleFilter = "All";
+		StatusFilter = "All";
+		_ = LoadAsync();
 	}
 
 	private void SetStockFilter(string? filter)

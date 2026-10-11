@@ -86,7 +86,18 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 
 	public string EligibleItcText => MoneyFormat.Rupees(EligibleItc);
 
-	public string NetGstPayableText => MoneyFormat.Rupees(NetGstPayable);
+	// A negative net means input credit exceeds output tax: it carries forward, it is not owed.
+	public string NetGstLabel => NetGstPayable < 0m ? "ITC carry-forward" : "Net GST payable";
+
+	public string NetGstPayableText => MoneyFormat.Rupees(Math.Abs(NetGstPayable));
+
+	public string B2bEmptyHint => Gstr1B2bRows.Count == 0
+		? "No B2B invoices this period. B2B lists only sales to buyers with a valid GSTIN; buyers without one are reported under B2C."
+		: string.Empty;
+
+	public string Gstr2bEmptyHint => Gstr2bReconRows.Count == 0
+		? "Import the GSTR-2B CSV from the GST portal to reconcile purchase ITC against your books."
+		: string.Empty;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -381,6 +392,8 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 				Gstr1B2bRows.Add(row);
 			}
 
+			OnPropertyChanged(nameof(B2bEmptyHint));
+
 			Gstr1B2cRows.Clear();
 			foreach (Gstr1B2cSlabRow row in tables.Table7B2c)
 			{
@@ -624,6 +637,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 				Gstr2bReconRows.Add(row);
 			}
 
+			OnPropertyChanged(nameof(Gstr2bEmptyHint));
 			StatusMessage = $"GSTR-2B recon: {recon.Count} row(s) — matched {recon.Count(r => r.MatchStatus == "Matched")}.";
 			ErrorMessage = string.Empty;
 		}
@@ -797,5 +811,6 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 	private void OnNetGstPayableChanged(decimal value)
 	{
 		OnPropertyChanged("NetGstPayableText");
+		OnPropertyChanged(nameof(NetGstLabel));
 	}
 }

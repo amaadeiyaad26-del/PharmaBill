@@ -1117,10 +1117,11 @@
           </StackPanel>
           <TabControl>
             <TabItem Header="🏢 Supplier Ledgers &amp; Payables">
-              <Grid Margin="0,8,0,0">
+              <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,8,0,0">
+              <Grid>
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto" />
-                  <RowDefinition Height="*" MinHeight="220" />
+                  <RowDefinition Height="460" />
                   <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
@@ -1174,8 +1175,13 @@
                     <Border.Effect>
                       <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.12" Color="#FF0F172A" />
                     </Border.Effect>
-                    <DockPanel LastChildFill="True">
-                      <StackPanel DockPanel.Dock="Top">
+                    <Grid>
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                      </Grid.RowDefinitions>
+                      <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                      <StackPanel>
                         <TextBlock Text="Quick Payment Voucher Entry" FontWeight="SemiBold" FontSize="15" Foreground="{StaticResource TextPrimary}" />
                         <TextBlock Text="Outward payment to distributors. Reduces payable balance." TextWrapping="Wrap" Margin="0,4,0,10" FontSize="11.5" Foreground="{StaticResource TextMuted}" />
                         <TextBlock Text="Supplier" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,3" Foreground="{StaticResource TextPrimary}" />
@@ -1201,11 +1207,12 @@
                         <TextBlock Text="Bank / Cheque details" FontSize="11.5" FontWeight="SemiBold" Margin="0,10,0,3" Foreground="{StaticResource TextPrimary}" />
                         <TextBox Padding="6,4" MinHeight="32" ToolTip="Bank name or cheque number" Text="{Binding Path=BankName, UpdateSourceTrigger=PropertyChanged}" />
                       </StackPanel>
-                      <Button DockPanel.Dock="Bottom" Content="Save Payment (F5)" Height="42" Margin="0,14,0,0" Padding="14,6"
+                      </ScrollViewer>
+                      <Button Grid.Row="1" Content="Save Payment (F5)" Height="42" Margin="0,14,0,0" Padding="14,6"
                               Background="{StaticResource MoneyDebit}" Foreground="White" BorderThickness="0" FontWeight="SemiBold"
                               Command="{Binding RecordSupplierPaymentCommand}"
                               ToolTip="Post supplier payment voucher and update ledger. Shortcut: F5" />
-                    </DockPanel>
+                    </Grid>
                   </Border>
 
                   <Border Grid.Column="1" Padding="12,10" CornerRadius="8" Background="{StaticResource SurfaceBg}" BorderBrush="{StaticResource CardBorder}" BorderThickness="1">
@@ -1337,6 +1344,7 @@
                   </DataGrid>
                 </Expander>
               </Grid>
+              </ScrollViewer>
             </TabItem>
             <TabItem Header="{Binding CustomerAccountsTabHeader}">
               <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,8,0,0">
@@ -1346,7 +1354,7 @@
                       <TextBlock Text="{Binding CustomerPaymentSectionTitle}" FontWeight="SemiBold" FontSize="15" />
                       <WrapPanel Margin="0,10,0,0">
                         <StackPanel Width="220" Margin="0,0,10,8">
-                          <TextBlock Text="Customer / Patient" FontSize="12" Margin="0,0,0,4" />
+                          <TextBlock Text="{Binding CustomerPickerLabel}" FontSize="12" Margin="0,0,0,4" />
                           <ComboBox DisplayMemberPath="Name" Padding="6" ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" />
                         </StackPanel>
                         <StackPanel Width="180" Margin="0,0,10,8" Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -1393,7 +1401,7 @@
                   <TextBlock Text="Outstanding / ageing" FontWeight="SemiBold" Margin="0,0,0,6" />
                   <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MinHeight="140" ItemsSource="{Binding Ageing}">
                     <DataGrid.Columns>
-                      <DataGridTextColumn Header="Customer / Patient" Binding="{Binding CustomerName}" Width="*" MinWidth="140" />
+                      <DataGridTextColumn Header="{Binding DataContext.AgeingPartyHeader, RelativeSource={RelativeSource AncestorType=DataGrid}}" Binding="{Binding CustomerName}" Width="*" MinWidth="140" />
                       <DataGridTextColumn Header="0-30" Binding="{Binding Current0To30}" Width="Auto" MinWidth="70" />
                       <DataGridTextColumn Header="31-60" Binding="{Binding Days31To60}" Width="Auto" MinWidth="70" />
                       <DataGridTextColumn Header="61-90" Binding="{Binding Days61To90}" Width="Auto" MinWidth="70" />
@@ -1704,7 +1712,7 @@
               </Border>
               <Border Padding="12" CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
                 <StackPanel>
-                  <TextBlock Text="Net GST Payable" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Text="{Binding NetGstLabel}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
                   <TextBlock Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Text="{Binding NetGstPayableText}" />
                 </StackPanel>
               </Border>
@@ -1727,6 +1735,7 @@
               </StackPanel>
             </Border>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-1 Table 4 (B2B)" Margin="0,0,0,8" Foreground="#0D4A2B" />
+            <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding B2bEmptyHint}" />
             <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" Margin="0,0,0,12" ItemsSource="{Binding Gstr1B2bRows}">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="GSTIN" Width="140" Binding="{Binding Gstin}" />
@@ -1761,6 +1770,7 @@
               </DataGrid.Columns>
             </DataGrid>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-2B reconciliation" Margin="0,0,0,8" Foreground="#0D4A2B" />
+            <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Gstr2bEmptyHint}" />
             <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" Margin="0,0,0,12" ItemsSource="{Binding Gstr2bReconRows}">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Invoice" Width="120" Binding="{Binding InvoiceNo}" />
@@ -1827,6 +1837,24 @@
               <KeyBinding Key="W" Modifiers="Control" Command="{Binding CancelBillCommand}" />
             </Grid.InputBindings>
           <StackPanel Margin="18">
+            <StackPanel.RenderTransform>
+              <TranslateTransform x:Name="PageSlide" Y="16" />
+            </StackPanel.RenderTransform>
+            <!-- The page eases in each time it is opened. -->
+            <StackPanel.Triggers>
+              <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                    <DoubleAnimation Storyboard.TargetName="PageSlide" Storyboard.TargetProperty="Y" From="16" To="0" Duration="0:0:0.36">
+                      <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </StackPanel.Triggers>
             <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10"
                     Visibility="{Binding DataContext.ShowAnnualLicenseWarning, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold"
@@ -1864,7 +1892,7 @@
                 <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding InvoiceNoPreview, StringFormat=Invoice no: {0}}" />
               </StackPanel>
             </DockPanel>
-            <Border Style="{StaticResource SectionCard}">
+            <Border Style="{StaticResource SectionCardLift}">
               <StackPanel>
                 <TextBlock Style="{StaticResource SectionCardTitle}" Text="Buyer / Retailer (B2B) — F3" />
                 <TextBlock Text="Retailer / Pharmacy Business Name *" FontWeight="SemiBold" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
@@ -1880,6 +1908,15 @@
                           Content="{Binding AddNewRetailerCaption}"
                           ToolTip="Save this typed name as a new retailer in Customers master"
                           Command="{Binding AddNewRetailerCommand}" />
+                  <Button DockPanel.Dock="Right"
+                          Margin="8,0,0,0"
+                          MinHeight="36"
+                          Padding="12,6"
+                          VerticalAlignment="Top"
+                          Style="{StaticResource SecondaryButton}"
+                          Content="⬆ Import buyers (Excel)"
+                          ToolTip="Import buyers and retailers from an Excel file into Customers master"
+                          Command="{Binding ImportBuyersCommand}" />
                   <Grid MaxWidth="520" HorizontalAlignment="Left">
                     <ComboBox x:Name="WholesaleRetailerSearchBox"
                               MinHeight="36"
@@ -2155,18 +2192,55 @@
               </DataGrid.Columns>
             </DataGrid>
             <CheckBox Content="Confirmed near-expiry batch sale after review" Margin="2,4" IsChecked="{Binding ConfirmNearExpiry}" />
-            <Grid Margin="0,8,0,4" HorizontalAlignment="Stretch">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="160" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0" FontWeight="SemiBold" Margin="4,4,16,4" VerticalAlignment="Center" Text="{Binding Subtotal, StringFormat=Taxable: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <TextBlock Grid.Column="1" Margin="0,4,16,4" VerticalAlignment="Center" Text="{Binding EstimatedTax, StringFormat=Estimated GST: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <TextBlock Grid.Column="2" FontSize="18" FontWeight="Bold" Margin="0,4,16,4" VerticalAlignment="Center" HorizontalAlignment="Left" TextWrapping="NoWrap" TextTrimming="None" Text="{Binding EstimatedTotal, StringFormat=Estimated total: ₹{0:N2}, ConverterCulture=en-IN}" />
-              <Button Grid.Column="3" Content="Show Payment QR" Height="34" MinWidth="140" Margin="8,0,0,0" VerticalAlignment="Center" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" ToolTip="Open dynamic UPI QR for the estimated total" Style="{StaticResource PrimaryButton}" Command="{Binding ShowPaymentQrCommand}" />
-            </Grid>
+            <Border x:Name="InvoiceSummaryCard" Margin="0,12,0,8" Padding="20,16" CornerRadius="16">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="#FFEA580C" Offset="0" />
+                  <GradientStop Color="#FF9A3412" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.25" Color="#FF7C2D12" />
+              </Border.Effect>
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <UniformGrid Columns="4">
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Items" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding LineCount}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Taxable value" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding Subtotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Estimated GST" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding EstimatedTax, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Text="Estimated total" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock Margin="0,2,0,0" FontSize="26" FontWeight="Bold" Foreground="White" Text="{Binding EstimatedTotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                  </StackPanel>
+                </UniformGrid>
+                <Button Grid.Column="1" Margin="16,0,0,0" MinHeight="42" Padding="18,8" VerticalAlignment="Center" Cursor="Hand"
+                        Content="Show Payment QR" FontWeight="SemiBold" Foreground="#FF9A3412" Background="White" BorderThickness="0"
+                        ToolTip="Open dynamic UPI QR for the estimated total" Command="{Binding ShowPaymentQrCommand}" />
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0" Visibility="{Binding HasCreditLimit, Converter={StaticResource BooleanToVisibilityConverter}}">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="Credit limit" FontSize="12" Foreground="#FFFED7AA" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CreditBarText}" FontSize="12" Foreground="White" />
+                  </DockPanel>
+                  <ProgressBar Margin="0,6,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding CreditUsedPercent, Mode=OneWay}" Foreground="White" Background="#33FFFFFF" BorderThickness="0" />
+                </StackPanel>
+              </Grid>
+            </Border>
             <TextBlock Text="Payment (F9)" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,4" />
             <WrapPanel>
               <ComboBox x:Name="WholesalePaymentMethodBox" Width="180" Padding="6" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" ToolTip="Payment mode (F9)" />
@@ -2190,25 +2264,109 @@
             </WrapPanel>
             <TextBlock Text="E-way bill threshold notice: configure the applicable threshold and verify the current requirement. No portal integration is provided." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="4,6" />
             <TextBox ToolTip="Invoice notes" Padding="6" Margin="0,5" Text="{Binding Path=Notes, UpdateSourceTrigger=PropertyChanged}" />
-            <WrapPanel Margin="0,8,0,0">
-              <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
-              <Button Margin="8,0,0,0" Content="Save as quotation" Style="{StaticResource SecondaryButton}" Command="{Binding SaveQuotationCommand}" ToolTip="Save these lines as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
-              <ComboBox Margin="8,0,0,0" Width="120" Height="36" ItemsSource="{Binding QuoteValidityOptions}" SelectedItem="{Binding QuoteValidityDays}" ItemStringFormat="Valid {0} days" ToolTip="How long the quotation stays valid." />
-              <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
-                      ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
-                <StackPanel>
-                  <TextBlock Text="F10 Print &amp; Save" FontWeight="Bold" HorizontalAlignment="Center" />
-                  <TextBlock Text="Tax Invoice" FontSize="11" HorizontalAlignment="Center" Opacity="0.9" />
-                </StackPanel>
-              </Button>
-              <Button Content="Tax invoice PDF" Padding="12,8" Margin="8,0,0,0" Command="{Binding ExportTaxInvoiceCommand}" />
-              <Button Content="Delivery challan PDF" Padding="12,8" Margin="8,0,0,0" Command="{Binding ExportDeliveryChallanCommand}" />
-            </WrapPanel>
+            <Border Margin="0,10,0,0" Padding="14,12" CornerRadius="14" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+              <StackPanel>
+                <DockPanel LastChildFill="False">
+                  <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button Height="40" Padding="14,0" Content="Save as quotation" Style="{StaticResource SecondaryButton}" Command="{Binding SaveQuotationCommand}" ToolTip="Save these lines as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
+                    <ComboBox Margin="8,0,0,0" Width="120" Height="40" ItemsSource="{Binding QuoteValidityOptions}" SelectedItem="{Binding QuoteValidityDays}" ItemStringFormat="Valid {0} days" ToolTip="How long the quotation stays valid." />
+                    <Button Margin="8,0,0,0" Height="40" Padding="14,0" Content="↺ Repeat last invoice" Style="{StaticResource SecondaryButton}" Command="{Binding RepeatLastInvoiceCommand}" ToolTip="Load the lines of this buyer's most recent posted invoice as a new draft." />
+                  </StackPanel>
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Height="40" Padding="12,0" Content="Tax invoice PDF" Command="{Binding ExportTaxInvoiceCommand}" />
+                    <Button Margin="8,0,0,0" Height="40" Padding="12,0" Content="Delivery challan PDF" Command="{Binding ExportDeliveryChallanCommand}" />
+                    <Button Margin="8,0,0,0" Height="40" Padding="14,0" Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
+                    <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
+                            ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
+                      <StackPanel>
+                        <TextBlock Text="F10 Print &amp; Save" FontWeight="Bold" HorizontalAlignment="Center" />
+                        <TextBlock Text="Tax Invoice" FontSize="11" HorizontalAlignment="Center" Opacity="0.9" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </DockPanel>
+                <TextBlock Margin="2,8,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding DraftSavedText}" />
+              </StackPanel>
+            </Border>
             <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="3,8,3,0" Text="{Binding StatusMessage}" />
             <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="3,4,3,0" Text="{Binding ErrorMessage}" />
           </StackPanel>
           </Grid>
         </ScrollViewer>
+      </DataTemplate>
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:SupplierDirectoryPageViewModel}}" DataType="{x:Type vm:SupplierDirectoryPageViewModel}">
+        <Grid Margin="18">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="280" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid Column="0" Margin="0,0,16,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Wholesale Suppliers" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <Button Grid.Row="1" Margin="0,10,0,10" Padding="10,6" HorizontalAlignment="Left" Content="New supplier" Command="{Binding NewCommand}" />
+            <ListBox Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier, Mode=TwoWay}">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Margin="4">
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                    <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Phone, TargetNullValue=No phone}" />
+                    <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Gstin, TargetNullValue=No GSTIN}" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+          <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel behaviors:KeyNavigationBehavior.Enabled="True">
+              <TextBlock Text="Supplier details" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+              <TextBlock Text="Suppliers are added automatically when you enter a distributor on a purchase bill. You can also add or correct them here." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Grid.Column="0" Margin="3">
+                  <TextBlock Text="Supplier / legal name" />
+                  <TextBox Padding="6" Text="{Binding Path=Name, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="1" Margin="3">
+                  <TextBlock Text="Phone" />
+                  <TextBox Padding="6" Text="{Binding Path=Phone, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="0" Margin="3">
+                  <TextBlock Text="Email" />
+                  <TextBox Padding="6" Text="{Binding Path=Email, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="1" Margin="3">
+                  <TextBlock Text="GSTIN" />
+                  <TextBox Padding="6" Text="{Binding Path=Gstin, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="3">
+                  <TextBlock Text="Address" />
+                  <TextBox Padding="6" Text="{Binding Path=Address, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Row="3" Grid.Column="0" Margin="3">
+                  <TextBlock Text="Drug licence number" />
+                  <TextBox Padding="6" Text="{Binding Path=DrugLicenceNumber, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+              </Grid>
+              <CheckBox Margin="6,8" Content="Active (clear to hide from new purchases)" IsChecked="{Binding IsActive}" />
+              <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="3,4" Text="{Binding ErrorMessage}" />
+              <TextBlock Foreground="#FF065F46" TextWrapping="Wrap" Margin="3,4" Text="{Binding StatusMessage}" />
+              <Button Content="Save supplier" Padding="12,6" HorizontalAlignment="Left" Margin="3,8" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleCustomerPageViewModel}}" DataType="{x:Type vm:WholesaleCustomerPageViewModel}">
         <Grid Margin="18">
@@ -2325,6 +2483,21 @@
               <StackPanel Orientation="Horizontal" Margin="4,8">
                 <CheckBox VerticalAlignment="Center" IsChecked="{Binding IsActive}" Content="{Binding ActiveFlagLabel}" />
                 <controls:InfoHelper Title="Active flag" Body="Keep checked for parties you can bill on credit. Clearing Active blocks new credit activity while keeping history." />
+              </StackPanel>
+              <StackPanel Visibility="{Binding IsRetailMode, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,12,0,0">
+                <TextBlock Text="Ledger: credit sales and payments" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding LedgerBalanceText}" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MinHeight="120" MaxHeight="260" ItemsSource="{Binding CustomerLedger}">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Date" Width="110" Binding="{Binding EntryAtUtc, StringFormat=dd-MMM-yyyy}" />
+                    <DataGridTextColumn Header="Type" Width="150" Binding="{Binding EntryType}" />
+                    <DataGridTextColumn Header="Reference" Width="130" Binding="{Binding ReferenceNo}" />
+                    <DataGridTextColumn Header="Debit (₹)" Width="100" Binding="{Binding Debit, StringFormat=N2}" />
+                    <DataGridTextColumn Header="Credit (₹)" Width="100" Binding="{Binding Credit, StringFormat=N2}" />
+                    <DataGridTextColumn Header="Balance (₹)" Width="110" Binding="{Binding Balance, StringFormat=N2}" />
+                    <DataGridTextColumn Header="Notes" Width="*" Binding="{Binding Notes}" />
+                  </DataGrid.Columns>
+                </DataGrid>
               </StackPanel>
               <StackPanel Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,6">
@@ -2469,6 +2642,89 @@
                     <controls:FloatingField Grid.Row="0" Grid.Column="1" TabIndex="1" Label="Phone number" IsRequired="True" ToolTip="Patient phone (required)" ErrorText="{Binding PatientPhoneError}">
                       <TextBox Name="PatientPhoneBox" Text="{Binding Path=PatientPhone, UpdateSourceTrigger=PropertyChanged}" />
                     </controls:FloatingField>
+                    <Popup IsOpen="{Binding HasPatientSuggestions, Mode=TwoWay}" PlacementTarget="{Binding ElementName=PatientPhoneBox}" Placement="Bottom" VerticalOffset="6" StaysOpen="False" AllowsTransparency="True" PopupAnimation="None" Width="{Binding ActualWidth, ElementName=PatientPhoneBox}" MinWidth="360">
+                      <Border CornerRadius="14" Background="#FFFFFFFF" BorderBrush="#FFA7F3D0" BorderThickness="1" Padding="8,8,8,10" Margin="0,0,12,16">
+                        <Border.Effect>
+                          <DropShadowEffect BlurRadius="22" ShadowDepth="4" Opacity="0.28" Color="#FF0F766E" />
+                        </Border.Effect>
+                        <Border.RenderTransform>
+                          <TranslateTransform Y="0" />
+                        </Border.RenderTransform>
+                        <Border.Style>
+                          <Style TargetType="{x:Type Border}">
+                            <Setter Property="Opacity" Value="0" />
+                            <Style.Triggers>
+                              <Trigger Property="IsVisible" Value="True">
+                                <Trigger.EnterActions>
+                                  <BeginStoryboard>
+                                    <Storyboard>
+                                      <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.18" />
+                                      <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="12" To="0" Duration="0:0:0.22">
+                                        <DoubleAnimation.EasingFunction>
+                                          <CubicEase EasingMode="EaseOut" />
+                                        </DoubleAnimation.EasingFunction>
+                                      </DoubleAnimation>
+                                    </Storyboard>
+                                  </BeginStoryboard>
+                                </Trigger.EnterActions>
+                              </Trigger>
+                            </Style.Triggers>
+                          </Style>
+                        </Border.Style>
+                        <StackPanel>
+                          <TextBlock Text="SAVED PATIENTS WITH THIS NUMBER" FontSize="11" FontWeight="SemiBold" Foreground="#FF0F766E" Margin="8,4,8,6" />
+                          <ListBox ItemsSource="{Binding PatientSuggestions}" SelectedItem="{Binding SelectedPatientSuggestion, Mode=TwoWay}" BorderThickness="0" Background="Transparent" MaxHeight="260" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemContainerStyle>
+                              <Style TargetType="{x:Type ListBoxItem}">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0,2" />
+                                <Setter Property="Template">
+                                  <Setter.Value>
+                                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                                      <Border x:Name="RowBack" CornerRadius="10" Padding="10,8" Background="Transparent" Cursor="Hand">
+                                        <ContentPresenter />
+                                      </Border>
+                                      <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                          <Setter TargetName="RowBack" Property="Background" Value="#FFECFDF5" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                          <Setter TargetName="RowBack" Property="Background" Value="#FFD1FAE5" />
+                                        </Trigger>
+                                      </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                  </Setter.Value>
+                                </Setter>
+                              </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                              <DataTemplate>
+                                <Grid>
+                                  <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                  </Grid.ColumnDefinitions>
+                                  <Border Width="38" Height="38" CornerRadius="19" Margin="0,0,12,0" Background="#FF0F766E">
+                                    <TextBlock Text="👤" FontSize="17" Foreground="#FFFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                  </Border>
+                                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="#FF0F172A" />
+                                    <TextBlock Text="{Binding Phone}" FontSize="12" Foreground="#FF475467" />
+                                    <TextBlock Text="{Binding Address, TargetNullValue='No address saved'}" FontSize="12" Foreground="#FF94A3B8" TextTrimming="CharacterEllipsis" />
+                                  </StackPanel>
+                                  <Border Grid.Column="2" CornerRadius="10" Padding="8,3" Background="#FFFEF3C7" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding LoyaltyPoints, StringFormat='★ {0} pts'}" FontSize="12" FontWeight="SemiBold" Foreground="#FF92400E" />
+                                  </Border>
+                                </Grid>
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                          <TextBlock Text="Click a name to fill the details and the last bill's medicines" FontSize="11" Foreground="#FF94A3B8" Margin="8,6,8,0" />
+                        </StackPanel>
+                      </Border>
+                    </Popup>
+                    <Button Grid.Row="2" Grid.Column="2" Content="🕘 History" Height="34" Margin="0,4,0,0" Padding="10,4" HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource SecondaryButton}" Command="{Binding OpenPatientHistoryCommand}" ToolTip="Show every earlier bill for this patient and copy medicines from any of them." />
                     <TextBlock Grid.Row="2" Grid.Column="1" Margin="4,2,0,0" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Text="{Binding LoyaltyPointsText}">
                       <FrameworkElement.Style>
                         <Style TargetType="{x:Type TextBlock}">
@@ -2760,6 +3016,13 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="" Width="40" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <Button Content="✕" ToolTip="Remove this medicine from the bill" AutomationProperties.Name="Remove medicine" Style="{StaticResource IconButton}" Foreground="#FFB42318" Command="{Binding DataContext.RemoveBillLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
               <Grid Grid.Row="2" Margin="0,4,0,2" VerticalAlignment="Bottom">
@@ -2845,7 +3108,7 @@
                     <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
                   <controls:FloatingField Grid.Row="0" Grid.Column="0" Label="Payment mode (F9)" IsRequired="True" ToolTip="Switch payment mode (F9)">
-                    <ComboBox ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" />
+                    <ComboBox ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" ItemContainerStyle="{StaticResource PaymentModeItem}" />
                   </controls:FloatingField>
                   <controls:FloatingField Grid.Row="0" Grid.Column="1" Label="Amount received (₹)" ToolTip="Amount received (partial payment allowed)" Visibility="{Binding IsPaymentAmountVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBox Name="PaymentAmountBox" Text="{Binding Path=PaymentAmount, UpdateSourceTrigger=PropertyChanged}" />
@@ -2915,6 +3178,8 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
                   <Button Grid.Row="0" Grid.Column="0" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Get data from Prescription" AutomationProperties.Name="Extract from Prescription" ToolTip="Upload or scan prescription (PDF/Image) [F7 webcam / file pick]. Extract medicines and add confirmed lines to this bill." Style="{StaticResource FrostedMintPillButton}" Command="{Binding ExtractPrescriptionCommand}" />
                   <Button Grid.Row="0" Grid.Column="1" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Webcam OCR" AutomationProperties.Name="Extract from Webcam" ToolTip="Capture a live prescription frame, extract the medicines, and archive the photo on this bill. Shortcut: F7" Style="{StaticResource FrostedMintPillButton}" Command="{Binding ExtractPrescriptionFromWebcamCommand}" />
@@ -2952,7 +3217,8 @@
                       </TextBlock>
                     </Grid>
                   </DockPanel>
-                  <TextBlock Grid.Row="5" Grid.ColumnSpan="2" Foreground="#FFB42318" TextWrapping="Wrap" Margin="2,2" Text="{Binding ErrorMessage}" />
+                  <CheckBox Grid.Row="6" Grid.ColumnSpan="2" Margin="4,4,2,2" Content="Add this patient to the Patients &amp; Consumers list" ToolTip="Saves the patient (name and phone) to the customer list so you can find them later and open their ledger." IsChecked="{Binding AddToCustomers}" />
+                  <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Foreground="#FFB42318" TextWrapping="Wrap" Margin="2,2" Text="{Binding ErrorMessage}" />
                 </Grid>
               </Grid>
             </Grid>
@@ -3064,7 +3330,24 @@
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:StockPageViewModel}}" DataType="{x:Type vm:StockPageViewModel}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="28">
+          <StackPanel Margin="28" RenderTransformOrigin="0.5,0">
+            <StackPanel.RenderTransform>
+              <TranslateTransform x:Name="PageSlide" Y="16" />
+            </StackPanel.RenderTransform>
+            <StackPanel.Triggers>
+              <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                    <DoubleAnimation Storyboard.TargetName="PageSlide" Storyboard.TargetProperty="Y" From="16" To="0" Duration="0:0:0.36">
+                      <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </StackPanel.Triggers>
             <FrameworkElement.Resources>
               <ResourceDictionary>
                 <controls:BindingProxy x:Key="StockPageProxy" Data="{Binding}" />
@@ -3072,6 +3355,39 @@
             </FrameworkElement.Resources>
             <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
             <TextBlock Style="{StaticResource PageTitle}" Text="Stock" FontSize="28" Margin="0,0,0,14" />
+            <TextBlock Margin="0,-8,0,14" Foreground="{DynamicResource SecondaryTextBrush}" Text="Every batch, expiry and shortage in one place. Tap a card to filter." />
+            <UniformGrid Columns="5" Margin="0,0,0,16">
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF6366F1" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="All" ToolTip="Show every batch in stock.">
+                <StackPanel>
+                  <TextBlock Text="Batches in stock" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Text="{Binding KpiBatches}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FFEF4444" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="Shortage" ToolTip="Medicines at or below their reorder level.">
+                <StackPanel>
+                  <TextBlock Text="Medicines short" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Foreground="#FFB42318" Text="{Binding KpiShortage}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FFF59E0B" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="Near expiry" ToolTip="Batches expiring within the warning window.">
+                <StackPanel>
+                  <TextBlock Text="Near expiry" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Foreground="#FFB54708" Text="{Binding KpiNearExpiry}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF8B5CF6" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="Missing MRP" ToolTip="Batches with no MRP entered. Fix these before billing.">
+                <StackPanel>
+                  <TextBlock Text="Missing MRP" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Text="{Binding KpiMissingMrp}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF10B981" Command="{Binding SetStockFilterCommand}" CommandParameter="Valuation" ToolTip="Stock valued at MRP. Opens the valuation view.">
+                <StackPanel>
+                  <TextBlock Text="Stock at MRP" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Text="{Binding KpiMrpValue, StringFormat=₹{0:N0}, ConverterCulture=en-IN}" />
+                </StackPanel>
+              </Button>
+            </UniformGrid>
             <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="10" Padding="4" Margin="0,0,0,12" HorizontalAlignment="Left">
               <StackPanel Orientation="Horizontal">
                 <Button Content="All" Style="{StaticResource FilterTabButton}" CommandParameter="All" Command="{Binding SetStockFilterCommand}" ToolTip="Show every batch currently in stock." />
@@ -3107,8 +3423,10 @@
               <controls:FloatingField Label="Status" Width="170" Margin="0,0,8,8">
                 <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" />
               </controls:FloatingField>
+              <Button Content="Clear filters" Height="48" MinWidth="110" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ClearFiltersCommand}" ToolTip="Reset the name, batch, schedule and status filters." />
               <Button Content="Refresh" Height="48" MinWidth="100" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload the stock grid from the local database." />
             </WrapPanel>
+            <Border Style="{StaticResource SectionCardLift}" Padding="8" Margin="0,0,0,14">
             <Grid Height="320" Margin="0,0,0,14">
               <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
                 <DataGrid.RowStyle>
@@ -3191,6 +3509,7 @@
                 </FrameworkElement.Style>
               </TextBlock>
             </Grid>
+            </Border>
             <TextBlock Text="Stock adjustment" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
             <Border Background="#FFCCFBF1" BorderBrush="#FF0F766E" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,0,0,10" HorizontalAlignment="Left">
               <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#FF0F5E58" Text="{Binding SelectedRow.Medicine, StringFormat=Selected: {0}, FallbackValue=No batch selected}" />
@@ -3340,6 +3659,11 @@
             <KeyBinding Key="W" Modifiers="Control" Command="{Binding CancelBillCommand}" />
             <KeyBinding Key="S" Modifiers="Control+Alt" Command="{Binding ScanPurchaseWithHandheldScannerCommand}" />
             <KeyBinding Key="S" Modifiers="Control" Command="{Binding TransferToStockCommand}" />
+            <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExtractInvoicesCommand}" />
+            <KeyBinding Key="P" Modifiers="Control+Shift" Command="{Binding ScanViaPhoneCommand}" />
+            <KeyBinding Key="L" Modifiers="Control+Shift" Command="{Binding LoadSpreadsheetCommand}" />
+            <KeyBinding Key="H" Modifiers="Control+Shift" Command="{Binding ShowInvoiceHistoryCommand}" />
+            <KeyBinding Key="A" Modifiers="Control+Shift" Command="{Binding AttachInvoiceFileCommand}" />
             <KeyBinding Key="Left" Modifiers="Alt" Command="{Binding PreviousPageCommand}" />
             <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding NextPageCommand}" />
           </Grid.InputBindings>
@@ -3409,21 +3733,21 @@
                 </Button.Template>
                 <Button.ContextMenu>
                   <ContextMenu Placement="Bottom">
-                  <MenuItem Header="📄 Extract from Invoice (PDF/Img)" Command="{Binding ExtractInvoicesCommand}"
+                  <MenuItem Header="📄 Extract from Invoice (PDF/Img)" Command="{Binding ExtractInvoicesCommand}" InputGestureText="Ctrl+Shift+E"
                             ToolTip="Read one or more distributor invoice PDFs or images into the purchase table." />
-                  <MenuItem Header="📷 Scan with Webcam" Command="{Binding ScanInvoiceCommand}"
+                  <MenuItem Header="📷 Scan with Webcam" Command="{Binding ScanInvoiceCommand}" InputGestureText="F7"
                             ToolTip="Capture the supplier invoice from a USB document camera or webcam. Shortcut: F7" />
-                  <MenuItem Header="🖨 Handheld / USB Scanner" Command="{Binding ScanPurchaseWithHandheldScannerCommand}"
+                  <MenuItem Header="🖨 Handheld / USB Scanner" Command="{Binding ScanPurchaseWithHandheldScannerCommand}" InputGestureText="Ctrl+Alt+S"
                             ToolTip="Scan Purchase Invoice via Handheld / USB Scanner (Ctrl + Alt + S)"
                             AutomationProperties.Name="Scan purchase invoice with handheld scanner" />
-                  <MenuItem Header="📱 Scan via Phone App" Command="{Binding ScanViaPhoneCommand}"
+                  <MenuItem Header="📱 Scan via Phone App" Command="{Binding ScanViaPhoneCommand}" InputGestureText="Ctrl+Shift+P"
                             ToolTip="Pair an Android phone on this Wi-Fi network and receive scanned distributor bills live." />
                   <Separator />
-                  <MenuItem Header="📁 Load CSV / Excel" Command="{Binding LoadSpreadsheetCommand}"
+                  <MenuItem Header="📁 Load CSV / Excel" Command="{Binding LoadSpreadsheetCommand}" InputGestureText="Ctrl+Shift+L"
                             ToolTip="Import purchase items and batches from a distributor Excel or CSV file." />
-                  <MenuItem Header="📂 Invoices History" Command="{Binding ShowInvoiceHistoryCommand}"
+                  <MenuItem Header="📂 Invoices History" Command="{Binding ShowInvoiceHistoryCommand}" InputGestureText="Ctrl+Shift+H"
                             ToolTip="Browse saved purchase bills by supplier and date, and open the attached invoice." />
-                  <MenuItem Header="Attach file" Command="{Binding AttachInvoiceFileCommand}"
+                  <MenuItem Header="Attach file" Command="{Binding AttachInvoiceFileCommand}" InputGestureText="Ctrl+Shift+A"
                             ToolTip="Attach an invoice photo or PDF already saved on this PC" />
                   </ContextMenu>
                 </Button.ContextMenu>
@@ -3511,8 +3835,8 @@
                     </ComboBox>
                   </controls:FloatingField>
                 </DockPanel>
-                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" BoxHeight="36" ErrorText="{Binding InvoiceNoError}">
-                  <TextBox Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" FontSize="13" Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
+                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" BoxHeight="48" ErrorText="{Binding InvoiceNoError}">
+                  <TextBox Style="{StaticResource FloatingInnerTextBox}" Text="{Binding Path=InvoiceNo,UpdateSourceTrigger=PropertyChanged}" />
                 </controls:FloatingField>
                 <StackPanel Grid.Column="2" Margin="0,4,8,4">
                   <TextBlock Text="Invoice date *" FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,2" />
@@ -4591,13 +4915,7 @@
                 <TextBlock Text="Access simulator (debug)" />
               </StackPanel>
             </Button>
-            <Button Style="{StaticResource SidebarNavButtonStyle}" CommandParameter="Settings" Command="{Binding NavigateCommand}">
-              <FrameworkElement.Tag>
-                <MultiBinding Converter="{StaticResource SectionActiveConverter}">
-                  <Binding Path="CurrentSectionKey" />
-                  <Binding Source="Settings" />
-                </MultiBinding>
-              </FrameworkElement.Tag>
+            <Button Style="{StaticResource SidebarNavButtonStyle}" CommandParameter="Settings" Command="{Binding NavigateCommand}" controls:NavActive.IsActive="{Binding IsSettingsActive}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource NavIconText}" Text="" />
                 <TextBlock Text="{DynamicResource NavSettings}" />
@@ -4623,16 +4941,21 @@
             <ItemsControl ItemsSource="{Binding NavigationItemsView}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Button Style="{StaticResource SidebarNavButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding SectionKey}">
-                    <FrameworkElement.Tag>
-                      <MultiBinding Converter="{StaticResource SectionActiveConverter}">
-                        <Binding Path="DataContext.CurrentSectionKey" RelativeSource="{RelativeSource AncestorType=Window}" />
-                        <Binding Path="SectionKey" />
-                      </MultiBinding>
-                    </FrameworkElement.Tag>
+                  <Button Style="{StaticResource SidebarNavButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding SectionKey}" controls:NavActive.IsActive="{Binding IsActive}">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Style="{StaticResource NavIconText}" Text="{Binding SectionKey, Converter={StaticResource NavIconConverter}}" />
-                      <TextBlock Text="{Binding Title}" />
+                      <TextBlock Text="{Binding Title}">
+                        <TextBlock.Style>
+                          <Style TargetType="{x:Type TextBlock}">
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding IsSubItem}" Value="True">
+                                <Setter Property="Margin" Value="22,0,0,0" />
+                                <Setter Property="FontSize" Value="13" />
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
                     </StackPanel>
                   </Button>
                 </DataTemplate>

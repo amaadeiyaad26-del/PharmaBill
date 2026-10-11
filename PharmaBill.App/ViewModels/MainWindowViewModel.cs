@@ -362,6 +362,11 @@ public class MainWindowViewModel : ObservableObject
 		LicenseManager.GetExpiryWarningMessage()
 		?? "Your annual license is approaching expiry. Contact support to renew.";
 
+	// "Customers" in the sidebar is a group: clicking it shows or hides its three sub-items.
+	private const string CustomersGroupKey = "CustomersGroup";
+
+	private bool _customersExpanded;
+
 	public ObservableCollection<NavigationItem> NavigationItems { get; } = new ObservableCollection<NavigationItem>();
 
 	private string _navFilter = string.Empty;
@@ -386,10 +391,27 @@ public class MainWindowViewModel : ObservableObject
 	/// <summary>The sidebar list, filtered by <see cref="NavFilter"/>. Stays in step with <see cref="NavigationItems"/>.</summary>
 	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
 
+	private static bool IsCustomersSection(string? sectionKey) =>
+		sectionKey is "Customers" or "WholesaleBuyers" or "RetailBuyers" or "WholesaleSuppliers";
+
+	private string CustomersGroupTitle() => "Customers " + (_customersExpanded ? "▾" : "▸");
+
+	private void ToggleCustomers()
+	{
+		_customersExpanded = !_customersExpanded;
+		NavigationItem? header = NavigationItems.FirstOrDefault((NavigationItem item) => item.SectionKey == CustomersGroupKey);
+		if (header != null)
+		{
+			NavigationItems[NavigationItems.IndexOf(header)] = new NavigationItem(CustomersGroupKey, CustomersGroupTitle());
+		}
+		NavigationItemsView.Refresh();
+	}
+
 	private ICollectionView BuildNavigationItemsView()
 	{
 		ICollectionView view = CollectionViewSource.GetDefaultView(NavigationItems);
 		view.Filter = item => item is NavigationItem navigationItem
+			&& (!navigationItem.IsSubItem || _customersExpanded || !string.IsNullOrWhiteSpace(NavFilter))
 			&& (string.IsNullOrWhiteSpace(NavFilter) || navigationItem.Title.Contains(NavFilter.Trim(), StringComparison.OrdinalIgnoreCase));
 		return view;
 	}
@@ -2079,8 +2101,14 @@ public class MainWindowViewModel : ObservableObject
 			throw new ArgumentException("A navigation section must be provided.", "sectionKey");
 		}
 
+		if (sectionKey == CustomersGroupKey)
+		{
+			ToggleCustomers();
+			return;
+		}
+
 		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
-		string resolvedKey = ResolveBillingNavigation(sectionKey);
+		string resolvedKey = ResolveCustomersNavigation(ResolveBillingNavigation(sectionKey));
 
 		bool flag = IsCriticalUpdateRequired;
 		if (flag)
@@ -2099,9 +2127,46 @@ public class MainWindowViewModel : ObservableObject
 				_ = _stockPage.LoadAsync();
 			}
 
+
+			if (IsCustomerListKey(resolvedKey))
+			{
+				_wholesaleCustomerPage.SetCustomerView(CustomerViewFor(resolvedKey));
+			}
+
+			if (IsCustomersSection(resolvedKey) && !_customersExpanded)
+			{
+				ToggleCustomers();
+			}
+
 			_navigationService.Navigate(resolvedKey);
 		}
 	}
+
+	// Patients belong to the retail desk; the wholesale desk lists buyers instead. Never show a patient screen on the wholesale desk.
+	private string ResolveCustomersNavigation(string sectionKey)
+	{
+		if (IsCustomerListKey(sectionKey))
+		{
+			if (_activeBillingDeskMode != ActiveBillingDeskMode.Wholesale)
+			{
+				return "Customers";
+			}
+
+			return sectionKey == "Customers" ? "WholesaleBuyers" : sectionKey;
+		}
+
+		return sectionKey;
+	}
+
+	private static bool IsCustomerListKey(string? sectionKey) =>
+		sectionKey is "Customers" or "WholesaleBuyers" or "RetailBuyers";
+
+	private static CustomerListView CustomerViewFor(string sectionKey) => sectionKey switch
+	{
+		"Customers" => CustomerListView.Patients,
+		"RetailBuyers" => CustomerListView.RetailBuyers,
+		_ => CustomerListView.WholesaleBuyers,
+	};
 
 	private string ResolveBillingNavigation(string sectionKey)
 	{
@@ -2504,6 +2569,7 @@ public class MainWindowViewModel : ObservableObject
 	{
 		string section = _navigationService.CurrentSectionKey;
 		OnPropertyChanged("CurrentSectionKey");
+		UpdateActiveNavigation();
 		if (section == "Sync")
 		{
 			RefreshUsbBackupReminder();
@@ -2677,10 +2743,19 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
 		NavigationItems.Add(new NavigationItem("StockTransfer", wholesaleDesk ? "Godown / Counter Challan" : "Stock transfer"));
 		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
-		string customersLabel = wholesaleDesk
-			? "Buyers & Pharmacies"
-			: (mode == BusinessMode.Retail ? "Retail Customers" : _languageService.GetString("NavCustomers"));
-		NavigationItems.Add(new NavigationItem("Customers", customersLabel));
+		_customersExpanded = _customersExpanded || IsCustomersSection(CurrentSectionKey);
+		NavigationItems.Add(new NavigationItem(CustomersGroupKey, CustomersGroupTitle()));
+		// Each desk gets its own customer screen: patients on Retail/Combined, buyers on Wholesale.
+		if (!wholesaleDesk && mode != BusinessMode.Wholesaler)
+		{
+			NavigationItems.Add(new NavigationItem("Customers", "Patients & Consumers", IsSubItem: true));
+		}
+		if (wholesaleDesk && mode != BusinessMode.Retail)
+		{
+			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Wholesale Buyers", IsSubItem: true));
+			NavigationItems.Add(new NavigationItem("RetailBuyers", "Retail Buyers", IsSubItem: true));
+		}
+		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Wholesale Suppliers", IsSubItem: true));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
 		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
 		if (mode != BusinessMode.Retail)
@@ -2702,7 +2777,21 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Backup", "Backup & move PC"));
 		NavigationItems.Add(new NavigationItem("Sync", "Sync"));
 		NavigationItems.Add(new NavigationItem("Inspector", _languageService.GetString("NavInspector")));
+		UpdateActiveNavigation();
 	}
+
+	// The sidebar lights up the screen that is open. Called on every navigation and after the list is rebuilt.
+	private void UpdateActiveNavigation()
+	{
+		string current = _navigationService.CurrentSectionKey;
+		foreach (NavigationItem item in NavigationItems)
+		{
+			item.IsActive = string.Equals(item.SectionKey, current, StringComparison.OrdinalIgnoreCase);
+		}
+		OnPropertyChanged(nameof(IsSettingsActive));
+	}
+
+	public bool IsSettingsActive => string.Equals(_navigationService.CurrentSectionKey, "Settings", StringComparison.OrdinalIgnoreCase);
 
 	private void AddPrimaryBillingNavigationItems()
 	{
@@ -2747,6 +2836,15 @@ public class MainWindowViewModel : ObservableObject
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
 		RebuildNavigationItems(_businessMode);
+		if (IsCustomerListKey(CurrentSectionKey))
+		{
+			// Switching desk while on a customer screen moves to that desk's screen.
+			Navigate(CurrentSectionKey);
+		}
+		if (CurrentPage is WholesaleAccountsPageViewModel)
+		{
+			_ = LoadCurrentPageAsync();
+		}
 		if (CurrentPage is DashboardPageViewModel or WholesaleDashboardPageViewModel)
 		{
 			CurrentPage = CreatePage("Dashboard");
@@ -2802,7 +2900,10 @@ public class MainWindowViewModel : ObservableObject
 			"Stock" => _stockPage, 
 			"StockTransfer" => _stockTransferPage, 
 			"Purchases" => _purchasePage, 
-			"Customers" => _wholesaleCustomerPage, 
+			"Customers" => _wholesaleCustomerPage,
+			"WholesaleBuyers" => _wholesaleCustomerPage,
+			"RetailBuyers" => _wholesaleCustomerPage,
+				"WholesaleSuppliers" => new SupplierDirectoryPageViewModel(_scopeFactory),
 			"WholesaleBilling" => _wholesaleBillingPage, 
 			"Pricing" => _wholesalePricingPage, 
 			"Accounts" => _wholesaleAccountsPage, 

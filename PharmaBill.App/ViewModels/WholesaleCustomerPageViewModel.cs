@@ -34,6 +34,8 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private readonly IConfirmationService _confirmation;
 
+	private CustomerListView _listView = CustomerListView.Patients;
+
 	private Guid _editingCustomerId;
 
 	private WholesaleCustomerRecord? _selectedRecord;
@@ -118,11 +120,27 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public ObservableCollection<WholesaleCustomerRecord> Customers { get; } = new ObservableCollection<WholesaleCustomerRecord>();
 
+	public ObservableCollection<LedgerRow> CustomerLedger { get; } = new ObservableCollection<LedgerRow>();
+
+	private string _ledgerBalanceText = string.Empty;
+
+	public string LedgerBalanceText
+	{
+		get
+		{
+			return _ledgerBalanceText;
+		}
+		private set
+		{
+			SetProperty(ref _ledgerBalanceText, value);
+		}
+	}
+
 	public ObservableCollection<string> LicenceTypeOptions { get; } = new ObservableCollection<string>();
 
 	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string> { "Distributor", "Retailer", "Hospital", "Institution", "Other" };
 
-	public ObservableCollection<string> PatientTypeOptions { get; } = new ObservableCollection<string> { "Walk-in", "Regular", "Chronic Patient", "Staff", "Admitted/MRD" };
+	public ObservableCollection<string> PatientTypeOptions { get; } = new ObservableCollection<string>(CustomerListRules.PatientTypes);
 
 	private bool _isRetailMode;
 
@@ -130,11 +148,16 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public bool IsWholesaleMode => !_isRetailMode;
 
-	public string PageTitle => _isRetailMode ? "Retail Customers & Patients" : "Wholesale customers";
+	public string PageTitle => _listView switch
+	{
+		CustomerListView.Patients => "Patients & Consumers",
+		CustomerListView.RetailBuyers => "Retail Buyers",
+		_ => "Wholesale Buyers",
+	};
 
-	public string DetailsHeader => _isRetailMode ? "Customer / Patient Details" : "Buyer details";
+	public string DetailsHeader => _isRetailMode ? "Patient / Consumer Details" : _listView == CustomerListView.RetailBuyers ? "Retail buyer details" : "Buyer details";
 
-	public string NameFieldLabel => _isRetailMode ? "Patient / Customer Name" : "Customer / legal name";
+	public string NameFieldLabel => _isRetailMode ? "Patient / Consumer Name" : "Buyer / legal name";
 
 	public string TypeFieldLabel => _isRetailMode ? "Patient Type" : "Buyer type";
 
@@ -146,15 +169,15 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public string TagsFieldLabel => _isRetailMode ? "Chronic Disease / Refill Tags" : "Route";
 
-	public string SaveButtonLabel => _isRetailMode ? "Save Customer / Patient" : "Save Customer";
+	public string SaveButtonLabel => _isRetailMode ? "Save Patient / Consumer" : "Save Buyer";
 
-	public string NewButtonLabel => _isRetailMode ? "New patient" : "New customer";
+	public string NewButtonLabel => _isRetailMode ? "New patient / consumer" : _listView == CustomerListView.RetailBuyers ? "New retail buyer" : "New buyer";
 
 	public string ActiveFlagLabel => _isRetailMode ? "Active (clear to block credit billing)" : "Active (clear to block buyer)";
 
 	public string RetailSuppliersHint => "Medicine distributors and wholesalers (e.g. stock creditors) are managed under Purchases → Supplier — never as retail customers.";
 
-	public IEnumerable<string> TypeOptions => _isRetailMode ? PatientTypeOptions : BuyerTypeOptions;
+	public IEnumerable<string> TypeOptions => _isRetailMode ? PatientTypeOptions : _listView == CustomerListView.RetailBuyers ? CustomerListRules.RetailBuyerTypes : CustomerListRules.WholesaleBuyerTypes;
 
 	public ObservableCollection<CustomerLicenceDraft> Licences { get; } = new ObservableCollection<CustomerLicenceDraft>();
 
@@ -704,12 +727,16 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		_confirmation = confirmation;
 	}
 
+	// Sidebar entry decides the list: patients & consumers, wholesale buyers or retail buyers.
+	public void SetCustomerView(CustomerListView view)
+	{
+		_listView = view;
+	}
+
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		using IServiceScope scope = _scopeFactory.CreateScope();
-		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-		BusinessMode mode = await context.PharmacyProfiles.AsNoTracking().Select((PharmacyProfile profile) => profile.BusinessMode).FirstOrDefaultAsync(cancellationToken);
-		_isRetailMode = mode == BusinessMode.Retail;
+		_isRetailMode = _listView == CustomerListView.Patients;
 		OnPropertyChanged(nameof(IsRetailMode));
 		OnPropertyChanged(nameof(IsWholesaleMode));
 		OnPropertyChanged(nameof(PageTitle));
@@ -732,9 +759,11 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 	private void NewCustomer()
 	{
 		_editingCustomerId = Guid.NewGuid();
+		CustomerLedger.Clear();
+		LedgerBalanceText = string.Empty;
 		SelectedRecord = null;
 		Name = string.Empty;
-		BuyerType = _isRetailMode ? "Walk-in" : "Distributor";
+		BuyerType = _isRetailMode ? "Walk-in" : _listView == CustomerListView.RetailBuyers ? "Retailer" : "Distributor";
 		Phone = string.Empty;
 		Email = string.Empty;
 		Address = string.Empty;
@@ -925,7 +954,12 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		Customers.Clear();
 		foreach (WholesaleCustomerRecord item2 in readOnlyList2)
 		{
-			Customers.Add(item2);
+			if (!CustomerListRules.Belongs(_listView, item2.Customer.BuyerType, IsPatientCustomer(item2.Customer)))
+				{
+					continue;
+				}
+
+				Customers.Add(item2);
 		}
 		if (selectedId != Guid.Empty)
 		{
@@ -967,7 +1001,8 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		};
 	}
 
-	private static IReadOnlyList<WholesaleCustomerImportRecord> ParseCustomerRows(PurchaseSpreadsheetData sheet, out IReadOnlyList<string> errors)
+	// Shared with the B2B billing screen so both read the same buyer spreadsheet columns.
+	internal static IReadOnlyList<WholesaleCustomerImportRecord> ParseCustomerRows(PurchaseSpreadsheetData sheet, out IReadOnlyList<string> errors)
 	{
 		List<string> list = new List<string>();
 		Dictionary<string, WholesaleCustomerImportRecord> dictionary = new Dictionary<string, WholesaleCustomerImportRecord>(StringComparer.OrdinalIgnoreCase);
@@ -1158,5 +1193,46 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		}
 		ErrorMessage = string.Empty;
 		StatusMessage = ExpiryAlertText(value.ExpiryAlert);
+		_ = LoadLedgerAsync(value.Customer.Id);
+	}
+
+	// Retail patients are customers with a patient type; "Retail" is the account
+	// created automatically for a patient's credit sale.
+	private static bool IsPatientCustomer(Customer customer) => CustomerListRules.IsPatientType(customer.BuyerType);
+
+	private async Task LoadLedgerAsync(Guid customerId)
+	{
+		CustomerLedger.Clear();
+		LedgerBalanceText = string.Empty;
+		if (!_isRetailMode)
+		{
+			return;
+		}
+
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			IReadOnlyList<LedgerRow> rows = await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().GetCustomerLedgerAsync(customerId);
+			if (SelectedRecord?.Customer.Id != customerId)
+			{
+				return;
+			}
+
+			foreach (LedgerRow row in rows)
+			{
+				CustomerLedger.Add(row);
+			}
+
+			decimal balance = rows.Count == 0 ? 0m : rows[rows.Count - 1].Balance;
+			LedgerBalanceText = balance > 0m
+				? $"Amount due: ₹{balance:N2}"
+				: balance < 0m
+					? $"Advance with pharmacy: ₹{-balance:N2}"
+					: "No dues";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = "The ledger could not be loaded: " + ex.Message;
+		}
 	}
 }

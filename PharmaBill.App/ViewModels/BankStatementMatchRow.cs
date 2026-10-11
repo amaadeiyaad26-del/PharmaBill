@@ -1,3 +1,4 @@
+using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -11,7 +12,29 @@ public class BankStatementMatchRow : ObservableObject
 {
 	private bool _approve;
 
-	public required ReconciliationMatch Match { get; init; }
+	/// <summary>Raised when the user picks a chemist for this line in the dropdown.</summary>
+	public event Action<BankStatementMatchRow, Guid>? ChemistChosen;
+
+	public required ReconciliationMatch Match { get; set; }
+
+	/// <summary>The chemist this line is linked to. Picking one in the dropdown re-matches the line by hand.</summary>
+	public Guid? ChemistId
+	{
+		get => Match.CustomerId;
+		set
+		{
+			if (value.HasValue && value != Match.CustomerId)
+			{
+				ChemistChosen?.Invoke(this, value.Value);
+			}
+		}
+	}
+
+	public void SetMatch(ReconciliationMatch match)
+	{
+		Match = match;
+		OnPropertyChanged(string.Empty);
+	}
 
 	public string BankDate => Match.BankLine.Date.ToString("dd-MMM-yyyy");
 
@@ -22,6 +45,8 @@ public class BankStatementMatchRow : ObservableObject
 	public decimal DepositAmount => Match.BankLine.DepositAmount;
 
 	public string CustomerName => Match.CustomerName ?? "—";
+
+	public bool IsUnmatched => Match.MatchedDocuments.Count == 0;
 
 	public string MatchedDocs
 	{

@@ -112,6 +112,44 @@ public sealed class ReconciliationService(IUnitOfWork unitOfWork) : IReconciliat
 		return result;
 	}
 
+	public async Task<ReconciliationMatch> MatchToCustomerAsync(BankStatementEntry line, Guid customerId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		ArgumentNullException.ThrowIfNull(line, "line");
+		PharmaBillDbContext context = unitOfWork.Context;
+		Customer customer = await context.Customers.AsNoTracking().FirstOrDefaultAsync((Customer item) => item.Id == customerId, cancellationToken)
+			?? throw new InvalidOperationException("The chemist was not found. Refresh the list and try again.");
+		List<WholesaleInvoice> invoices = await (from invoice in context.WholesaleInvoices.AsNoTracking()
+			where invoice.Status == "Posted" && invoice.CustomerId == customerId
+			orderby invoice.InvoiceAtUtc
+			select invoice).ToListAsync(cancellationToken);
+		List<Receipt> receipts = await (from receipt in context.Receipts.AsNoTracking()
+			where receipt.CustomerId == customerId
+			select receipt).ToListAsync(cancellationToken);
+		List<CustomerLedgerEntry> creditNotes = await (from entry in context.CustomerLedgerEntries.AsNoTracking()
+			where entry.CustomerId == customerId && entry.EntryType.Contains("CreditNote")
+			select entry).ToListAsync(cancellationToken);
+		Dictionary<Guid, List<OpenDocument>> openByCustomer = BuildOpenDocuments(new[] { customer }, invoices, receipts, creditNotes);
+		List<OpenDocument> documents = openByCustomer.TryGetValue(customerId, out List<OpenDocument>? found) ? found : new List<OpenDocument>();
+
+		// Oldest invoices first, until the deposit is used up. The same allocation the batch settle step posts.
+		decimal remaining = line.DepositAmount;
+		List<MatchedDocument> matched = new List<MatchedDocument>();
+		foreach (OpenDocument document in documents.Where((OpenDocument item) => item.Type == "Invoice"))
+		{
+			if (remaining <= 0m)
+			{
+				break;
+			}
+			matched.Add(new MatchedDocument(document.Id, document.Type, document.DocumentNo, document.Balance));
+			remaining -= document.Balance;
+		}
+
+		string reason = matched.Count == 0
+			? "No open invoices for this chemist."
+			: "Matched by hand: oldest open invoices first.";
+		return new ReconciliationMatch(line, customer.Id, customer.Name, matched, 100d, ReconciliationConfidence.High, reason, IsConfirmed: false);
+	}
+
 	private static ReconciliationMatch MatchLine(BankStatementEntry line, IReadOnlyList<Customer> customers, IReadOnlyList<Receipt> receipts, IReadOnlyDictionary<Guid, List<OpenDocument>> openByCustomer, HashSet<Guid> claimedDocumentIds)
 	{
 		string reference = NormalizeRef(line.ReferenceOrUtr);

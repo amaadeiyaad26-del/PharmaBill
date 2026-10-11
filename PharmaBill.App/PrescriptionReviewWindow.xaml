@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="PharmaBill.App.PrescriptionReviewWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Matched medicines" Height="620" Width="1100" MinHeight="460" MinWidth="860" WindowStartupLocation="CenterOwner" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.PrescriptionReviewWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Medicines from prescription" Height="600" Width="1000" MinHeight="460" MinWidth="820" WindowStartupLocation="CenterOwner" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
   <FrameworkElement.Resources>
     <ResourceDictionary>
       <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -7,44 +7,48 @@
   </FrameworkElement.Resources>
   <DockPanel Margin="16">
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-      <TextBlock Text="Matched medicines" FontSize="22" FontWeight="SemiBold" />
-      <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" Foreground="#FF475467" Text="{Binding Summary}" />
+      <TextBlock Text="Medicines from the prescription" FontSize="22" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" FontSize="14" Text="{Binding Summary}" />
+      <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" Foreground="#FF475467" Text="{Binding Notice}" Visibility="{Binding HasNotice, Converter={StaticResource BoolToVisibility}}" />
       <Border Background="#FFFFFAEB" BorderBrush="#FFF79009" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,8,0,0" Visibility="{Binding ApiKeyMissing, Converter={StaticResource BoolToVisibility}}">
         <DockPanel>
-          <Button DockPanel.Dock="Right" Content="Configure Gemini API Key in Settings" Padding="10,4" Margin="12,0,0,0" Click="ConfigureGemini_Click" />
-          <TextBlock Text="Read offline. Add a Gemini API key for higher-accuracy reading of handwriting." TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#FF93370D" />
+          <Button DockPanel.Dock="Right" Content="Open Settings" Padding="10,4" Margin="12,0,0,0" Click="ConfigureGemini_Click" />
+          <TextBlock Text="For better reading of handwriting, add a Gemini key in Settings." TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#FF93370D" />
         </DockPanel>
       </Border>
-      <TextBlock Text="Tick only the lines to add. Unmatched rows can be linked or inwarded here; they do not block the other medicines." TextWrapping="Wrap" Margin="0,4,0,0" Foreground="#FF475467" />
+      <Border Background="#FFEFF6FF" CornerRadius="6" Padding="10,6" Margin="0,8,0,0">
+        <TextBlock TextWrapping="Wrap" Foreground="#FF1E3A5F" Text="1. Tick the medicines you want on this bill.   2. If a medicine says 'Not in your stock yet', click 'Find in stock' or 'Add to stock' first.   3. Check every name and quantity against the paper." />
+      </Border>
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
       <TextBlock Text="{Binding ErrorMessage}" Foreground="#FFB42318" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="420" Margin="0,0,16,0" />
-      <Button Content="📦 Inward Missing Items to Stock" Height="36" Padding="12,6" Margin="0,0,8,0" Command="{Binding InwardMissingCommand}" />
+      <Button Content="Add all missing to stock" Height="36" Padding="12,6" Margin="0,0,8,0" Command="{Binding InwardMissingCommand}" />
       <Button Content="Cancel" IsCancel="True" Height="36" Padding="18,6" Margin="0,0,8,0" />
       <Button Content="Add to Bill" IsDefault="True" Height="36" Padding="22,6" FontWeight="SemiBold" Background="{DynamicResource AccentBrush}" Foreground="#FFFFFFFF" BorderBrush="{DynamicResource AccentHoverBrush}" Click="AddToBill_Click" />
     </StackPanel>
-    <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single" ItemsSource="{Binding Rows}" RowHeight="72" VerticalScrollBarVisibility="Auto">
+    <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" SelectionMode="Single" ItemsSource="{Binding Rows}" RowHeight="64" VerticalScrollBarVisibility="Auto" FontSize="14">
       <DataGrid.Columns>
-        <DataGridCheckBoxColumn Header="Add" Width="52" Binding="{Binding Include, UpdateSourceTrigger=PropertyChanged}" />
-        <DataGridTextColumn Header="Prescribed" IsReadOnly="True" Width="160" Binding="{Binding PrescribedName}" />
-        <DataGridTextColumn Header="Dose / duration" IsReadOnly="True" Width="*" Binding="{Binding DoseText}">
-          <DataGridTextColumn.ElementStyle>
-            <Style TargetType="TextBlock">
-              <Setter Property="TextWrapping" Value="Wrap" />
-              <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
-          </DataGridTextColumn.ElementStyle>
-        </DataGridTextColumn>
-        <DataGridTemplateColumn Header="Matched product" Width="*">
+        <DataGridCheckBoxColumn Header="Add" Width="56" Binding="{Binding Include, UpdateSourceTrigger=PropertyChanged}" />
+        <DataGridTemplateColumn Header="Medicine on prescription" Width="300">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel VerticalAlignment="Center" Margin="4,2">
+                <TextBlock Text="{Binding PrescribedName}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding DoseText}" Foreground="#FF475467" FontSize="13" TextWrapping="Wrap" Visibility="{Binding HasDoseText, Converter={StaticResource BoolToVisibility}}" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="In your stock" Width="*">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>
               <StackPanel VerticalAlignment="Center" Margin="4,2">
                 <TextBlock Text="{Binding MatchText}" TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Visibility="{Binding IsUnmatched, Converter={StaticResource BoolToVisibility}}">
-                  <Button Content="🔍 Link to Stock / Brand" Height="28" Padding="8,2" FontSize="12"
+                  <Button Content="Find in stock" Height="28" Padding="8,2" FontSize="13"
                           Command="{Binding DataContext.LinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                           CommandParameter="{Binding}" />
-                  <Button Content="+ Inward Stock" Height="28" Padding="8,2" Margin="6,0,0,0" FontSize="12"
+                  <Button Content="Add to stock" Height="28" Padding="8,2" Margin="6,0,0,0" FontSize="13"
                           Command="{Binding DataContext.InwardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                           CommandParameter="{Binding}" />
                 </StackPanel>
@@ -52,8 +56,14 @@
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="Match" IsReadOnly="True" Width="64" Binding="{Binding ConfidenceText}" />
-        <DataGridTextColumn Header="FEFO batch" IsReadOnly="True" Width="180" Binding="{Binding BatchText}" />
+        <DataGridTextColumn Header="Batch to give" IsReadOnly="True" Width="220" Binding="{Binding BatchText}">
+          <DataGridTextColumn.ElementStyle>
+            <Style TargetType="TextBlock">
+              <Setter Property="TextWrapping" Value="Wrap" />
+              <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+          </DataGridTextColumn.ElementStyle>
+        </DataGridTextColumn>
         <DataGridTemplateColumn Header="Qty" Width="72">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>

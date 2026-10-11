@@ -111,7 +111,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 			new Gstr3bWorksheetRow("3.1(d)", "Inward supplies (liable to reverse charge) — not tracked separately", 0m, 0m, 0m, 0m, 0m),
 			new Gstr3bWorksheetRow("3.1(e)", "Non-GST outward supplies — not tracked separately", 0m, 0m, 0m, 0m, 0m),
 			new Gstr3bWorksheetRow("4(A)", "ITC available — purchases (eligible input tax credit estimate)", purchases.Taxable, purchases.Igst, purchases.Cgst, purchases.Sgst, 0m),
-			new Gstr3bWorksheetRow("5", "Net GST payable (output − eligible ITC estimate)", gstReturnDashboardSummary.TotalTaxableTurnover, Math.Max(0m, gstReturnDashboardSummary.OutputIgst - purchases.Igst), Math.Max(0m, gstReturnDashboardSummary.OutputCgst - purchases.Cgst), Math.Max(0m, gstReturnDashboardSummary.OutputSgst - purchases.Sgst), 0m)
+			new Gstr3bWorksheetRow("5", "Net GST payable (output − eligible ITC estimate)", 0m, Math.Max(0m, gstReturnDashboardSummary.OutputIgst - purchases.Igst), Math.Max(0m, gstReturnDashboardSummary.OutputCgst - purchases.Cgst), Math.Max(0m, gstReturnDashboardSummary.OutputSgst - purchases.Sgst), 0m)
 		});
 	}
 

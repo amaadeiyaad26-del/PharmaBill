@@ -25,6 +25,8 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 {
 	private readonly IServiceScopeFactory _scopeFactory;
 
+	private readonly BillingDeskState _billingDesk;
+
 	private readonly CurrentSession _session;
 
 	private readonly IFilePickerService _filePicker;
@@ -151,6 +153,8 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 	public string CustomerPaymentSaveLabel => _isRetailMode ? "Receive Payment" : "Save receipt";
 
 	public string AgeingPartyHeader => _isRetailMode ? "Customer / Patient" : "Buyer";
+
+	public string CustomerPickerLabel => _isRetailMode ? "Customer / Patient" : "Buyer";
 
 	public bool IsRetailMode => _isRetailMode;
 
@@ -654,8 +658,9 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 
 	public IRelayCommand<string> SetLedgerQuickFilterCommand => setLedgerQuickFilterCommand ?? (setLedgerQuickFilterCommand = new RelayCommand<string>(SetLedgerQuickFilter));
 
-	public WholesaleAccountsPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IFilePickerService filePicker, TabularExportService exports)
+	public WholesaleAccountsPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IFilePickerService filePicker, TabularExportService exports, BillingDeskState billingDesk)
 	{
+		_billingDesk = billingDesk;
 		_scopeFactory = scopeFactory;
 		_session = session;
 		_filePicker = filePicker;
@@ -667,7 +672,14 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		BusinessMode mode = await context.PharmacyProfiles.AsNoTracking().Select((PharmacyProfile profile) => profile.BusinessMode).FirstOrDefaultAsync(cancellationToken);
-		_isRetailMode = mode == BusinessMode.Retail;
+		// The open billing desk decides the view: Retail Counter shows retail dues, Wholesale B2B shows buyers.
+		// Combined keeps the pharmacy's own business type.
+		_isRetailMode = _billingDesk.Current switch
+		{
+			ActiveBillingDeskMode.Retail => true,
+			ActiveBillingDeskMode.Wholesale => false,
+			_ => mode == BusinessMode.Retail,
+		};
 		OnPropertyChanged(nameof(IsRetailMode));
 		OnPropertyChanged(nameof(IsWholesaleMode));
 		OnPropertyChanged(nameof(PageSubtitle));
@@ -681,6 +693,12 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		Customers.Clear();
 		foreach (Customer item in list)
 		{
+			// The wholesale desk receives from buyers only; patients settle on the retail desk.
+			if (!_isRetailMode && CustomerListRules.IsPatientType(item.BuyerType))
+			{
+				continue;
+			}
+
 			Customers.Add(item);
 		}
 		List<Supplier> list2 = await (from item in context.Suppliers.AsNoTracking()

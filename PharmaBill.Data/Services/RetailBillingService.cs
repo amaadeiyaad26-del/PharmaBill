@@ -34,6 +34,61 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			.SingleOrDefaultAsync(cancellationToken);
 	}
 
+	// Saved patients whose phone starts with the digits typed so far (at least 4 digits).
+	public async Task<IReadOnlyList<RetailPatientMatch>> SearchPatientsByPhoneAsync(string phoneText, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		string digits = new string((phoneText ?? string.Empty).Where(char.IsDigit).ToArray());
+		if (digits.Length < 4)
+		{
+			return Array.Empty<RetailPatientMatch>();
+		}
+		return await unitOfWork.Context.Patients.AsNoTracking()
+			.Where((Patient patient) => patient.Phone != null && patient.Phone.StartsWith(digits))
+			.OrderBy((Patient patient) => patient.Name)
+			.Take(8)
+			.Select((Patient patient) => new RetailPatientMatch(patient.Id, patient.Name, patient.Phone!, patient.Address, patient.LoyaltyPoints))
+			.ToListAsync(cancellationToken);
+	}
+
+	public async Task<Guid?> FindPatientIdByPhoneAsync(string phone, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		if (string.IsNullOrWhiteSpace(phone))
+		{
+			return null;
+		}
+		string normalized = NormalizePhone(phone);
+		return await unitOfWork.Context.Patients.AsNoTracking()
+			.Where((Patient patient) => patient.Phone == normalized)
+			.Select((Patient patient) => (Guid?)patient.Id)
+			.SingleOrDefaultAsync(cancellationToken);
+	}
+
+	// Every bill this patient has, newest first, with the medicines on each bill.
+	public async Task<IReadOnlyList<RetailPatientBill>> GetPatientHistoryAsync(Guid patientId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		PharmaBillDbContext context = unitOfWork.Context;
+		List<Sale> sales = await context.Sales.AsNoTracking()
+			.Where((Sale sale) => sale.PatientId == patientId)
+			.OrderByDescending((Sale sale) => sale.SaleAtUtc)
+			.Take(200)
+			.ToListAsync(cancellationToken);
+		Guid[] saleIds = sales.Select((Sale sale) => sale.Id).ToArray();
+		var items = await (from item in context.SaleItems.AsNoTracking()
+			join drug in context.Drugs.AsNoTracking() on item.DrugId equals drug.Id
+			where saleIds.Contains(item.SaleId)
+			select new { item.SaleId, item.DrugId, drug.Name, item.Quantity }).ToListAsync(cancellationToken);
+		return sales.Select((Sale sale) => new RetailPatientBill(
+			sale.Id,
+			sale.InvoiceNo,
+			sale.SaleAtUtc,
+			sale.TotalAmount,
+			sale.PaidAmount,
+			sale.PaymentStatus,
+			items.Where(item => item.SaleId == sale.Id)
+				.Select(item => new RetailPatientBillLine(item.DrugId, item.Name, item.Quantity))
+				.ToList())).ToList();
+	}
+
 	public async Task<IReadOnlyList<RetailStockChoice>> SearchStockAsync(string query, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(query, "query");
@@ -299,7 +354,11 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					patient.Name = input.PatientName.Trim();
 					patient.Address = NullIfWhiteSpace(input.PatientAddress);
 				}
-				string invoicePrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
+				if (input.AddToCustomers)
+					{
+						await EnsureConsumerCustomerAsync(context, input.PatientName.Trim(), phone, NullIfWhiteSpace(input.PatientAddress), cancellationToken);
+					}
+					string invoicePrefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
 				Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
 				string invoiceNo = await numberSeriesService.AllocateAsync(invoicePrefix, today, cancellationToken);
 				attachmentPath = await PrescriptionArchive.StoreForBillAsync(input.PrescriptionDocumentPath, controlledItems.Length != 0 && !input.PrescriptionAdminOverride, string.IsNullOrWhiteSpace(prescriptionStorageDirectory) ? null : prescriptionStorageDirectory, invoiceNo, cancellationToken);
@@ -885,6 +944,26 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			Debit = 0m,
 			Credit = receivableCredit,
 			Notes = "Retail return against " + sale.InvoiceNo
+		});
+	}
+
+	// "Add to customers" on a retail bill: the patient appears in the Patients & Consumers list.
+	// Matched by phone, so a patient who already has a credit account is not duplicated.
+	private static async Task EnsureConsumerCustomerAsync(PharmaBillDbContext context, string name, string phone, string? address, CancellationToken cancellationToken)
+	{
+		bool exists = await context.Customers.AnyAsync((Customer item) => item.IsActive && item.Phone == phone, cancellationToken);
+		if (exists)
+		{
+			return;
+		}
+
+		context.Customers.Add(new Customer
+		{
+			Name = name,
+			Phone = phone,
+			Address = address,
+			BuyerType = "Walk-in",
+			IsActive = true
 		});
 	}
 

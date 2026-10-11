@@ -11,7 +11,7 @@
         Background="{DynamicResource ContentBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}">
   <StackPanel Margin="28">
-    <TextBlock Text="PharmaBill Activation"
+    <TextBlock Text="Subscription Expired"
                FontSize="22"
                FontWeight="SemiBold"
                Margin="0,0,0,6" />

@@ -196,6 +196,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? removeSelectedItemCommand;
 
+	private RelayCommand<RetailBillLineViewModel?>? removeBillLineCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? resumeSelectedBillCommand;
 
@@ -517,6 +519,20 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				OnDoctorRegistrationNumberChanged(value);
 				OnPropertyChanged(nameof(DoctorRegistrationNumber));
 			}
+		}
+	}
+
+	private bool _addToCustomers = true;
+
+	public bool AddToCustomers
+	{
+		get
+		{
+			return _addToCustomers;
+		}
+		set
+		{
+			SetProperty(ref _addToCustomers, value);
 		}
 	}
 
@@ -1437,6 +1453,10 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand RemoveSelectedItemCommand => removeSelectedItemCommand ?? (removeSelectedItemCommand = new RelayCommand(RemoveSelectedItem));
+
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
+	public IRelayCommand<RetailBillLineViewModel?> RemoveBillLineCommand => removeBillLineCommand ?? (removeBillLineCommand = new RelayCommand<RetailBillLineViewModel?>(RemoveBillLine));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -2634,6 +2654,26 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 	}
 
+	private void RemoveBillLine(RetailBillLineViewModel? line)
+	{
+		if (line == null || !BillItems.Contains(line))
+		{
+			return;
+		}
+
+		if (!confirmationService.Confirm($"Remove {line.DrugName} from the bill?", "Remove line"))
+		{
+			return;
+		}
+
+		BillItems.Remove(line);
+		if (SelectedBillLine == line)
+		{
+			SelectedBillLine = null;
+		}
+		UpdateTotals();
+	}
+
 	private void RemoveSelectedItem()
 	{
 		if (SelectedBillLine == null)
@@ -2744,7 +2784,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 					using (IServiceScope scope = scopeFactory.CreateScope())
 					{
 						RetailBillingService service = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
-						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride), currentSession.User.Id, currentSession.User.Role);
+						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride, AddToCustomers: AddToCustomers), currentSession.User.Id, currentSession.User.Role);
 						BillNumber = result.InvoiceNo;
 						if (_quotationConversionId is Guid convertedQuoteId)
 						{
@@ -3247,6 +3287,191 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	{
 		PatientPhoneError = string.Empty;
 		_ = RefreshLoyaltyPointsAsync(value);
+		if (_applyingPatient)
+		{
+			return;
+		}
+
+		_patientId = null;
+		_ = RefreshPatientSuggestionsAsync(value);
+	}
+
+	private bool _applyingPatient;
+
+	private Guid? _patientId;
+
+	private int _patientSuggestionVersion;
+
+	private bool _hasPatientSuggestions;
+
+	private IAsyncRelayCommand? openPatientHistoryCommand;
+
+	/// <summary>Saved patients whose phone number matches what is typed. Choosing one fills the patient details.</summary>
+	public ObservableCollection<RetailPatientMatch> PatientSuggestions { get; } = new ObservableCollection<RetailPatientMatch>();
+
+	public bool HasPatientSuggestions
+	{
+		get => _hasPatientSuggestions;
+		set => SetProperty(ref _hasPatientSuggestions, value);
+	}
+
+	public RetailPatientMatch? SelectedPatientSuggestion
+	{
+		get => null;
+		set
+		{
+			if (value != null)
+			{
+				ApplyPatient(value);
+			}
+		}
+	}
+
+	public IAsyncRelayCommand OpenPatientHistoryCommand => openPatientHistoryCommand ??= new AsyncRelayCommand(OpenPatientHistoryAsync);
+
+	private async Task RefreshPatientSuggestionsAsync(string phone)
+	{
+		int version = ++_patientSuggestionVersion;
+		IReadOnlyList<RetailPatientMatch> matches;
+		try
+		{
+			matches = await Task.Run(async () =>
+			{
+				using IServiceScope scope = scopeFactory.CreateScope();
+				return await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchPatientsByPhoneAsync(phone);
+			});
+		}
+		catch (Exception)
+		{
+			return;
+		}
+
+		if (version != _patientSuggestionVersion)
+		{
+			return;
+		}
+
+		PatientSuggestions.Clear();
+		foreach (RetailPatientMatch match in matches)
+		{
+			PatientSuggestions.Add(match);
+		}
+
+		HasPatientSuggestions = PatientSuggestions.Count > 0;
+	}
+
+	private void ApplyPatient(RetailPatientMatch match)
+	{
+		_applyingPatient = true;
+		try
+		{
+			PatientPhone = match.Phone;
+			PatientName = match.Name;
+			PatientAddress = match.Address ?? string.Empty;
+		}
+		finally
+		{
+			_applyingPatient = false;
+		}
+
+		_patientId = match.PatientId;
+		PatientSuggestions.Clear();
+		HasPatientSuggestions = false;
+		PatientPhoneError = string.Empty;
+		_ = AddLastBillMedicinesAsync(match.PatientId);
+	}
+
+	private async Task AddLastBillMedicinesAsync(Guid patientId)
+	{
+		IReadOnlyList<RetailPatientBill> history = await LoadPatientHistoryAsync(patientId);
+		RetailPatientBill? last = history.FirstOrDefault();
+		if (last == null)
+		{
+			StatusMessage = "No earlier bills for this patient.";
+			return;
+		}
+
+		if (BillItems.Count > 0)
+		{
+			StatusMessage = $"Last bill {last.InvoiceNo} was found, but this bill already has medicines. Use History to copy them.";
+			return;
+		}
+
+		await AddMedicinesAsync(last.Lines, $"Medicines from last bill {last.InvoiceNo} added. Check quantities before saving.");
+	}
+
+	private Task<IReadOnlyList<RetailPatientBill>> LoadPatientHistoryAsync(Guid patientId)
+	{
+		return Task.Run(async () =>
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			return await scope.ServiceProvider.GetRequiredService<RetailBillingService>().GetPatientHistoryAsync(patientId);
+		});
+	}
+
+	// Adds each line at its oldest in-stock batch, capped to what is available. Lines whose medicine is out of stock are reported.
+	private async Task AddMedicinesAsync(IReadOnlyList<RetailPatientBillLine> lines, string doneMessage)
+	{
+		List<(RetailPatientBillLine Line, RetailStockChoice? Choice)> picks = await Task.Run(async () =>
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			RetailBillingService billing = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
+			List<(RetailPatientBillLine Line, RetailStockChoice? Choice)> result = new List<(RetailPatientBillLine Line, RetailStockChoice? Choice)>();
+			foreach (RetailPatientBillLine line in lines)
+			{
+				IReadOnlyList<RetailStockChoice> choices = await billing.SearchStockAsync(line.DrugName);
+				RetailStockChoice? choice = choices.FirstOrDefault((RetailStockChoice item) => item.DrugId == line.DrugId && item.AvailableQuantity > 0m);
+				result.Add((line, choice));
+			}
+
+			return result;
+		});
+
+		int added = 0;
+		foreach ((RetailPatientBillLine line, RetailStockChoice? choice) in picks)
+		{
+			if (choice == null || line.Quantity <= 0m)
+			{
+				continue;
+			}
+
+			AddStockChoice(choice, Math.Min(line.Quantity, choice.AvailableQuantity));
+			added++;
+		}
+
+		int missing = picks.Count - added;
+		StatusMessage = missing == 0 ? doneMessage : $"{added} medicine(s) added. {missing} not in stock now; add them with the search box.";
+	}
+
+	private async Task OpenPatientHistoryAsync()
+	{
+		string phone = PatientPhone;
+		Guid? patientId = _patientId ?? await Task.Run(async () =>
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			return await scope.ServiceProvider.GetRequiredService<RetailBillingService>().FindPatientIdByPhoneAsync(phone);
+		});
+		if (patientId is not Guid id)
+		{
+			StatusMessage = "No earlier bills found for this phone number.";
+			return;
+		}
+
+		IReadOnlyList<RetailPatientBill> history = await LoadPatientHistoryAsync(id);
+		if (history.Count == 0)
+		{
+			StatusMessage = "No earlier bills found for this patient.";
+			return;
+		}
+
+		PatientHistoryWindow window = new PatientHistoryWindow(PatientName, phone, history, (RetailPatientBill bill) =>
+		{
+			_ = AddMedicinesAsync(bill.Lines, $"Medicines from bill {bill.InvoiceNo} added. Check quantities before saving.");
+		})
+		{
+			Owner = System.Windows.Application.Current?.MainWindow
+		};
+		window.ShowDialog();
 	}
 
 	private string _loyaltyPointsText = string.Empty;
