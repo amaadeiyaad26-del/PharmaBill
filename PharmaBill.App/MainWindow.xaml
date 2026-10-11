@@ -1712,7 +1712,7 @@
               </Border>
               <Border Padding="12" CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
                 <StackPanel>
-                  <TextBlock Text="Net GST Payable" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Text="{Binding NetGstLabel}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
                   <TextBlock Margin="0,6,0,0" FontSize="18" FontWeight="Bold" Text="{Binding NetGstPayableText}" />
                 </StackPanel>
               </Border>
@@ -1735,6 +1735,7 @@
               </StackPanel>
             </Border>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-1 Table 4 (B2B)" Margin="0,0,0,8" Foreground="#0D4A2B" />
+            <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding B2bEmptyHint}" />
             <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" Margin="0,0,0,12" ItemsSource="{Binding Gstr1B2bRows}">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="GSTIN" Width="140" Binding="{Binding Gstin}" />
@@ -1769,6 +1770,7 @@
               </DataGrid.Columns>
             </DataGrid>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-2B reconciliation" Margin="0,0,0,8" Foreground="#0D4A2B" />
+            <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Gstr2bEmptyHint}" />
             <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" Margin="0,0,0,12" ItemsSource="{Binding Gstr2bReconRows}">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Invoice" Width="120" Binding="{Binding InvoiceNo}" />
