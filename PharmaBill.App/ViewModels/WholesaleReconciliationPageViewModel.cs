@@ -10,8 +10,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Entities;
+using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services.Reconciliation;
 
 namespace PharmaBill.App.ViewModels;
@@ -44,6 +47,16 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 	private AsyncRelayCommand? batchSettleCommand;
 
 	public ObservableCollection<BankStatementMatchRow> Matches { get; } = new ObservableCollection<BankStatementMatchRow>();
+
+	public ObservableCollection<Customer> Chemists { get; } = new ObservableCollection<Customer>();
+
+	public bool HasMatches => Matches.Count > 0;
+
+	public bool IsEmptyState => !HasMatches;
+
+	public string SummaryText => HasMatches
+		? $"{Matches.Count} bank line(s) · {Matches.Count(row => row.IsUnmatched)} unmatched · deposits ₹{Matches.Sum(row => row.DepositAmount):N2} · approved ₹{Matches.Where(row => row.Approve).Sum(row => row.DepositAmount):N2}"
+		: string.Empty;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -144,9 +157,49 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 		_spreadsheetReader = spreadsheetReader;
 	}
 
-	public Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
+	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		return Task.CompletedTask;
+		await LoadChemistsAsync();
+	}
+
+	/// <summary>Chemists and wholesale buyers the dropdown can link a bank line to. Patients never settle here.</summary>
+	private async Task LoadChemistsAsync()
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		List<Customer> active = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().Customers.AsNoTracking()
+			.Where((Customer customer) => customer.IsActive)
+			.OrderBy((Customer customer) => customer.Name)
+			.ToListAsync();
+		Chemists.Clear();
+		foreach (Customer customer in active.Where((Customer customer) => !CustomerListRules.IsPatientType(customer.BuyerType)))
+		{
+			Chemists.Add(customer);
+		}
+	}
+
+	private async Task AssignChemistAsync(BankStatementMatchRow row, Guid customerId)
+	{
+		try
+		{
+			IsBusy = true;
+			ErrorMessage = string.Empty;
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			ReconciliationMatch match = await scope.ServiceProvider.GetRequiredService<IReconciliationService>().MatchToCustomerAsync(row.Match.BankLine, customerId);
+			row.SetMatch(match);
+			row.Approve = false;
+			RefreshSummary();
+			StatusMessage = match.MatchedDocuments.Count == 0
+				? $"{match.CustomerName} has no open invoices to match this deposit against."
+				: $"Linked to {match.CustomerName}: {match.MatchedDocuments.Count} invoice(s). Tick Approve, then Approve & Post Receipts.";
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
 	}
 
 	private async Task ImportStatementAsync()
@@ -177,12 +230,10 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 			Matches.Clear();
 			foreach (ReconciliationMatch match in reconciliationResult.Matches)
 			{
-				Matches.Add(new BankStatementMatchRow
-				{
-					Match = match,
-					Approve = match.IsConfirmed
-				});
+				AddRow(match);
 			}
+			await LoadChemistsAsync();
+			RefreshSummary();
 			StatusMessage = $"Matched {reconciliationResult.Matches.Count} line(s): High {reconciliationResult.HighCount}, Medium {reconciliationResult.MediumCount}, Low {reconciliationResult.LowCount}, unmatched {reconciliationResult.UnmatchedCount}.";
 		}
 		catch (Exception ex)
@@ -205,6 +256,32 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 		{
 			item.Approve = true;
 		}
+		RefreshSummary();
+	}
+
+	private void AddRow(ReconciliationMatch match)
+	{
+		BankStatementMatchRow row = new BankStatementMatchRow
+		{
+			Match = match,
+			Approve = match.IsConfirmed
+		};
+		row.ChemistChosen += (BankStatementMatchRow chosen, Guid customerId) => _ = AssignChemistAsync(chosen, customerId);
+		row.PropertyChanged += (_, e) =>
+		{
+			if (e.PropertyName == nameof(BankStatementMatchRow.Approve))
+			{
+				RefreshSummary();
+			}
+		};
+		Matches.Add(row);
+	}
+
+	private void RefreshSummary()
+	{
+		OnPropertyChanged(nameof(HasMatches));
+		OnPropertyChanged(nameof(IsEmptyState));
+		OnPropertyChanged(nameof(SummaryText));
 	}
 
 	private async Task BatchSettleAsync()
