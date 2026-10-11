@@ -392,7 +392,7 @@ public class MainWindowViewModel : ObservableObject
 	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
 
 	private static bool IsCustomersSection(string? sectionKey) =>
-		sectionKey is "Customers" or "WholesaleBuyers" or "WholesaleSuppliers";
+		sectionKey is "Customers" or "WholesaleSuppliers";
 
 	private string CustomersGroupTitle() => "Customers " + (_customersExpanded ? "▾" : "▸");
 
@@ -2127,10 +2127,6 @@ public class MainWindowViewModel : ObservableObject
 				_ = _stockPage.LoadAsync();
 			}
 
-			if (resolvedKey is "Customers" or "WholesaleBuyers")
-			{
-				_wholesaleCustomerPage.SetPatientView(resolvedKey == "Customers");
-			}
 
 			if (IsCustomersSection(resolvedKey) && !_customersExpanded)
 			{
@@ -2721,10 +2717,6 @@ public class MainWindowViewModel : ObservableObject
 		{
 			NavigationItems.Add(new NavigationItem("Customers", "Patients & Consumers", IsSubItem: true));
 		}
-		if (mode != BusinessMode.Retail)
-		{
-			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Wholesale Buyers", IsSubItem: true));
-		}
 		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Wholesale Suppliers", IsSubItem: true));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
 		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
@@ -2848,7 +2840,6 @@ public class MainWindowViewModel : ObservableObject
 			"StockTransfer" => _stockTransferPage, 
 			"Purchases" => _purchasePage, 
 			"Customers" => _wholesaleCustomerPage,
-				"WholesaleBuyers" => _wholesaleCustomerPage,
 				"WholesaleSuppliers" => new SupplierDirectoryPageViewModel(_scopeFactory),
 			"WholesaleBilling" => _wholesaleBillingPage, 
 			"Pricing" => _wholesalePricingPage, 

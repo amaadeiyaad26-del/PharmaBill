@@ -16,7 +16,6 @@ public sealed class NavIconConverter : IValueConverter
 		["Purchases"] = "\ue7b8",
 		["Customers"] = "\ue716",
 		["CustomersGroup"] = "",
-			["WholesaleBuyers"] = "",
 			["WholesaleSuppliers"] = "",
 			["Pricing"] = "\ue8ec",
 		["Accounts"] = "\ue8c7",

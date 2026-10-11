@@ -949,7 +949,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		Customers.Clear();
 		foreach (WholesaleCustomerRecord item2 in readOnlyList2)
 		{
-			if (_isRetailMode && !IsPatientCustomer(item2.Customer))
+			if (_isRetailMode != IsPatientCustomer(item2.Customer))
 				{
 					continue;
 				}
