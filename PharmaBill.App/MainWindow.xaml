@@ -3348,6 +3348,11 @@
             <KeyBinding Key="W" Modifiers="Control" Command="{Binding CancelBillCommand}" />
             <KeyBinding Key="S" Modifiers="Control+Alt" Command="{Binding ScanPurchaseWithHandheldScannerCommand}" />
             <KeyBinding Key="S" Modifiers="Control" Command="{Binding TransferToStockCommand}" />
+            <KeyBinding Key="E" Modifiers="Control+Shift" Command="{Binding ExtractInvoicesCommand}" />
+            <KeyBinding Key="P" Modifiers="Control+Shift" Command="{Binding ScanViaPhoneCommand}" />
+            <KeyBinding Key="L" Modifiers="Control+Shift" Command="{Binding LoadSpreadsheetCommand}" />
+            <KeyBinding Key="H" Modifiers="Control+Shift" Command="{Binding ShowInvoiceHistoryCommand}" />
+            <KeyBinding Key="A" Modifiers="Control+Shift" Command="{Binding AttachInvoiceFileCommand}" />
             <KeyBinding Key="Left" Modifiers="Alt" Command="{Binding PreviousPageCommand}" />
             <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding NextPageCommand}" />
           </Grid.InputBindings>
@@ -3417,21 +3422,21 @@
                 </Button.Template>
                 <Button.ContextMenu>
                   <ContextMenu Placement="Bottom">
-                  <MenuItem Header="📄 Extract from Invoice (PDF/Img)" Command="{Binding ExtractInvoicesCommand}"
+                  <MenuItem Header="📄 Extract from Invoice (PDF/Img)" Command="{Binding ExtractInvoicesCommand}" InputGestureText="Ctrl+Shift+E"
                             ToolTip="Read one or more distributor invoice PDFs or images into the purchase table." />
-                  <MenuItem Header="📷 Scan with Webcam" Command="{Binding ScanInvoiceCommand}"
+                  <MenuItem Header="📷 Scan with Webcam" Command="{Binding ScanInvoiceCommand}" InputGestureText="F7"
                             ToolTip="Capture the supplier invoice from a USB document camera or webcam. Shortcut: F7" />
-                  <MenuItem Header="🖨 Handheld / USB Scanner" Command="{Binding ScanPurchaseWithHandheldScannerCommand}"
+                  <MenuItem Header="🖨 Handheld / USB Scanner" Command="{Binding ScanPurchaseWithHandheldScannerCommand}" InputGestureText="Ctrl+Alt+S"
                             ToolTip="Scan Purchase Invoice via Handheld / USB Scanner (Ctrl + Alt + S)"
                             AutomationProperties.Name="Scan purchase invoice with handheld scanner" />
-                  <MenuItem Header="📱 Scan via Phone App" Command="{Binding ScanViaPhoneCommand}"
+                  <MenuItem Header="📱 Scan via Phone App" Command="{Binding ScanViaPhoneCommand}" InputGestureText="Ctrl+Shift+P"
                             ToolTip="Pair an Android phone on this Wi-Fi network and receive scanned distributor bills live." />
                   <Separator />
-                  <MenuItem Header="📁 Load CSV / Excel" Command="{Binding LoadSpreadsheetCommand}"
+                  <MenuItem Header="📁 Load CSV / Excel" Command="{Binding LoadSpreadsheetCommand}" InputGestureText="Ctrl+Shift+L"
                             ToolTip="Import purchase items and batches from a distributor Excel or CSV file." />
-                  <MenuItem Header="📂 Invoices History" Command="{Binding ShowInvoiceHistoryCommand}"
+                  <MenuItem Header="📂 Invoices History" Command="{Binding ShowInvoiceHistoryCommand}" InputGestureText="Ctrl+Shift+H"
                             ToolTip="Browse saved purchase bills by supplier and date, and open the attached invoice." />
-                  <MenuItem Header="Attach file" Command="{Binding AttachInvoiceFileCommand}"
+                  <MenuItem Header="Attach file" Command="{Binding AttachInvoiceFileCommand}" InputGestureText="Ctrl+Shift+A"
                             ToolTip="Attach an invoice photo or PDF already saved on this PC" />
                   </ContextMenu>
                 </Button.ContextMenu>
@@ -3519,8 +3524,8 @@
                     </ComboBox>
                   </controls:FloatingField>
                 </DockPanel>
-                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" BoxHeight="36" ErrorText="{Binding InvoiceNoError}">
-                  <TextBox Style="{StaticResource PurchaseHeaderTextBox}" Padding="4,2" FontSize="13" Text="{Binding Path=InvoiceNo, UpdateSourceTrigger=PropertyChanged}" />
+                <controls:FloatingField Grid.Column="1" Label="Invoice number" IsRequired="True" Margin="0,4,8,4" BoxHeight="48" ErrorText="{Binding InvoiceNoError}">
+                  <TextBox Style="{StaticResource FloatingInnerTextBox}" Text="{Binding Path=InvoiceNo,UpdateSourceTrigger=PropertyChanged}" />
                 </controls:FloatingField>
                 <StackPanel Grid.Column="2" Margin="0,4,8,4">
                   <TextBlock Text="Invoice date *" FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,2" />
