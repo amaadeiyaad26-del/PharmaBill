@@ -257,6 +257,18 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		case ReportKind.PrescriberWise:
 			result = await PrescriberWiseAsync(from, to, cancellationToken);
 			break;
+		case ReportKind.PurchaseReturnBook:
+			result = await PurchaseReturnBookAsync(from, to, cancellationToken);
+			break;
+		case ReportKind.DayBook:
+			result = await DayBookAsync(from, to, cancellationToken);
+			break;
+		case ReportKind.PartyBalances:
+			result = await PartyBalancesAsync(to, cancellationToken);
+			break;
+		case ReportKind.SaleReturnBook:
+			result = await SaleReturnBookAsync(from, to, cancellationToken);
+			break;
 		default:
 			throw new ArgumentOutOfRangeException("kind");
 		}
@@ -817,6 +829,145 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			}
 		}
 		return new ReportTable((branchScope == ReportBranchScope.ConsolidatedNetwork) ? "Purchases / network" : "Purchases", new _003C_003Ez__ReadOnlyArray<string>(new string[7] { "Date", "Invoice", "Supplier", "Subtotal", "GST", "Total", "Branch" }), list);
+	}
+
+	/// <summary>Every purchase return posted in the period, one row per return, with the supplier and reason.</summary>
+	private async Task<ReportTable> PurchaseReturnBookAsync(DateOnly from, DateOnly to, CancellationToken token)
+	{
+		List<PurchaseReturn> returns = await context.PurchaseReturns.AsNoTracking()
+			.Where(item => item.ReturnDate >= from && item.ReturnDate <= to)
+			.OrderBy(item => item.ReturnDate)
+			.ThenBy(item => item.ReturnNo)
+			.ToListAsync(token);
+		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
+		List<IReadOnlyList<string>> rows = returns
+			.Select(item => (IReadOnlyList<string>)new[]
+			{
+				item.ReturnDate.ToString("yyyy-MM-dd"),
+				item.ReturnNo,
+				suppliers.GetValueOrDefault(item.SupplierId, string.Empty),
+				item.Reason,
+				Format(item.TotalAmount)
+			})
+			.ToList();
+		return new ReportTable("Purchase return book", new[] { "Date", "Return no", "Supplier", "Reason", "Amount" }, rows);
+	}
+
+	/// <summary>Cash and bank movements in the period: money received from customers and counter sales, and paid to suppliers, by mode.</summary>
+	private async Task<ReportTable> DayBookAsync(DateOnly from, DateOnly to, CancellationToken token)
+	{
+		(DateTime StartUtc, DateTime EndUtc) bounds = GetUtcBounds(from, to);
+		List<Receipt> receipts = await context.Receipts.AsNoTracking()
+			.Where(item => item.ReceiptAtUtc >= bounds.StartUtc && item.ReceiptAtUtc < bounds.EndUtc)
+			.OrderBy(item => item.ReceiptAtUtc)
+			.ToListAsync(token);
+		Dictionary<Guid, string> customers = await context.Customers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
+		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
+		decimal totalIn = 0m;
+		decimal totalOut = 0m;
+		List<IReadOnlyList<string>> rows = new List<IReadOnlyList<string>>();
+		foreach (Receipt receipt in receipts)
+		{
+			bool paidOut = receipt.SupplierId.HasValue;
+			string party = paidOut
+				? suppliers.GetValueOrDefault(receipt.SupplierId!.Value, "Supplier")
+				: receipt.CustomerId.HasValue ? customers.GetValueOrDefault(receipt.CustomerId.Value, "Customer") : "Counter sale";
+			if (paidOut)
+			{
+				totalOut += receipt.Amount;
+			}
+			else
+			{
+				totalIn += receipt.Amount;
+			}
+
+			rows.Add(new[]
+			{
+				receipt.ReceiptAtUtc.ToLocalTime().ToString("yyyy-MM-dd"),
+				receipt.ReceiptNo,
+				party,
+				paidOut ? "Paid out" : "Received",
+				receipt.PaymentMethod,
+				Format(receipt.Amount),
+				receipt.ReferenceNumber ?? receipt.ChequeNumber ?? string.Empty
+			});
+		}
+
+		rows.Add(new[] { string.Empty, string.Empty, string.Empty, "Total received", string.Empty, Format(totalIn), string.Empty });
+		rows.Add(new[] { string.Empty, string.Empty, string.Empty, "Total paid out", string.Empty, Format(totalOut), string.Empty });
+		rows.Add(new[] { string.Empty, string.Empty, string.Empty, "Net cash movement", string.Empty, Format(totalIn - totalOut), string.Empty });
+		return new ReportTable("Day book (cash & bank)", new[] { "Date", "Receipt no", "Party", "Direction", "Mode", "Amount", "Reference" }, rows);
+	}
+
+	/// <summary>Who owes whom as of a date, from the customer and supplier ledgers. Customers owing us are receivable; we owe suppliers payable.</summary>
+	private async Task<ReportTable> PartyBalancesAsync(DateOnly asOf, CancellationToken token)
+	{
+		DateTime endUtc = asOf.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		Dictionary<Guid, string> customers = await context.Customers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
+		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
+		var customerNets = await context.CustomerLedgerEntries.AsNoTracking()
+			.Where(item => item.EntryAtUtc < endUtc)
+			.GroupBy(item => item.CustomerId)
+			.Select(group => new { Id = group.Key, Net = group.Sum(item => item.Debit - item.Credit) })
+			.ToListAsync(token);
+		var supplierNets = await context.SupplierLedgerEntries.AsNoTracking()
+			.Where(item => item.EntryAtUtc < endUtc)
+			.GroupBy(item => item.SupplierId)
+			.Select(group => new { Id = group.Key, Net = group.Sum(item => item.Credit - item.Debit) })
+			.ToListAsync(token);
+
+		decimal receivable = 0m;
+		decimal payable = 0m;
+		List<IReadOnlyList<string>> rows = new List<IReadOnlyList<string>>();
+		foreach (var customer in customerNets.Where(item => item.Net != 0m).OrderBy(item => customers.GetValueOrDefault(item.Id, string.Empty)))
+		{
+			bool owesUs = customer.Net > 0m;
+			if (owesUs)
+			{
+				receivable += customer.Net;
+			}
+
+			rows.Add(new[] { "Customer", customers.GetValueOrDefault(customer.Id, "Customer"), Format(Math.Abs(customer.Net)), owesUs ? "Receivable" : "Advance" });
+		}
+
+		foreach (var supplier in supplierNets.Where(item => item.Net != 0m).OrderBy(item => suppliers.GetValueOrDefault(item.Id, string.Empty)))
+		{
+			bool weOwe = supplier.Net > 0m;
+			if (weOwe)
+			{
+				payable += supplier.Net;
+			}
+
+			rows.Add(new[] { "Supplier", suppliers.GetValueOrDefault(supplier.Id, "Supplier"), Format(Math.Abs(supplier.Net)), weOwe ? "Payable" : "Advance" });
+		}
+
+		rows.Add(new[] { string.Empty, "Total receivable", Format(receivable), string.Empty });
+		rows.Add(new[] { string.Empty, "Total payable", Format(payable), string.Empty });
+		return new ReportTable("Party balances as of " + asOf.ToString("dd-MMM-yyyy"), new[] { "Type", "Party", "Balance", "Side" }, rows);
+	}
+
+	/// <summary>Credit notes issued against retail and wholesale sales in the period.</summary>
+	private async Task<ReportTable> SaleReturnBookAsync(DateOnly from, DateOnly to, CancellationToken token)
+	{
+		(DateTime StartUtc, DateTime EndUtc) bounds = GetUtcBounds(from, to);
+		List<ReturnNote> notes = await context.ReturnNotes.AsNoTracking()
+			.Where(item => (item.SourceType == "Sale" || item.SourceType == "WholesaleCreditNote")
+				&& item.ReturnAtUtc >= bounds.StartUtc && item.ReturnAtUtc < bounds.EndUtc)
+			.OrderBy(item => item.ReturnAtUtc)
+			.ToListAsync(token);
+		List<IReadOnlyList<string>> rows = notes
+			.Select(item => (IReadOnlyList<string>)new[]
+			{
+				item.ReturnAtUtc.ToLocalTime().ToString("yyyy-MM-dd"),
+				item.ReturnNo,
+				item.SourceType == "Sale" ? "Retail" : "Wholesale",
+				item.Reason,
+				Format(item.TotalAmount)
+			})
+			.ToList();
+		decimal total = notes.Sum(item => item.TotalAmount);
+		rows.Add(new[] { string.Empty, string.Empty, string.Empty, "Total credit notes", Format(total) });
+		return new ReportTable("Sale return book", new[] { "Date", "Credit note no", "Type", "Reason", "Amount" }, rows);
 	}
 
 	private async Task<ReportTable> ProfitAsync(DateOnly from, DateOnly to, CancellationToken token)

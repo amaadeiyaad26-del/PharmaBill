@@ -20,5 +20,9 @@ public enum ReportKind
 	AbcAnalysis = 201,
 	SaleBookDaily = 202,
 	SaleBookMonthly = 203,
-	PrescriberWise = 204
+	PrescriberWise = 204,
+	PurchaseReturnBook = 205,
+	DayBook = 206,
+	PartyBalances = 207,
+	SaleReturnBook = 208
 }
