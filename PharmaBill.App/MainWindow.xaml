@@ -1555,6 +1555,7 @@
               <DataGrid.Columns>
                 <DataGridTextColumn Header="Quote no" Binding="{Binding QuoteNo}" Width="120" />
                 <DataGridTextColumn Header="Date" Binding="{Binding QuoteDate, StringFormat=dd-MMM-yyyy}" Width="110" />
+                <DataGridTextColumn Header="Valid until" Binding="{Binding ValidUntil, StringFormat=dd-MMM-yyyy}" Width="110" />
                 <DataGridTextColumn Header="Type" Binding="{Binding Mode}" Width="90" />
                 <DataGridTextColumn Header="Party" Binding="{Binding PartyName}" Width="*" />
                 <DataGridTextColumn Header="Phone" Binding="{Binding PartyPhone}" Width="110" />
@@ -2192,6 +2193,7 @@
             <WrapPanel Margin="0,8,0,0">
               <Button Content="Save invoice" Style="{StaticResource PrimaryButton}" Command="{Binding SaveInvoiceCommand}" ToolTip="Save this wholesale tax invoice after a retailer and at least one stocked line are selected. F10 saves and prints." />
               <Button Margin="8,0,0,0" Content="Save as quotation" Style="{StaticResource SecondaryButton}" Command="{Binding SaveQuotationCommand}" ToolTip="Save these lines as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
+              <ComboBox Margin="8,0,0,0" Width="120" Height="36" ItemsSource="{Binding QuoteValidityOptions}" SelectedItem="{Binding QuoteValidityDays}" ItemStringFormat="Valid {0} days" ToolTip="How long the quotation stays valid." />
               <Button Margin="8,0,0,0" Style="{StaticResource SuccessButton}" Command="{Binding SaveAndPrintCommand}"
                       ToolTip="Save B2B tax invoice and open PDF (Buyer DL, GSTIN, seller DL, HSN tax). Shortcut: F10">
                 <StackPanel>
@@ -2921,7 +2923,10 @@
                   <Button Grid.Row="2" Grid.Column="1" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="F10 Print &amp; Save" AutomationProperties.Name="F10 Print &amp; Save" ToolTip="Finalize this sale, deduct batch stock, save to sales register, and print receipt. Shortcut: F10" Style="{StaticResource SuccessButton}" Background="#059669" BorderBrush="#047857" Foreground="#FFFFFF" Command="{Binding SaveAndPrintCommand}" />
                   <Button Grid.Row="3" Grid.Column="0" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="F8 Pause / Hold" AutomationProperties.Name="F8 Pause / Hold" ToolTip="Temporarily pause this bill and keep it in queue while serving the next customer. Shortcut: F8" Style="{StaticResource SecondaryButton}" Command="{Binding HoldBillCommand}" />
                   <Button Grid.Row="3" Grid.Column="1" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Recent Bills" AutomationProperties.Name="Recent Past Bills" ToolTip="View, reprint, or export PDF for recently completed bills from today." Style="{StaticResource SecondaryButton}" Click="OpenRecentBills_Click" />
-                  <Button Grid.Row="5" Grid.ColumnSpan="2" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Save as quotation" Command="{Binding SaveQuotationCommand}" ToolTip="Save this bill as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
+                  <DockPanel Grid.Row="5" Grid.ColumnSpan="2" Margin="2,2" LastChildFill="True">
+                    <ComboBox DockPanel.Dock="Right" Width="110" Height="32" Margin="4,0,0,0" ItemsSource="{Binding QuoteValidityOptions}" SelectedItem="{Binding QuoteValidityDays}" ItemStringFormat="Valid {0} days" ToolTip="How long the quotation stays valid." />
+                    <Button Height="32" MinWidth="0" Padding="6,2" HorizontalAlignment="Stretch" Content="Save as quotation" Command="{Binding SaveQuotationCommand}" ToolTip="Save this bill as a quotation. Nothing is billed or reserved until the quotation is converted and posted." />
+                  </DockPanel>
                   <Button Grid.Row="4" Grid.Column="0" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Esc Cancel" ToolTip="Discard the current unsaved bill and clear all items. Shortcut: Esc" Style="{StaticResource SecondaryButton}" Command="{Binding CancelBillCommand}" />
                   <DockPanel Grid.Row="4" Grid.Column="1" Margin="2,2" LastChildFill="True">
                     <Button DockPanel.Dock="Right" Content="Resume" Height="32" Margin="4,0,0,0" Padding="6,2" ToolTip="Reload the selected paused customer bill back into the billing table to finish checkout." Style="{StaticResource SecondaryButton}" Command="{Binding ResumeSelectedBillCommand}" IsEnabled="{Binding HasHeldBills}" />

@@ -1208,7 +1208,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				SelectedCustomer.Id,
 				SelectedCustomer.Name,
 				SelectedCustomer.Phone,
-				null,
+				DateOnly.FromDateTime(DateTime.Today.AddDays(QuoteValidityDays)),
 				Items.Select(item => new QuotationLineInput(item.StockChoice!.DrugId, item.StockChoice.BatchId, item.StockChoice.DrugName, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToList(),
 				null,
 				_session.User.Id,
@@ -1224,6 +1224,17 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 	public IAsyncRelayCommand SaveQuotationCommand => saveQuotationCommand ??= new AsyncRelayCommand(SaveAsQuotationAsync);
 
 	private AsyncRelayCommand? saveQuotationCommand;
+
+	private int _quoteValidityDays = 15;
+
+	/// <summary>How many days a quotation from this invoice stays valid: 15 or 30.</summary>
+	public int QuoteValidityDays
+	{
+		get => _quoteValidityDays;
+		set => SetProperty(ref _quoteValidityDays, value);
+	}
+
+	public IReadOnlyList<int> QuoteValidityOptions { get; } = new[] { 15, 30 };
 
 	/// <summary>Loads the lines of a cancelled invoice as a new draft (the customer and batches must still exist).</summary>
 	private void ApplyPendingReissue()

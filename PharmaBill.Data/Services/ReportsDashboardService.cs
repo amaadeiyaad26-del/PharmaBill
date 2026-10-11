@@ -868,10 +868,12 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		List<IReadOnlyList<string>> rows = new List<IReadOnlyList<string>>();
 		foreach (Receipt receipt in receipts)
 		{
-			bool paidOut = receipt.SupplierId.HasValue;
-			string party = paidOut
-				? suppliers.GetValueOrDefault(receipt.SupplierId!.Value, "Supplier")
-				: receipt.CustomerId.HasValue ? customers.GetValueOrDefault(receipt.CustomerId.Value, "Customer") : "Counter sale";
+			// Refunds for voided retail bills are money paid out to the customer, even though they carry no supplier.
+			bool refund = string.Equals(receipt.PaymentMethod, "Refund", StringComparison.OrdinalIgnoreCase);
+			bool paidOut = receipt.SupplierId.HasValue || refund;
+			string party = receipt.SupplierId.HasValue
+				? suppliers.GetValueOrDefault(receipt.SupplierId.Value, "Supplier")
+				: receipt.CustomerId.HasValue ? customers.GetValueOrDefault(receipt.CustomerId.Value, "Customer") : refund ? "Refund (voided bill)" : "Counter sale";
 			if (paidOut)
 			{
 				totalOut += receipt.Amount;

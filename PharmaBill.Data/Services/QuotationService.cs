@@ -47,6 +47,10 @@ public sealed class QuotationService(IUnitOfWork unitOfWork, NumberSeriesService
 
 		PharmacyProfile profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
 		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		if (validUntil.HasValue && validUntil.Value < today)
+		{
+			throw new InvalidOperationException("The validity date of a quotation cannot be in the past.");
+		}
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 		string quoteNo = await numberSeriesService.AllocateAsync(profile.InvoicePrefix + "-QT", today, cancellationToken);
 		Quotation quotation = new Quotation

@@ -55,7 +55,7 @@
     <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
       <WrapPanel Margin="0,0,0,8">
         <Button Content="Unlock bill (Admin)" Padding="14,7" Margin="0,0,8,0" ToolTip="Admin override required to unlock a finalized printed bill for edits." Command="{Binding UnlockBillCommand}" IsEnabled="{Binding CanUnlockSelected}" />
-        <Button Content="Void / delete bill (Admin)" Padding="14,7" Margin="0,0,8,0" ToolTip="Admin override required. Soft-deletes the bill; stock is not restocked." Command="{Binding VoidBillCommand}" IsEnabled="{Binding CanVoidSelected}" />
+        <Button Content="Void bill (Admin)" Padding="14,7" Margin="0,0,8,0" ToolTip="Admin override required. Issues a full credit note: every item goes back to stock, the unpaid part leaves the customer ledger, and the cash received is refunded in the day book." Command="{Binding VoidBillCommand}" IsEnabled="{Binding CanVoidSelected}" />
       </WrapPanel>
       <WrapPanel>
         <ComboBox Width="125" Padding="6" Margin="0,0,8,0" ItemsSource="{Binding DocumentTypes}" SelectedItem="{Binding DocumentType}" />

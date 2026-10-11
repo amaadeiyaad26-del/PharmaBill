@@ -147,6 +147,7 @@ public partial class App : Application
 				services.AddSingleton<WholesaleReissueHandoff>();
 				services.AddSingleton<QuotationConversionHandoff>();
 				services.AddSingleton<RetailReissueHandoff>();
+				services.AddSingleton<BillingDeskState>();
 				services.AddSingleton<QuotationDocumentService>();
 				services.AddSingleton<QuotationsPageViewModel>();
 				services.AddSingleton<ToolsPageViewModel>();

@@ -13,7 +13,7 @@ using PharmaBill.Data.Services;
 namespace PharmaBill.App.ViewModels;
 
 /// <summary>Open, converted and cancelled quotations. Converting opens the matching billing page with the lines loaded.</summary>
-public sealed class QuotationsPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, INavigationService navigation, QuotationConversionHandoff handoff, QuotationDocumentService documents) : ObservableObject, ILoadablePage
+public sealed class QuotationsPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, INavigationService navigation, QuotationConversionHandoff handoff, QuotationDocumentService documents, BillingDeskState desk) : ObservableObject, ILoadablePage
 {
 	private Quotation? _selectedQuotation;
 
@@ -104,6 +104,16 @@ public sealed class QuotationsPageViewModel(IServiceScopeFactory scopeFactory, C
 			using IServiceScope scope = scopeFactory.CreateScope();
 			QuotationService service = scope.ServiceProvider.GetRequiredService<QuotationService>();
 			Quotation quotation = await service.GetOpenAsync(SelectedQuotation.Id);
+			if (quotation.Mode == QuotationService.RetailMode && !desk.CanBillRetail)
+			{
+				ErrorMessage = "Switch to Retail mode to convert a retail quotation.";
+				return;
+			}
+			if (quotation.Mode == QuotationService.WholesaleMode && !desk.CanBillWholesale)
+			{
+				ErrorMessage = "Switch to Wholesale mode to convert a wholesale quotation.";
+				return;
+			}
 			var lines = (await service.GetItemsAsync(quotation.Id))
 				.Select(item => new QuotationLineInput(item.DrugId, item.BatchId, item.DrugName, item.Quantity, item.FreeQuantity, item.UnitPrice, item.DiscountAmount))
 				.ToList();

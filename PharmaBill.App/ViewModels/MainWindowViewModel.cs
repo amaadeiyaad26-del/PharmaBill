@@ -68,6 +68,8 @@ public class MainWindowViewModel : ObservableObject
 
 	private readonly ToolsPageViewModel _toolsPage;
 
+	private readonly BillingDeskState _billingDeskState;
+
 	private readonly StockInHandPageViewModel _stockInHandPage;
 
 	private readonly WholesaleReportsPageViewModel _wholesaleReportsPage;
@@ -1307,7 +1309,7 @@ public class MainWindowViewModel : ObservableObject
 
 	public event EventHandler? CalculatorRequested;
 
-	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, QuotationsPageViewModel quotationsPage, ToolsPageViewModel toolsPage, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
+	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, QuotationsPageViewModel quotationsPage, ToolsPageViewModel toolsPage, BillingDeskState billingDeskState, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
 	{
 		_navigationService = navigationService;
 		_languageService = languageService;
@@ -1327,6 +1329,7 @@ public class MainWindowViewModel : ObservableObject
 		_wholesaleReturnsPage = wholesaleReturnsPage;
 		_quotationsPage = quotationsPage;
 		_toolsPage = toolsPage;
+		_billingDeskState = billingDeskState;
 		_stockInHandPage = stockInHandPage;
 		_wholesaleReportsPage = wholesaleReportsPage;
 		_reportsPage = reportsPage;
@@ -1455,6 +1458,7 @@ public class MainWindowViewModel : ObservableObject
 		PharmacyName = pharmacyProfile.Name;
 		_businessMode = pharmacyProfile.BusinessMode;
 		_activeBillingDeskMode = _activeBillingDeskModeStore.Load(pharmacyProfile.BusinessMode);
+		_billingDeskState.Current = _activeBillingDeskMode;
 		ApplyMode(pharmacyProfile.BusinessMode);
 		_settingsPage.SelectedBusinessMode = pharmacyProfile.BusinessMode;
 		try
@@ -2615,6 +2619,7 @@ public class MainWindowViewModel : ObservableObject
 		CanUseRetailBilling = mode != BusinessMode.Wholesaler;
 		CanUseWholesaleBilling = mode != BusinessMode.Retail;
 		_activeBillingDeskMode = ActiveBillingDeskModeStore.Clamp(_activeBillingDeskMode, mode);
+		_billingDeskState.Current = _activeBillingDeskMode;
 		RefreshModeBadge();
 		OnPropertyChanged("CanUseCombinedDeskMode");
 		bool flag = mode == BusinessMode.Wholesaler;
@@ -2738,6 +2743,7 @@ public class MainWindowViewModel : ObservableObject
 	private void SetActiveBillingDeskMode(ActiveBillingDeskMode mode)
 	{
 		ActiveBillingDeskMode mode2 = (_activeBillingDeskMode = ActiveBillingDeskModeStore.Clamp(mode, _businessMode));
+		_billingDeskState.Current = mode2;
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
 		RebuildNavigationItems(_businessMode);

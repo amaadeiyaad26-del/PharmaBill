@@ -84,6 +84,25 @@ public sealed class QuotationTests
 	}
 
 	[Fact]
+	public async Task Quotation_ValidityDateInThePast_IsRejected()
+	{
+		await using var database = await DatabaseTestContext.CreateAsync();
+		(Drug drug, _) = await SeedStockAsync(database);
+		QuotationService service = CreateService(database);
+
+		await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(
+			QuotationService.RetailMode,
+			null,
+			"Walk-in customer",
+			null,
+			DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),
+			new[] { new QuotationLineInput(drug.Id, null, drug.Name, 1m, 0m, 50m, 0m) },
+			null,
+			Guid.NewGuid(),
+			UserRole.Owner));
+	}
+
+	[Fact]
 	public async Task OpenQuotation_CanBeCancelled()
 	{
 		await using var database = await DatabaseTestContext.CreateAsync();

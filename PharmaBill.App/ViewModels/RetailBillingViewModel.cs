@@ -1452,6 +1452,17 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private AsyncRelayCommand? saveQuotationCommand;
 
+	private int _quoteValidityDays = 15;
+
+	/// <summary>How many days a quotation from this bill stays valid: 15 or 30.</summary>
+	public int QuoteValidityDays
+	{
+		get => _quoteValidityDays;
+		set => SetProperty(ref _quoteValidityDays, value);
+	}
+
+	public IReadOnlyList<int> QuoteValidityOptions { get; } = new[] { 15, 30 };
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand PreviewOrPickPrintFormatCommand => previewOrPickPrintFormatCommand ?? (previewOrPickPrintFormatCommand = new AsyncRelayCommand(PreviewOrPickPrintFormatAsync));
@@ -1590,7 +1601,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				null,
 				PatientName,
 				PatientPhone,
-				null,
+				DateOnly.FromDateTime(DateTime.Today.AddDays(QuoteValidityDays)),
 				BillItems.Select(line => new QuotationLineInput(line.Choice.DrugId, null, line.Choice.DrugName, line.Quantity, 0m, line.Quantity == 0m ? 0m : line.GrossAmount / line.Quantity, 0m)).ToList(),
 				null,
 				currentSession.User.Id,
