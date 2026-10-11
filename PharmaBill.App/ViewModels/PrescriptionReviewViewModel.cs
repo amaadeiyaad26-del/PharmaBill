@@ -29,6 +29,10 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 
 	public string Summary { get; }
 
+		public string Notice { get; }
+
+		public bool HasNotice => Notice.Length > 0;
+
 	public bool ApiKeyMissing { get; }
 
 	public bool OpenSettingsRequested { get; set; }
@@ -60,7 +64,8 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		_scopes = scopes;
 		_session = session;
 		ApiKeyMissing = result.ApiKeyMissing;
-		Summary = $"{result.Source}: {result.DetectedMedicines.Count} medicine(s) detected. {result.Message}".Trim();
+		Summary = $"Found {result.DetectedMedicines.Count} medicine(s) on the prescription. Check every name and quantity against the paper.";
+		Notice = (result.Message ?? string.Empty).Trim();
 		foreach (PrescribedItemDto detectedMedicine in result.DetectedMedicines)
 		{
 			RetailStockChoice value = null;
@@ -105,9 +110,9 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		if (unmatched.Count > 0)
 		{
 			bool? choice = Ask(
-				"Some items are not mapped to current inventory. Would you like to map them or add them to stock now?",
-				"Unmatched medicines",
-				"Map or add to stock",
+				"Some medicines are not in your stock yet. Find them in stock or add them to stock first? Or add them to the bill as counter items now?",
+				"Medicines not in stock",
+				"Find or add to stock first",
 				"Add as counter items");
 			if (choice == null)
 			{
@@ -116,7 +121,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 
 			if (choice == true)
 			{
-				ErrorMessage = "Use Link to Stock or + Inward Stock on each unmatched row, then Add to Bill.";
+				ErrorMessage = "For each medicine marked 'Not in your stock yet', click 'Find in stock' or 'Add to stock'. Then click Add to Bill.";
 				return false;
 			}
 

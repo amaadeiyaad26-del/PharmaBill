@@ -196,6 +196,8 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? removeSelectedItemCommand;
 
+	private RelayCommand<RetailBillLineViewModel?>? removeBillLineCommand;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? resumeSelectedBillCommand;
 
@@ -1440,6 +1442,10 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
+	public IRelayCommand<RetailBillLineViewModel?> RemoveBillLineCommand => removeBillLineCommand ?? (removeBillLineCommand = new RelayCommand<RetailBillLineViewModel?>(RemoveBillLine));
+
+	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
+	[ExcludeFromCodeCoverage]
 	public IRelayCommand ResumeSelectedBillCommand => resumeSelectedBillCommand ?? (resumeSelectedBillCommand = new RelayCommand(ResumeSelectedBill));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -2632,6 +2638,26 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		{
 			ClearBill();
 		}
+	}
+
+	private void RemoveBillLine(RetailBillLineViewModel? line)
+	{
+		if (line == null || !BillItems.Contains(line))
+		{
+			return;
+		}
+
+		if (!confirmationService.Confirm($"Remove {line.DrugName} from the bill?", "Remove line"))
+		{
+			return;
+		}
+
+		BillItems.Remove(line);
+		if (SelectedBillLine == line)
+		{
+			SelectedBillLine = null;
+		}
+		UpdateTotals();
 	}
 
 	private void RemoveSelectedItem()

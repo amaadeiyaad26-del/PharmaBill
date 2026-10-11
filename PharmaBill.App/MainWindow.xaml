@@ -2760,6 +2760,13 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
+                  <DataGridTemplateColumn Header="" Width="40" IsReadOnly="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <Button Content="✕" ToolTip="Remove this medicine from the bill" AutomationProperties.Name="Remove medicine" Style="{StaticResource IconButton}" Foreground="#FFB42318" Command="{Binding DataContext.RemoveBillLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
               <Grid Grid.Row="2" Margin="0,4,0,2" VerticalAlignment="Bottom">
@@ -2915,6 +2922,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
                   <Button Grid.Row="0" Grid.Column="0" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Get data from Prescription" AutomationProperties.Name="Extract from Prescription" ToolTip="Upload or scan prescription (PDF/Image) [F7 webcam / file pick]. Extract medicines and add confirmed lines to this bill." Style="{StaticResource FrostedMintPillButton}" Command="{Binding ExtractPrescriptionCommand}" />
                   <Button Grid.Row="0" Grid.Column="1" Height="32" MinWidth="0" Margin="2,2" Padding="6,2" HorizontalAlignment="Stretch" Content="Webcam OCR" AutomationProperties.Name="Extract from Webcam" ToolTip="Capture a live prescription frame, extract the medicines, and archive the photo on this bill. Shortcut: F7" Style="{StaticResource FrostedMintPillButton}" Command="{Binding ExtractPrescriptionFromWebcamCommand}" />
@@ -2952,7 +2960,7 @@
                       </TextBlock>
                     </Grid>
                   </DockPanel>
-                  <TextBlock Grid.Row="5" Grid.ColumnSpan="2" Foreground="#FFB42318" TextWrapping="Wrap" Margin="2,2" Text="{Binding ErrorMessage}" />
+                  <TextBlock Grid.Row="6" Grid.ColumnSpan="2" Foreground="#FFB42318" TextWrapping="Wrap" Margin="2,2" Text="{Binding ErrorMessage}" />
                 </Grid>
               </Grid>
             </Grid>

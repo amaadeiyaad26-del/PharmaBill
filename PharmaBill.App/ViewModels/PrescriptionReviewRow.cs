@@ -26,8 +26,6 @@ public sealed class PrescriptionReviewRow : ObservableObject
 
 	public string Duration { get; }
 
-	public double Confidence { get; }
-
 	public RetailStockChoice? Choice => _choice;
 
 	public string? MatchedName => _matchedName;
@@ -42,21 +40,11 @@ public sealed class PrescriptionReviewRow : ObservableObject
 
 	public bool CanInclude => (object)Choice != null;
 
-	public string ConfidenceText
-	{
-		get
-		{
-			if ((object)Choice != null)
-			{
-				return $"{Confidence:P0}";
-			}
-			return "-";
-		}
-	}
-
 	public string DoseText => string.Join("  ", new string[2] { Dosage, Duration }.Where((string part) => part.Length > 0));
 
-	public string MatchText => _matchedName ?? "Not matched - link or substitute manually";
+	public bool HasDoseText => DoseText.Length > 0;
+
+	public string MatchText => _matchedName ?? "Not in your stock yet";
 
 	public string QuantityText
 	{
@@ -81,13 +69,13 @@ public sealed class PrescriptionReviewRow : ObservableObject
 		{
 			if ((object)Choice != null)
 			{
-				return $"{Choice.BatchNo}  exp {(Choice.ExpiryDate.HasValue ? Choice.ExpiryDate.Value.ToString("MM/yyyy") : "-")}  stock {Choice.AvailableQuantity:0.##}";
+				return $"Batch {Choice.BatchNo}, expires {(Choice.ExpiryDate.HasValue ? Choice.ExpiryDate.Value.ToString("MM/yyyy") : "-")}, {Choice.AvailableQuantity:0.##} in stock";
 			}
 			if (MatchedName != null)
 			{
-				return "Out of stock";
+				return "No stock left. Click 'Add to stock'.";
 			}
-			return "Not in catalogue";
+			return "-";
 		}
 	}
 
@@ -146,7 +134,6 @@ public sealed class PrescriptionReviewRow : ObservableObject
 		PrescribedName = item.DrugName;
 		Dosage = item.Dosage;
 		Duration = item.Duration;
-		Confidence = item.ConfidenceScore;
 		_choice = choice;
 		_matchedName = choice?.DrugName ?? matchedName;
 		LinkedDrugId = choice?.DrugId;
@@ -189,7 +176,6 @@ public sealed class PrescriptionReviewRow : ObservableObject
 		OnPropertyChanged(nameof(MatchedName));
 		OnPropertyChanged(nameof(MatchText));
 		OnPropertyChanged(nameof(BatchText));
-		OnPropertyChanged(nameof(ConfidenceText));
 		OnPropertyChanged(nameof(CanInclude));
 		OnPropertyChanged(nameof(IsMatched));
 		OnPropertyChanged(nameof(IsUnmatched));
