@@ -3330,7 +3330,24 @@
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:StockPageViewModel}}" DataType="{x:Type vm:StockPageViewModel}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <StackPanel Margin="28">
+          <StackPanel Margin="28" RenderTransformOrigin="0.5,0">
+            <StackPanel.RenderTransform>
+              <TranslateTransform x:Name="PageSlide" Y="16" />
+            </StackPanel.RenderTransform>
+            <StackPanel.Triggers>
+              <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.28" />
+                    <DoubleAnimation Storyboard.TargetName="PageSlide" Storyboard.TargetProperty="Y" From="16" To="0" Duration="0:0:0.36">
+                      <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </EventTrigger>
+            </StackPanel.Triggers>
             <FrameworkElement.Resources>
               <ResourceDictionary>
                 <controls:BindingProxy x:Key="StockPageProxy" Data="{Binding}" />
@@ -3338,6 +3355,39 @@
             </FrameworkElement.Resources>
             <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
             <TextBlock Style="{StaticResource PageTitle}" Text="Stock" FontSize="28" Margin="0,0,0,14" />
+            <TextBlock Margin="0,-8,0,14" Foreground="{DynamicResource SecondaryTextBrush}" Text="Every batch, expiry and shortage in one place. Tap a card to filter." />
+            <UniformGrid Columns="5" Margin="0,0,0,16">
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF6366F1" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="All" ToolTip="Show every batch in stock.">
+                <StackPanel>
+                  <TextBlock Text="Batches in stock" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Text="{Binding KpiBatches}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FFEF4444" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="Shortage" ToolTip="Medicines at or below their reorder level.">
+                <StackPanel>
+                  <TextBlock Text="Medicines short" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Foreground="#FFB42318" Text="{Binding KpiShortage}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FFF59E0B" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="Near expiry" ToolTip="Batches expiring within the warning window.">
+                <StackPanel>
+                  <TextBlock Text="Near expiry" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Foreground="#FFB54708" Text="{Binding KpiNearExpiry}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF8B5CF6" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="Missing MRP" ToolTip="Batches with no MRP entered. Fix these before billing.">
+                <StackPanel>
+                  <TextBlock Text="Missing MRP" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Text="{Binding KpiMissingMrp}" />
+                </StackPanel>
+              </Button>
+              <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF10B981" Command="{Binding SetStockFilterCommand}" CommandParameter="Valuation" ToolTip="Stock valued at MRP. Opens the valuation view.">
+                <StackPanel>
+                  <TextBlock Text="Stock at MRP" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <TextBlock Margin="0,6,0,0" FontSize="24" FontWeight="Bold" Text="{Binding KpiMrpValue, StringFormat=₹{0:N0}, ConverterCulture=en-IN}" />
+                </StackPanel>
+              </Button>
+            </UniformGrid>
             <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="10" Padding="4" Margin="0,0,0,12" HorizontalAlignment="Left">
               <StackPanel Orientation="Horizontal">
                 <Button Content="All" Style="{StaticResource FilterTabButton}" CommandParameter="All" Command="{Binding SetStockFilterCommand}" ToolTip="Show every batch currently in stock." />
@@ -3373,8 +3423,10 @@
               <controls:FloatingField Label="Status" Width="170" Margin="0,0,8,8">
                 <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" />
               </controls:FloatingField>
+              <Button Content="Clear filters" Height="48" MinWidth="110" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ClearFiltersCommand}" ToolTip="Reset the name, batch, schedule and status filters." />
               <Button Content="Refresh" Height="48" MinWidth="100" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload the stock grid from the local database." />
             </WrapPanel>
+            <Border Style="{StaticResource SectionCardLift}" Padding="8" Margin="0,0,0,14">
             <Grid Height="320" Margin="0,0,0,14">
               <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
                 <DataGrid.RowStyle>
@@ -3457,6 +3509,7 @@
                 </FrameworkElement.Style>
               </TextBlock>
             </Grid>
+            </Border>
             <TextBlock Text="Stock adjustment" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
             <Border Background="#FFCCFBF1" BorderBrush="#FF0F766E" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,0,0,10" HorizontalAlignment="Left">
               <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#FF0F5E58" Text="{Binding SelectedRow.Medicine, StringFormat=Selected: {0}, FallbackValue=No batch selected}" />
