@@ -362,6 +362,11 @@ public class MainWindowViewModel : ObservableObject
 		LicenseManager.GetExpiryWarningMessage()
 		?? "Your annual license is approaching expiry. Contact support to renew.";
 
+	// "Customers" in the sidebar is a group: clicking it shows or hides its three sub-items.
+	private const string CustomersGroupKey = "CustomersGroup";
+
+	private bool _customersExpanded;
+
 	public ObservableCollection<NavigationItem> NavigationItems { get; } = new ObservableCollection<NavigationItem>();
 
 	private string _navFilter = string.Empty;
@@ -386,10 +391,27 @@ public class MainWindowViewModel : ObservableObject
 	/// <summary>The sidebar list, filtered by <see cref="NavFilter"/>. Stays in step with <see cref="NavigationItems"/>.</summary>
 	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
 
+	private static bool IsCustomersSection(string? sectionKey) =>
+		sectionKey is "Customers" or "WholesaleBuyers" or "WholesaleSuppliers";
+
+	private string CustomersGroupTitle() => "Customers " + (_customersExpanded ? "▾" : "▸");
+
+	private void ToggleCustomers()
+	{
+		_customersExpanded = !_customersExpanded;
+		NavigationItem? header = NavigationItems.FirstOrDefault((NavigationItem item) => item.SectionKey == CustomersGroupKey);
+		if (header != null)
+		{
+			NavigationItems[NavigationItems.IndexOf(header)] = new NavigationItem(CustomersGroupKey, CustomersGroupTitle());
+		}
+		NavigationItemsView.Refresh();
+	}
+
 	private ICollectionView BuildNavigationItemsView()
 	{
 		ICollectionView view = CollectionViewSource.GetDefaultView(NavigationItems);
 		view.Filter = item => item is NavigationItem navigationItem
+			&& (!navigationItem.IsSubItem || _customersExpanded || !string.IsNullOrWhiteSpace(NavFilter))
 			&& (string.IsNullOrWhiteSpace(NavFilter) || navigationItem.Title.Contains(NavFilter.Trim(), StringComparison.OrdinalIgnoreCase));
 		return view;
 	}
@@ -2079,6 +2101,12 @@ public class MainWindowViewModel : ObservableObject
 			throw new ArgumentException("A navigation section must be provided.", "sectionKey");
 		}
 
+		if (sectionKey == CustomersGroupKey)
+		{
+			ToggleCustomers();
+			return;
+		}
+
 		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
 		string resolvedKey = ResolveBillingNavigation(sectionKey);
 
@@ -2102,6 +2130,11 @@ public class MainWindowViewModel : ObservableObject
 			if (resolvedKey is "Customers" or "WholesaleBuyers")
 			{
 				_wholesaleCustomerPage.SetPatientView(resolvedKey == "Customers");
+			}
+
+			if (IsCustomersSection(resolvedKey) && !_customersExpanded)
+			{
+				ToggleCustomers();
 			}
 
 			_navigationService.Navigate(resolvedKey);
@@ -2682,15 +2715,17 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
 		NavigationItems.Add(new NavigationItem("StockTransfer", wholesaleDesk ? "Godown / Counter Challan" : "Stock transfer"));
 		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
+		_customersExpanded = _customersExpanded || IsCustomersSection(CurrentSectionKey);
+		NavigationItems.Add(new NavigationItem(CustomersGroupKey, CustomersGroupTitle()));
 		if (mode != BusinessMode.Wholesaler)
 		{
-			NavigationItems.Add(new NavigationItem("Customers", "Customers · Patients & Consumers"));
+			NavigationItems.Add(new NavigationItem("Customers", "Patients & Consumers", IsSubItem: true));
 		}
 		if (mode != BusinessMode.Retail)
 		{
-			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Customers · Wholesale Buyers"));
+			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Wholesale Buyers", IsSubItem: true));
 		}
-		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Customers · Wholesale Suppliers"));
+		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Wholesale Suppliers", IsSubItem: true));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
 		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
 		if (mode != BusinessMode.Retail)
