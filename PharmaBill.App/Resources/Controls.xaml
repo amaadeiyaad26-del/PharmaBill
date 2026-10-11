@@ -720,6 +720,7 @@
   <local:SectionActiveConverter x:Key="SectionActiveConverter" />
   <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
   <local:StringEqualsConverter x:Key="StringEqualsConverter" />
+  <local:StockTabMatchConverter x:Key="StockTabMatchConverter" />
   <Style x:Key="{x:Type Button}" TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}" />
   <Style x:Key="MenuButtonStyle" TargetType="{x:Type Button}">
     <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -1153,6 +1154,53 @@
         <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.08" Color="#FF0F172A" />
       </Setter.Value>
     </Setter>
+  </Style>
+
+  <!-- Filter tabs (Stock page): compact pills in a tab strip; the active filter takes the mode accent. -->
+  <Style x:Key="FilterTabButton" TargetType="{x:Type Button}">
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="MinWidth" Value="84" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="Margin" Value="0,0,4,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="border" CornerRadius="8" SnapsToDevicePixels="True" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontWeight="{TemplateBinding FontWeight}" TextElement.FontSize="{TemplateBinding FontSize}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="border" Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+              <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.5" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <DataTrigger Value="True">
+        <DataTrigger.Binding>
+          <MultiBinding Converter="{StaticResource StockTabMatchConverter}">
+            <Binding Path="StatusFilter" />
+            <Binding Path="CommandParameter" RelativeSource="{RelativeSource Self}" />
+          </MultiBinding>
+        </DataTrigger.Binding>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFFFF" />
+      </DataTrigger>
+    </Style.Triggers>
   </Style>
 
   <Style x:Key="SectionCardTitle" TargetType="{x:Type TextBlock}">

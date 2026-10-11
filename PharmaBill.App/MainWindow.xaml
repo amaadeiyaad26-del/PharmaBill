@@ -2972,14 +2972,18 @@
             </FrameworkElement.Resources>
             <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
             <TextBlock Style="{StaticResource PageTitle}" Text="Stock" FontSize="28" Margin="0,0,0,14" />
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="10" Padding="4" Margin="0,0,0,12" HorizontalAlignment="Left">
+              <StackPanel Orientation="Horizontal">
+                <Button Content="All" Style="{StaticResource FilterTabButton}" CommandParameter="All" Command="{Binding SetStockFilterCommand}" ToolTip="Show every batch currently in stock." />
+                <Button Content="Shortage" Style="{StaticResource FilterTabButton}" CommandParameter="Shortage" Command="{Binding SetStockFilterCommand}" ToolTip="StockQty ≤ ReorderLevel — generate purchase indent." />
+                <Button Content="Near Expiry" Style="{StaticResource FilterTabButton}" CommandParameter="Near expiry" Command="{Binding SetStockFilterCommand}" ToolTip="Expired / &lt;30 / &lt;60 / &lt;90 day life statement." />
+                <Button Content="Dump Stock" Style="{StaticResource FilterTabButton}" CommandParameter="Dump Stock" Command="{Binding SetStockFilterCommand}" ToolTip="Batches with zero sales movement in the last 90 days (blocked capital)." />
+                <Button Content="Banned" Style="{StaticResource FilterTabButton}" CommandParameter="Banned" Command="{Binding SetStockFilterCommand}" ToolTip="Hold / ban / recall registry." />
+                <Button Content="Valuation" Style="{StaticResource FilterTabButton}" CommandParameter="Valuation" Command="{Binding SetStockFilterCommand}" ToolTip="FIFO purchase rate and MRP holding value." />
+                <Button Content="Missing MRP" Style="{StaticResource FilterTabButton}" CommandParameter="Missing MRP" Command="{Binding SetStockFilterCommand}" />
+              </StackPanel>
+            </Border>
             <WrapPanel Margin="0,0,0,10">
-              <Button Content="All" Height="40" MinWidth="72" Margin="0,0,8,8" CommandParameter="All" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Show every batch currently in stock." />
-              <Button Content="Shortage" Height="40" MinWidth="100" Margin="0,0,8,8" CommandParameter="Shortage" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SetStockFilterCommand}" ToolTip="StockQty ≤ ReorderLevel — generate purchase indent." />
-              <Button Content="Near Expiry" Height="40" MinWidth="110" Margin="0,0,8,8" CommandParameter="Near expiry" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Expired / &lt;30 / &lt;60 / &lt;90 day life statement." />
-              <Button Content="Dump Stock" Height="40" MinWidth="110" Margin="0,0,8,8" CommandParameter="Dump Stock" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Batches with zero sales movement in the last 90 days (blocked capital)." />
-              <Button Content="Banned" Height="40" MinWidth="90" Margin="0,0,8,8" CommandParameter="Banned" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SetStockFilterCommand}" ToolTip="Hold / ban / recall registry." />
-              <Button Content="Valuation" Height="40" MinWidth="100" Margin="0,0,8,8" CommandParameter="Valuation" Style="{StaticResource FrostedMintPillButton}" Command="{Binding SetStockFilterCommand}" ToolTip="FIFO purchase rate and MRP holding value." />
-              <Button Content="Missing MRP" Height="36" MinWidth="120" Margin="0,0,8,8" CommandParameter="Missing MRP" Style="{StaticResource SecondaryButton}" Command="{Binding SetStockFilterCommand}" />
               <Button Content="Purchase Indent" Height="36" MinWidth="140" Margin="0,0,8,8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding GeneratePurchaseIndentCommand}" />
               <Button Content="Draft PO" Height="40" MinWidth="100" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding CreateDraftPurchaseOrderCommand}" />
               <Button Content="Reorder suggestions" Height="40" MinWidth="150" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ReorderSuggestionsCommand}" ToolTip="Export medicines that are low or out of stock, based on average daily sales over the last 30 days." />
@@ -3008,28 +3012,33 @@
             <Grid Height="320" Margin="0,0,0,14">
               <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
                 <DataGrid.RowStyle>
-                  <Style TargetType="{x:Type DataGridRow}">
+                  <Style TargetType="{x:Type DataGridRow}" BasedOn="{StaticResource {x:Type DataGridRow}}">
                     <Style.Triggers>
                       <DataTrigger Value="Expired" Binding="{Binding Status, Mode=OneWay}">
-                        <Setter Property="Panel.Background" Value="#FFFEE4E2" />
+                        <Setter Property="Background" Value="#FFFEE4E2" />
                         <Setter Property="TextElement.Foreground" Value="#FF912018" />
                       </DataTrigger>
                       <DataTrigger Value="Critical" Binding="{Binding Status, Mode=OneWay}">
-                        <Setter Property="Panel.Background" Value="#FFFEE4E2" />
+                        <Setter Property="Background" Value="#FFFEE4E2" />
                         <Setter Property="TextElement.Foreground" Value="#FF912018" />
                       </DataTrigger>
                       <DataTrigger Value="Near expiry" Binding="{Binding Status, Mode=OneWay}">
-                        <Setter Property="Panel.Background" Value="#FFFFEAD5" />
+                        <Setter Property="Background" Value="#FFFFEAD5" />
                         <Setter Property="TextElement.Foreground" Value="#FF93370D" />
                       </DataTrigger>
                       <DataTrigger Value="Shortage" Binding="{Binding Status, Mode=OneWay}">
-                        <Setter Property="Panel.Background" Value="#FFFEF0C7" />
+                        <Setter Property="Background" Value="#FFFEF0C7" />
                         <Setter Property="TextElement.Foreground" Value="#FF7A2E0E" />
                       </DataTrigger>
                       <DataTrigger Value="Low stock" Binding="{Binding Status, Mode=OneWay}">
-                        <Setter Property="Panel.Background" Value="#FFFEF0C7" />
+                        <Setter Property="Background" Value="#FFFEF0C7" />
                         <Setter Property="TextElement.Foreground" Value="#FF7A2E0E" />
                       </DataTrigger>
+                      <Trigger Property="IsSelected" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource GridSelectionBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                        <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                      </Trigger>
                     </Style.Triggers>
                   </Style>
                 </DataGrid.RowStyle>
@@ -3083,7 +3092,9 @@
               </TextBlock>
             </Grid>
             <TextBlock Text="Stock adjustment" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8" />
-            <TextBlock Margin="0,0,0,8" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding SelectedRow.Medicine, StringFormat=Selected: {0}, FallbackValue=No batch selected}" />
+            <Border Background="#FFCCFBF1" BorderBrush="#FF0F766E" BorderThickness="1" CornerRadius="8" Padding="12,6" Margin="0,0,0,10" HorizontalAlignment="Left">
+              <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#FF0F5E58" Text="{Binding SelectedRow.Medicine, StringFormat=Selected: {0}, FallbackValue=No batch selected}" />
+            </Border>
             <WrapPanel Margin="0,0,0,10">
               <controls:FloatingField Label="Quantity change (+ or -)" IsRequired="True" Width="220" Margin="0,0,8,8" ErrorText="{Binding ActionQuantityError}">
                 <TextBox Text="{Binding Path=ActionQuantityText, UpdateSourceTrigger=PropertyChanged}" />
@@ -3091,16 +3102,16 @@
               <controls:FloatingField Label="Reason" IsRequired="True" Width="240" Margin="0,0,8,8" ErrorText="{Binding ActionReasonError}">
                 <ComboBox ItemsSource="{Binding ReasonOptions}" SelectedItem="{Binding ActionReason}" />
               </controls:FloatingField>
-              <Button Content="Adjust stock" Height="48" MinWidth="130" Margin="0,0,8,8" Style="{StaticResource PrimaryButton}" Command="{Binding AdjustStockCommand}" />
-              <Button Content="Write off expired" Height="48" MinWidth="150" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding WriteOffExpiredCommand}" />
+              <Button Content="Adjust stock" Height="36" MinWidth="110" FontSize="13" Padding="14,4" Margin="0,0,8,8" Style="{StaticResource PrimaryButton}" Command="{Binding AdjustStockCommand}" />
+              <Button Content="Write off expired" Height="36" MinWidth="130" FontSize="13" Padding="14,4" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding WriteOffExpiredCommand}" />
             </WrapPanel>
             <TextBlock Text="Physical count" FontSize="18" FontWeight="SemiBold" Margin="0,8,0,8" />
             <WrapPanel Margin="0,0,0,8">
               <controls:FloatingField Label="Count session name" Width="280" Margin="0,0,8,8">
                 <TextBox Text="{Binding Path=VerificationSessionNo, UpdateSourceTrigger=PropertyChanged}" />
               </controls:FloatingField>
-              <Button Content="Start physical count" Height="48" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding StartVerificationCommand}" />
-              <Button Content="Post physical count" Height="48" Margin="0,0,0,8" Style="{StaticResource PrimaryButton}" Command="{Binding PostVerificationCommand}" />
+              <Button Content="Start physical count" Height="36" FontSize="13" Padding="14,4" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding StartVerificationCommand}" />
+              <Button Content="Post physical count" Height="36" FontSize="13" Padding="14,4" Margin="0,0,0,8" Style="{StaticResource PrimaryButton}" Command="{Binding PostVerificationCommand}" />
             </WrapPanel>
             <Grid Height="170" Margin="0,0,0,8">
               <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" ItemsSource="{Binding VerificationItems}">
