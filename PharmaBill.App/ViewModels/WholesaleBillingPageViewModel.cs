@@ -2369,19 +2369,20 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				CreditDays = dialog.CreditDays,
 				IsActive = true
 			};
-			CustomerLicence licence = new CustomerLicence
+			CustomerLicence[] licences = dialog.Licences.Select((DrugLicenceEntry entry) => new CustomerLicence
 			{
-				LicenceType = dialog.LicenceType,
-				LicenceNumber = dialog.LicenceNumber,
-				IssuedOn = dialog.IssuedOn,
-				ExpiresOn = dialog.ExpiresOn
-			};
-			await service.SaveAsync(customer, new[] { licence }, new[] { dialog.LicenceType }, appUser.Id);
+				LicenceType = entry.LicenceType,
+				LicenceNumber = entry.LicenceNumber,
+				IssuedOn = entry.IssuedOn,
+				ExpiresOn = entry.ExpiresOn
+			}).ToArray();
+			await service.SaveAsync(customer, licences, dialog.Licences.Select((DrugLicenceEntry entry) => entry.LicenceType).ToArray(), appUser.Id);
 
 			Customers.Insert(0, customer);
 			ApplyCustomerFilter();
 			SelectedCustomer = customer;
-			StatusMessage = $"Retailer '{customer.Name}' saved to Customers master with DL {dialog.LicenceType} {dialog.LicenceNumber}.";
+			string licenceList = string.Join(", ", dialog.Licences.Select((DrugLicenceEntry entry) => $"DL {entry.LicenceType} {entry.LicenceNumber}"));
+			StatusMessage = $"Retailer '{customer.Name}' saved to Customers master with {licenceList}.";
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or UnauthorizedAccessException)
