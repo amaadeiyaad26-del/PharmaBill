@@ -31,7 +31,7 @@ Open the app in Partner Center → Product identity. The manifest already has th
 |---|---|---|
 | Package/Identity/Publisher | `-Publisher` (manifest `Identity@Publisher`) | `CN=REPLACE-WITH-PARTNER-CENTER-CN` until you paste the live CN |
 | Package/Identity/Name | `-PackageName` (manifest `Identity@Name`) | `SAER.PharmaBill` |
-| Package/Properties/PublisherDisplayName | manifest `PublisherDisplayName` | `SAER` |
+| Package/Properties/PublisherDisplayName | manifest `PublisherDisplayName` | `S.A.E.R.` (as shown in Partner Center; must match exactly) |
 | Reserved product name | manifest `DisplayName` | `PharmaBill` |
 
 The publisher string must match exactly, including the `CN=` prefix. A mismatch is rejected at upload.

@@ -18,7 +18,7 @@
 
   <Properties>
     <DisplayName>PharmaBill</DisplayName>
-    <PublisherDisplayName>SAER</PublisherDisplayName>
+    <PublisherDisplayName>S.A.E.R.</PublisherDisplayName>
     <Logo>Assets\Store\StoreLogo.png</Logo>
     <Description>Pharmacy billing and inventory for India.</Description>
     <!-- Real %LocalAppData%\PharmaBill (SQLite). Win10 1903+ uses the disabled flag;

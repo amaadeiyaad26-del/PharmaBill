@@ -7,7 +7,7 @@
 .PARAMETER Publisher
   Partner Center Package/Identity/Publisher (CN=...). Default is CN=REPLACE-WITH-PARTNER-CENTER-CN.
 .PARAMETER PublisherDisplayName
-  Partner Center Package/Properties/PublisherDisplayName. Default in the manifest is SAER.
+  Partner Center Package/Properties/PublisherDisplayName. Default in the manifest is S.A.E.R.
 .PARAMETER DisplayName
   Reserved app name (manifest DisplayName).
 .PARAMETER Version
