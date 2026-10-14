@@ -17,7 +17,7 @@
     <Border HorizontalAlignment="Center" Padding="10" Background="White" CornerRadius="8" BorderBrush="#FFE2E8F0" BorderThickness="1">
       <Image Width="260" Height="260" Stretch="Uniform" Source="{Binding PhonePairingQr}" />
     </Border>
-    <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FF64748B" Text="Scan this code in the PharmaBill Android app. Each captured distributor bill is posted to this PC on the same Wi-Fi network." />
-    <Button Content="Close" Height="36" MinWidth="100" Margin="0,16,0,0" HorizontalAlignment="Right" Padding="16,6" IsCancel="True" IsDefault="True" />
+    <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FF64748B" Text="Scan this code in the PharmaBill Android app on the same Wi-Fi. Keep this window open while you capture bills — they appear in Purchases as soon as the phone uploads them." />
+    <Button Content="Keep listening &amp; close" Height="36" MinWidth="100" Margin="0,16,0,0" HorizontalAlignment="Right" Padding="16,6" IsCancel="True" IsDefault="True" />
   </StackPanel>
 </Window>

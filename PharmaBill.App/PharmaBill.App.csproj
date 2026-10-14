@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>Assets\Icons\app.ico</ApplicationIcon>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <Product>PharmaBill</Product>
     <Company>PharmaBill</Company>
     <Version>1.0.1</Version>
@@ -16,9 +16,11 @@
     <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</BuildDateUtc>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Store packages are produced by ..\build-msstore-package.ps1 (makeappx).
-         SDK packaging stays off unless GenerateAppxPackageOnBuild or PublishAppxPackage is set. -->
+         SDK packaging stays off unless GenerateAppxPackageOnBuild or PublishAppxPackage is set.
+         Do NOT default RuntimeIdentifier here — forcing win-x64 on every local build puts
+         WPF .g.cs under obj\...\win-x64\ and races to CS2001 ("file could not be found").
+         Pass -r win-x64 only for publish / installer packaging. -->
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <!-- Enable MSIX tooling only when explicitly packaging; keeps test/app builds ProcessorArchitecture-safe. -->
     <EnableMsixTooling Condition="'$(GenerateAppxPackageOnBuild)' == 'true' or '$(PublishAppxPackage)' == 'true'">true</EnableMsixTooling>
@@ -97,23 +99,20 @@
     <Resource Include="Assets\Icons\pharma_bill_3d.ico" Condition="Exists('Assets\Icons\pharma_bill_3d.ico')" />
     <Resource Include="Assets\Icons\pharma_bill_3d.png" Condition="Exists('Assets\Icons\pharma_bill_3d.png')" />
     <Resource Include="Assets\Icons\pharma_bill_3d_watermark.png" Condition="Exists('Assets\Icons\pharma_bill_3d_watermark.png')" />
+    <Resource Include="Assets\Icons\logo_watermark.png" Condition="Exists('Assets\Icons\logo_watermark.png')" />
     <Resource Include="Assets\PharmaBill.ico" Condition="Exists('Assets\PharmaBill.ico')" />
+    <!-- Desktop / installer icon beside the EXE; also embedded via ApplicationIcon. -->
+    <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('app.ico')" />
+    <Resource Include="app.ico" Condition="Exists('app.ico')" />
+    <!-- Locked raster snapshot of PharmaBill3DLogo (UI still uses the live vector control). -->
+    <Content Remove="Resources\logo*.png" />
+    <Resource Include="Resources\logo_final_3d.png" Condition="Exists('Resources\logo_final_3d.png')" />
+    <None Include="Resources\logo_3d.png" Condition="Exists('Resources\logo_3d.png')" />
     <EmbeddedResource Include="Assets\Fonts\*.ttf" Condition="Exists('Assets\Fonts')" />
     <Content Include="Assets\Store\**\*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\ui-click.wav" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\ui-click.wav')" />
     <Content Include="Assets\tick.wav" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\tick.wav')" />
     <None Include="Package.appxmanifest" />
-  </ItemGroup>
-
-  <ItemGroup>
-        <Resource Include="Assets\Icons\logo_watermark.png" Condition="Exists('Assets\Icons\logo_watermark.png')" />
-        <!-- Desktop / installer icon beside the EXE; also embedded via ApplicationIcon. -->
-        <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('app.ico')" />
-        <Resource Include="app.ico" Condition="Exists('app.ico')" />
-        <!-- Locked raster snapshot of PharmaBill3DLogo (UI still uses the live vector control). -->
-        <Content Remove="Resources\logo*.png" />
-        <Resource Include="Resources\logo_final_3d.png" Condition="Exists('Resources\logo_final_3d.png')" />
-        <None Include="Resources\logo_3d.png" Condition="Exists('Resources\logo_3d.png')" />
   </ItemGroup>
 
 </Project>
