@@ -55,16 +55,14 @@ if ($SkipTests) {
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 New-Item -ItemType Directory -Force $publishDir | Out-Null
 
-Invoke-Step 'Publish (self-contained, single-file, win-x64)' {
+Invoke-Step 'Publish (self-contained, win-x64)' {
     dotnet publish $appProject `
         -c Release `
         -r win-x64 `
         --self-contained true `
-        -p:PublishSingleFile=true `
-        -p:EnableCompressionInSingleFile=true `
+        -p:PublishSingleFile=false `
         -p:DebugType=none `
         -p:DebugSymbols=false `
-        -p:IncludeNativeLibrariesForSelfExtract=true `
         "-p:BuildDateUtc=$buildDate" `
         -o $publishDir
 }
