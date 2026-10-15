@@ -162,6 +162,22 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
 			string seriesPrefix = await branchService.ResolveWholesaleInvoiceSeriesPrefixAsync(cancellationToken);
 			string text2 = await numberSeriesService.AllocateAsync(seriesPrefix, invoiceDate, cancellationToken);
+			SellerSnapshot seller = await TaxDocumentSnapshotBuilder.BuildSellerAsync(context, profile, branch, pharmacyState.Code, branding: null, cancellationToken);
+			List<CustomerLicence> buyerLicences = await context.CustomerLicences.AsNoTracking()
+				.Where(item => item.CustomerId == customer.Id)
+				.OrderBy(item => item.LicenceType)
+				.ThenBy(item => item.LicenceNumber)
+				.ToListAsync(cancellationToken);
+			BuyerSnapshot buyer = new BuyerSnapshot
+			{
+				Name = customer.Name,
+				Address = customer.Address,
+				Phone = customer.Phone,
+				Gstin = customer.Gstin,
+				StateCode = buyerState.Code,
+				StateName = buyerState.CanonicalName,
+				Licences = buyerLicences.Select(item => new LicenceSnapshot(item.LicenceType, item.LicenceNumber, item.ExpiresOn)).ToArray()
+			};
 			WholesaleInvoice invoice = new WholesaleInvoice
 			{
 				CustomerId = customer.Id,
@@ -184,7 +200,12 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				Notes = NullIfWhiteSpace(input.Notes),
 				BranchId = branch.Id,
 				PharmacyStateCode = pharmacyState.Code,
-				BuyerStateCode = buyerState.Code
+				BuyerStateCode = buyerState.Code,
+				BuyerGstin = customer.Gstin,
+				BuyerLegalName = customer.Name,
+				BuyerAddress = customer.Address,
+				SellerSnapshotJson = TaxDocumentSnapshot.Serialize(seller),
+				BuyerSnapshotJson = TaxDocumentSnapshot.Serialize(buyer)
 			};
 			context.WholesaleInvoices.Add(invoice);
 			foreach (PreparedLine item2 in prepared)
@@ -204,7 +225,13 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 					CgstAmount = item2.CgstAmount,
 					SgstAmount = item2.SgstAmount,
 					IgstAmount = item2.IgstAmount,
-					LineTotal = item2.TaxableAmount + item2.TaxAmount
+					LineTotal = item2.TaxableAmount + item2.TaxAmount,
+					ItemName = item2.Drug.Name,
+					HsnCode = item2.Drug.HsnCode,
+					Unit = item2.Drug.Unit,
+					BatchNo = item2.Batch.BatchNo,
+					BatchExpiry = item2.Batch.ExpiryDate,
+					Mrp = item2.Batch.Mrp ?? item2.Drug.Mrp
 				});
 				context.StockMovements.Add(new StockMovement
 				{

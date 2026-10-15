@@ -53,4 +53,17 @@ public sealed class WholesaleInvoice : EntityBase
 
 	/// <summary>Buyer's GST state code (place of supply) as resolved when the invoice was saved. Null on older invoices.</summary>
 	public string? BuyerStateCode { get; set; }
+
+	/// <summary>Buyer GSTIN as it stood at save; decides B2B vs B2C in returns. Null on older invoices.</summary>
+	public string? BuyerGstin { get; set; }
+
+	public string? BuyerLegalName { get; set; }
+
+	public string? BuyerAddress { get; set; }
+
+	/// <summary>JSON <see cref="SellerSnapshot"/> captured at save. Null on invoices saved before snapshots were recorded.</summary>
+	public string? SellerSnapshotJson { get; set; }
+
+	/// <summary>JSON <see cref="BuyerSnapshot"/> captured at save.</summary>
+	public string? BuyerSnapshotJson { get; set; }
 }

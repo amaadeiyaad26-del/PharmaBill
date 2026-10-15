@@ -145,7 +145,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 		if (unverified.Length > 0)
 		{
 			export["pharmabill_unverified_state_invoices"] = unverified;
-			export["pharmabill_state_warning"] = unverified.Length + " wholesale invoice(s) were saved before GST state codes were recorded; their place of supply was re-resolved from current master data and is UNVERIFIED. Check them before filing.";
+			export["pharmabill_state_warning"] = unverified.Length + " invoice(s)/bill(s) were saved before their tax details were recorded; GSTIN, place of supply and HSN were re-read from current master data and are UNVERIFIED. Check them before filing.";
 		}
 		return JsonSerializer.Serialize(export, JsonOptions);
 	}
@@ -346,9 +346,11 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 			GstLine[] lines = wholesaleItems.Where((WholesaleInvoiceItem item) => item.WholesaleInvoiceId == invoice.Id).Select((WholesaleInvoiceItem item) =>
 			{
 				Drug valueOrDefault = drugs.GetValueOrDefault(item.DrugId);
-				return new GstLine(valueOrDefault?.Name ?? "Item", valueOrDefault?.HsnCode, item.Quantity + item.FreeQuantity, item.TaxRate, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal);
+				return states.Recorded
+					? new GstLine(item.ItemName ?? valueOrDefault?.Name ?? "Item", item.HsnCode, item.Quantity + item.FreeQuantity, item.TaxRate, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal)
+					: new GstLine(valueOrDefault?.Name ?? "Item", valueOrDefault?.HsnCode, item.Quantity + item.FreeQuantity, item.TaxRate, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal);
 			}).ToArray();
-			documents.Add(new GstDocument(invoice.InvoiceNo, DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()), customer.Gstin, states.BuyerStateCode, invoice.Subtotal, invoice.TaxAmount, invoice.CgstAmount, invoice.SgstAmount, invoice.IgstAmount, invoice.TotalAmount, invoice.Status == "Cancelled", lines, states.PharmacyStateCode, states.Recorded));
+			documents.Add(new GstDocument(invoice.InvoiceNo, DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()), states.Recorded ? invoice.BuyerGstin : customer.Gstin, states.BuyerStateCode, invoice.Subtotal, invoice.TaxAmount, invoice.CgstAmount, invoice.SgstAmount, invoice.IgstAmount, invoice.TotalAmount, invoice.Status == "Cancelled", lines, states.PharmacyStateCode, states.Recorded));
 		}
 		DateTime fromUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
 		DateTime toUtcExclusive = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
@@ -365,16 +367,19 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 			select drug).ToDictionaryAsync((Drug drug) => drug.Id, cancellationToken);
 		foreach (Sale sale in retailSales)
 		{
+			bool snapshot = RecordedGstStates.HasSnapshot(sale);
 			GstLine[] array = saleItems.Where((SaleItem item) => item.SaleId == sale.Id).Select((SaleItem item) =>
 			{
 				Drug valueOrDefault = retailDrugs.GetValueOrDefault(item.DrugId);
 				InclusiveTaxLine inclusiveTaxLine = RetailTaxCalculator.SplitInclusive(item.Quantity, item.UnitPrice, item.TaxRate, item.DiscountAmount);
 				decimal num3 = Round(inclusiveTaxLine.TaxAmount / 2m);
-				return new GstLine(valueOrDefault?.Name ?? "Medicine", valueOrDefault?.HsnCode, item.Quantity, item.TaxRate, inclusiveTaxLine.NetAmount, num3, inclusiveTaxLine.TaxAmount - num3, 0m, item.LineTotal);
+				return new GstLine(snapshot ? item.ItemName ?? valueOrDefault?.Name ?? "Medicine" : valueOrDefault?.Name ?? "Medicine", snapshot ? item.HsnCode : valueOrDefault?.HsnCode, item.Quantity, item.TaxRate, inclusiveTaxLine.NetAmount, num3, inclusiveTaxLine.TaxAmount - num3, 0m, item.LineTotal);
 			}).ToArray();
 			decimal num = Round(array.Sum((GstLine line) => line.Cgst));
 			decimal num2 = Round(array.Sum((GstLine line) => line.Sgst));
-			documents.Add(new GstDocument(sale.InvoiceNo, DateOnly.FromDateTime(sale.SaleAtUtc.ToLocalTime()), null, pharmacyPos, Round(array.Sum((GstLine line) => line.Taxable)), Round(num + num2), num, num2, 0m, sale.TotalAmount, sale.IsDeleted, array, pharmacyPos));
+			bool recorded = RecordedGstStates.IsRecorded(sale);
+			string saleState = recorded ? sale.PharmacyStateCode! : pharmacyPos;
+			documents.Add(new GstDocument(sale.InvoiceNo, DateOnly.FromDateTime(sale.SaleAtUtc.ToLocalTime()), null, saleState, Round(array.Sum((GstLine line) => line.Taxable)), Round(num + num2), num, num2, 0m, sale.TotalAmount, sale.IsDeleted, array, saleState, recorded));
 		}
 		return (from document in documents
 			orderby document.InvoiceDate, document.InvoiceNo

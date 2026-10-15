@@ -10,6 +10,7 @@ using PharmaBill.Core;
 using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Loyalty;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -237,7 +238,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		}
 		PharmaBillDbContext context = unitOfWork.Context;
 		StorageLocation retailLocation = await storageLocations.GetDefaultRetailLocationAsync(cancellationToken);
-		if ((await context.PharmacyProfiles.SingleAsync(cancellationToken)).BusinessMode == BusinessMode.Wholesaler)
+		PharmacyProfile pharmacyProfile = await context.PharmacyProfiles.SingleAsync(cancellationToken);
+		if (pharmacyProfile.BusinessMode == BusinessMode.Wholesaler)
 		{
 			throw new InvalidOperationException("Retail billing is unavailable in Wholesaler mode.");
 		}
@@ -389,8 +391,22 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					}
 					patient.LoyaltyPoints -= (int)loyaltyRedeemed;
 				}
+				string? pharmacyStateCode = IndianGstStateCodes.ResolveForTax(pharmacyProfile.State, pharmacyProfile.Gstin).Code;
+				SellerSnapshot sellerSnapshot = await TaxDocumentSnapshotBuilder.BuildSellerAsync(context, pharmacyProfile, branch, pharmacyStateCode, input.PrintBranding, cancellationToken);
+				BuyerSnapshot buyerSnapshot = new BuyerSnapshot
+				{
+					Name = input.PatientName.Trim(),
+					Phone = phone,
+					Address = NullIfWhiteSpace(input.PatientAddress),
+					PrescriberName = prescription?.PrescriberName,
+					PrescriberRegistrationNumber = prescription?.PrescriberRegistrationNumber,
+					PrescriptionReference = prescription?.ReferenceNumber
+				};
 				Sale sale = new Sale
 				{
+					PharmacyStateCode = pharmacyStateCode,
+					SellerSnapshotJson = TaxDocumentSnapshot.Serialize(sellerSnapshot),
+					BuyerSnapshotJson = TaxDocumentSnapshot.Serialize(buyerSnapshot),
 					PatientId = patient.Id,
 					PrescriptionId = prescription?.Id,
 					PrescriptionFilePath = attachmentPath,
@@ -423,7 +439,11 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						UnitPrice = line.UnitPrice,
 						DiscountAmount = line.DiscountAmount,
 						TaxRate = prepared.Drug.GstRate.GetValueOrDefault(),
-						LineTotal = prepared.Tax.GrossAmount
+						LineTotal = prepared.Tax.GrossAmount,
+						ItemName = prepared.Drug.Name,
+						HsnCode = prepared.Drug.HsnCode,
+						BatchNo = batch2.BatchNo,
+						BatchExpiry = batch2.ExpiryDate
 					});
 					context.StockMovements.Add(new StockMovement
 					{
@@ -680,6 +700,21 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		}
 	}
 
+	private static string[] RecordedLicenceLines(SellerSnapshot seller)
+	{
+		List<string> lines = seller.Licences.Where(item => item.Number != string.Empty).Select(item => item.Number).ToList();
+		foreach (string extra in seller.ExtraLicenceLines)
+		{
+			int space = extra.IndexOf(' ');
+			string number = space < 0 ? extra : extra[(space + 1)..];
+			if (!lines.Any(item => item.Contains(number, StringComparison.OrdinalIgnoreCase)))
+			{
+				lines.Add(extra);
+			}
+		}
+		return lines.ToArray();
+	}
+
 	public async Task<RetailBillPrintData> GetPrintableBillAsync(Guid saleId, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		PharmaBillDbContext context = unitOfWork.Context;
@@ -709,6 +744,26 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		decimal num = decimal.Round(sale.TaxAmount / 2m, 2, MidpointRounding.AwayFromZero);
 		decimal cgstAmount = num;
 		decimal sgstAmount = sale.TaxAmount - num;
+		SellerSnapshot? seller = TaxDocumentSnapshot.Deserialize<SellerSnapshot>(sale.SellerSnapshotJson);
+		BuyerSnapshot? buyer = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(sale.BuyerSnapshotJson);
+		if (seller != null && buyer != null)
+		{
+			return new RetailBillPrintData(
+				seller.Name, seller.Address, seller.Phone, seller.Gstin,
+				RecordedLicenceLines(seller),
+				seller.CompetentPersonName, seller.CompetentPersonQualification, seller.CompetentPersonRegistrationNumber,
+				sale.InvoiceNo, sale.SaleAtUtc, buyer.Name, buyer.Phone, buyer.Address,
+				sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount,
+				saleItems.Select(item =>
+				{
+					decimal lineTax = RetailTaxCalculator.SplitInclusive(item.Quantity, item.UnitPrice, item.TaxRate, item.DiscountAmount).TaxAmount;
+					Drug? drug = drugs.GetValueOrDefault(item.DrugId);
+					Batch? batch = batches.GetValueOrDefault(item.BatchId);
+					return new RetailBillPrintLine(item.ItemName ?? drug?.Name ?? "Unknown medicine", item.BatchNo ?? batch?.BatchNo ?? "Unknown batch", item.ItemName != null ? item.BatchExpiry : batch?.ExpiryDate, item.Quantity, item.UnitPrice, item.TaxRate, lineTax, item.DiscountAmount, item.LineTotal, item.ItemName != null ? item.HsnCode : drug?.HsnCode);
+				}).ToArray(),
+				buyer.PrescriberName, buyer.PrescriberRegistrationNumber, seller.FssaiNumber, seller.AddressLine2, seller.TermsText, cgstAmount, sgstAmount, sale.MrdNumber,
+				DetailsRecorded: true);
+		}
 		return new RetailBillPrintData(profile.Name, profile.Address, profile.Phone, profile.Gstin, licences, profile.CompetentPersonName, profile.CompetentPersonQualification, profile.CompetentPersonRegistrationNumber, sale.InvoiceNo, sale.SaleAtUtc, patient2?.Name ?? string.Empty, patient2?.Phone, patient2?.Address, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, saleItems.Select((SaleItem item) =>
 		{
 			Drug valueOrDefault = drugs.GetValueOrDefault(item.DrugId);

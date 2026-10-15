@@ -301,6 +301,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			invoice,
 			() => IndianGstStateCodes.Resolve(seller.State, seller.Gstin),
 			() => IndianGstStateCodes.Resolve(customer.State, customer.Gstin));
+		RecordedParties parties = RecordedParties.For(invoice, seller, customer, states.Recorded);
 
 		List<object> itemList = new();
 		int sl = 1;
@@ -308,14 +309,16 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 		{
 			Drug drug = drugs[item.DrugId];
 			Batch batch = batches[item.BatchId];
+			string? hsn = states.Recorded ? item.HsnCode : drug.HsnCode;
+			string? unit = states.Recorded ? item.Unit : drug.Unit;
 			itemList.Add(new Dictionary<string, object?>
 			{
 				["SlNo"] = sl++.ToString(CultureInfo.InvariantCulture),
-				["PrdDesc"] = drug.Name,
+				["PrdDesc"] = states.Recorded ? item.ItemName ?? drug.Name : drug.Name,
 				["IsServc"] = "N",
-				["HsnCd"] = drug.HsnCode ?? "3004",
+				["HsnCd"] = hsn ?? "3004",
 				["Qty"] = item.Quantity,
-				["Unit"] = string.IsNullOrWhiteSpace(drug.Unit) ? "NOS" : drug.Unit,
+				["Unit"] = string.IsNullOrWhiteSpace(unit) ? "NOS" : unit,
 				["UnitPrice"] = item.UnitPrice,
 				["TotAmt"] = Round(item.Quantity * item.UnitPrice),
 				["Discount"] = item.DiscountAmount,
@@ -327,8 +330,8 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				["TotItemVal"] = item.LineTotal,
 				["BchDtls"] = new Dictionary<string, object?>
 				{
-					["Nm"] = batch.BatchNo,
-					["ExpDt"] = batch.ExpiryDate?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+					["Nm"] = states.Recorded ? item.BatchNo ?? batch.BatchNo : batch.BatchNo,
+					["ExpDt"] = (states.Recorded ? item.BatchExpiry : batch.ExpiryDate)?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
 				}
 			});
 		}
@@ -352,20 +355,20 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			},
 			["SellerDtls"] = new Dictionary<string, object?>
 			{
-				["Gstin"] = seller.Gstin ?? string.Empty,
-				["LglNm"] = seller.LegalName ?? seller.Name,
-				["Addr1"] = seller.Address ?? string.Empty,
-				["Loc"] = seller.State ?? string.Empty,
+				["Gstin"] = parties.SellerGstin ?? string.Empty,
+				["LglNm"] = parties.SellerLegalName,
+				["Addr1"] = parties.SellerAddress ?? string.Empty,
+				["Loc"] = parties.SellerLocation ?? string.Empty,
 				["Pin"] = 0,
 				["Stcd"] = states.PharmacyStateCode
 			},
 			["BuyerDtls"] = new Dictionary<string, object?>
 			{
-				["Gstin"] = customer.Gstin ?? string.Empty,
-				["LglNm"] = customer.Name,
+				["Gstin"] = parties.BuyerGstin ?? string.Empty,
+				["LglNm"] = parties.BuyerLegalName,
 				["Pos"] = states.BuyerStateCode,
-				["Addr1"] = customer.Address ?? string.Empty,
-				["Loc"] = customer.State ?? string.Empty,
+				["Addr1"] = parties.BuyerAddress ?? string.Empty,
+				["Loc"] = parties.BuyerLocation ?? string.Empty,
 				["Pin"] = 0,
 				["Stcd"] = states.BuyerStateCode
 			},
@@ -401,6 +404,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			invoice,
 			() => IndianGstStateCodes.Resolve(seller.State, seller.Gstin),
 			() => IndianGstStateCodes.Resolve(customer.State, customer.Gstin));
+		RecordedParties parties = RecordedParties.For(invoice, seller, customer, states.Recorded);
 
 		Dictionary<string, object?> payload = new()
 		{
@@ -409,20 +413,20 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			{
 				new Dictionary<string, object?>
 				{
-					["userGstin"] = seller.Gstin ?? string.Empty,
+					["userGstin"] = parties.SellerGstin ?? string.Empty,
 					["supplyType"] = "O",
 					["subSupplyType"] = "1",
 					["docType"] = "INV",
 					["docNo"] = invoice.InvoiceNo,
 					["docDate"] = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-					["fromGstin"] = seller.Gstin ?? string.Empty,
-					["fromTrdName"] = seller.LegalName ?? seller.Name,
-					["fromAddr1"] = seller.Address ?? string.Empty,
+					["fromGstin"] = parties.SellerGstin ?? string.Empty,
+					["fromTrdName"] = parties.SellerLegalName,
+					["fromAddr1"] = parties.SellerAddress ?? string.Empty,
 					["fromPincode"] = 0,
 					["fromStateCode"] = int.TryParse(states.PharmacyStateCode, out int fs) ? fs : 0,
-					["toGstin"] = customer.Gstin ?? "URP",
-					["toTrdName"] = customer.Name,
-					["toAddr1"] = customer.Address ?? string.Empty,
+					["toGstin"] = parties.BuyerGstin ?? "URP",
+					["toTrdName"] = parties.BuyerLegalName,
+					["toAddr1"] = parties.BuyerAddress ?? string.Empty,
 					["toPincode"] = 0,
 					["toStateCode"] = int.TryParse(states.BuyerStateCode, out int ts) ? ts : 0,
 					["totalValue"] = invoice.Subtotal,
@@ -494,13 +498,15 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				.Select(i =>
 				{
 					Drug drug = drugs.GetValueOrDefault(i.DrugId) ?? new Drug { Name = "Item" };
-					return new GstSaleLine(drug.Name, drug.HsnCode, i.Quantity, i.TaxRate, i.TaxableAmount, i.CgstAmount, i.SgstAmount, i.IgstAmount, i.LineTotal);
+					return states.Recorded
+						? new GstSaleLine(i.ItemName ?? drug.Name, i.HsnCode, i.Quantity, i.TaxRate, i.TaxableAmount, i.CgstAmount, i.SgstAmount, i.IgstAmount, i.LineTotal)
+						: new GstSaleLine(drug.Name, drug.HsnCode, i.Quantity, i.TaxRate, i.TaxableAmount, i.CgstAmount, i.SgstAmount, i.IgstAmount, i.LineTotal);
 				})
 				.ToList();
 			documents.Add(new GstSaleDocument(
 				invoice.InvoiceNo,
 				DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()),
-				customer.Gstin,
+				states.Recorded ? invoice.BuyerGstin : customer.Gstin,
 				states.BuyerStateCode,
 				invoice.Subtotal,
 				invoice.CgstAmount,
@@ -521,6 +527,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 
 		foreach (Sale sale in retail)
 		{
+			bool snapshot = RecordedGstStates.HasSnapshot(sale);
 			List<GstSaleLine> lines = new();
 			foreach (SaleItem item in saleItems.Where(i => i.SaleId == sale.Id))
 			{
@@ -529,20 +536,22 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				decimal taxable = Round(item.LineTotal / (1m + rate / 100m));
 				decimal tax = Round(item.LineTotal - taxable);
 				decimal half = Round(tax / 2m);
-				lines.Add(new GstSaleLine(drug.Name, drug.HsnCode, item.Quantity, rate, taxable, half, tax - half, 0m, item.LineTotal));
+				lines.Add(new GstSaleLine(snapshot ? item.ItemName ?? drug.Name : drug.Name, snapshot ? item.HsnCode : drug.HsnCode, item.Quantity, rate, taxable, half, tax - half, 0m, item.LineTotal));
 			}
 
+			bool recorded = RecordedGstStates.IsRecorded(sale);
 			documents.Add(new GstSaleDocument(
 				sale.InvoiceNo,
 				DateOnly.FromDateTime(sale.SaleAtUtc.ToLocalTime()),
 				null,
-				pharmacyPos,
+				recorded ? sale.PharmacyStateCode! : pharmacyPos,
 				Round(lines.Sum(l => l.Taxable)),
 				Round(lines.Sum(l => l.Cgst)),
 				Round(lines.Sum(l => l.Sgst)),
 				0m,
 				sale.TotalAmount,
-				lines));
+				lines,
+				recorded));
 		}
 
 		return documents;

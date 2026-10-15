@@ -411,7 +411,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			IReadOnlyList<string> unverified = tables.UnverifiedStateInvoiceNos ?? Array.Empty<string>();
 			UnverifiedStateNotice = unverified.Count == 0
 				? string.Empty
-				: $"{unverified.Count} wholesale invoice(s) were saved before GST state codes were recorded; their place of supply is re-resolved from current master data and is UNVERIFIED: {string.Join(", ", unverified.Take(10))}{(unverified.Count > 10 ? ", …" : string.Empty)}. Check them before filing.";
+				: $"{unverified.Count} invoice(s)/bill(s) were saved before their tax details were recorded; GSTIN, place of supply and HSN are re-read from current master data and are UNVERIFIED: {string.Join(", ", unverified.Take(10))}{(unverified.Count > 10 ? ", …" : string.Empty)}. Check them before filing.";
 
 			OnPropertyChanged(nameof(B2bEmptyHint));
 

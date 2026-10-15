@@ -711,6 +711,11 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			Prescription prescription = ((!sale.PrescriptionId.HasValue) ? null : (await context.Prescriptions.AsNoTracking().FirstOrDefaultAsync((Prescription item) => item.Id == sale.PrescriptionId, token)));
 			Prescription prescription2 = prescription;
 			Dictionary<Guid, List<InvoiceDetailLine>> dictionary = await LoadSalesLinesAsync(new _003C_003Ez__ReadOnlySingleElementList<Sale>(sale), Array.Empty<WholesaleInvoice>(), token);
+			BuyerSnapshot? recordedPatient = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(sale.BuyerSnapshotJson);
+			if (recordedPatient != null)
+			{
+				return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToLocalTime(), DisplayParty(recordedPatient.Name), recordedPatient.Phone ?? string.Empty, recordedPatient.Address ?? string.Empty, recordedPatient.PrescriberName ?? string.Empty, recordedPatient.PrescriberRegistrationNumber ?? string.Empty, recordedPatient.PrescriptionReference ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>());
+			}
 			return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToLocalTime(), DisplayParty(patient2?.Name), patient2?.Phone ?? string.Empty, patient2?.Address ?? string.Empty, prescription2?.PrescriberName ?? string.Empty, prescription2?.PrescriberRegistrationNumber ?? string.Empty, prescription2?.ReferenceNumber ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>());
 		}
 		if (array[0] == "W")
@@ -722,6 +727,11 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			}
 			Customer customer = await context.Customers.AsNoTracking().FirstOrDefaultAsync((Customer item) => item.Id == invoice.CustomerId, token);
 			Dictionary<Guid, List<InvoiceDetailLine>> dictionary2 = await LoadSalesLinesAsync(Array.Empty<Sale>(), new _003C_003Ez__ReadOnlySingleElementList<WholesaleInvoice>(invoice), token);
+			BuyerSnapshot? recordedBuyer = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(invoice.BuyerSnapshotJson);
+			if (recordedBuyer != null)
+			{
+				return new InvoiceDetail("Wholesale invoice", invoice.InvoiceNo, invoice.InvoiceAtUtc.ToLocalTime(), DisplayParty(invoice.BuyerLegalName ?? recordedBuyer.Name), recordedBuyer.Phone ?? string.Empty, invoice.BuyerAddress ?? string.Empty, string.Empty, string.Empty, string.Empty, invoice.PaymentStatus ?? string.Empty, invoice.Subtotal, invoice.TaxAmount, invoice.DiscountAmount, invoice.TotalAmount, invoice.PaidAmount, invoice.Notes ?? string.Empty, dictionary2.GetValueOrDefault(invoice.Id) ?? new List<InvoiceDetailLine>());
+			}
 			return new InvoiceDetail("Wholesale invoice", invoice.InvoiceNo, invoice.InvoiceAtUtc.ToLocalTime(), DisplayParty(customer?.Name), customer?.Phone ?? string.Empty, customer?.Address ?? string.Empty, string.Empty, string.Empty, string.Empty, invoice.PaymentStatus ?? string.Empty, invoice.Subtotal, invoice.TaxAmount, invoice.DiscountAmount, invoice.TotalAmount, invoice.PaidAmount, invoice.Notes ?? string.Empty, dictionary2.GetValueOrDefault(invoice.Id) ?? new List<InvoiceDetailLine>());
 		}
 		return null;
@@ -746,7 +756,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			{
 				value = (dictionary[item.SaleId] = new List<InvoiceDetailLine>());
 			}
-			value.Add(Build(item.DrugId, item.BatchId, item.Quantity.ToString("0.##"), item.UnitPrice, item.TaxRate, item.DiscountAmount, item.LineTotal));
+			value.Add(Build(item.DrugId, item.BatchId, item.Quantity.ToString("0.##"), item.UnitPrice, item.TaxRate, item.DiscountAmount, item.LineTotal, item.ItemName, item.BatchNo, item.BatchExpiry));
 		}
 		foreach (WholesaleInvoiceItem item2 in invoiceItems.OrderBy((WholesaleInvoiceItem item) => item.CreatedAtUtc))
 		{
@@ -755,14 +765,15 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				value2 = (dictionary[item2.WholesaleInvoiceId] = new List<InvoiceDetailLine>());
 			}
 			string quantity = ((item2.FreeQuantity > 0m) ? $"{item2.Quantity:0.##} + {item2.FreeQuantity:0.##} free" : item2.Quantity.ToString("0.##"));
-			value2.Add(Build(item2.DrugId, item2.BatchId, quantity, item2.UnitPrice, item2.TaxRate, item2.DiscountAmount, item2.LineTotal));
+			value2.Add(Build(item2.DrugId, item2.BatchId, quantity, item2.UnitPrice, item2.TaxRate, item2.DiscountAmount, item2.LineTotal, item2.ItemName, item2.BatchNo, item2.BatchExpiry));
 		}
 		return dictionary;
-		InvoiceDetailLine Build(Guid drugId, Guid batchId, string quantity2, decimal unitPrice, decimal taxRate, decimal discount, decimal lineTotal)
+		InvoiceDetailLine Build(Guid drugId, Guid batchId, string quantity2, decimal unitPrice, decimal taxRate, decimal discount, decimal lineTotal, string? recordedName, string? recordedBatchNo, DateOnly? recordedExpiry)
 		{
 			Drug valueOrDefault = drugs.GetValueOrDefault(drugId);
 			Batch valueOrDefault2 = batches.GetValueOrDefault(batchId);
-			return new InvoiceDetailLine(valueOrDefault?.Name ?? "Unknown", string.IsNullOrWhiteSpace(valueOrDefault?.GenericName) ? string.Empty : valueOrDefault.GenericName, valueOrDefault2?.BatchNo ?? string.Empty, FormatExpiry(valueOrDefault2?.ExpiryDate), quantity2, unitPrice, taxRate, discount, lineTotal);
+			bool recorded = recordedName != null;
+			return new InvoiceDetailLine(recorded ? recordedName! : valueOrDefault?.Name ?? "Unknown", string.IsNullOrWhiteSpace(valueOrDefault?.GenericName) ? string.Empty : valueOrDefault.GenericName, recorded ? recordedBatchNo ?? string.Empty : valueOrDefault2?.BatchNo ?? string.Empty, FormatExpiry(recorded ? recordedExpiry : valueOrDefault2?.ExpiryDate), quantity2, unitPrice, taxRate, discount, lineTotal);
 		}
 	}
 

@@ -77,8 +77,31 @@ public sealed class InvoicePrintService(IServiceScopeFactory scopeFactory, Docum
 		return EnrichWithPrintBranding(await scope.ServiceProvider.GetRequiredService<RetailBillingService>().GetPrintableBillAsync(saleId, cancellationToken), settings);
 	}
 
+	/// <summary>Print-settings content recorded on a retail sale at save so reprints never pick up later settings.</summary>
+	internal static RetailPrintBranding BuildPrintBranding(DocumentOutputSettings settings)
+	{
+		List<string> extra = new List<string>();
+		if (!string.IsNullOrWhiteSpace(settings.DrugLicence20B))
+		{
+			extra.Add("20B " + settings.DrugLicence20B.Trim());
+		}
+		if (!string.IsNullOrWhiteSpace(settings.DrugLicence21B))
+		{
+			extra.Add("21B " + settings.DrugLicence21B.Trim());
+		}
+		return new RetailPrintBranding(
+			extra,
+			string.IsNullOrWhiteSpace(settings.FssaiNumber) ? null : settings.FssaiNumber.Trim(),
+			string.IsNullOrWhiteSpace(settings.AddressLine2) ? null : settings.AddressLine2.Trim(),
+			settings.PrintTermsDisclaimer && !string.IsNullOrWhiteSpace(settings.TermsAndDisclaimer) ? settings.TermsAndDisclaimer.Trim() : null);
+	}
+
 	internal static RetailBillPrintData EnrichWithPrintBranding(RetailBillPrintData bill, DocumentOutputSettings settings)
 	{
+		if (bill.DetailsRecorded)
+		{
+			return bill;
+		}
 		List<string> list = bill.LicenceNumbers.ToList();
 		if (!string.IsNullOrWhiteSpace(settings.DrugLicence20B) && !list.Any((string item) => item.Contains(settings.DrugLicence20B, StringComparison.OrdinalIgnoreCase)))
 		{

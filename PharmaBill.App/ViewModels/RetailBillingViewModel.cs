@@ -2784,7 +2784,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 					using (IServiceScope scope = scopeFactory.CreateScope())
 					{
 						RetailBillingService service = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
-						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride, AddToCustomers: AddToCustomers), currentSession.User.Id, currentSession.User.Role);
+						RetailSaleResult result = await service.SaveSaleAsync(new SaveRetailSaleInput(PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToInput()).ToArray(), payments, UpiPaymentReceived, MrdNumber: PatientMrdNumber, PrescriptionAdminOverride: _prescriptionAdminOverride, AddToCustomers: AddToCustomers, PrintBranding: InvoicePrintService.BuildPrintBranding(documentOutputSettings.Load())), currentSession.User.Id, currentSession.User.Role);
 						BillNumber = result.InvoiceNo;
 						if (_quotationConversionId is Guid convertedQuoteId)
 						{

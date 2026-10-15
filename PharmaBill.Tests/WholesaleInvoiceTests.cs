@@ -257,6 +257,80 @@ public sealed class WholesaleInvoiceTests
     }
 
     [Fact]
+    public async Task FiledInvoice_KeepsBuyerAndItemDetailsRecordedAtSave()
+    {
+        string originalGstin = TestGstin.From("33")!;
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: "Karnataka",
+            pharmacyGstin: TestGstin.From("29"),
+            buyerState: "Tamil Nadu",
+            buyerGstin: originalGstin);
+        await using var database = test.Database;
+        var drug = await database.Context.Drugs.SingleAsync();
+        drug.HsnCode = "30049099";
+        var customerRow = await database.Context.Customers.SingleAsync();
+        customerRow.Address = "1 Old Street";
+        await database.Context.SaveChangesAsync();
+        await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        var stored = await database.Context.WholesaleInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal(originalGstin, stored.BuyerGstin);
+        Assert.Equal("Buyer", stored.BuyerLegalName);
+        Assert.Equal("1 Old Street", stored.BuyerAddress);
+        var storedLine = await database.Context.WholesaleInvoiceItems.AsNoTracking().SingleAsync();
+        Assert.Equal("30049099", storedLine.HsnCode);
+        Assert.Equal("Test tablet", storedLine.ItemName);
+        Assert.Equal("B-1", storedLine.BatchNo);
+
+        // Every master record behind the filed invoice changes, including dropping the buyer's GSTIN.
+        customerRow.Name = "Renamed Buyer";
+        customerRow.Address = "99 New Road";
+        customerRow.Gstin = null;
+        customerRow.State = "Kerala";
+        drug.Name = "Renamed tablet";
+        drug.HsnCode = "99999999";
+        var batch = await database.Context.Batches.SingleAsync();
+        batch.BatchNo = "B-RENAMED";
+        var profile = await database.Context.PharmacyProfiles.SingleAsync();
+        profile.Name = "Renamed Pharmacy";
+        profile.Address = "New premises";
+        await database.Context.SaveChangesAsync();
+
+        var gst = database.CreateGstService();
+        var day = DateOnly.FromDateTime(stored.InvoiceAtUtc.ToLocalTime());
+        var tables = await gst.BuildGstr1TablesAsync(day, day);
+        var b2b = Assert.Single(tables.Table4B2b);
+        Assert.Equal(originalGstin, b2b.Gstin);
+        Assert.DoesNotContain(tables.Table7B2c, row => row.InvoiceCount > 0);
+        Assert.Equal("30049099", Assert.Single(tables.Table12Hsn).HsnCode);
+
+        using (var offline = JsonDocument.Parse(await gst.ExportGstr1OfflineJsonAsync(day, day)))
+        {
+            Assert.Equal(originalGstin, offline.RootElement.GetProperty("b2b")[0].GetProperty("ctin").GetString());
+        }
+
+        var eInvoice = await gst.BuildEInvoiceJsonAsync(stored.Id);
+        using (var json = JsonDocument.Parse(eInvoice.Json))
+        {
+            var buyerDetails = json.RootElement.GetProperty("BuyerDtls");
+            Assert.Equal(originalGstin, buyerDetails.GetProperty("Gstin").GetString());
+            Assert.Equal("Buyer", buyerDetails.GetProperty("LglNm").GetString());
+            Assert.Equal("1 Old Street", buyerDetails.GetProperty("Addr1").GetString());
+            Assert.Equal("Test Pharmacy", json.RootElement.GetProperty("SellerDtls").GetProperty("LglNm").GetString());
+            var item = json.RootElement.GetProperty("ItemList")[0];
+            Assert.Equal("Test tablet", item.GetProperty("PrdDesc").GetString());
+            Assert.Equal("30049099", item.GetProperty("HsnCd").GetString());
+            Assert.Equal("B-1", item.GetProperty("BchDtls").GetProperty("Nm").GetString());
+        }
+
+        var register = Assert.Single(await new WholesaleGstReportsService(database.Context).GetSalesRegisterAsync(day, day));
+        Assert.Equal("Buyer", register.CustomerName);
+        Assert.Equal(originalGstin, register.Gstin);
+        Assert.Equal("30049099", register.Hsn);
+        Assert.True(register.DetailsVerified);
+    }
+
+    [Fact]
     public async Task GstExports_MarkInvoicesWithoutRecordedStateCodesAsUnverified()
     {
         var test = await CreateScenarioAsync(
@@ -270,6 +344,11 @@ public sealed class WholesaleInvoiceTests
         var invoice = await database.Context.WholesaleInvoices.SingleAsync();
         invoice.PharmacyStateCode = null;
         invoice.BuyerStateCode = null;
+        invoice.BuyerGstin = null;
+        invoice.BuyerLegalName = null;
+        invoice.BuyerAddress = null;
+        invoice.SellerSnapshotJson = null;
+        invoice.BuyerSnapshotJson = null;
         await database.Context.SaveChangesAsync();
 
         var gst = database.CreateGstService();
@@ -289,6 +368,10 @@ public sealed class WholesaleInvoiceTests
         Assert.Equal(
             invoice.InvoiceNo,
             offline.RootElement.GetProperty("pharmabill_unverified_state_invoices")[0].GetString());
+
+        var register = Assert.Single(await new WholesaleGstReportsService(database.Context).GetSalesRegisterAsync(day, day));
+        Assert.False(register.DetailsVerified);
+        Assert.Contains("UNVERIFIED", await new WholesaleGstReportsService(database.Context).ExportGstr1CsvAsync(day, day));
     }
 
     [Fact]

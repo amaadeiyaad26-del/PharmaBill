@@ -29,4 +29,17 @@ public sealed class WholesaleInvoiceItem : EntityBase
 	public decimal IgstAmount { get; set; }
 
 	public decimal LineTotal { get; set; }
+
+	/// <summary>Printed/filed line details captured at save; null on older rows.</summary>
+	public string? ItemName { get; set; }
+
+	public string? HsnCode { get; set; }
+
+	public string? Unit { get; set; }
+
+	public string? BatchNo { get; set; }
+
+	public DateOnly? BatchExpiry { get; set; }
+
+	public decimal? Mrp { get; set; }
 }

@@ -35,4 +35,13 @@ public sealed class Sale : EntityBase
 	public Guid? BilledByUserId { get; set; }
 
 	public Guid? BranchId { get; set; }
+
+	/// <summary>Pharmacy GST state code resolved at save (place of supply for counter sales). Null when not recorded.</summary>
+	public string? PharmacyStateCode { get; set; }
+
+	/// <summary>JSON <see cref="SellerSnapshot"/> captured at save. Null on bills saved before snapshots were recorded.</summary>
+	public string? SellerSnapshotJson { get; set; }
+
+	/// <summary>JSON <see cref="BuyerSnapshot"/> (patient and prescriber) captured at save.</summary>
+	public string? BuyerSnapshotJson { get; set; }
 }

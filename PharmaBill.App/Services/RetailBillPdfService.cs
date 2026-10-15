@@ -356,12 +356,12 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 						AddIfPresent(column, bill.PharmacistQualification);
 						AddIfPresent(column, (bill.PharmacistRegistrationNumber == null) ? null : ("Registration no.: " + bill.PharmacistRegistrationNumber));
 						column.Item().PaddingTop(18f).Text("Authorized signatory: __________________________");
-						if (settings.PrintTermsDisclaimer && !string.IsNullOrWhiteSpace(bill.TermsText))
+						if ((bill.DetailsRecorded || settings.PrintTermsDisclaimer) && !string.IsNullOrWhiteSpace(bill.TermsText))
 						{
 							column.Item().PaddingTop(8f).Text("Terms: " + bill.TermsText)
 								.FontSize(8f);
 						}
-						else if (settings.PrintTermsDisclaimer && !string.IsNullOrWhiteSpace(settings.TermsAndDisclaimer))
+						else if (!bill.DetailsRecorded && settings.PrintTermsDisclaimer && !string.IsNullOrWhiteSpace(settings.TermsAndDisclaimer))
 						{
 							column.Item().PaddingTop(8f).Text("Terms: " + settings.TermsAndDisclaimer)
 								.FontSize(8f);

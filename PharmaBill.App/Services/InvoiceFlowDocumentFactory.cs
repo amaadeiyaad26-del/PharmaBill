@@ -184,7 +184,7 @@ public static class InvoiceFlowDocumentFactory
 		paragraph3.Inlines.Add(new LineBreak());
 		paragraph3.Inlines.Add(new Run("Amount in words: " + IndianNumberWords.Convert(bill.TotalAmount)));
 		flowDocument.Blocks.Add(paragraph3);
-		if (settings.PrintTermsDisclaimer && !string.IsNullOrWhiteSpace(bill.TermsText))
+		if ((bill.DetailsRecorded || settings.PrintTermsDisclaimer) && !string.IsNullOrWhiteSpace(bill.TermsText))
 		{
 			flowDocument.Blocks.Add(new Paragraph(new Run("Terms & conditions: " + bill.TermsText))
 			{

@@ -106,7 +106,7 @@ public static class ThermalReceiptFormatter
 		stringBuilder.AppendLine(Ascii(IndianNumberWords.Convert(bill.TotalAmount)));
 		AppendLineIfPresent(stringBuilder, bill.PharmacistName);
 		stringBuilder.AppendLine("Sign: ______________");
-		if (settings.PrintTermsDisclaimer && !string.IsNullOrWhiteSpace(bill.TermsText))
+		if ((bill.DetailsRecorded || settings.PrintTermsDisclaimer) && !string.IsNullOrWhiteSpace(bill.TermsText))
 		{
 			stringBuilder.AppendLine(new string('-', 32));
 			stringBuilder.AppendLine(Ascii(bill.TermsText));

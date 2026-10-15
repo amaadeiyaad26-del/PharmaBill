@@ -22,39 +22,72 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 		using IServiceScope scope = scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		WholesaleInvoice invoice = (await context.WholesaleInvoices.AsNoTracking().SingleOrDefaultAsync((WholesaleInvoice item) => item.Id == invoiceId, cancellationToken)) ?? throw new InvalidOperationException("Wholesale invoice was not found.");
-		PharmacyProfile profile = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
-		Branch? branch = invoice.BranchId.HasValue
-			? await context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == invoice.BranchId.Value, cancellationToken)
-			: await context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.IsActive, cancellationToken);
-		List<LicenceRecord> sellerLicences = await context.LicenceRecords.AsNoTracking()
-			.OrderBy(item => item.LicenceType)
-			.ThenBy(item => item.LicenceNumber)
-			.ToListAsync(cancellationToken);
-		Customer customer = await context.Customers.AsNoTracking().SingleAsync((Customer item) => item.Id == invoice.CustomerId, cancellationToken);
-		List<CustomerLicence> licences = await (from item in context.CustomerLicences.AsNoTracking()
-			where item.CustomerId == customer.Id
-			orderby item.LicenceType, item.LicenceNumber
-			select item).ToListAsync(cancellationToken);
-		var lines = await (from line in context.WholesaleInvoiceItems.AsNoTracking()
+		// Tax-document rule: print what was recorded at save. Master data is read only for invoices saved before recording began.
+		SellerSnapshot? seller = TaxDocumentSnapshot.Deserialize<SellerSnapshot>(invoice.SellerSnapshotJson);
+		BuyerSnapshot? buyer = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(invoice.BuyerSnapshotJson);
+		bool recorded = seller != null && buyer != null;
+		if (!recorded)
+		{
+			PharmacyProfile profile = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
+			Branch? branch = invoice.BranchId.HasValue
+				? await context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == invoice.BranchId.Value, cancellationToken)
+				: await context.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.IsActive, cancellationToken);
+			List<LicenceRecord> sellerLicences = await context.LicenceRecords.AsNoTracking().ToListAsync(cancellationToken);
+			Customer customer = await context.Customers.AsNoTracking().SingleAsync((Customer item) => item.Id == invoice.CustomerId, cancellationToken);
+			List<CustomerLicence> customerLicences = await context.CustomerLicences.AsNoTracking().Where(item => item.CustomerId == customer.Id).ToListAsync(cancellationToken);
+			seller = new SellerSnapshot
+			{
+				Name = profile.Name,
+				Address = profile.Address,
+				Gstin = profile.Gstin,
+				BranchGstin = branch?.Gstin,
+				BranchDrugLicenceNo = branch?.DrugLicenseNo,
+				Licences = sellerLicences.Select(item => new LicenceSnapshot(item.LicenceType, item.LicenceNumber, item.ExpiresOn)).ToArray(),
+				CompetentPersonName = profile.CompetentPersonName,
+				BankName = profile.BankName,
+				BankAccountName = profile.BankAccountName,
+				BankIfsc = profile.BankIfsc
+			};
+			buyer = new BuyerSnapshot
+			{
+				Name = customer.Name,
+				Address = customer.Address,
+				Phone = customer.Phone,
+				Gstin = customer.Gstin,
+				StateName = customer.State,
+				Licences = customerLicences.Select(item => new LicenceSnapshot(item.LicenceType, item.LicenceNumber, item.ExpiresOn)).ToArray()
+			};
+		}
+		var lines = (await (from line in context.WholesaleInvoiceItems.AsNoTracking()
 			join drug in context.Drugs.AsNoTracking() on line.DrugId equals drug.Id
 			join batch in context.Batches.AsNoTracking() on line.BatchId equals batch.Id
 			where line.WholesaleInvoiceId == invoice.Id
-			select new
+			select new { line, drug, batch }).ToListAsync(cancellationToken))
+			.Select(row => new
 			{
-				drug.Name, drug.HsnCode, line.Quantity, line.FreeQuantity, line.UnitPrice, line.TaxRate, line.TaxableAmount, line.CgstAmount, line.SgstAmount, line.IgstAmount,
-				line.LineTotal, batch.BatchNo, batch.ExpiryDate, batch.Mrp
-			}).ToListAsync(cancellationToken);
+				Name = recorded ? row.line.ItemName ?? row.drug.Name : row.drug.Name,
+				HsnCode = recorded ? row.line.HsnCode : row.drug.HsnCode,
+				row.line.Quantity, row.line.FreeQuantity, row.line.UnitPrice, row.line.TaxRate, row.line.TaxableAmount, row.line.CgstAmount, row.line.SgstAmount, row.line.IgstAmount,
+				row.line.LineTotal,
+				BatchNo = recorded ? row.line.BatchNo ?? row.batch.BatchNo : row.batch.BatchNo,
+				ExpiryDate = recorded ? row.line.BatchExpiry : row.batch.ExpiryDate,
+				Mrp = recorded ? row.line.Mrp : row.batch.Mrp
+			})
+			.ToList();
 
-		string sellerDl = string.Join("; ", sellerLicences.Select(item => $"{item.LicenceType} {item.LicenceNumber}".Trim()).Where(s => !string.IsNullOrWhiteSpace(s)));
-		if (string.IsNullOrWhiteSpace(sellerDl) && !string.IsNullOrWhiteSpace(branch?.DrugLicenseNo))
+		string sellerDl = string.Join("; ", seller.Licences.OrderBy(item => item.Type).ThenBy(item => item.Number).Select(item => $"{item.Type} {item.Number}".Trim()).Where(s => !string.IsNullOrWhiteSpace(s)));
+		if (string.IsNullOrWhiteSpace(sellerDl) && !string.IsNullOrWhiteSpace(seller.BranchDrugLicenceNo))
 		{
-			sellerDl = branch.DrugLicenseNo.Trim();
+			sellerDl = seller.BranchDrugLicenceNo.Trim();
 		}
 
-		string sellerGstin = !string.IsNullOrWhiteSpace(branch?.Gstin) ? branch.Gstin.Trim() : (profile.Gstin ?? "Not provided");
-		string buyerDl = licences.Count == 0
+		string sellerGstin = !string.IsNullOrWhiteSpace(seller.BranchGstin) ? seller.BranchGstin.Trim() : (seller.Gstin ?? "Not provided");
+		string buyerDl = buyer.Licences.Count == 0
 			? "Not recorded"
-			: string.Join("; ", licences.Select(item => $"{item.LicenceType} {item.LicenceNumber} (expires {item.ExpiresOn?.ToString("dd-MMM-yyyy") ?? "not recorded"})"));
+			: string.Join("; ", buyer.Licences.OrderBy(item => item.Type).ThenBy(item => item.Number).Select(item => $"{item.Type} {item.Number} (expires {item.ExpiresOn?.ToString("dd-MMM-yyyy") ?? "not recorded"})"));
+		string buyerState = buyer.StateCode == null
+			? buyer.StateName ?? "Not recorded"
+			: $"{buyer.StateName ?? buyer.StateCode} ({buyer.StateCode})";
 
 		var hsnGroups = lines
 			.GroupBy(item => string.IsNullOrWhiteSpace(item.HsnCode) ? "—" : item.HsnCode!)
@@ -84,10 +117,10 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 				PdfBrandWatermark.Apply(page);
 				page.Header().Column(column =>
 				{
-					column.Item().Text(profile.Name).FontSize(18f).Bold();
-					if (!string.IsNullOrWhiteSpace(profile.Address))
+					column.Item().Text(seller.Name).FontSize(18f).Bold();
+					if (!string.IsNullOrWhiteSpace(seller.Address))
 					{
-						column.Item().Text(profile.Address);
+						column.Item().Text(seller.Address);
 					}
 					column.Item().Text("Seller GSTIN: " + sellerGstin);
 					column.Item().Text("Seller DL No: " + (string.IsNullOrWhiteSpace(sellerDl) ? "Not recorded" : sellerDl));
@@ -102,15 +135,15 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 						{
 							details.Item().Text("Invoice no: " + invoice.InvoiceNo).Bold();
 							details.Item().Text($"Date: {invoice.InvoiceAtUtc.ToLocalTime():dd-MMM-yyyy}");
-							details.Item().Text("Buyer: " + customer.Name).Bold();
-							details.Item().Text(customer.Address ?? string.Empty);
-							details.Item().Text("Buyer GSTIN: " + (customer.Gstin ?? "Not provided / unregistered"));
+							details.Item().Text("Buyer: " + buyer.Name).Bold();
+							details.Item().Text(buyer.Address ?? string.Empty);
+							details.Item().Text("Buyer GSTIN: " + (buyer.Gstin ?? "Not provided / unregistered"));
 							details.Item().Text("Buyer DL No: " + buyerDl);
-							details.Item().Text("Buyer phone: " + (customer.Phone ?? "—"));
+							details.Item().Text("Buyer phone: " + (buyer.Phone ?? "—"));
 						});
 						row.RelativeItem().Column(details =>
 						{
-							details.Item().Text("Buyer state: " + (customer.State ?? "Not recorded"));
+							details.Item().Text("Buyer state: " + buyerState);
 							details.Item().Text("Transport: " + (invoice.TransportDetails ?? "—"));
 							details.Item().Text("Vehicle: " + (invoice.VehicleNumber ?? "—"));
 							details.Item().Text("E-way bill no: " + (invoice.EWayBillNumber ?? "Not configured"));
@@ -193,13 +226,17 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 					column.Item().Text("Amount in words: " + IndianNumberWords.Convert(invoice.TotalAmount)).Bold();
 					if (!deliveryChallan)
 					{
-						column.Item().Text($"Bank: {profile.BankName ?? "Not configured"}; account: {profile.BankAccountName ?? "Not configured"}; IFSC: {profile.BankIfsc ?? "Not configured"}");
+						column.Item().Text($"Bank: {seller.BankName ?? "Not configured"}; account: {seller.BankAccountName ?? "Not configured"}; IFSC: {seller.BankIfsc ?? "Not configured"}");
 						column.Item().Text("Terms: As per the seller's recorded terms of sale. This is a B2B tax invoice — not a patient cash memo.");
+					}
+					if (!recorded)
+					{
+						column.Item().Text("Reprint note: this invoice was saved before its party details were recorded; seller, buyer and item details above are from current records (unverified).").FontSize(8f).Italic();
 					}
 				});
 				page.Footer().Row(row =>
 				{
-					row.RelativeItem().Text("Competent person: " + (profile.CompetentPersonName ?? "Not recorded"));
+					row.RelativeItem().Text("Competent person: " + (seller.CompetentPersonName ?? "Not recorded"));
 					row.RelativeItem().AlignRight().Text("Authorised signatory ____________________");
 				});
 			});

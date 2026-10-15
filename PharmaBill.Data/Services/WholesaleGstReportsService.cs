@@ -59,9 +59,12 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 		{
 			WholesaleInvoice wholesaleInvoice = invoices.Single((WholesaleInvoice item) => item.Id == group.Key);
 			Customer customer = customers[wholesaleInvoice.CustomerId];
+			bool recorded = RecordedGstStates.IsRecorded(wholesaleInvoice);
 			foreach (WholesaleInvoiceItem item in group)
 			{
-				list.Add(new WholesaleSalesRegisterRow(wholesaleInvoice.InvoiceNo, wholesaleInvoice.InvoiceAtUtc, customer.Name, customer.Gstin, dictionary[item.DrugId].HsnCode ?? string.Empty, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal));
+				list.Add(recorded
+					? new WholesaleSalesRegisterRow(wholesaleInvoice.InvoiceNo, wholesaleInvoice.InvoiceAtUtc, wholesaleInvoice.BuyerLegalName ?? customer.Name, wholesaleInvoice.BuyerGstin, item.HsnCode ?? string.Empty, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal)
+					: new WholesaleSalesRegisterRow(wholesaleInvoice.InvoiceNo, wholesaleInvoice.InvoiceAtUtc, customer.Name, customer.Gstin, dictionary[item.DrugId].HsnCode ?? string.Empty, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal, DetailsVerified: false));
 			}
 		}
 		return (from row in list
@@ -74,9 +77,10 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 		ValidatePeriod(from, to);
 		DateTime fromUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
 		DateTime toUtcExclusive = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		Guid[] invoiceIds = await (from invoice in context.WholesaleInvoices.AsNoTracking()
+		Dictionary<Guid, bool> recordedById = (await (from invoice in context.WholesaleInvoices.AsNoTracking()
 			where invoice.Status == "Posted" && invoice.InvoiceAtUtc >= fromUtc && invoice.InvoiceAtUtc < toUtcExclusive
-			select invoice.Id).ToArrayAsync(cancellationToken);
+			select invoice).ToListAsync(cancellationToken)).ToDictionary(invoice => invoice.Id, RecordedGstStates.IsRecorded);
+		Guid[] invoiceIds = recordedById.Keys.ToArray();
 		List<WholesaleInvoiceItem> items = await (from item in context.WholesaleInvoiceItems.AsNoTracking()
 			where invoiceIds.Contains(item.WholesaleInvoiceId)
 			select item).ToListAsync(cancellationToken);
@@ -87,7 +91,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 		return (from item in items
 			group item by new
 			{
-				Hsn = (drugs[item.DrugId].HsnCode ?? string.Empty),
+				Hsn = ((recordedById[item.WholesaleInvoiceId] ? item.HsnCode : drugs[item.DrugId].HsnCode) ?? string.Empty),
 				TaxRate = item.TaxRate
 			} into @group
 			select new GstRateSummary(@group.Key.Hsn, @group.Key.TaxRate, @group.Sum((WholesaleInvoiceItem item) => item.TaxableAmount), @group.Sum((WholesaleInvoiceItem item) => item.CgstAmount), @group.Sum((WholesaleInvoiceItem item) => item.SgstAmount), @group.Sum((WholesaleInvoiceItem item) => item.IgstAmount), @group.Sum((WholesaleInvoiceItem item) => item.LineTotal))).OrderBy((GstRateSummary row) => row.Hsn, StringComparer.OrdinalIgnoreCase).ThenBy((GstRateSummary row) => row.TaxRate).ToArray();
@@ -109,6 +113,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 				date = DateOnly.FromDateTime(@group.First().InvoiceAtUtc.ToLocalTime()).ToString("yyyy-MM-dd"),
 				customer = @group.First().CustomerName,
 				gstin = @group.First().Gstin,
+				detailsVerified = @group.First().DetailsVerified,
 				items = @group.Select((WholesaleSalesRegisterRow row) => new
 				{
 					hsn = row.Hsn,
@@ -135,10 +140,10 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 	public async Task<string> ExportGstr1CsvAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		IReadOnlyList<WholesaleSalesRegisterRow> readOnlyList = await GetSalesRegisterAsync(from, to, cancellationToken);
-		StringBuilder stringBuilder = new StringBuilder("InvoiceNo,InvoiceDate,Customer,GSTIN,HSN,Taxable,CGST,SGST,IGST,Total\r\n");
+		StringBuilder stringBuilder = new StringBuilder("InvoiceNo,InvoiceDate,Customer,GSTIN,HSN,Taxable,CGST,SGST,IGST,Total,Details\r\n");
 		foreach (WholesaleSalesRegisterRow item in readOnlyList)
 		{
-			string[] source = new string[10]
+			string[] source = new string[11]
 			{
 				item.InvoiceNo,
 				DateOnly.FromDateTime(item.InvoiceAtUtc.ToLocalTime()).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -149,7 +154,8 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 				item.Cgst.ToString("0.00", CultureInfo.InvariantCulture),
 				item.Sgst.ToString("0.00", CultureInfo.InvariantCulture),
 				item.Igst.ToString("0.00", CultureInfo.InvariantCulture),
-				item.Total.ToString("0.00", CultureInfo.InvariantCulture)
+				item.Total.ToString("0.00", CultureInfo.InvariantCulture),
+				item.DetailsVerified ? "Recorded at save" : "UNVERIFIED (re-read from master data)"
 			};
 			stringBuilder.AppendLine(string.Join(",", source.Select(EscapeCsv)));
 		}
