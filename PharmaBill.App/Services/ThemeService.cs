@@ -56,6 +56,8 @@ public sealed class ThemeService : IThemeService
 		solidColorBrush.Freeze();
 		Application.Current.Resources["AccentBrush"] = solidColorBrush;
 		Application.Current.Resources["AccentSoftBrush"] = new SolidColorBrush(Color.FromArgb(30, solidColorBrush.Color.R, solidColorBrush.Color.G, solidColorBrush.Color.B));
+		Application.Current.Resources["SummaryPanelBrush"] = new SolidColorBrush(Color.FromArgb(18, solidColorBrush.Color.R, solidColorBrush.Color.G, solidColorBrush.Color.B));
+		Application.Current.Resources["SummaryPanelBorderBrush"] = new SolidColorBrush(Color.FromArgb(46, solidColorBrush.Color.R, solidColorBrush.Color.G, solidColorBrush.Color.B));
 	}
 
 	public ThemeService()

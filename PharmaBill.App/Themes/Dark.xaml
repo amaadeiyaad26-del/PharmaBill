@@ -11,6 +11,9 @@
   <SolidColorBrush x:Key="AccentBrush" Color="#FF818CF8" />
   <SolidColorBrush x:Key="AccentHoverBrush" Color="#FF6366F1" />
   <SolidColorBrush x:Key="AccentSoftBrush" Color="#26818CF8" />
+  <!-- Quiet always-on panels (bill summary): ~7% accent tint, ~18% accent hairline. -->
+  <SolidColorBrush x:Key="SummaryPanelBrush" Color="#12818CF8" />
+  <SolidColorBrush x:Key="SummaryPanelBorderBrush" Color="#2E818CF8" />
   <SolidColorBrush x:Key="FieldBorderBrush" Color="#FF475467" />
   <SolidColorBrush x:Key="FieldBackgroundBrush" Color="#FF1D2939" />
   <SolidColorBrush x:Key="FieldReadOnlyBrush" Color="#FF344054" />

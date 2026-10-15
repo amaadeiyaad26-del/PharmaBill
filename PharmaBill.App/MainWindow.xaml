@@ -2226,16 +2226,9 @@
               </DataGrid.Columns>
             </DataGrid>
             <CheckBox Content="Confirmed near-expiry batch sale after review" Margin="2,4" IsChecked="{Binding ConfirmNearExpiry}" />
-            <Border x:Name="InvoiceSummaryCard" Margin="0,12,0,8" Padding="20,16" CornerRadius="16">
-              <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                  <GradientStop Color="#FFEA580C" Offset="0" />
-                  <GradientStop Color="#FF9A3412" Offset="1" />
-                </LinearGradientBrush>
-              </Border.Background>
-              <Border.Effect>
-                <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.25" Color="#FF7C2D12" />
-              </Border.Effect>
+            <!-- Always on screen, so it stays quiet: a pale accent tint with dark text; only the total carries the accent. -->
+            <Border x:Name="InvoiceSummaryCard" Margin="0,12,0,8" Padding="20,16" CornerRadius="12"
+                    Background="{DynamicResource SummaryPanelBrush}" BorderBrush="{DynamicResource SummaryPanelBorderBrush}" BorderThickness="1">
               <Grid>
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto" />
@@ -2247,31 +2240,31 @@
                 </Grid.ColumnDefinitions>
                 <UniformGrid Columns="4">
                   <StackPanel Margin="0,0,12,0">
-                    <TextBlock Text="Items" FontSize="12" Foreground="#FFFED7AA" />
-                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding LineCount}" />
+                    <TextBlock Text="Items" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding LineCount}" />
                   </StackPanel>
                   <StackPanel Margin="0,0,12,0">
-                    <TextBlock Text="Taxable value" FontSize="12" Foreground="#FFFED7AA" />
-                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding Subtotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Text="Taxable value" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding Subtotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
                   </StackPanel>
                   <StackPanel Margin="0,0,12,0">
-                    <TextBlock Text="Estimated GST" FontSize="12" Foreground="#FFFED7AA" />
-                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="White" Text="{Binding EstimatedTax, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Text="Estimated GST" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Margin="0,4,0,0" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding EstimatedTax, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
                   </StackPanel>
                   <StackPanel>
-                    <TextBlock Text="Estimated total" FontSize="12" Foreground="#FFFED7AA" />
-                    <TextBlock Margin="0,2,0,0" FontSize="26" FontWeight="Bold" Foreground="White" Text="{Binding EstimatedTotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
+                    <TextBlock Text="Estimated total" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Margin="0,2,0,0" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" Text="{Binding EstimatedTotal, StringFormat=₹{0:N2}, ConverterCulture=en-IN}" />
                   </StackPanel>
                 </UniformGrid>
-                <Button Grid.Column="1" Margin="16,0,0,0" MinHeight="42" Padding="18,8" VerticalAlignment="Center" Cursor="Hand"
-                        Content="Show Payment QR" FontWeight="SemiBold" Foreground="#FF9A3412" Background="White" BorderThickness="0"
+                <Button Grid.Column="1" Margin="16,0,0,0" MinHeight="42" Padding="18,8" VerticalAlignment="Center"
+                        Content="Show Payment QR" FontWeight="SemiBold" Style="{StaticResource SecondaryButton}"
                         ToolTip="Open dynamic UPI QR for the estimated total" Command="{Binding ShowPaymentQrCommand}" />
                 <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0" Visibility="{Binding HasCreditLimit, Converter={StaticResource BooleanToVisibilityConverter}}">
                   <DockPanel>
-                    <TextBlock DockPanel.Dock="Left" Text="Credit limit" FontSize="12" Foreground="#FFFED7AA" />
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding CreditBarText}" FontSize="12" Foreground="White" />
+                    <TextBlock DockPanel.Dock="Left" Text="Credit limit" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CreditBarText}" FontSize="12" Foreground="{DynamicResource PrimaryTextBrush}" />
                   </DockPanel>
-                  <ProgressBar Margin="0,6,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding CreditUsedPercent, Mode=OneWay}" Foreground="White" Background="#33FFFFFF" BorderThickness="0" />
+                  <ProgressBar Margin="0,6,0,0" Height="8" Minimum="0" Maximum="100" Value="{Binding CreditUsedPercent, Mode=OneWay}" Foreground="{DynamicResource SecondaryTextBrush}" Background="{DynamicResource DividerBrush}" BorderThickness="0" />
                 </StackPanel>
               </Grid>
             </Border>
