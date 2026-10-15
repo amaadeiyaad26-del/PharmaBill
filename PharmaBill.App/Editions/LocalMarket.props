@@ -1,0 +1,11 @@
+<Project>
+  <!-- Local Market edition: USB and direct installer, packaged by build-installer.ps1 (Inno Setup). -->
+  <PropertyGroup>
+    <EditionConstant>LOCAL_MARKET_EDITION</EditionConstant>
+    <Product>Pharma Remit Local Market</Product>
+    <AssemblyTitle>Pharma Remit Local Market</AssemblyTitle>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
+  </PropertyGroup>
+</Project>

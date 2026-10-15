@@ -391,6 +391,9 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 
 	public string VersionText => _versionInfo.Display;
 
+	/// <summary>Shown in About only for the Microsoft Store edition.</summary>
+	public bool ShowStoreBadge => AppEdition.ShowsStoreBadge(AppEdition.Current);
+
 	public IReadOnlyList<string> ThemeOptions { get; }
 
 	public IReadOnlyList<string> AccentOptions { get; }

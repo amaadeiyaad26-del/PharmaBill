@@ -90,7 +90,9 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 			AppUpdateAvailability appUpdateAvailability2;
 			try
 			{
-				AppUpdateAvailability appUpdateAvailability = await TryStoreChannelAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+				AppUpdateAvailability appUpdateAvailability = AppEdition.UsesReleaseFeed(AppEdition.Current)
+					? await TryStoreChannelAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false)
+					: StoreEditionResult(_versionInfo.Version);
 				if ((object)appUpdateAvailability == null)
 				{
 					appUpdateAvailability = await TryManifestChannelAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
@@ -148,12 +150,24 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 		string text = result.DownloadOrStoreUrl;
 		if (string.IsNullOrWhiteSpace(text))
 		{
-			text = "https://github.com/SAER-PharmaBill/PharmaBill/releases/latest";
+			text = AppEdition.UsesReleaseFeed(AppEdition.Current)
+				? "https://github.com/SAER-PharmaBill/PharmaBill/releases/latest"
+				: AppEdition.StoreUpdatesUri;
 		}
 		Process.Start(new ProcessStartInfo(text)
 		{
 			UseShellExecute = true
 		});
+	}
+
+	/// <summary>
+	/// Store edition: the Store installs updates, so the release feed (which describes the downloadable installer and
+	/// its own version numbers) is never read, and nothing points to the installer. The button opens the Store's
+	/// Downloads and updates page instead.
+	/// </summary>
+	internal static AppUpdateAvailability StoreEditionResult(string currentVersion)
+	{
+		return new AppUpdateAvailability(IsUpdateAvailable: false, currentVersion, currentVersion, IsCritical: false, UpdateChannel.MicrosoftStore, AppEdition.StoreUpdatesUri, "Updates for Pharma Remit are installed by the Microsoft Store. Open the Store's Downloads and updates page to update now.");
 	}
 
 	private Task<AppUpdateAvailability?> TryStoreChannelAsync(CancellationToken cancellationToken)

@@ -720,6 +720,10 @@
             <StackPanel>
               <TextBlock Text="About Pharma Remit" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
               <TextBlock Margin="0,0,0,8" Text="{Binding VersionText}" />
+              <Border Style="{StaticResource BadgeChip}" HorizontalAlignment="Left" Margin="0,0,0,8"
+                      Visibility="{Binding ShowStoreBadge, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="Microsoft Store edition" FontSize="12" FontWeight="SemiBold" />
+              </Border>
               <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="Designed and developed by S.A.E.R. to serve pharma professionals." />
               <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}">
                 <Run Text="Support: " /> <Hyperlink NavigateUri="mailto:pharma.bill26@gmail.com" Foreground="{DynamicResource AccentBrush}" RequestNavigate="SupportEmail_RequestNavigate">pharma.bill26@gmail.com</Hyperlink></TextBlock>

@@ -32,14 +32,14 @@ WHAT'S INCLUDED
 
 STEP 1: DOWNLOAD & EXTRACT (2 minutes)
 --------------------------------------
-1. Save the PharmaBill_Setup.exe file to your Windows laptop
+1. Save the PharmaRemitLocalMarket_Setup.exe file to your Windows laptop
 2. You do NOT need to extract it — the installer handles everything
 3. Close any running pharmacy applications before proceeding
 
 
 STEP 2: RUN THE INSTALLER (3 minutes)
 --------------------------------------
-1. Double-click PharmaBill_Setup.exe
+1. Double-click PharmaRemitLocalMarket_Setup.exe
 2. A setup wizard will appear. Follow these steps:
 
    a. Click "Next" on the Welcome screen
@@ -147,7 +147,7 @@ Solution:
 Issue: "Access Denied" error during installation
 --------
 Solution:
-  1. Right-click PharmaBill_Setup.exe
+  1. Right-click PharmaRemitLocalMarket_Setup.exe
   2. Select "Run as Administrator"
   3. Click "Yes" when prompted by User Account Control
 

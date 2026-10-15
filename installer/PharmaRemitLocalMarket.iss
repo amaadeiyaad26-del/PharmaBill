@@ -1,5 +1,6 @@
-﻿; PharmaBill installer. Build with: ISCC.exe installer\PharmaBill.iss /DAppVersion=1.0.0
-; (build-installer.ps1 does this for you).
+﻿; Pharma Remit Local Market installer (USB / direct download edition).
+; Build with build-installer.ps1, which publishes with -p:Edition=LocalMarket and passes AppName and AppVersion
+; from PharmaBill.App\Editions\LocalMarket.props. The Microsoft Store edition is packaged by build-msstore-package.ps1.
 ;
 ; User data lives in %LocalAppData%\PharmaBill (database, key, attachments, logs, settings, backups),
 ; which is outside the install folder. The installer never writes to, overwrites or removes it,
@@ -15,7 +16,9 @@
   #define OutputDir "..\artifacts\installer"
 #endif
 
-#define AppName "Pharma Remit"
+#ifndef AppName
+  #define AppName "Pharma Remit Local Market"
+#endif
 #define AppPublisher "SAER"
 #define AppExe "PharmaBill.App.exe"
 ; Four-part PE version resource (Defender / SmartScreen metadata).
@@ -31,7 +34,7 @@ AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
 VersionInfoVersion={#VersionInfoVersion}
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=Pharma Remit Pharmacy Billing and Inventory Setup
+VersionInfoDescription={#AppName} Setup
 VersionInfoCopyright=Copyright (C) 2026 SAER
 VersionInfoProductName={#AppName}
 DefaultDirName={autopf}\{#AppName}
@@ -40,7 +43,7 @@ UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 SetupIconFile=..\PharmaBill.App\app.ico
 OutputDir={#OutputDir}
-OutputBaseFilename=PharmaBill_Setup
+OutputBaseFilename=PharmaRemitLocalMarket_Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -71,9 +74,12 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [InstallDelete]
-; Shortcuts from releases branded "PharmaBill". The app was renamed to Pharma Remit; same AppId, same data folder.
+; Shortcuts from earlier names of this installer ("PharmaBill", then "Pharma Remit"). Same AppId, same data folder,
+; so an existing install upgrades in place and keeps its records.
 Type: files; Name: "{autoprograms}\PharmaBill.lnk"
 Type: files; Name: "{autodesktop}\PharmaBill.lnk"
+Type: files; Name: "{autoprograms}\Pharma Remit.lnk"
+Type: files; Name: "{autodesktop}\Pharma Remit.lnk"
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"

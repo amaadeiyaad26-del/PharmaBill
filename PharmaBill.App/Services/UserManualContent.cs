@@ -17,7 +17,7 @@ public static class UserManualContent
 			new GuideBlock(GuideBlockKind.Bullet, "Confirm Settings → General & Profile → Business mode matches how you trade."),
 			new GuideBlock(GuideBlockKind.Bullet, "Set Pharmacy / Billing Email under Firm Profile (used for the user manual mailer)."),
 			new GuideBlock(GuideBlockKind.Bullet, "Open Sync and start the Sync Station listener on port 5055."),
-			new GuideBlock(GuideBlockKind.Tip, "Full licence", "This production build is fully unlocked for dispensing. Keep Microsoft Store updates enabled when installed from the Store."),
+			new GuideBlock(GuideBlockKind.Tip, "Full licence", "This production build is fully unlocked for dispensing. " + AppEdition.UpdateAdvice(AppEdition.Current)),
 			new GuideBlock(GuideBlockKind.Warning, "Licences", "If the active mode’s drug licence has expired, billing is read-only until licences are renewed in Settings / profile.")
 		})),
 		new UserManualChapter("retail", "Retail Billing, Substitutes (F5) & FEFO Batches", "retail billing substitute f5 fefo batch patient schedule h1 ndps barcode", new _003C_003Ez__ReadOnlyArray<GuideBlock>(new GuideBlock[10]

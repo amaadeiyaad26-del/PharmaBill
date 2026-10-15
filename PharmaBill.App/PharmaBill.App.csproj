@@ -1,5 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Edition: one source, two build outputs. -p:Edition=Store (MSIX, build-msstore-package.ps1) or
+    -p:Edition=LocalMarket (Inno Setup installer, build-installer.ps1; also the default for development builds).
+    Editions\<Edition>.props sets the product name, version and compile-time constant (STORE_EDITION or
+    LOCAL_MARKET_EDITION). Code reads it only through AppEdition.Current.
+  -->
+  <PropertyGroup>
+    <Edition Condition="'$(Edition)' == ''">LocalMarket</Edition>
+  </PropertyGroup>
+  <Import Project="Editions\$(Edition).props" Condition="Exists('Editions\$(Edition).props')" />
+  <Target Name="ValidateEdition" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('Editions\$(Edition).props')" Text="Unknown Edition '$(Edition)'. Use Store or LocalMarket." />
+  </Target>
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);$(EditionConstant)</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
@@ -7,12 +23,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Product>Pharma Remit</Product>
-    <AssemblyTitle>Pharma Remit</AssemblyTitle>
     <Company>PharmaBill</Company>
-    <Version>1.0.3</Version>
-    <AssemblyVersion>1.0.3.0</AssemblyVersion>
-    <FileVersion>1.0.3.0</FileVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</BuildDateUtc>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

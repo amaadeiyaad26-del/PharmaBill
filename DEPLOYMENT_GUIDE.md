@@ -40,7 +40,7 @@ This guide provides step-by-step instructions for IT administrators and pharmacy
 
 1. **Copy Installer**
    ```
-   Distribution File: artifacts/installer/PharmaBill_Setup.exe
+   Distribution File: artifacts/installer/PharmaRemitLocalMarket_Setup.exe
    Target Folder: USB Drive or Network Share
    ```
 
@@ -49,7 +49,7 @@ This guide provides step-by-step instructions for IT administrators and pharmacy
    - Include pharmacy contact info for support
 
 3. **On-Site Installation**
-   - Pharmacy staff runs: `PharmaBill_Setup.exe`
+   - Pharmacy staff runs: `PharmaRemitLocalMarket_Setup.exe`
    - Follows the 3-step wizard (Next → Install → Finish)
    - Automatic firewall rule opens for Wi-Fi sync (port 5184)
 
@@ -71,8 +71,8 @@ This guide provides step-by-step instructions for IT administrators and pharmacy
 1. **Publish to Network Share**
    ```powershell
    # Copy installer to a shared network location
-   Copy-Item "artifacts\installer\PharmaBill_Setup.exe" `
-             "\\server\pharmacy-deployments\PharmaBill_Setup.exe"
+   Copy-Item "artifacts\installer\PharmaRemitLocalMarket_Setup.exe" `
+             "\\server\pharmacy-deployments\PharmaRemitLocalMarket_Setup.exe"
    ```
 
 2. **Create GPO Deployment**
@@ -115,7 +115,7 @@ This guide provides step-by-step instructions for IT administrators and pharmacy
 
 4. **On-Site Installation**
    - Plug USB into laptop
-   - Run `PharmaBill_Setup.exe` from USB
+   - Run `PharmaRemitLocalMarket_Setup.exe` from USB
    - Installation copies to local `Program Files`
 
 ---
@@ -216,7 +216,7 @@ Contents:
 
 ### Issue: Data Missing After Uninstall
 **All data is preserved** in `%LocalAppData%\PharmaBill\`
-1. Reinstall PharmaBill_Setup.exe
+1. Reinstall PharmaRemitLocalMarket_Setup.exe
 2. On restart, all previous data and bills will be there
 
 ---
@@ -257,7 +257,7 @@ Contents:
    - Click "Yes" (your data will remain intact)
 
 3. **Install New Version**
-   - Run new `PharmaBill_Setup.exe`
+   - Run new `PharmaRemitLocalMarket_Setup.exe`
    - Complete the wizard
    - Your data automatically loads on first launch
 

@@ -1,0 +1,11 @@
+<Project>
+  <!-- Microsoft Store edition: packaged as MSIX by build-msstore-package.ps1. Store versions must end in .0. -->
+  <PropertyGroup>
+    <EditionConstant>STORE_EDITION</EditionConstant>
+    <Product>Pharma Remit</Product>
+    <AssemblyTitle>Pharma Remit</AssemblyTitle>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
+  </PropertyGroup>
+</Project>

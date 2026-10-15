@@ -6,7 +6,7 @@
   Administrator, pre-creates the LAN firewall rule. Antivirus settings are never
   changed. Useful for Group Policy, batch deployment, or remote endpoint management.
 .PARAMETER InstallerPath
-  Path to PharmaBill_Setup.exe. Defaults to: artifacts\installer\PharmaBill_Setup.exe
+  Path to PharmaRemitLocalMarket_Setup.exe. Defaults to: artifacts\installer\PharmaRemitLocalMarket_Setup.exe
 .PARAMETER Silent
   Perform silent installation (no GUI wizard). Default: $false (show wizard).
 .PARAMETER ConfigureFirewall
@@ -20,13 +20,13 @@
 
   Performs silent installation and (if elevated) creates the LAN firewall rule.
 .EXAMPLE
-  .\Deploy-PharmaBill.ps1 -InstallerPath "\\server\share\PharmaBill_Setup.exe" -LogPath "C:\Logs\Deploy.log"
+  .\Deploy-PharmaBill.ps1 -InstallerPath "\\server\share\PharmaRemitLocalMarket_Setup.exe" -LogPath "C:\Logs\Deploy.log"
 
   Deploys from network share and logs to specified path.
 #>
 [CmdletBinding()]
 param(
-    [string]$InstallerPath = "artifacts\installer\PharmaBill_Setup.exe",
+    [string]$InstallerPath = "artifacts\installer\PharmaRemitLocalMarket_Setup.exe",
     [switch]$Silent,
     [switch]$ConfigureFirewall = $true,
     [string]$InstallDir,

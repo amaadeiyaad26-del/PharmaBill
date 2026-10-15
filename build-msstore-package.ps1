@@ -1,7 +1,11 @@
 ﻿<#
 .SYNOPSIS
-  Publishes PharmaBill.App (Release, MASTER_ADMIN_BUILD off) and packs a Store MSIX plus .msixupload.
-  Does not call build-installer.ps1 or Inno Setup.
+  Builds the Microsoft Store edition of Pharma Remit: publishes PharmaBill.App with -p:Edition=Store (Release,
+  MASTER_ADMIN_BUILD off) and packs an unsigned MSIX plus .msixupload. The Local Market edition is built by
+  build-installer.ps1. Product name and version come from PharmaBill.App\Editions\Store.props.
+
+  Tests are not run here. They run once, against the shared code, with:
+    dotnet test PharmaBill.slnx -c Release
 .PARAMETER PackageName
   Partner Center Package/Identity/Name. Default in the manifest is SAER.PharmaBill.
 .PARAMETER Publisher
@@ -11,7 +15,7 @@
 .PARAMETER DisplayName
   Reserved app name (manifest DisplayName).
 .PARAMETER Version
-  Four-part package version ending in .0. Default: csproj Version plus .0.
+  Four-part package version ending in .0. Default: the Version in Editions\Store.props plus .0.
 .PARAMETER CertPath
   Optional PFX for local sideload only. Leave unsigned for Store submission.
 .PARAMETER CertPassword
@@ -70,10 +74,13 @@ public static class PharmaBillMsixScan {
 if (-not (Test-Path $appProject)) { throw "App project not found: $appProject" }
 if (-not (Test-Path $manifestSrc)) { throw "Manifest not found: $manifestSrc" }
 
-[xml]$csproj = Get-Content $appProject
+$edition = 'Store'
+$props = dotnet msbuild $appProject -p:Configuration=Release "-p:Edition=$edition" -p:MasterAdminBuild=false `
+    -getProperty:Version -getProperty:DefineConstants -getProperty:Product | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "Could not evaluate the $edition edition properties." }
 if (-not $Version) {
-    $v = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1)
-    if (-not $v) { throw 'No <Version> found in PharmaBill.App.csproj.' }
+    $v = $props.Properties.Version
+    if (-not $v) { throw 'No Version in PharmaBill.App\Editions\Store.props.' }
     $parts = @($v.ToString().Split('.'))
     while ($parts.Count -lt 3) { $parts += '0' }
     $Version = ($parts[0..2] -join '.') + '.0'
@@ -82,12 +89,14 @@ if ($Version -notmatch '^\d+\.\d+\.\d+\.0$') {
     throw "Version '$Version' must be Major.Minor.Build.0 (Store requires the revision to be 0)."
 }
 
-$defineConstants = dotnet msbuild $appProject -getProperty:DefineConstants -p:Configuration=Release -p:MasterAdminBuild=false
-if ($LASTEXITCODE -ne 0) { throw 'Could not evaluate Release DefineConstants.' }
+$defineConstants = $props.Properties.DefineConstants
 if ($defineConstants -match 'MASTER_ADMIN_BUILD') {
     throw "Release DefineConstants still contain MASTER_ADMIN_BUILD: $defineConstants"
 }
-Write-Host "Release constants: $defineConstants (MASTER_ADMIN_BUILD off)"
+if ($defineConstants -notmatch '(^|;)STORE_EDITION(;|$)' -or $defineConstants -match 'LOCAL_MARKET_EDITION') {
+    throw "Release constants are not the Store edition: $defineConstants"
+}
+Write-Host "$($props.Properties.Product) $Version, constants: $defineConstants (MASTER_ADMIN_BUILD off)"
 
 if (-not $MakeAppxPath) {
     $candidates = @()
@@ -110,17 +119,19 @@ if (-not $MakeAppxPath -or -not (Test-Path $MakeAppxPath)) {
 if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $layout | Out-Null
 
-Invoke-Step 'Publish (Release, win-x64, self-contained, MASTER_ADMIN_BUILD off)' {
+Invoke-Step 'Publish Store edition (Release, win-x64, self-contained, MASTER_ADMIN_BUILD off)' {
     # Not single-file: single-file leaves Assembly.Location empty and WPF content-file pack URIs
     # (e.g. the window icon) then crash MainWindow at startup.
     dotnet publish $appProject -c Release -r win-x64 --self-contained true `
         -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false `
-        -p:MasterAdminBuild=false -p:GenerateAppxPackageOnBuild=false -p:PublishAppxPackage=false `
+        "-p:Edition=$edition" -p:MasterAdminBuild=false -p:GenerateAppxPackageOnBuild=false -p:PublishAppxPackage=false `
         "-p:BuildDateUtc=$buildDate" -o $layout
 }
 
 $exePath = Join-Path $layout 'PharmaBill.App.exe'
 if (-not (Test-Path $exePath)) { throw 'PharmaBill.App.exe missing from publish output.' }
+$exeProduct = (Get-Item $exePath).VersionInfo.ProductName
+if ($exeProduct -ne $props.Properties.Product) { throw "Published exe reports product '$exeProduct', expected '$($props.Properties.Product)'." }
 
 # App code lives in PharmaBill.*.dll (not single-file), so scan those as well as the exe.
 $scanned = Get-ChildItem $layout -File | Where-Object { $_.Name -like 'PharmaBill*.dll' -or $_.Name -eq 'PharmaBill.App.exe' }
@@ -210,7 +221,7 @@ foreach ($asset in @(
     Copy-Item $srcAsset (Join-Path $assetsDst $asset) -Force
 }
 
-$msix = Join-Path $outDir "PharmaBill_${Version}_x64.msix"
+$msix = Join-Path $outDir "PharmaRemit_${Version}_x64.msix"
 Invoke-Step 'Pack MSIX' { & $MakeAppxPath pack /d $layout /p $msix /o }
 
 if ($CertPath) {
@@ -222,7 +233,7 @@ if ($CertPath) {
     Invoke-Step 'Sign MSIX (local sideload only)' { & $signtool @signArgs }
 }
 
-$upload = Join-Path $outDir "PharmaBill_${Version}_x64.msixupload"
+$upload = Join-Path $outDir "PharmaRemit_${Version}_x64.msixupload"
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (Test-Path $upload) { Remove-Item $upload -Force }
