@@ -15,10 +15,10 @@
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>PharmaBill</DisplayName>
+    <DisplayName>Pharma Remit</DisplayName>
     <PublisherDisplayName>S.A.E.R</PublisherDisplayName>
     <Logo>Assets\Store\StoreLogo.png</Logo>
-    <Description>Pharmacy billing and inventory for India.</Description>
+    <Description>Pharma Remit: pharmacy billing and inventory for India.</Description>
     <!-- Standard MSIX file-system virtualization (Store policy 10.6.3 denied unvirtualizedResources):
          writes to %LocalAppData%\PharmaBill land in the package's private LocalCache. -->
   </Properties>
@@ -36,12 +36,12 @@
                  Executable="PharmaBill.App.exe"
                  EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="PharmaBill"
-        Description="Pharmacy billing and inventory for India."
+        DisplayName="Pharma Remit"
+        Description="Pharma Remit: pharmacy billing and inventory for India."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Store\Square150x150Logo.png"
         Square44x44Logo="Assets\Store\Square44x44Logo.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Store\Wide310x150Logo.png" ShortName="PharmaBill" />
+        <uap:DefaultTile Wide310x150Logo="Assets\Store\Wide310x150Logo.png" ShortName="Pharma Remit" />
         <uap:SplashScreen Image="Assets\Store\SplashScreen.png" BackgroundColor="#0F172A" />
       </uap:VisualElements>
     </Application>

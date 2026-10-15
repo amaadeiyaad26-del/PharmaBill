@@ -8,8 +8,8 @@ public static class UserManualContent
 	{
 		new UserManualChapter("quick-start", "Quick Start & Workstation Setup", "setup first run licence license initial pharmacy email mode retail wholesale production", new _003C_003Ez__ReadOnlyArray<GuideBlock>(new GuideBlock[11]
 		{
-			new GuideBlock(GuideBlockKind.Heading, "Welcome to PharmaBill"),
-			new GuideBlock(GuideBlockKind.Paragraph, "PharmaBill is an offline-first pharmacy billing system for India (Retail Chemist, Wholesaler, or Both). Complete Initial Setup once, then use Settings to refine firm profile, UPI, printers, and sync."),
+			new GuideBlock(GuideBlockKind.Heading, "Welcome to Pharma Remit"),
+			new GuideBlock(GuideBlockKind.Paragraph, "Pharma Remit is an offline-first pharmacy billing system for India (Retail Chemist, Wholesaler, or Both). Complete Initial Setup once, then use Settings to refine firm profile, UPI, printers, and sync."),
 			new GuideBlock(GuideBlockKind.Heading, "First-run checklist"),
 			new GuideBlock(GuideBlockKind.Bullet, "Install on the Windows PC that stays on the pharmacy Wi-Fi."),
 			new GuideBlock(GuideBlockKind.Bullet, "Complete Initial Setup: firm name, owner, pharmacy email, business mode, and drug licences."),
@@ -52,7 +52,7 @@ public static class UserManualContent
 			new GuideBlock(GuideBlockKind.Bullet, "Note the PC Wi-Fi IP and Port 5055."),
 			new GuideBlock(GuideBlockKind.Bullet, "On Android, scan the QR code (or wait for mDNS discovery)."),
 			new GuideBlock(GuideBlockKind.Bullet, "Use 1-tap sync after stock counts or mobile sales."),
-			new GuideBlock(GuideBlockKind.Warning, "Firewall", "Allow PharmaBill on Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. If LAN is blocked, encrypted change logs can fall back to Google Drive PharmaBill_Sync.")
+			new GuideBlock(GuideBlockKind.Warning, "Firewall", "Allow Pharma Remit on Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. If LAN is blocked, encrypted change logs can fall back to Google Drive PharmaBill_Sync.")
 		})),
 		new UserManualChapter("reports", "Reports & GST Summaries (Party, B.No, Brand-wise)", "reports gst party brand bill number summary sales purchase stock", new _003C_003Ez__ReadOnlyArray<GuideBlock>(new GuideBlock[6]
 		{
@@ -76,7 +76,7 @@ public static class UserManualContent
 			new GuideBlock(GuideBlockKind.Shortcut, "F10", "Save and print"),
 			new GuideBlock(GuideBlockKind.Shortcut, "Esc", "Cancel / close flyout"),
 			new GuideBlock(GuideBlockKind.Shortcut, "Ctrl+F", "Focus Settings search (on Settings)"),
-			new GuideBlock(GuideBlockKind.Tip, "Keyboard-first", "Tab through fields in order; Enter advances search picks. PharmaBill is designed for counter speed without the mouse.")
+			new GuideBlock(GuideBlockKind.Tip, "Keyboard-first", "Tab through fields in order; Enter advances search picks. Pharma Remit is designed for counter speed without the mouse.")
 		}))
 	});
 }

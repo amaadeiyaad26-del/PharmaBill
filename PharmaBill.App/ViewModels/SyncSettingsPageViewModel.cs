@@ -2139,7 +2139,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task DownloadGoogleDriveBackupAsync()
 	{
-		if (IsGoogleDriveBusy || !_confirmation.Confirm("This replaces the local PharmaBill database with the latest cloud backup. A safety backup is created first.", "Download & restore from Google Drive?"))
+		if (IsGoogleDriveBusy || !_confirmation.Confirm("This replaces the local Pharma Remit database with the latest cloud backup. A safety backup is created first.", "Download & restore from Google Drive?"))
 		{
 			return;
 		}
@@ -2151,7 +2151,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 				await _googleDrive.DownloadAndRestoreAsync();
 			});
 			ErrorMessage = string.Empty;
-			PackageStatus = "Cloud backup restored. Restart PharmaBill if the screen looks stale.";
+			PackageStatus = "Cloud backup restored. Restart Pharma Remit if the screen looks stale.";
 		}
 		catch (Exception ex)
 		{
@@ -2435,7 +2435,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			ErrorMessage = string.Empty;
 			return;
 		}
-		if (!_confirmation.Confirm($"Android cannot reach this PC on TCP {port} until Windows Firewall allows inbound traffic.\n\n" + "PharmaBill will request Administrator permission to add:\n\"PharmaBill Sync Station (Port 5055)\"\n\nContinue?", "Allow Windows Firewall?"))
+		if (!_confirmation.Confirm($"Android cannot reach this PC on TCP {port} until Windows Firewall allows inbound traffic.\n\n" + "Pharma Remit will request Administrator permission to add:\n\"PharmaBill Sync Station (Port 5055)\"\n\nContinue?", "Allow Windows Firewall?"))
 		{
 			PackageStatus = "Firewall change cancelled. Port 5055 may still be blocked for the phone.";
 			return;

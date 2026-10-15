@@ -129,8 +129,8 @@ public sealed class FilePickerService : IFilePickerService
 			"xlsx" => "Excel workbook (*.xlsx)|*.xlsx", 
 			"csv" => "CSV files (*.csv)|*.csv", 
 			"json" => "JSON data (*.json)|*.json", 
-			"pbbak" => "PharmaBill encrypted backup (*.pbbak)|*.pbbak", 
-			"pbsync" => "PharmaBill sync package (*.pbsync)|*.pbsync", 
+			"pbbak" => "Pharma Remit encrypted backup (*.pbbak)|*.pbbak", 
+			"pbsync" => "Pharma Remit sync package (*.pbsync)|*.pbsync", 
 			_ => "PDF files (*.pdf)|*.pdf", 
 		};
 		saveFileDialog.DefaultExt = "." + text;
@@ -163,8 +163,8 @@ public sealed class FilePickerService : IFilePickerService
 	{
 		OpenFileDialog openFileDialog = new OpenFileDialog
 		{
-			Title = "Choose encrypted PharmaBill backup",
-			Filter = "PharmaBill encrypted backups (*.pbbak)|*.pbbak",
+			Title = "Choose encrypted Pharma Remit backup",
+			Filter = "Pharma Remit encrypted backups (*.pbbak)|*.pbbak",
 			CheckFileExists = true,
 			Multiselect = false
 		};
@@ -179,8 +179,8 @@ public sealed class FilePickerService : IFilePickerService
 	{
 		OpenFileDialog openFileDialog = new OpenFileDialog
 		{
-			Title = "Choose signed PharmaBill sync package",
-			Filter = "PharmaBill sync packages (*.pbsync)|*.pbsync",
+			Title = "Choose signed Pharma Remit sync package",
+			Filter = "Pharma Remit sync packages (*.pbsync)|*.pbsync",
 			CheckFileExists = true,
 			Multiselect = false
 		};

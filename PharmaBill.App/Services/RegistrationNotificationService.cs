@@ -18,11 +18,11 @@ public sealed class RegistrationNotificationService
 {
 	private sealed record SmtpCredentials(string Host, int Port, bool EnableSsl, string UserName, string Password, string FromAddress);
 
-	public const string FromDisplayName = "PharmaBill Team";
+	public const string FromDisplayName = "Pharma Remit Team";
 
 	public const string FromAddress = "pharma.bill26@gmail.com";
 
-	public const string Subject = "Welcome to PharmaBill – Your User Manual & Quick Start Guide";
+	public const string Subject = "Welcome to Pharma Remit – Your User Manual & Quick Start Guide";
 
 	private readonly IServiceScopeFactory _scopeFactory;
 
@@ -157,8 +157,8 @@ public sealed class RegistrationNotificationService
 	{
 		using MailMessage message = new MailMessage
 		{
-			From = new MailAddress(credentials.FromAddress, "PharmaBill Team"),
-			Subject = "Welcome to PharmaBill – Your User Manual & Quick Start Guide",
+			From = new MailAddress(credentials.FromAddress, "Pharma Remit Team"),
+			Subject = "Welcome to Pharma Remit – Your User Manual & Quick Start Guide",
 			Body = BuildPlainBody(pharmacyName, ownerName),
 			IsBodyHtml = false
 		};
@@ -197,13 +197,13 @@ public sealed class RegistrationNotificationService
 	{
 		string value = (string.IsNullOrWhiteSpace(ownerName) ? "there" : ownerName.Trim());
 		string value2 = (string.IsNullOrWhiteSpace(pharmacyName) ? "your pharmacy" : pharmacyName.Trim());
-		return $"Dear {value},\n\nWelcome to PharmaBill — thank you for registering {value2}.\n\n" + "Your complete User Manual & Quick Start Guide is attached as PharmaBill_User_Manual.pdf.\n\nQuick start:\n1) Local Wi-Fi Sync (Port 5055): Connect Android and Desktop on the same Wi-Fi, open Sync Station, scan the QR (or wait for discovery). If blocked, allow firewall port 5055; Drive cloud fallback still works.\n2) Google Drive backups: Configure Keys → Link Google Account → enable Sync on Exit / Bill Save.\n3) Catalog, FEFO batches & GST: Import medicines, sell FEFO batches, use retail cash memo or wholesale tax invoices (licensed buyers only; rate ≤ MRP).\n\nDesigned and developed by S.A.E.R. to serve pharma professionals. For any query: email at pharma.bill26@gmail.com\n\n— PharmaBill Team\n";
+		return $"Dear {value},\n\nWelcome to Pharma Remit — thank you for registering {value2}.\n\n" + "Your complete User Manual & Quick Start Guide is attached as PharmaBill_User_Manual.pdf.\n\nQuick start:\n1) Local Wi-Fi Sync (Port 5055): Connect Android and Desktop on the same Wi-Fi, open Sync Station, scan the QR (or wait for discovery). If blocked, allow firewall port 5055; Drive cloud fallback still works.\n2) Google Drive backups: Configure Keys → Link Google Account → enable Sync on Exit / Bill Save.\n3) Catalog, FEFO batches & GST: Import medicines, sell FEFO batches, use retail cash memo or wholesale tax invoices (licensed buyers only; rate ≤ MRP).\n\nDesigned and developed by S.A.E.R. to serve pharma professionals. For any query: email at pharma.bill26@gmail.com\n\n— Pharma Remit Team\n";
 	}
 
 	private static string BuildHtmlBody(string pharmacyName, string ownerName)
 	{
 		string value = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(ownerName) ? "there" : ownerName.Trim());
 		string value2 = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(pharmacyName) ? "your pharmacy" : pharmacyName.Trim());
-		return $"<html><body style=\"font-family:Segoe UI,Arial,sans-serif;color:#0F172A;line-height:1.5\"><p>Dear {value},</p><p>Welcome to <strong>PharmaBill</strong> — thank you for registering <strong>{value2}</strong>.</p>" + "<p>Your complete <strong>User Manual &amp; Quick Start Guide</strong> is attached (<code>PharmaBill_User_Manual.pdf</code>).</p><h3 style=\"color:#1D4ED8\">Quick start</h3><ol><li><strong>Local Wi-Fi Sync (Port 5055)</strong> — Same Wi-Fi for PC and Android; open Sync Station; scan QR or wait for discovery. Allow firewall port 5055 if needed; Google Drive fallback covers offline LAN.</li><li><strong>Google Drive backups</strong> — Configure Keys → Link Account → Sync on Exit / Bill Save.</li><li><strong>Catalog, FEFO &amp; GST</strong> — Import medicines, FEFO batches, retail or wholesale GST invoicing (licensed buyers; rate ≤ MRP).</li></ol><p style=\"color:#475569\">Designed and developed by S.A.E.R. to serve pharma professionals. For any query: email at <a href=\"mailto:pharma.bill26@gmail.com\">pharma.bill26@gmail.com</a>.</p><p>— PharmaBill Team</p></body></html>";
+		return $"<html><body style=\"font-family:Segoe UI,Arial,sans-serif;color:#0F172A;line-height:1.5\"><p>Dear {value},</p><p>Welcome to <strong>Pharma Remit</strong> — thank you for registering <strong>{value2}</strong>.</p>" + "<p>Your complete <strong>User Manual &amp; Quick Start Guide</strong> is attached (<code>PharmaBill_User_Manual.pdf</code>).</p><h3 style=\"color:#1D4ED8\">Quick start</h3><ol><li><strong>Local Wi-Fi Sync (Port 5055)</strong> — Same Wi-Fi for PC and Android; open Sync Station; scan QR or wait for discovery. Allow firewall port 5055 if needed; Google Drive fallback covers offline LAN.</li><li><strong>Google Drive backups</strong> — Configure Keys → Link Account → Sync on Exit / Bill Save.</li><li><strong>Catalog, FEFO &amp; GST</strong> — Import medicines, FEFO batches, retail or wholesale GST invoicing (licensed buyers; rate ≤ MRP).</li></ol><p style=\"color:#475569\">Designed and developed by S.A.E.R. to serve pharma professionals. For any query: email at <a href=\"mailto:pharma.bill26@gmail.com\">pharma.bill26@gmail.com</a>.</p><p>— Pharma Remit Team</p></body></html>";
 	}
 }

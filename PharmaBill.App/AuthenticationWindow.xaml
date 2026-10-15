@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="PharmaBill.App.AuthenticationWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:PharmaBill.App.Controls" Icon="/Assets/Icons/app.ico" Title="PharmaBill - Unlock" Width="440" SizeToContent="Height" MinHeight="440" ResizeMode="CanResize" WindowStartupLocation="CenterScreen" Background="#F1F5F9" Foreground="#0F172A" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App" MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}" PreviewKeyDown="Window_PreviewKeyDown" Loaded="Window_Loaded">
+<Window x:Class="PharmaBill.App.AuthenticationWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:PharmaBill.App.Controls" Icon="/Assets/Icons/app.ico" Title="Pharma Remit - Unlock" Width="440" SizeToContent="Height" MinHeight="440" ResizeMode="CanResize" WindowStartupLocation="CenterScreen" Background="#F1F5F9" Foreground="#0F172A" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App" MaxHeight="{Binding Source={x:Static SystemParameters.WorkArea}, Path=Height}" PreviewKeyDown="Window_PreviewKeyDown" Loaded="Window_Loaded">
   <FrameworkElement.Resources>
     <ResourceDictionary>
       <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -129,7 +129,7 @@
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Grid.RowSpan="3" VerticalAlignment="Top">
           <controls:PharmaBill3DLogo Width="96" Height="96" HorizontalAlignment="Center" Margin="0,0,0,12" />
-          <TextBlock Text="PharmaBill" FontSize="30" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center" />
+          <TextBlock Text="Pharma Remit" FontSize="30" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center" />
           <TextBlock Text="Sign in to continue" Margin="0,4,0,16" HorizontalAlignment="Center" FontSize="14" Foreground="#64748B" />
         </StackPanel>
         <TextBlock Grid.Row="3" Text="Username" Style="{StaticResource LoginLabelStyle}" />

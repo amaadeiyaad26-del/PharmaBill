@@ -57,7 +57,7 @@ public static class WelcomeGreeting
 	{
 		if (status != EntitlementStatus.EXPIRED)
 		{
-			return "PharmaBill is ready for dispensing • Workstation active";
+			return "Pharma Remit is ready for dispensing • Workstation active";
 		}
 		return "Workstation is read-only — renew drug licences to resume billing";
 	}

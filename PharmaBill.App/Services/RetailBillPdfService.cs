@@ -217,7 +217,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 		string destination = GetSharedPdfPath(saleId, documentType);
 		Directory.CreateDirectory(Path.GetDirectoryName(destination));
 		await ExportAsync(saleId, destination, documentType, cancellationToken);
-		string value = Uri.EscapeDataString("PharmaBill " + bill.InvoiceNo);
+		string value = Uri.EscapeDataString("Pharma Remit " + bill.InvoiceNo);
 		string value2 = Uri.EscapeDataString("Please find the bill PDF at: " + destination);
 		if (string.IsNullOrWhiteSpace(settings.SmtpHost))
 		{
@@ -236,7 +236,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 		}
 		using MailMessage message = new MailMessage(settings.SmtpFromAddress, recipient)
 		{
-			Subject = "PharmaBill " + bill.InvoiceNo,
+			Subject = "Pharma Remit " + bill.InvoiceNo,
 			Body = "Please find the attached bill for " + bill.InvoiceNo + "."
 		};
 		message.Attachments.Add(new Attachment(destination));

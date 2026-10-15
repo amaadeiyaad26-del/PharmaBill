@@ -197,7 +197,7 @@ public sealed class GoogleDriveSyncService
 			string folderId = await EnsureSyncFolderAsync(service, cancellationToken);
 			Report(55, "Uploading connection test payload…", 0L, 0L);
 			string temp = Path.Combine(Path.GetTempPath(), $"PharmaBill-gdrive-test-{Guid.NewGuid():N}.txt");
-			await System.IO.File.WriteAllTextAsync(temp, $"PharmaBill Google Drive connection test at {DateTime.UtcNow:O} UTC", cancellationToken);
+			await System.IO.File.WriteAllTextAsync(temp, $"Pharma Remit Google Drive connection test at {DateTime.UtcNow:O} UTC", cancellationToken);
 			try
 			{
 				await UploadOrReplaceAsync(service, folderId, temp, "PharmaBill-connection-test.txt", "Uploading connection test payload…", cancellationToken);
@@ -317,7 +317,7 @@ public sealed class GoogleDriveSyncService
 				throw new InvalidOperationException("Connect Google Drive before restoring a backup.");
 			}
 			DriveService service = await CreateDriveServiceAsync(settings, cancellationToken);
-			Google.Apis.Drive.v3.Data.File file = (await FindLatestBackupAsync(service, await EnsureSyncFolderAsync(service, cancellationToken), "PharmaBill-cloud-latest.pbbak", cancellationToken)) ?? throw new InvalidOperationException("No PharmaBill backup was found in Google Drive.");
+			Google.Apis.Drive.v3.Data.File file = (await FindLatestBackupAsync(service, await EnsureSyncFolderAsync(service, cancellationToken), "PharmaBill-cloud-latest.pbbak", cancellationToken)) ?? throw new InvalidOperationException("No Pharma Remit backup was found in Google Drive.");
 			Report(35, "Downloading " + file.Name + "…", 0L, 0L);
 			string tempBackup = Path.Combine(Path.GetTempPath(), $"PharmaBill-drive-restore-{Guid.NewGuid():N}.pbbak");
 			await using (FileStream output = System.IO.File.Create(tempBackup))
@@ -439,7 +439,7 @@ public sealed class GoogleDriveSyncService
 				throw new InvalidOperationException("Connect Google Drive before restoring a backup.");
 			}
 			DriveService service = await CreateDriveServiceAsync(settings, cancellationToken);
-			Google.Apis.Drive.v3.Data.File file = (await FindLatestBackupAsync(service, await EnsureSyncFolderAsync(service, cancellationToken), remoteFileName, cancellationToken)) ?? throw new InvalidOperationException("No PharmaBill backup was found in Google Drive.");
+			Google.Apis.Drive.v3.Data.File file = (await FindLatestBackupAsync(service, await EnsureSyncFolderAsync(service, cancellationToken), remoteFileName, cancellationToken)) ?? throw new InvalidOperationException("No Pharma Remit backup was found in Google Drive.");
 			Report(35, "Downloading " + file.Name + "…", 0L, 0L);
 			string liveDestination = Path.Combine(localDestDirectory, remoteFileName);
 			await using (FileStream output = System.IO.File.Create(liveDestination))

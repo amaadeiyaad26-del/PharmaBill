@@ -21,7 +21,7 @@ public sealed class UserManualDialogService : IUserManualDialogService
 		string text = ResolvePdfPath();
 		if (string.IsNullOrWhiteSpace(text) || !File.Exists(text))
 		{
-			return "User manual PDF was not found. Reinstall PharmaBill or regenerate docs.";
+			return "User manual PDF was not found. Reinstall Pharma Remit or regenerate docs.";
 		}
 		Process.Start(new ProcessStartInfo
 		{

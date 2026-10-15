@@ -30,8 +30,8 @@ public partial class RecoveryCodeWindow : Window
 		};
 		if (saveFileDialog.ShowDialog(this) == true)
 		{
-			File.WriteAllText(saveFileDialog.FileName, "PharmaBill owner recovery code" + Environment.NewLine + _code + Environment.NewLine + "Store this code securely. Anyone with it can reset the owner PIN.");
-			MessageBox.Show(this, "Recovery code saved. Store the file somewhere secure.", "PharmaBill", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+			File.WriteAllText(saveFileDialog.FileName, "Pharma Remit owner recovery code" + Environment.NewLine + _code + Environment.NewLine + "Store this code securely. Anyone with it can reset the owner PIN.");
+			MessageBox.Show(this, "Recovery code saved. Store the file somewhere secure.", "Pharma Remit", MessageBoxButton.OK, MessageBoxImage.Asterisk);
 		}
 	}
 
@@ -40,11 +40,11 @@ public partial class RecoveryCodeWindow : Window
 		PrintDialog printDialog = new PrintDialog();
 		if (printDialog.ShowDialog() == true)
 		{
-			FlowDocument flowDocument = new FlowDocument(new Paragraph(new Run($"PharmaBill owner recovery code{Environment.NewLine}{Environment.NewLine}{_code}{Environment.NewLine}{Environment.NewLine}Store this code securely. Anyone with it can reset the owner PIN.")))
+			FlowDocument flowDocument = new FlowDocument(new Paragraph(new Run($"Pharma Remit owner recovery code{Environment.NewLine}{Environment.NewLine}{_code}{Environment.NewLine}{Environment.NewLine}Store this code securely. Anyone with it can reset the owner PIN.")))
 			{
 				PagePadding = new Thickness(48.0)
 			};
-			printDialog.PrintDocument(((IDocumentPaginatorSource)flowDocument).DocumentPaginator, "PharmaBill recovery code");
+			printDialog.PrintDocument(((IDocumentPaginatorSource)flowDocument).DocumentPaginator, "Pharma Remit recovery code");
 		}
 	}
 }

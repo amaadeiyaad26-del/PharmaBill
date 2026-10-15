@@ -7,7 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Product>PharmaBill</Product>
+    <Product>Pharma Remit</Product>
+    <AssemblyTitle>Pharma Remit</AssemblyTitle>
     <Company>PharmaBill</Company>
     <Version>1.0.3</Version>
     <AssemblyVersion>1.0.3.0</AssemblyVersion>

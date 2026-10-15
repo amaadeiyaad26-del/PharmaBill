@@ -3578,7 +3578,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			new SettingsSearchEntry("sync", "Sync Station", "Local Wi-Fi pairing on port 5055", "sync station port 5055 wifi wi-fi local pairing mdns listener firewall rule android", "Data", "Sync"),
 			new SettingsSearchEntry("backupNav", "Backup & Cloud", "Google Drive, USB export and auto-backup", "backup cloud google drive auto-backup exit usb export retention restore move pc sync on exit", "Data", "Backup"),
 			new SettingsSearchEntry("userManual", "User Manual & Guides", "In-app quick guides, PDF manual and email dispatch", "user manual guide quick start tutorial help f1 pdf email shortcuts billing sync reports", "About"),
-			new SettingsSearchEntry("about", "About PharmaBill", "Version, updates and user manual", "about version update release notes manual support email saer", "About")
+			new SettingsSearchEntry("about", "About Pharma Remit", "Version, updates and user manual", "about version update release notes manual support email saer", "About")
 		});
 	}
 

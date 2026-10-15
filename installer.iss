@@ -26,7 +26,7 @@
   #define OutputDir "artifacts\installer"
 #endif
 
-#define AppName "PharmaBill"
+#define AppName "Pharma Remit"
 #define AppPublisher "SAER"
 #define AppExe "PharmaBill.App.exe"
 ; Four-part PE version resource (Defender / SmartScreen metadata).
@@ -42,7 +42,7 @@ AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
 VersionInfoVersion={#VersionInfoVersion}
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=PharmaBill Pharmacy Billing and Inventory Setup
+VersionInfoDescription=Pharma Remit Pharmacy Billing and Inventory Setup
 VersionInfoCopyright=Copyright (C) 2026 SAER
 VersionInfoProductName={#AppName}
 DefaultDirName={autopf}\{#AppName}
@@ -79,6 +79,11 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 ; Application binaries ONLY. Never source from or dest into {localappdata}\PharmaBill.
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; Shortcuts from releases branded "PharmaBill". The app was renamed to Pharma Remit; same AppId, same data folder.
+Type: files; Name: "{autoprograms}\PharmaBill.lnk"
+Type: files; Name: "{autodesktop}\PharmaBill.lnk"
+
 [Icons]
 ; Start Menu
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
@@ -88,7 +93,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app
 [Run]
 ; Allow inbound TCP to PharmaBill.App.exe so the Android Mobile Bridge (LAN bill scan) can reach this PC.
 Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""PharmaBill Mobile Bridge"" dir=in action=allow protocol=TCP program=""{app}\{#AppExe}"""; Flags: runhidden
-Filename: "{app}\{#AppExe}"; Description: "Launch PharmaBill"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""PharmaBill Mobile Bridge"""; Flags: runhidden

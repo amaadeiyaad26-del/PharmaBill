@@ -170,7 +170,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 			HashSet<string> availableMigrations = context.Database.GetMigrations().ToHashSet(StringComparer.Ordinal);
 			if (manifest.AppliedMigrations.Any((string migration) => !availableMigrations.Contains(migration)))
 			{
-				throw new InvalidDataException("This backup was created by a newer or incompatible PharmaBill version.");
+				throw new InvalidDataException("This backup was created by a newer or incompatible Pharma Remit version.");
 			}
 			(Dictionary<string, long>, Dictionary<string, string>) tuple = await ReadIntegritySummaryAsync(databasePath, restoredKey, cancellationToken);
 			if (!DictionaryEquals(manifest.TableRowCounts, tuple.Item1) || !DictionaryEquals(manifest.KeyTableChecksums, tuple.Item2))
@@ -463,7 +463,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 		byte[] header = new byte[Magic.Length + 4 + 16 + 16];
 		if (await input.ReadAtLeastAsync(header, header.Length, throwOnEndOfStream: false, cancellationToken) != header.Length || !((ReadOnlySpan<byte>)header.AsSpan(0, Magic.Length)).SequenceEqual((ReadOnlySpan<byte>)Magic))
 		{
-			throw new InvalidDataException("The selected file is not a PharmaBill backup.");
+			throw new InvalidDataException("The selected file is not a Pharma Remit backup.");
 		}
 		int num = BitConverter.ToInt32(header, Magic.Length);
 		if ((num < 100000 || num > 2000000) ? true : false)

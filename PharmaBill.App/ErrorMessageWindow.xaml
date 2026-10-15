@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="PharmaBill.App.ErrorMessageWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="PharmaBill - Error" Width="620" SizeToContent="Height" MinHeight="280" MaxHeight="760" WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="True" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+<Window x:Class="PharmaBill.App.ErrorMessageWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Pharma Remit - Error" Width="620" SizeToContent="Height" MinHeight="280" MaxHeight="760" WindowStartupLocation="CenterOwner" ResizeMode="CanResize" ShowInTaskbar="True" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
   <Grid Margin="24">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />

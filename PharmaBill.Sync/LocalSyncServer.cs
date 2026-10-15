@@ -191,7 +191,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 		}
 		if (exception is UnauthorizedAccessException)
 		{
-			return $"Windows denied access to port {port}. Run PharmaBill once as administrator or ask IT to allow it.";
+			return $"Windows denied access to port {port}. Run Pharma Remit once as administrator or ask IT to allow it.";
 		}
 		return "Listener failed: " + exception.Message;
 	}
@@ -200,8 +200,8 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 	{
 		return socket.SocketErrorCode switch
 		{
-			SocketError.AddressAlreadyInUse => $"Port {port} is already used by another program. Close it and restart PharmaBill.", 
-			SocketError.AccessDenied => $"Windows denied access to port {port}. Run PharmaBill once as administrator or ask IT to allow it.", 
+			SocketError.AddressAlreadyInUse => $"Port {port} is already used by another program. Close it and restart Pharma Remit.", 
+			SocketError.AccessDenied => $"Windows denied access to port {port}. Run Pharma Remit once as administrator or ask IT to allow it.", 
 			_ => $"Network error {(int)socket.SocketErrorCode} while opening port {port}.", 
 		};
 	}

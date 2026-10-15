@@ -40,7 +40,7 @@ public static class UserManualPdfBuilder
 				page.DefaultTextStyle((TextStyle style) => style.FontFamily(PdfFonts.Family).FontSize(11f));
 				page.Header().Column((ColumnDescriptor header) =>
 				{
-					header.Item().Text("PharmaBill User Manual & Quick Start Guide").FontSize(20f)
+					header.Item().Text("Pharma Remit User Manual & Quick Start Guide").FontSize(20f)
 						.Bold();
 					header.Item().Text("Designed and developed by S.A.E.R. to serve pharma professionals.").FontSize(9f)
 						.FontColor(Colors.Grey.Darken1);
@@ -50,10 +50,10 @@ public static class UserManualPdfBuilder
 					column.Spacing(10f);
 					column.Item().Text("1. Welcome").Bold()
 						.FontSize(14f);
-					column.Item().Text("PharmaBill is an offline-first pharmacy billing system for India (Retail Chemist, Wholesaler, or Both). This guide covers first-day setup for desktop, Android LAN sync, backups, stock, and GST invoicing.");
+					column.Item().Text("Pharma Remit is an offline-first pharmacy billing system for India (Retail Chemist, Wholesaler, or Both). This guide covers first-day setup for desktop, Android LAN sync, backups, stock, and GST invoicing.");
 					column.Item().Text("2. Connecting Local Wi-Fi Sync (Port 5055)").Bold()
 						.FontSize(14f);
-					column.Item().Text("• Connect the Windows PC and Android phone to the same Wi-Fi network.\n• Open Sync → Offline device sync. Confirm Listener shows Listening and note the PC Wi-Fi IP and Port 5055.\n• Scan the QR code in the Android app, or wait for mDNS discovery (_pharmabill-sync._tcp).\n• If pairing fails: allow PharmaBill through Windows Firewall (Private networks) or run scripts/allow-firewall-port5055.ps1 as Administrator. When LAN is blocked, encrypted change logs fall back to Google Drive PharmaBill_Sync automatically.");
+					column.Item().Text("• Connect the Windows PC and Android phone to the same Wi-Fi network.\n• Open Sync → Offline device sync. Confirm Listener shows Listening and note the PC Wi-Fi IP and Port 5055.\n• Scan the QR code in the Android app, or wait for mDNS discovery (_pharmabill-sync._tcp).\n• If pairing fails: allow Pharma Remit through Windows Firewall (Private networks) or run scripts/allow-firewall-port5055.ps1 as Administrator. When LAN is blocked, encrypted change logs fall back to Google Drive PharmaBill_Sync automatically.");
 					column.Item().Text("3. Google Drive automated backups").Bold()
 						.FontSize(14f);
 					column.Item().Text("• In Sync → Configure Keys, paste your Google Desktop OAuth client ID and secret.\n• Tap Link Google Account, then enable Sync on Exit and/or Sync on Bill Save.\n• Encrypted backups land in the PharmaBill_Sync folder on Drive. Watch the in-card progress bar for real upload percentage and Retry Now on rate limits.");
@@ -66,7 +66,7 @@ public static class UserManualPdfBuilder
 				});
 				page.Footer().AlignCenter().Text((TextDescriptor text) =>
 				{
-					text.Span("PharmaBill  ·  ").FontSize(9f);
+					text.Span("Pharma Remit  ·  ").FontSize(9f);
 					text.Span("pharma.bill26@gmail.com").FontSize(9f);
 				});
 			});

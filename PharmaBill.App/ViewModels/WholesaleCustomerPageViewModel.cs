@@ -949,7 +949,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		{
 			ErrorMessage = "Enter the HTTPS URL of the state's drug-control portal first.";
 		}
-		else if (_confirmation.Confirm($"PharmaBill cannot verify this portal or the customer's licence online. Open the configured portal?\n\n{result}", "External licence portal"))
+		else if (_confirmation.Confirm($"Pharma Remit cannot verify this portal or the customer's licence online. Open the configured portal?\n\n{result}", "External licence portal"))
 		{
 			try
 			{

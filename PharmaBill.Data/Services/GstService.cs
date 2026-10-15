@@ -194,12 +194,12 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			if (book is null)
 			{
 				status = "Portal only";
-				notes = "Present in supplier GSTR-2B but missing from PharmaBill inward books.";
+				notes = "Present in supplier GSTR-2B but missing from Pharma Remit inward books.";
 			}
 			else if (portal is null)
 			{
 				status = "Books only";
-				notes = "Inwarded in PharmaBill but not found in imported GSTR-2B.";
+				notes = "Inwarded in Pharma Remit but not found in imported GSTR-2B.";
 			}
 			else if (Math.Abs(book.TaxableValue - portal.TaxableValue) <= 1m && Math.Abs(booksItc - portalItc) <= 1m)
 			{

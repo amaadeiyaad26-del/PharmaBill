@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="PharmaBill.App.MainWindow" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:vm="clr-namespace:PharmaBill.App.ViewModels" xmlns:controls="clr-namespace:PharmaBill.App.Controls" xmlns:behaviors="clr-namespace:PharmaBill.App.Behaviors" xmlns:views="clr-namespace:PharmaBill.App.Views" Icon="pack://application:,,,/PharmaBill.App;component/app.ico" Title="PharmaBill" Height="780" Width="1280" MinHeight="650" MinWidth="1000" Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" xmlns:app="clr-namespace:PharmaBill.App" FlowDirection="{Binding FlowDirection}">
+<Window x:Class="PharmaBill.App.MainWindow" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:vm="clr-namespace:PharmaBill.App.ViewModels" xmlns:controls="clr-namespace:PharmaBill.App.Controls" xmlns:behaviors="clr-namespace:PharmaBill.App.Behaviors" xmlns:views="clr-namespace:PharmaBill.App.Views" Icon="pack://application:,,,/PharmaBill.App;component/app.ico" Title="Pharma Remit" Height="780" Width="1280" MinHeight="650" MinWidth="1000" Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}" xmlns:app="clr-namespace:PharmaBill.App" FlowDirection="{Binding FlowDirection}">
   <FrameworkElement.Resources>
     <ResourceDictionary>
       <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
@@ -17,7 +17,7 @@
           </Border>
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,14">
             <StackPanel>
-              <TextBlock Text="PharmaBill dashboard" FontSize="26" FontWeight="Bold" />
+              <TextBlock Text="Pharma Remit dashboard" FontSize="26" FontWeight="Bold" />
               <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
             </StackPanel>
             <Button Content="Refresh" Padding="14,7" Margin="20,4" behaviors:HoverTickSound.Enabled="True" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload today's sales, stock alerts, and outstanding balances." />
@@ -28,7 +28,7 @@
                     Padding="14,8"
                     FontWeight="SemiBold"
                     Cursor="Hand"
-                    ToolTip="Upgrade to a lifetime PharmaBill license"
+                    ToolTip="Upgrade to a lifetime Pharma Remit license"
                     Visibility="{Binding ShowLicenseUpgrade, Converter={StaticResource BooleanToVisibilityConverter}}"
                     behaviors:HoverTickSound.Enabled="True"
                     Command="{Binding OpenUpgradeCommand}"
@@ -705,14 +705,14 @@
               <Button DockPanel.Dock="Right" Content="Choose folder" Padding="10,6" Margin="6,0" Command="{Binding ChooseSecondaryFolderCommand}" />
               <TextBox Padding="7" Text="{Binding Path=SecondaryFolder}" />
             </DockPanel>
-            <CheckBox Content="Enable automatic daily encrypted backup while PharmaBill is running" Margin="0,4,0,10" IsChecked="{Binding AutomaticEnabled}" />
+            <CheckBox Content="Enable automatic daily encrypted backup while Pharma Remit is running" Margin="0,4,0,10" IsChecked="{Binding AutomaticEnabled}" />
             <WrapPanel>
               <Button Content="Save backup settings" Padding="12,7" Command="{Binding SaveSettingsCommand}" />
               <Button Content="Back up now" Padding="12,7" Margin="7,0" Command="{Binding CreateBackupCommand}" />
               <Button Content="Restore backup" Padding="12,7" Command="{Binding RestoreBackupCommand}" />
             </WrapPanel>
             <TextBlock Text="Move to a new PC" FontSize="18" FontWeight="SemiBold" Margin="0,18,0,5" />
-            <TextBlock Text="Export everything creates the same encrypted package, including the database and stored attachments. On the new PC, install PharmaBill and choose Import on new PC, then enter the backup password." TextWrapping="Wrap" />
+            <TextBlock Text="Export everything creates the same encrypted package, including the database and stored attachments. On the new PC, install Pharma Remit and choose Import on new PC, then enter the backup password." TextWrapping="Wrap" />
             <WrapPanel Margin="0,8">
               <Button Content="Export everything" Padding="12,7" Command="{Binding ExportEverythingCommand}" />
               <Button Content="Import on new PC" Padding="12,7" Margin="7,0" Command="{Binding ImportOnNewPcCommand}" />
@@ -4948,7 +4948,7 @@
           <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Center" Margin="0,12,0,10" ClipToBounds="False">
             <controls:PharmaBill3DLogo Width="58" Height="58" Margin="0,4,0,4"
                                        HorizontalAlignment="Center" />
-            <TextBlock Text="PharmaBill" FontSize="20" FontWeight="Bold" Foreground="White"
+            <TextBlock Text="Pharma Remit" FontSize="20" FontWeight="Bold" Foreground="White"
                        HorizontalAlignment="Center" Margin="0,4,0,0">
               <UIElement.Effect>
                 <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.4" Color="#FF000000" />
@@ -5039,7 +5039,7 @@
               <Grid Margin="10,0" Width="420" VerticalAlignment="Center">
                 <Border Background="#FFFFFFFF" BorderBrush="#FFCBD5E1" BorderThickness="1" CornerRadius="16" Height="36" />
                 <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Foreground="#FF64748B" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" />
-                <TextBox Name="SearchBox" Height="36" Padding="32,6,10,6" BorderThickness="0" Background="#00FFFFFF" VerticalContentAlignment="Center" FontSize="13" Foreground="#FF0F172A" ToolTip="Search medicines or ask PharmaBill AI (Enter)" AutomationProperties.Name="Header medicine search" Text="{Binding Path=AssistantQuery, UpdateSourceTrigger=PropertyChanged}" TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_FocusChanged" LostKeyboardFocus="SearchBox_FocusChanged">
+                <TextBox Name="SearchBox" Height="36" Padding="32,6,10,6" BorderThickness="0" Background="#00FFFFFF" VerticalContentAlignment="Center" FontSize="13" Foreground="#FF0F172A" ToolTip="Search medicines or ask Pharma Remit AI (Enter)" AutomationProperties.Name="Header medicine search" Text="{Binding Path=AssistantQuery, UpdateSourceTrigger=PropertyChanged}" TextChanged="SearchBox_TextChanged" GotKeyboardFocus="SearchBox_FocusChanged" LostKeyboardFocus="SearchBox_FocusChanged">
                   <UIElement.InputBindings>
                     <KeyBinding Key="Enter" Command="{Binding AskAssistantCommand}" />
                     <KeyBinding Key="Escape" Command="{Binding CloseHeaderSearchFlyoutCommand}" />

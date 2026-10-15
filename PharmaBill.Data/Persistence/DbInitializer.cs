@@ -146,7 +146,7 @@ public sealed class DbInitializer(
 		{
 			throw new InvalidOperationException(
 				"Migrations completed but the PharmacyProfiles table is missing; the database at "
-				+ storageOptions.DatabasePath + " is not a PharmaBill database. Restore a backup or contact support.");
+				+ storageOptions.DatabasePath + " is not a Pharma Remit database. Restore a backup or contact support.");
 		}
 	}
 

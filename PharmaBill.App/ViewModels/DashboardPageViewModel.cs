@@ -553,7 +553,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 		Window? owner = Application.Current?.MainWindow;
 		if (owner != null && LicenseManager.HasFullAccess())
 		{
-			owner.Title = "PharmaBill";
+			owner.Title = "Pharma Remit";
 		}
 	}
 

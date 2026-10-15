@@ -650,10 +650,10 @@
             </UIElement.Effect>
             <StackPanel>
               <TextBlock Text="User Manual &amp; Guides" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,4" />
-              <TextBlock Text="PharmaBill Quick Guides &amp; User Manual" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Margin="0,0,0,4" />
+              <TextBlock Text="Pharma Remit Quick Guides &amp; User Manual" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentHoverBrush}" Margin="0,0,0,4" />
               <TextBlock TextWrapping="Wrap" Foreground="#FF64748B" FontSize="12.5" Margin="0,0,0,14" Text="Step-by-step instructions, shortcut keys, and workflow tutorials directly inside the app." />
               <WrapPanel>
-                <Button Padding="14,9" Margin="0,0,8,8" Cursor="Hand" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Foreground="#FFFFFFFF" ToolTip="Open searchable chapters inside PharmaBill (also F1)" Command="{Binding OpenInteractiveUserManualCommand}">
+                <Button Padding="14,9" Margin="0,0,8,8" Cursor="Hand" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Foreground="#FFFFFFFF" ToolTip="Open searchable chapters inside Pharma Remit (also F1)" Command="{Binding OpenInteractiveUserManualCommand}">
                   <Control.Template>
                     <ControlTemplate TargetType="{x:Type Button}">
                       <Border Background="{TemplateBinding Control.Background}" BorderBrush="{TemplateBinding Control.BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Control.Padding}">
@@ -718,7 +718,7 @@
               </Style>
             </FrameworkElement.Style>
             <StackPanel>
-              <TextBlock Text="About PharmaBill" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+              <TextBlock Text="About Pharma Remit" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
               <TextBlock Margin="0,0,0,8" Text="{Binding VersionText}" />
               <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="Designed and developed by S.A.E.R. to serve pharma professionals." />
               <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}">

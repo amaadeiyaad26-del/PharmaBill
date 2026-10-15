@@ -1,7 +1,7 @@
 <Window x:Class="PharmaBill.App.FirstRunWizardWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PharmaBill - First-run setup"
+        Title="Pharma Remit - First-run setup"
         Width="920"
         Height="800"
         MinWidth="760"
@@ -11,7 +11,7 @@
         Foreground="{DynamicResource PrimaryTextBrush}">
     <DockPanel Margin="24">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
-            <TextBlock Text="Set up PharmaBill" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="Set up Pharma Remit" FontSize="28" FontWeight="SemiBold" />
             <TextBlock Text="Enter your pharmacy details and create the owner sign-in."
                        Margin="0,6,0,0"
                        Foreground="{DynamicResource SecondaryTextBrush}" />

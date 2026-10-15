@@ -277,7 +277,7 @@ public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScop
 			}
 			BackupSettings backupSettings = settingsStore.Load();
 			settingsStore.Save(new BackupSettings(NullIfEmpty(PrimaryFolder), NullIfEmpty(SecondaryFolder), NullIfEmpty(BackupPassword), AutomaticEnabled, backupSettings.LastBackupAtUtc));
-			StatusMessage = "Backup settings saved. Automatic backup runs daily while PharmaBill is open.";
+			StatusMessage = "Backup settings saved. Automatic backup runs daily while Pharma Remit is open.";
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex) when ((ex is ArgumentException || ex is InvalidOperationException) ? true : false)
@@ -326,7 +326,7 @@ public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScop
 	private async Task RestoreBackupAsync()
 	{
 		string text = filePicker.PickBackupFile();
-		if (text == null || !confirmationService.Confirm("Restore replaces the current database and attachments. A safety backup will be taken first. PharmaBill must restart after restore. Continue?", "Restore encrypted backup"))
+		if (text == null || !confirmationService.Confirm("Restore replaces the current database and attachments. A safety backup will be taken first. Pharma Remit must restart after restore. Continue?", "Restore encrypted backup"))
 		{
 			return;
 		}
@@ -334,7 +334,7 @@ public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScop
 		{
 			EncryptedBackupService.ValidatePassword(BackupPassword);
 			using IServiceScope scope = scopeFactory.CreateScope();
-			StatusMessage = "Restore validated. Safety backup: " + (await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().RestoreBackupAsync(text, BackupPassword)).SafetyBackupPath + ". Restarting PharmaBill.";
+			StatusMessage = "Restore validated. Safety backup: " + (await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().RestoreBackupAsync(text, BackupPassword)).SafetyBackupPath + ". Restarting Pharma Remit.";
 			ErrorMessage = string.Empty;
 			await Task.Delay(500);
 			Application.Current.Shutdown();

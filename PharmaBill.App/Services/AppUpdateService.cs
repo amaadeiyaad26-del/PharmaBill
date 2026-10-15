@@ -100,7 +100,7 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 			catch (Exception ex)
 			{
 				_logger.LogDebug(ex, "Update check failed; app continues offline.");
-				appUpdateAvailability2 = new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.None, null, "Could not check for updates (offline or unreachable). You can keep using PharmaBill.", ex.Message);
+				appUpdateAvailability2 = new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.None, null, "Could not check for updates (offline or unreachable). You can keep using Pharma Remit.", ex.Message);
 			}
 			_preferences.Save(prefs with
 			{
@@ -170,7 +170,7 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 		ReleaseManifest releaseManifest = await LoadManifestAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
 		if (releaseManifest == null)
 		{
-			return new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.None, null, "You have " + _versionInfo.Display + ". No update feed responded; PharmaBill stays fully usable offline.");
+			return new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.None, null, "You have " + _versionInfo.Display + ". No update feed responded; Pharma Remit stays fully usable offline.");
 		}
 		Version version = ParseVersion(_versionInfo.Version);
 		Version version2 = ParseVersion(releaseManifest.LatestVersion);
@@ -185,7 +185,7 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 		{
 			return new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, NormalizeVersionLabel(releaseManifest.LatestVersion), IsCritical: false, UpdateChannel.RemoteManifest, downloadOrStoreUrl, "Up to date ✓", releaseManifest.Message);
 		}
-		return new AppUpdateAvailability(IsUpdateAvailable: true, _versionInfo.Version, NormalizeVersionLabel(releaseManifest.LatestVersion), isCritical, UpdateChannel.RemoteManifest, downloadOrStoreUrl, "A new version of PharmaBill (v" + NormalizeVersionLabel(releaseManifest.LatestVersion) + ") is available with the latest features and bug fixes.", releaseManifest.Message);
+		return new AppUpdateAvailability(IsUpdateAvailable: true, _versionInfo.Version, NormalizeVersionLabel(releaseManifest.LatestVersion), isCritical, UpdateChannel.RemoteManifest, downloadOrStoreUrl, "A new version of Pharma Remit (v" + NormalizeVersionLabel(releaseManifest.LatestVersion) + ") is available with the latest features and bug fixes.", releaseManifest.Message);
 	}
 
 	private async Task<ReleaseManifest?> LoadManifestAsync(CancellationToken cancellationToken)

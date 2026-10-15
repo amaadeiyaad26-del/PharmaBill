@@ -37,7 +37,7 @@ public partial class ErrorMessageWindow : Window
 		}
 		catch (Exception ex)
 		{
-			MessageBox.Show("Could not open the log folder: " + ex.Message + Environment.NewLine + _logDirectory, "PharmaBill", MessageBoxButton.OK, MessageBoxImage.Hand);
+			MessageBox.Show("Could not open the log folder: " + ex.Message + Environment.NewLine + _logDirectory, "Pharma Remit", MessageBoxButton.OK, MessageBoxImage.Hand);
 		}
 	}
 
@@ -50,7 +50,7 @@ public partial class ErrorMessageWindow : Window
 		}
 		catch (Exception ex)
 		{
-			MessageBox.Show("Could not copy error details: " + ex.Message, "PharmaBill", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+			MessageBox.Show("Could not copy error details: " + ex.Message, "Pharma Remit", MessageBoxButton.OK, MessageBoxImage.Exclamation);
 		}
 	}
 

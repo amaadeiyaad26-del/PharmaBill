@@ -15,7 +15,7 @@
   #define OutputDir "..\artifacts\installer"
 #endif
 
-#define AppName "PharmaBill"
+#define AppName "Pharma Remit"
 #define AppPublisher "SAER"
 #define AppExe "PharmaBill.App.exe"
 ; Four-part PE version resource (Defender / SmartScreen metadata).
@@ -31,7 +31,7 @@ AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
 VersionInfoVersion={#VersionInfoVersion}
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=PharmaBill Pharmacy Billing and Inventory Setup
+VersionInfoDescription=Pharma Remit Pharmacy Billing and Inventory Setup
 VersionInfoCopyright=Copyright (C) 2026 SAER
 VersionInfoProductName={#AppName}
 DefaultDirName={autopf}\{#AppName}
@@ -70,13 +70,18 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 ; Uninstall must NEVER delete {localappdata}\PharmaBill (chemist DB / bills / stock).
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; Shortcuts from releases branded "PharmaBill". The app was renamed to Pharma Remit; same AppId, same data folder.
+Type: files; Name: "{autoprograms}\PharmaBill.lnk"
+Type: files; Name: "{autodesktop}\PharmaBill.lnk"
+
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; Tasks: desktopicon
 
 [Run]
 ; No firewall or antivirus changes here: install stays per-user/unelevated. On first LAN listen (TCP 5184)
-; Windows shows its native "Allow PharmaBill to communicate on private networks" prompt.
-Filename: "{app}\{#AppExe}"; Description: "Launch PharmaBill"; Flags: nowait postinstall skipifsilent
+; Windows shows its native "Allow Pharma Remit to communicate on private networks" prompt.
+Filename: "{app}\{#AppExe}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 
 ; Intentionally no [UninstallDelete] for {localappdata}\PharmaBill — data survives uninstall/update.

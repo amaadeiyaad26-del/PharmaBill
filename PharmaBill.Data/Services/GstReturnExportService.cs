@@ -104,7 +104,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 		return new _003C_003Ez__ReadOnlyArray<Gstr3bWorksheetRow>(new Gstr3bWorksheetRow[7]
 		{
 			new Gstr3bWorksheetRow("3.1(a)", "Outward taxable supplies (other than zero rated, nil rated and exempted)", taxableValue, integratedTax, centralTax, stateTax, 0m),
-			new Gstr3bWorksheetRow("3.1(b)", "Outward taxable supplies (zero rated) — not tracked separately in PharmaBill", 0m, 0m, 0m, 0m, 0m),
+			new Gstr3bWorksheetRow("3.1(b)", "Outward taxable supplies (zero rated) — not tracked separately in Pharma Remit", 0m, 0m, 0m, 0m, 0m),
 			new Gstr3bWorksheetRow("3.1(c)", "Other outward supplies (nil rated, exempted) — not tracked separately", 0m, 0m, 0m, 0m, 0m),
 			new Gstr3bWorksheetRow("3.1(d)", "Inward supplies (liable to reverse charge) — not tracked separately", 0m, 0m, 0m, 0m, 0m),
 			new Gstr3bWorksheetRow("3.1(e)", "Non-GST outward supplies — not tracked separately", 0m, 0m, 0m, 0m, 0m),

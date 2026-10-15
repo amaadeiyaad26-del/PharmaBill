@@ -29,7 +29,7 @@ public class DunningDashboardPageViewModel : ObservableObject, ILoadablePage
 
 	private string _errorMessage = string.Empty;
 
-	private string _pharmacyName = "PharmaBill";
+	private string _pharmacyName = "Pharma Remit";
 
 	private DunningReceivableRow? _selectedReceivable;
 
@@ -164,7 +164,7 @@ public class DunningDashboardPageViewModel : ObservableObject, ILoadablePage
 			ErrorMessage = string.Empty;
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			IDunningService dunning = scope.ServiceProvider.GetRequiredService<IDunningService>();
-			PharmacyName = (await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles.AsNoTracking().FirstOrDefaultAsync(cancellationToken))?.Name ?? "PharmaBill";
+			PharmacyName = (await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles.AsNoTracking().FirstOrDefaultAsync(cancellationToken))?.Name ?? "Pharma Remit";
 			IReadOnlyList<DunningReceivableRow> source = await dunning.GetOpenReceivablesAsync(cancellationToken);
 			Receivables.Clear();
 			foreach (DunningReceivableRow item in from item in source

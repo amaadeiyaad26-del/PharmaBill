@@ -73,7 +73,7 @@ public partial class App : Application
 				Log.Warning("System clock tamper detected on launch.");
 				MessageBox.Show(
 					LicenseManager.ClockTamperMessage + "\n\nExisting records remain readable. Billing stays locked until the clock is correct and the licence is re-validated.",
-					"PharmaBill — Clock check",
+					"Pharma Remit — Clock check",
 					MessageBoxButton.OK,
 					MessageBoxImage.Warning);
 			}
@@ -91,7 +91,7 @@ public partial class App : Application
 
 				if (!hasFullAccess)
 				{
-					Log.Information("Starting PharmaBill in read-only mode (licence expired or clock tamper).");
+					Log.Information("Starting Pharma Remit in read-only mode (licence expired or clock tamper).");
 				}
 			}
 
@@ -233,7 +233,7 @@ public partial class App : Application
 		catch (Exception ex)
 		{
 			Log.Fatal(ex, "The application could not start.");
-			ShowError("PharmaBill could not start.", ex.ToString());
+			ShowError("Pharma Remit could not start.", ex.ToString());
 			Shutdown(-1);
 		}
 	}
@@ -243,7 +243,7 @@ public partial class App : Application
 		int? trialDays = LicenseManager.GetTrialDaysRemaining();
 		if (trialDays is > 0)
 		{
-			mainWindow.Title = $"PharmaBill (Trial: {trialDays.Value} days remaining)";
+			mainWindow.Title = $"Pharma Remit (Trial: {trialDays.Value} days remaining)";
 		}
 	}
 
@@ -318,12 +318,12 @@ public partial class App : Application
 		if (e.ExceptionObject is Exception ex)
 		{
 			Log.Fatal(ex, "An unhandled application exception occurred.");
-			ShowError("PharmaBill encountered an unrecoverable error.", ex.ToString());
+			ShowError("Pharma Remit encountered an unrecoverable error.", ex.ToString());
 		}
 		else
 		{
 			Log.Fatal("An unhandled application exception occurred: {ExceptionObject}", e.ExceptionObject);
-			ShowError("PharmaBill encountered an unrecoverable error.", e.ExceptionObject?.ToString() ?? "Unknown error.");
+			ShowError("Pharma Remit encountered an unrecoverable error.", e.ExceptionObject?.ToString() ?? "Unknown error.");
 		}
 	}
 
@@ -398,7 +398,7 @@ public partial class App : Application
 			catch (Exception exception)
 			{
 				Log.Error(exception, "Could not show the application error window.");
-				MessageBox.Show($"{friendlyMessage}{Environment.NewLine}{details}{Environment.NewLine}Logs: {_logDirectory}", "PharmaBill", MessageBoxButton.OK, MessageBoxImage.Hand);
+				MessageBox.Show($"{friendlyMessage}{Environment.NewLine}{details}{Environment.NewLine}Logs: {_logDirectory}", "Pharma Remit", MessageBoxButton.OK, MessageBoxImage.Hand);
 			}
 			finally
 			{

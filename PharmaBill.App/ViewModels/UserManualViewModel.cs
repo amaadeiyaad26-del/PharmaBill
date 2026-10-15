@@ -306,7 +306,7 @@ public class UserManualViewModel : ObservableObject
 				flowDocument.PageWidth = printDialog.PrintableAreaWidth;
 				flowDocument.PagePadding = new Thickness(48.0);
 				flowDocument.ColumnWidth = double.PositiveInfinity;
-				printDialog.PrintDocument(((IDocumentPaginatorSource)flowDocument).DocumentPaginator, "PharmaBill Guide — " + (SelectedChapter?.Title ?? "Manual"));
+				printDialog.PrintDocument(((IDocumentPaginatorSource)flowDocument).DocumentPaginator, "Pharma Remit Guide — " + (SelectedChapter?.Title ?? "Manual"));
 				StatusMessage = "Guide sent to printer.";
 			}
 		}

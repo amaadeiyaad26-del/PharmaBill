@@ -9,7 +9,7 @@ namespace PharmaBill.Data.Persistence;
 public sealed class DatabaseMigrationException(string migrationId, string databasePath, Exception innerException)
 	: InvalidOperationException(
 		$"Database upgrade failed at migration '{migrationId}': {Innermost(innerException).Message} "
-		+ "PharmaBill has stopped so it does not run on a partly upgraded database. "
+		+ "Pharma Remit has stopped so it does not run on a partly upgraded database. "
 		+ $"The database file was not deleted ({databasePath}). Restore a backup or contact support.",
 		innerException)
 {

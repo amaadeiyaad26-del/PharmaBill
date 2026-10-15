@@ -55,7 +55,7 @@ internal static class RawEscPosPrinter
 		{
 			DocInfo documentInfo = new DocInfo
 			{
-				DocumentName = "PharmaBill receipt",
+				DocumentName = "Pharma Remit receipt",
 				DataType = "RAW"
 			};
 			if (StartDocPrinter(printerHandle, 1, ref documentInfo) == 0)

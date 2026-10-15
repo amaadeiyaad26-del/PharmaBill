@@ -87,7 +87,7 @@ public sealed class SocialLoginCoordinator(IServiceScopeFactory scopeFactory, So
 				goto default;
 			}
 			case SocialLoginResolutionKind.Unlinked:
-				result = new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, socialLoginResolution.Message ?? "No PharmaBill account is linked to this Google sign-in.");
+				result = new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, socialLoginResolution.Message ?? "No Pharma Remit account is linked to this Google sign-in.");
 				break;
 			default:
 				result = new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, "Could not complete social sign-in.");

@@ -2227,7 +2227,7 @@ public class MainWindowViewModel : ObservableObject
 	{
 		_criticalUpdateDialogShown = true;
 		ShowUpdateBanner = true;
-		string message = (string.IsNullOrWhiteSpace(UpdateBannerText) ? "A critical PharmaBill update is required before billing can continue." : UpdateBannerText);
+		string message = (string.IsNullOrWhiteSpace(UpdateBannerText) ? "A critical Pharma Remit update is required before billing can continue." : UpdateBannerText);
 		Window owner = Application.Current?.MainWindow;
 		CriticalUpdateWindow criticalUpdateWindow = new CriticalUpdateWindow(message)
 		{

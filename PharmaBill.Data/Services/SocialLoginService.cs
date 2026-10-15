@@ -31,7 +31,7 @@ public sealed class SocialLoginService(PharmaBillDbContext context)
 		{
 			return new SocialLoginResolution(SocialLoginResolutionKind.LinkPrimaryAdmin, null, profile, appUser);
 		}
-		return new SocialLoginResolution(SocialLoginResolutionKind.Unlinked, null, null, null, "No PharmaBill account is linked to this Google sign-in. Ask your Admin to add you in Settings → Users & Operators.");
+		return new SocialLoginResolution(SocialLoginResolutionKind.Unlinked, null, null, null, "No Pharma Remit account is linked to this Google sign-in. Ask your Admin to add you in Settings → Users & Operators.");
 	}
 
 	public async Task<AppUser> LinkPrimaryAdminAsync(Guid adminId, SocialAuthProfile profile, string adminSecret, CancellationToken cancellationToken = default(CancellationToken))

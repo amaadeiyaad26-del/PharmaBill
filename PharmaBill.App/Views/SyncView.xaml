@@ -5,7 +5,7 @@
       <StackPanel>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
           <TextBlock Text="Android pairing station" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
-          <controls:InfoHelper Title="LAN pairing &amp; firewall (port 5055)" Body="1) Download PharmaBill on Android from Google Play. 2) Connect phone and PC to the same Wi-Fi. 3) Ensure Listener shows Listening. 4) Scan QR or wait for mDNS discovery. 5) If Android cannot connect: allow PharmaBill through Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. Cloud fallback keeps syncing via Google Drive when LAN is blocked." />
+          <controls:InfoHelper Title="LAN pairing &amp; firewall (port 5055)" Body="1) Download Pharma Remit on Android from Google Play. 2) Connect phone and PC to the same Wi-Fi. 3) Ensure Listener shows Listening. 4) Scan QR or wait for mDNS discovery. 5) If Android cannot connect: allow Pharma Remit through Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. Cloud fallback keeps syncing via Google Drive when LAN is blocked." />
         </StackPanel>
         <Border Background="#FFF0FDF4" BorderBrush="#FF86EFAC" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14">
           <Grid>
@@ -18,7 +18,7 @@
               <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="18" Foreground="#FF15803D" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="Android / Google Play" />
             </Border>
             <StackPanel Grid.Column="1">
-              <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" FontSize="13.5" Foreground="#FF14532D" Text="Step 1: Download the Android version of PharmaBill App from Google Play Store first." />
+              <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" FontSize="13.5" Foreground="#FF14532D" Text="Step 1: Download the Android version of Pharma Remit App from Google Play Store first." />
               <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontSize="12.5" Foreground="#FF334155" Text="Install the app on your mobile device, ensure both devices are connected to the same Wi-Fi network, and use the mobile scanner to scan the QR code below." />
               <TextBlock Name="PlayStoreCopiedToast" Margin="0,6,0,0" FontSize="11.5" Foreground="#FF027A48" FontWeight="SemiBold" Text="Play Store link copied!" Visibility="Collapsed" />
             </StackPanel>
