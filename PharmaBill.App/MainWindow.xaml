@@ -1672,6 +1672,15 @@
           <StackPanel Margin="18" MaxWidth="1100" HorizontalAlignment="Left">
             <TextBlock Text="GST &amp; e-Way" FontSize="24" FontWeight="SemiBold" Foreground="#0D4A2B" />
             <TextBlock Margin="0,6,0,12" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="GSTR-1 (B2B / B2C / HSN), GSTR-2B ITC recon, GSTR-3B offset, e-Invoice v1.03 and e-Way Bill Part-A/B. Always verify filings with your CA." />
+            <Border Margin="0,0,0,12" Padding="10,8" CornerRadius="6" Background="#FFFFFBEB" BorderBrush="#FFF59E0B" BorderThickness="1"
+                    Visibility="{Binding HasB2clThresholdNotice, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Content="Dismiss" Padding="10,4" Margin="8,0,0,0" VerticalAlignment="Center"
+                        Style="{StaticResource SecondaryButton}" Command="{Binding DismissB2clThresholdNoticeCommand}"
+                        ToolTip="Hide this reminder. It will not be shown again for this pharmacy." />
+                <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#FF92400E" FontWeight="SemiBold" Text="{Binding B2clThresholdNotice, Mode=OneWay}" />
+              </DockPanel>
+            </Border>
             <WrapPanel Margin="0,0,0,12">
               <TextBlock Text="Month / Quarter" VerticalAlignment="Center" Margin="0,0,8,0" />
               <ComboBox Width="260" Padding="8" DisplayMemberPath="DisplayName" ItemsSource="{Binding PeriodChoices}" SelectedItem="{Binding SelectedPeriod}" />

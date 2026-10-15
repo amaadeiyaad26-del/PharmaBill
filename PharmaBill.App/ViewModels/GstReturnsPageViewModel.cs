@@ -363,8 +363,64 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
+		await RefreshB2clThresholdNoticeAsync(cancellationToken);
 		await RefreshAsync(cancellationToken);
 	}
+
+	private string _b2clThresholdNotice = string.Empty;
+
+	private string _b2clNoticeKey = string.Empty;
+
+	private IRelayCommand? dismissB2clThresholdNoticeCommand;
+
+	/// <summary>One-time reminder that the B2CL threshold changes what is filed and must be confirmed with an accountant.</summary>
+	public string B2clThresholdNotice
+	{
+		get => _b2clThresholdNotice;
+		private set
+		{
+			if (SetProperty(ref _b2clThresholdNotice, value))
+			{
+				OnPropertyChanged(nameof(HasB2clThresholdNotice));
+			}
+		}
+	}
+
+	public bool HasB2clThresholdNotice => !string.IsNullOrEmpty(B2clThresholdNotice);
+
+	public IRelayCommand DismissB2clThresholdNoticeCommand => dismissB2clThresholdNoticeCommand ??= new RelayCommand(() =>
+	{
+		if (_b2clNoticeKey.Length > 0)
+		{
+			OneTimeNoticeStore.Default.Dismiss(_b2clNoticeKey);
+		}
+		B2clThresholdNotice = string.Empty;
+	});
+
+	private async Task RefreshB2clThresholdNoticeAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			string store = scope.ServiceProvider.GetRequiredService<PharmaBill.Data.Persistence.ActiveStoreContext>().StoreSlug;
+			_b2clNoticeKey = "b2cl-threshold-confirm:" + store;
+			if (OneTimeNoticeStore.Default.IsDismissed(_b2clNoticeKey))
+			{
+				B2clThresholdNotice = string.Empty;
+				return;
+			}
+			PharmaBill.Core.Entities.PharmacyProfile? profile = await scope.ServiceProvider.GetRequiredService<PharmaBill.Data.Persistence.PharmaBillDbContext>()
+				.PharmacyProfiles.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+			B2clThresholdNotice = profile == null ? string.Empty : FormatB2clThresholdNotice(profile.B2cLargeInvoiceThreshold);
+		}
+		catch (Exception)
+		{
+			B2clThresholdNotice = string.Empty;
+		}
+	}
+
+	internal static string FormatB2clThresholdNotice(decimal threshold) =>
+		"B2CL threshold is set to ₹" + threshold.ToString("N0", CultureInfo.GetCultureInfo("en-IN")) + ". Confirm this with your accountant before filing.";
 
 	private async Task RefreshAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
