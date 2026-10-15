@@ -104,9 +104,10 @@
     <!-- Desktop / installer icon beside the EXE; also embedded via ApplicationIcon. -->
     <Content Include="app.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('app.ico')" />
     <Resource Include="app.ico" Condition="Exists('app.ico')" />
-    <!-- Locked raster snapshot of PharmaBill3DLogo (UI still uses the live vector control). -->
-    <Content Remove="Resources\logo*.png" />
+    <!-- Brand artwork: logo_final_3d.png is the full logo, brand_mark.png the emblem; logo_3d.png is the 2048px master (not shipped). Regenerate with tools\branding\make-brand-assets.ps1. -->
+    <Content Remove="Resources\logo*.png;Resources\brand_*.png" />
     <Resource Include="Resources\logo_final_3d.png" Condition="Exists('Resources\logo_final_3d.png')" />
+    <Resource Include="Resources\brand_mark.png" />
     <None Include="Resources\logo_3d.png" Condition="Exists('Resources\logo_3d.png')" />
     <EmbeddedResource Include="Assets\Fonts\*.ttf" Condition="Exists('Assets\Fonts')" />
     <Content Include="Assets\Store\**\*.png" CopyToOutputDirectory="PreserveNewest" />
