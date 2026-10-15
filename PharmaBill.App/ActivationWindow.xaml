@@ -51,7 +51,7 @@
               Click="CopyMachineId_Click" />
     </Grid>
 
-    <TextBlock Text="To purchase an annual activation key (₹2,500/year), email your Machine ID to: pharma.bill26@gmail.com"
+    <TextBlock Text="To purchase an annual activation key, email your Machine ID to: pharma.bill26@gmail.com"
                TextWrapping="Wrap"
                Foreground="{DynamicResource SecondaryTextBrush}"
                Margin="0,0,0,16" />

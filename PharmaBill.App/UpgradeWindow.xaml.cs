@@ -36,11 +36,11 @@ public partial class UpgradeWindow : Window
 		{
 			string machineId = MachineIdBox.Text?.Trim() ?? LicenseManager.GetMachineId();
 			string version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.1.0";
-			string subject = Uri.EscapeDataString("PharmaBill Annual Subscription Request (₹2,500/yr)");
+			string subject = Uri.EscapeDataString("PharmaBill Annual Subscription Request");
 			string body = Uri.EscapeDataString(
 				"Hello PharmaBill Team,\r\n" +
 				"\r\n" +
-				"I would like to activate / renew the Annual Subscription plan (₹2,500/year).\r\n" +
+				"I would like to activate / renew the Annual Subscription plan.\r\n" +
 				$"Machine ID: {machineId}\r\n" +
 				$"App Version: {version}");
 
