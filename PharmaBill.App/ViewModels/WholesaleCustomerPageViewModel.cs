@@ -79,7 +79,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private string _verificationMethod = string.Empty;
 
-	private string _buyerLicenceRuleType = "Distributor";
+	private string _buyerLicenceRuleType = BuyerTypes.DistributorLabel;
 
 	private IReadOnlyDictionary<string, IReadOnlyCollection<string>> _buyerLicenceRules = new Dictionary<string, IReadOnlyCollection<string>>();
 
@@ -628,7 +628,8 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private void RefreshBuyerLicenceRuleChoices()
 	{
-		string[] allowed = _buyerLicenceRules.FirstOrDefault(rule => string.Equals(rule.Key, _buyerLicenceRuleType, StringComparison.OrdinalIgnoreCase)).Value?.ToArray() ?? Array.Empty<string>();
+		string? canonical = BuyerTypes.Canonical(_buyerLicenceRuleType);
+		string[] allowed = _buyerLicenceRules.FirstOrDefault(rule => string.Equals(BuyerTypes.Canonical(rule.Key), canonical, StringComparison.OrdinalIgnoreCase)).Value?.ToArray() ?? Array.Empty<string>();
 		IEnumerable<string> known = LicenceTypeOptions.Concat(BuyerLicenceRules.StandardLicenceTypes).Concat(allowed)
 			.Where(type => !string.IsNullOrWhiteSpace(type))
 			.Distinct(StringComparer.OrdinalIgnoreCase);
@@ -785,7 +786,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		LedgerBalanceText = string.Empty;
 		SelectedRecord = null;
 		Name = string.Empty;
-		BuyerType = _isRetailMode ? "Walk-in" : _listView == CustomerListView.RetailBuyers ? "Retailer" : "Distributor";
+		BuyerType = _isRetailMode ? "Walk-in" : _listView == CustomerListView.RetailBuyers ? "Retailer" : BuyerTypes.DistributorLabel;
 		Phone = string.Empty;
 		Email = string.Empty;
 		Address = string.Empty;
@@ -1195,7 +1196,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		_editingCustomerId = value.Customer.Id;
 		Customer customer = value.Customer;
 		Name = customer.Name;
-		BuyerType = customer.BuyerType ?? string.Empty;
+		BuyerType = string.Equals(customer.BuyerType, BuyerTypes.Distributor, StringComparison.OrdinalIgnoreCase) ? BuyerTypes.DistributorLabel : customer.BuyerType ?? string.Empty;
 		Phone = customer.Phone ?? string.Empty;
 		Email = customer.Email ?? string.Empty;
 		Address = customer.Address ?? string.Empty;

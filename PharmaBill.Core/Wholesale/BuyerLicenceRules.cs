@@ -19,12 +19,11 @@ public static class BuyerLicenceRules
 		["Retailer"] = new[] { "20", "21" },
 		["Hospital"] = new[] { "20", "21" },
 		["Institution"] = new[] { "20", "21" },
-		["Distributor"] = new[] { "20B", "21B" },
-		["Wholesaler"] = new[] { "20B", "21B" }
+		[BuyerTypes.Distributor] = new[] { "20B", "21B" }
 		// "Other" deliberately has no default: an unknown buyer type must not inherit the permissive 20B/21B rule.
 	};
 
-	public const string TypicalExample = "Retailer → 20, 21; Distributor / Wholesaler → 20B, 21B";
+	public const string TypicalExample = "Retailer → 20, 21; Distributor (wholesaler / stockist) → 20B, 21B";
 
 	public const string WhereToSet = "Customers → Wholesale Buyers → \"Licence type rules for buyer types\"";
 
@@ -42,8 +41,37 @@ public static class BuyerLicenceRules
 		{
 			return Array.Empty<string>();
 		}
-		return rules.FirstOrDefault(rule => string.Equals(rule.Key, buyerType.Trim(), StringComparison.OrdinalIgnoreCase)).Value
+		string canonical = BuyerTypes.Canonical(buyerType)!;
+		return rules.FirstOrDefault(rule => string.Equals(BuyerTypes.Canonical(rule.Key), canonical, StringComparison.OrdinalIgnoreCase) && rule.Value.Any(type => !string.IsNullOrWhiteSpace(type))).Value
 			?.Where(type => !string.IsNullOrWhiteSpace(type)).ToArray() ?? Array.Empty<string>();
+	}
+
+	/// <summary>
+	/// Folds rules stored under an alias (e.g. "Wholesaler") into the canonical buyer type. An alias rule moves
+	/// across only when the canonical type has none; otherwise the canonical rule wins and the alias rule is dropped.
+	/// Returns a description of each change for the audit trail.
+	/// </summary>
+	public static (string Json, IReadOnlyList<string> Changes) MergeAliasRules(string? json)
+	{
+		Dictionary<string, string[]> rules = Parse(json);
+		List<string> changes = new List<string>();
+		foreach (string key in rules.Keys.Where(BuyerTypes.IsAlias).ToList())
+		{
+			string canonical = BuyerTypes.Canonical(key)!;
+			string[] aliasTypes = rules[key];
+			rules.Remove(key);
+			string[] existing = rules.TryGetValue(canonical, out string[]? value) ? value : Array.Empty<string>();
+			if (existing.Length == 0 && aliasTypes.Length > 0)
+			{
+				rules[canonical] = aliasTypes;
+				changes.Add($"Licence rule for buyer type '{key}' ({string.Join(", ", aliasTypes)}) moved to '{canonical}'.");
+			}
+			else
+			{
+				changes.Add($"Licence rule for buyer type '{key}' ({string.Join(", ", aliasTypes)}) removed; '{canonical}' keeps its rule ({string.Join(", ", existing)}).");
+			}
+		}
+		return (JsonSerializer.Serialize(rules), changes);
 	}
 
 	/// <summary>Adds a default rule for every default buyer type that has none; never changes a configured rule.</summary>

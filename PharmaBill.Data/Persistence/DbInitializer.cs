@@ -57,6 +57,16 @@ public sealed class DbInitializer(
 		await EnsureBanAndReorderColumnsAsync(cancellationToken);
 		await EnsureModelColumnsAsync(cancellationToken);
 
+		// Store buyer-type synonyms (Wholesaler, Stockist…) as Distributor, with an audit entry per remap.
+		try
+		{
+			await BuyerTypeRemapping.NormalizeExistingAsync(context, cancellationToken);
+		}
+		catch (Exception)
+		{
+			// Retried on the next launch.
+		}
+
 		// Fill in default licence-type rules for any standard buyer type that has none (never overrides a configured rule).
 		try
 		{

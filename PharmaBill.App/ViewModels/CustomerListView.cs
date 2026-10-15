@@ -20,8 +20,9 @@ public static class CustomerListRules
 	// Buyers who take stock from the wholesale desk as shops, hospitals and institutions.
 	public static readonly string[] RetailBuyerTypes = { "Retailer", "Hospital", "Institution" };
 
-	// Buyers who are themselves wholesale trade (distributors) or anything not retail.
-	public static readonly string[] WholesaleBuyerTypes = { "Distributor", "Wholesaler", "Other" };
+	// Buyers who are themselves wholesale trade or anything not retail. Distributor, wholesaler and stockist are one
+	// buyer type, stored as "Distributor" and shown with both common names so users find it.
+	public static readonly string[] WholesaleBuyerTypes = { PharmaBill.Core.Wholesale.BuyerTypes.DistributorLabel, "Other" };
 
 	public static bool IsPatientType(string? buyerType)
 	{

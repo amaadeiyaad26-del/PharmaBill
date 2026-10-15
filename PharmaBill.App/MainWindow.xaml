@@ -2527,7 +2527,7 @@
               <StackPanel Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,6">
                   <TextBlock Text="Licence type rules for buyer types" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-                  <controls:InfoHelper Title="Licence type rules (Form 20 / 21)" Body="Retail chemists hold Form 20/21 retail drug licences; wholesalers and distributors hold Form 20B/21B wholesale licences. Defaults: Retailer, Hospital, Institution → 20, 21; Distributor, Wholesaler → 20B, 21B. Other has no default; tick its types before billing such buyers. A wholesale invoice is refused unless the buyer has an unexpired licence of a ticked type." />
+                  <controls:InfoHelper Title="Licence type rules (Form 20 / 21)" Body="Retail chemists hold Form 20/21 retail drug licences; wholesalers and distributors hold Form 20B/21B wholesale licences. Defaults: Retailer, Hospital, Institution → 20, 21; Distributor (also called wholesaler or stockist) → 20B, 21B. Other has no default; tick its types before billing such buyers. A wholesale invoice is refused unless the buyer has an unexpired licence of a ticked type." />
                 </StackPanel>
                 <WrapPanel VerticalAlignment="Center">
                   <TextBlock Text="Buyer type" VerticalAlignment="Center" Margin="0,0,6,0" />

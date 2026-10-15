@@ -35,7 +35,13 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		foreach (KeyValuePair<string, IReadOnlyCollection<string>> rule in rules)
 		{
 			// The editor sends the complete ticked set, so this replaces the rule (types can be removed).
-			dictionary[rule.Key.Trim()] = rule.Value.Select((string type) => type.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+			// Rules are stored under the canonical buyer type; any copy under a synonym is dropped.
+			string canonical = BuyerTypes.Canonical(rule.Key)!;
+			foreach (string key in dictionary.Keys.Where(key => string.Equals(BuyerTypes.Canonical(key), canonical, StringComparison.OrdinalIgnoreCase)).ToList())
+			{
+				dictionary.Remove(key);
+			}
+			dictionary[canonical] = rule.Value.Select((string type) => type.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 		}
 		pharmacyProfile.WholesaleBuyerLicenceRulesJson = JsonSerializer.Serialize(dictionary);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -85,6 +91,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		await EnsureNoDuplicatesAsync(customer, licences, cancellationToken);
 		PharmaBillDbContext context = unitOfWork.Context;
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+		BuyerTypeRemapping.Apply(context, customer, userId, "Buyer type entered as a synonym of a standard type");
 		bool isNew = !(await context.Customers.AnyAsync((Customer item) => item.Id == customer.Id, cancellationToken));
 		if (isNew)
 		{
@@ -175,6 +182,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		{
 			foreach (WholesaleCustomerImportRecord item in accepted)
 			{
+				BuyerTypeRemapping.Apply(context, item.Customer, userId, "Imported buyer type is a synonym of a standard type");
 				context.Customers.Add(item.Customer);
 				foreach (CustomerLicence licence in item.Licences)
 				{
