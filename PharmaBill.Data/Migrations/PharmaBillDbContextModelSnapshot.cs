@@ -584,6 +584,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Area")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("BuyerType")
                         .HasColumnType("TEXT");
 

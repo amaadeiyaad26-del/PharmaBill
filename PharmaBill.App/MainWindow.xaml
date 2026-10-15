@@ -2460,12 +2460,17 @@
                   <TextBox Padding="6" TabIndex="4" Text="{Binding Path=Email, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="3">
-                  <TextBlock Text="State / Area" />
-                  <TextBox Padding="6" TabIndex="5" ToolTip="Wholesale: filled from the buyer's GSTIN; enter it only if the buyer has no GSTIN." Text="{Binding Path=State, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Text="State" />
+                  <ComboBox IsEditable="True" Padding="5" TabIndex="5" ItemsSource="{Binding GstStateNames}" Text="{Binding Path=State, UpdateSourceTrigger=PropertyChanged}"
+                            ToolTip="Filled from a valid GSTIN; otherwise pick the buyer's state. Decides CGST/SGST vs IGST." />
                 </StackPanel>
-                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="3">
+                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="3">
                   <TextBlock Text="{Binding AddressFieldLabel}" />
                   <TextBox Padding="6" TabIndex="6" Text="{Binding Path=Address, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="2" Margin="3">
+                  <TextBlock Text="Area / City (optional)" />
+                  <TextBox Padding="6" TabIndex="6" ToolTip="e.g. Srinagar. Not used for GST." Text="{Binding Path=Area, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
                 <StackPanel Grid.Row="3" Grid.Column="0" Margin="3">
                   <TextBlock Text="Credit Limit (₹)" />

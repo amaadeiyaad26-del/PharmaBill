@@ -158,13 +158,63 @@ public sealed class GstStateResolutionTests
     }
 
     [Fact]
-    public async Task RetailModeCustomer_StateStaysOptionalFreeText()
+    public async Task RetailModeCustomer_StateIsOptionalAndAreaIsFreeText()
+    {
+        await using var database = await CreateAsync(BusinessMode.Retail);
+        var customer = NewCustomer(state: null, gstin: null);
+        customer.Area = "  North area ";
+
+        await Service(database).SaveAsync(customer, [], [], Guid.NewGuid());
+
+        var stored = await database.Context.Customers.SingleAsync();
+        Assert.Null(stored.State);
+        Assert.Equal("North area", stored.Area);
+    }
+
+    [Fact]
+    public async Task RetailModeCustomer_StateMustBeARecognisedStateAndIsCanonicalised()
     {
         await using var database = await CreateAsync(BusinessMode.Retail);
 
-        await Service(database).SaveAsync(NewCustomer(state: "North area", gstin: null), [], [], Guid.NewGuid());
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            Service(database).SaveAsync(NewCustomer(state: "SRINAGAR", gstin: null), [], [], Guid.NewGuid()));
+        await Service(database).SaveAsync(NewCustomer(state: "j & k", gstin: null), [], [], Guid.NewGuid());
 
-        Assert.Equal("North area", (await database.Context.Customers.SingleAsync()).State);
+        Assert.Equal("Jammu and Kashmir", (await database.Context.Customers.SingleAsync()).State);
+    }
+
+    [Theory]
+    [InlineData("SRINAGAR", null, null, "SRINAGAR")]
+    [InlineData("jammu & kashmir", null, "Jammu and Kashmir", null)]
+    [InlineData("29", "Bengaluru", "Karnataka", "Bengaluru")]
+    [InlineData("SRINAGAR", "Lal Chowk", null, "Lal Chowk, SRINAGAR")]
+    [InlineData("srinagar", "SRINAGAR", null, "SRINAGAR")]
+    [InlineData(null, null, null, null)]
+    public void CustomerStateArea_SplitsLegacyFreeText(string? state, string? area, string? expectedState, string? expectedArea)
+    {
+        Assert.Equal((expectedState, expectedArea), CustomerStateArea.Split(state, area));
+    }
+
+    [Fact]
+    public async Task CustomerStateArea_NormalisesExistingRowsOnce()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var city = NewCustomer(state: "SRINAGAR", gstin: null);
+        var lower = NewCustomer(state: "karnataka", gstin: null);
+        var canonical = NewCustomer(state: "Kerala", gstin: null);
+        var blank = NewCustomer(state: null, gstin: null);
+        database.Context.Customers.AddRange(city, lower, canonical, blank);
+        await database.Context.SaveChangesAsync();
+
+        Assert.Equal(2, await CustomerStateArea.NormalizeExistingAsync(database.Context));
+        Assert.Equal(0, await CustomerStateArea.NormalizeExistingAsync(database.Context));
+
+        var rows = await database.Context.Customers.AsNoTracking().ToDictionaryAsync(c => c.Id);
+        Assert.Null(rows[city.Id].State);
+        Assert.Equal("SRINAGAR", rows[city.Id].Area);
+        Assert.Equal("Karnataka", rows[lower.Id].State);
+        Assert.Equal("Kerala", rows[canonical.Id].State);
+        Assert.Null(rows[blank.Id].State);
     }
 
     private static async Task<DatabaseTestContext> CreateAsync(BusinessMode mode)

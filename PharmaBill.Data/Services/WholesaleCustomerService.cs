@@ -74,10 +74,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		ArgumentException.ThrowIfNullOrWhiteSpace(customer.BuyerType, "customer.BuyerType");
 		ValidateCustomer(customer);
 		ValidateLicences(licences);
-		if (await RequiresGstStateAsync(cancellationToken))
-		{
-			ApplyBuyerGstState(customer);
-		}
+		ApplyBuyerState(customer, await RequiresGstStateAsync(cancellationToken));
 		await EnsureNoDuplicatesAsync(customer, licences, cancellationToken);
 		PharmaBillDbContext context = unitOfWork.Context;
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -150,10 +147,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 				ArgumentException.ThrowIfNullOrWhiteSpace(import.Customer.BuyerType, "import.Customer.BuyerType");
 				ValidateCustomer(import.Customer);
 				ValidateLicences(import.Licences);
-				if (requiresGstState)
-				{
-					ApplyBuyerGstState(import.Customer);
-				}
+				ApplyBuyerState(import.Customer, requiresGstState);
 			}
 			catch (ArgumentException ex)
 			{
@@ -249,6 +243,27 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 	/// A blank state is filled from the GSTIN; a name that disagrees with the GSTIN is kept as entered so the
 	/// invoice screen shows the mismatch and offers the correction (never fixed silently).
 	/// </summary>
+	private static void ApplyBuyerState(Customer customer, bool requireGstState)
+	{
+		customer.Area = string.IsNullOrWhiteSpace(customer.Area) ? null : customer.Area.Trim();
+		if (requireGstState)
+		{
+			ApplyBuyerGstState(customer);
+			return;
+		}
+		if (string.IsNullOrWhiteSpace(customer.State))
+		{
+			customer.State = IndianGstStateCodes.StateNameFromGstin(customer.Gstin);
+			return;
+		}
+		GstStateResolution resolution = IndianGstStateCodes.ResolveForTax(customer.State, null);
+		if (!resolution.IsResolved)
+		{
+			throw new ArgumentException("State \"" + customer.State.Trim() + "\" is not a recognised Indian GST state. Pick one from the list and put the area or city in Area / City.");
+		}
+		customer.State = resolution.CanonicalName;
+	}
+
 	private static void ApplyBuyerGstState(Customer customer)
 	{
 		GstStateResolution resolution = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
@@ -322,6 +337,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		target.Salesman = source.Salesman;
 		target.OpeningBalance = source.OpeningBalance;
 		target.State = source.State;
+		target.Area = source.Area;
 		target.StateDrugControlPortalUrl = source.StateDrugControlPortalUrl;
 		target.VerifiedBy = source.VerifiedBy;
 		target.VerifiedOnUtc = source.VerifiedOnUtc;

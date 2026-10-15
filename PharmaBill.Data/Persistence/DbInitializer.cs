@@ -56,6 +56,16 @@ public sealed class DbInitializer(
 		await EnsureBanAndReorderColumnsAsync(cancellationToken);
 		await EnsureModelColumnsAsync(cancellationToken);
 
+		// Split legacy free-text customer "State / Area" into a canonical State and an Area.
+		try
+		{
+			await PharmaBill.Data.Services.CustomerStateArea.NormalizeExistingAsync(context, cancellationToken);
+		}
+		catch (Exception)
+		{
+			// Data tidy-up must never block startup; it retries on the next launch.
+		}
+
 		// 4) SEED ONLY AFTER TABLES EXIST — skip cleanly when defaults already present.
 		// Never inject demo/sample inventory, stock batches, sales, or statutory register rows.
 		// New pharmacies start empty until purchases are inwarded or items are imported.

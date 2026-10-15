@@ -337,7 +337,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 				OnPropertyChanging(nameof(Gstin));
 				_gstin = value;
 				OnPropertyChanged(nameof(Gstin));
-				if (IsWholesaleMode && (string.IsNullOrWhiteSpace(_state) || _stateFromGstin))
+				if (string.IsNullOrWhiteSpace(_state) || _stateFromGstin)
 				{
 					SetState(IndianGstStateCodes.StateNameFromGstin(value) ?? string.Empty, fromGstin: true);
 				}
@@ -347,7 +347,18 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private bool _stateFromGstin;
 
-	/// <summary>Buyer state. In wholesale mode it follows the GSTIN prefix until the user types their own.</summary>
+	private string _area = string.Empty;
+
+	public IReadOnlyList<string> GstStateNames { get; } = IndianGstStateCodes.States.Select(s => s.Name).ToList();
+
+	/// <summary>Free-text area / city; the GST state is picked separately in <see cref="State"/>.</summary>
+	public string Area
+	{
+		get => _area;
+		set => SetProperty(ref _area, value ?? string.Empty);
+	}
+
+	/// <summary>Buyer state (canonical name). Follows a valid GSTIN until the user picks their own.</summary>
 	public string State
 	{
 		get
@@ -780,6 +791,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		Address = string.Empty;
 		Gstin = string.Empty;
 		State = string.Empty;
+		Area = string.Empty;
 		StateDrugControlPortalUrl = string.Empty;
 		CreditLimit = "0.00";
 		CreditDays = "0";
@@ -998,6 +1010,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 			Address = NullIfEmpty(Address),
 			Gstin = NullIfEmpty(Gstin),
 			State = NullIfEmpty(State),
+			Area = NullIfEmpty(Area),
 			StateDrugControlPortalUrl = NullIfEmpty(StateDrugControlPortalUrl),
 			CreditLimit = result,
 			CreditDays = result3,
@@ -1040,7 +1053,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 				customer.Email = NullIfEmpty(Get(row, "Email"));
 				customer.Address = NullIfEmpty(Get(row, "Address"));
 				customer.Gstin = NullIfEmpty(value3);
-				customer.State = NullIfEmpty(Get(row, "State"));
+				(customer.State, customer.Area) = CustomerStateArea.Split(Get(row, "State"), Get(row, "Area", "City", "Area / City"));
 				customer.StateDrugControlPortalUrl = NullIfEmpty(Get(row, "State Drug Control Portal URL", "Portal URL"));
 				customer.PriceCategory = NullIfEmpty(Get(row, "Price Category"));
 				customer.Route = NullIfEmpty(Get(row, "Route"));
@@ -1185,7 +1198,9 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		Email = customer.Email ?? string.Empty;
 		Address = customer.Address ?? string.Empty;
 		Gstin = customer.Gstin ?? string.Empty;
-		State = customer.State ?? string.Empty;
+		bool hasStoredState = !string.IsNullOrWhiteSpace(customer.State);
+		SetState(hasStoredState ? customer.State! : IndianGstStateCodes.StateNameFromGstin(customer.Gstin) ?? string.Empty, fromGstin: !hasStoredState);
+		Area = customer.Area ?? string.Empty;
 		StateDrugControlPortalUrl = customer.StateDrugControlPortalUrl ?? string.Empty;
 		CreditLimit = customer.CreditLimit.ToString("0.00", CultureInfo.CurrentCulture);
 		CreditDays = customer.CreditDays.ToString(CultureInfo.CurrentCulture);

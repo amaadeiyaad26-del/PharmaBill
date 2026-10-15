@@ -30,7 +30,11 @@ public sealed class Customer : EntityBase
 
 	public decimal OpeningBalance { get; set; }
 
+	/// <summary>Canonical Indian GST state name (from the state list), or null.</summary>
 	public string? State { get; set; }
+
+	/// <summary>Free-text area / city (e.g. "Srinagar"). Not used for GST.</summary>
+	public string? Area { get; set; }
 
 	public string? StateDrugControlPortalUrl { get; set; }
 
