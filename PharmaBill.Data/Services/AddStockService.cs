@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 
@@ -257,12 +258,16 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 			}
 			else
 			{
+				// A new product needs its HSN code and GST rate up front; a missing rate is never defaulted.
+				ProductTaxDetails tax = ProductTax.Require(input.MedicineName.Trim(), input.HsnCode, input.IsNilRated ? null : input.GstRate, input.IsNilRated);
 				drug = new Drug
 				{
 					Name = input.MedicineName.Trim(),
 					GenericName = (string.IsNullOrWhiteSpace(input.Composition) ? null : input.Composition.Trim()),
 					Schedule = schedule,
-					GstRate = input.GstRate,
+					HsnCode = tax.HsnCode,
+					GstRate = tax.GstRate,
+					IsNilRated = tax.IsNilRated,
 					Mrp = input.Mrp,
 					SalePrice = input.Mrp,
 					CatalogMedicineId = input.CatalogMedicineId
@@ -305,6 +310,12 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 			result = new AddStockResult(drug.Id, batch.Id, valueOrDefault, merged);
 		}
 		return result;
+	}
+
+	/// <summary>True when <see cref="AddStockAsync"/> would create a new product, which then needs its HSN code and GST rate.</summary>
+	public async Task<bool> WouldCreateProductAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		return !drugId.HasValue && !(await FindDrugIdAsync(catalogMedicineId, cancellationToken)).HasValue;
 	}
 
 	private async Task<Guid?> FindDrugIdAsync(Guid? catalogMedicineId, CancellationToken cancellationToken)

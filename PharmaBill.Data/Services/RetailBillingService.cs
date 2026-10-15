@@ -19,7 +19,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, CatalogSearchService catalogSearchService, StorageLocationService storageLocations, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard, string? prescriptionStorageDirectory = null)
 {
-	private sealed record PreparedSaleLine(RetailSaleLineInput Input, Drug Drug, Batch Batch, string? Schedule, bool RequiresPrescription, bool IsHabitForming, string? RegisterType, InclusiveTaxLine Tax);
+	private sealed record PreparedSaleLine(RetailSaleLineInput Input, Drug Drug, Batch Batch, string? Schedule, bool RequiresPrescription, bool IsHabitForming, string? RegisterType, ProductTaxDetails TaxDetails, InclusiveTaxLine Tax);
 
 	/// <summary>Loyalty points for the saved patient with this phone number, or null when there is none.</summary>
 	public async Task<int?> GetLoyaltyPointsAsync(string phone, CancellationToken cancellationToken = default(CancellationToken))
@@ -152,7 +152,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				select batch).ThenBy((Batch batch) => batch.BatchNo, StringComparer.OrdinalIgnoreCase).Select((Batch batch) =>
 			{
 				CatalogInfo catalogInfo2 = FindCatalogInfo(drug, catalogInfo);
-				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate.GetValueOrDefault(), ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType, drug.IsBanned || batch.IsBanned);
+				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate, ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType, drug.IsBanned || batch.IsBanned, drug.HsnCode, drug.IsNilRated);
 			}))
 			orderby choice.Barcode == searchTerm descending
 			select choice).ThenBy((RetailStockChoice choice) => choice.DrugName, StringComparer.OrdinalIgnoreCase).ThenBy((RetailStockChoice choice) => choice.ExpiryDate ?? DateOnly.MaxValue).ToArray();
@@ -310,7 +310,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				break;
 			}
 			bool requiresPrescription = flag;
-			preparedLines.Add(new PreparedSaleLine(retailSaleLineInput, drug, batch, text, requiresPrescription, catalogInfo?.IsHabitForming ?? false, catalogInfo?.RegisterType, RetailTaxCalculator.SplitInclusive(retailSaleLineInput.Quantity, retailSaleLineInput.UnitPrice, drug.GstRate.GetValueOrDefault(), retailSaleLineInput.DiscountAmount)));
+			ProductTaxDetails taxDetails = ProductTax.ForBilling(drug, item.Tax);
+			preparedLines.Add(new PreparedSaleLine(retailSaleLineInput, drug, batch, text, requiresPrescription, catalogInfo?.IsHabitForming ?? false, catalogInfo?.RegisterType, taxDetails, RetailTaxCalculator.SplitInclusive(retailSaleLineInput.Quantity, retailSaleLineInput.UnitPrice, taxDetails.GstRate, retailSaleLineInput.DiscountAmount)));
 			currentQuantities[batch.Id] = valueOrDefault - retailSaleLineInput.Quantity;
 		}
 		PreparedSaleLine[] controlledItems = preparedLines.Where((PreparedSaleLine preparedSaleLine) => preparedSaleLine.RequiresPrescription).ToArray();
@@ -438,10 +439,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						Quantity = line.Quantity,
 						UnitPrice = line.UnitPrice,
 						DiscountAmount = line.DiscountAmount,
-						TaxRate = prepared.Drug.GstRate.GetValueOrDefault(),
+						TaxRate = prepared.TaxDetails.GstRate,
 						LineTotal = prepared.Tax.GrossAmount,
 						ItemName = prepared.Drug.Name,
-						HsnCode = prepared.Drug.HsnCode,
+						HsnCode = prepared.TaxDetails.HsnCode,
 						BatchNo = batch2.BatchNo,
 						BatchExpiry = batch2.ExpiryDate
 					});

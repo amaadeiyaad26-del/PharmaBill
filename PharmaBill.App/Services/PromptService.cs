@@ -16,4 +16,17 @@ public sealed class PromptService : IPromptService
 		}
 		return textPromptWindow.Value;
 	}
+
+	public ProductTaxPromptResult? AskProductTax(string productName, string? currentHsn, decimal? currentRate, bool currentNilRated, bool newProduct = false)
+	{
+		ProductTaxPromptWindow window = new ProductTaxPromptWindow(productName, currentHsn, currentRate, currentNilRated, newProduct)
+		{
+			Owner = Application.Current?.MainWindow
+		};
+		if (window.ShowDialog() != true || window.Details == null)
+		{
+			return null;
+		}
+		return new ProductTaxPromptResult(window.Details, window.SaveToProduct);
+	}
 }

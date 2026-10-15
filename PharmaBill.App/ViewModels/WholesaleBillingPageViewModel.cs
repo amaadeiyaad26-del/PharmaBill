@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Ai;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using PharmaBill.Data.Services.Dunning;
@@ -403,7 +404,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public decimal Subtotal => Items.Sum((WholesaleInvoiceLineDraft item) => item.LineAmount);
 
-	public decimal EstimatedTax => Items.Sum((WholesaleInvoiceLineDraft item) => decimal.Round(item.LineAmount * (item.StockChoice?.GstRate ?? 0m) / 100m, 2, MidpointRounding.AwayFromZero));
+	public decimal EstimatedTax => Items.Sum((WholesaleInvoiceLineDraft item) => decimal.Round(item.LineAmount * (item.Tax?.GstRate ?? 0m) / 100m, 2, MidpointRounding.AwayFromZero));
 
 	public decimal EstimatedTotal => decimal.Round(Subtotal + EstimatedTax, 0, MidpointRounding.AwayFromZero);
 
@@ -1725,7 +1726,11 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		NotifyTotalsChanged();
 		ClearMedicinePickerAfterAdd();
 		StatusMessage = $"Batch {created.BatchNo} inwarded for {created.DrugName} and added to the invoice.";
-		if (draft.Mrp <= 0m)
+		if (draft.NeedsTaxDetails)
+		{
+			_ = PromptMissingWholesaleTaxThenContinueAsync(draft);
+		}
+		else if (draft.Mrp <= 0m)
 		{
 			PromptMissingWholesaleMrp(draft);
 		}
@@ -1982,7 +1987,11 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		SelectedLine = draft;
 		NotifyTotalsChanged();
 		ClearMedicinePickerAfterAdd();
-		if (draft.Mrp <= 0m)
+		if (draft.NeedsTaxDetails)
+		{
+			_ = PromptMissingWholesaleTaxThenContinueAsync(draft);
+		}
+		else if (draft.Mrp <= 0m)
 		{
 			PromptMissingWholesaleMrp(draft);
 		}
@@ -1990,6 +1999,92 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		{
 			RequestFocusQty();
 		}
+	}
+
+	private AsyncRelayCommand<WholesaleInvoiceLineDraft?>? setLineTaxCommand;
+
+	/// <summary>The line's 'Set HSN / GST' button.</summary>
+	public IAsyncRelayCommand<WholesaleInvoiceLineDraft?> SetLineTaxCommand => setLineTaxCommand ??= new AsyncRelayCommand<WholesaleInvoiceLineDraft?>(async line =>
+	{
+		if (line != null)
+		{
+			await PromptMissingWholesaleTaxAsync(line);
+		}
+	});
+
+	private async Task PromptMissingWholesaleTaxThenContinueAsync(WholesaleInvoiceLineDraft line)
+	{
+		await PromptMissingWholesaleTaxAsync(line);
+		if (line.Mrp <= 0m)
+		{
+			PromptMissingWholesaleMrp(line);
+			return;
+		}
+
+		RequestFocusQty();
+	}
+
+	/// <summary>
+	/// Asks for HSN and GST rate for a product that has none recorded. Saved to the product (asked once) or kept on
+	/// this invoice only. Returns false when the user chose 'Later'; the line stays flagged and the invoice cannot be saved.
+	/// </summary>
+	private async Task<bool> PromptMissingWholesaleTaxAsync(WholesaleInvoiceLineDraft line)
+	{
+		WholesaleStockChoice? choice = line.StockChoice;
+		if (choice == null)
+		{
+			return false;
+		}
+
+		ProductTaxPromptResult? entered;
+		using (IServiceScope scope = _scopeFactory.CreateScope())
+		{
+			entered = scope.ServiceProvider.GetRequiredService<IPromptService>().AskProductTax(choice.DrugName, choice.HsnCode, choice.GstRate, choice.IsNilRated);
+		}
+
+		if (entered == null)
+		{
+			StatusMessage = choice.DrugName + ": " + line.MissingTaxText;
+			return false;
+		}
+
+		ProductTaxDetails details = entered.Details;
+		if (entered.SaveToProduct)
+		{
+			try
+			{
+				using IServiceScope scope = _scopeFactory.CreateScope();
+				await scope.ServiceProvider.GetRequiredService<ProductTaxService>().SetAsync(
+					new ProductTaxUpdate(choice.DrugId, details.HsnCode, details.IsNilRated ? null : details.GstRate, details.IsNilRated),
+					_session.User?.Id, "Wholesale invoice");
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+				return false;
+			}
+
+			// Later adds of this product come from the cached stock list; keep it in step with the product.
+			for (int i = 0; i < StockChoices.Count; i++)
+			{
+				if (StockChoices[i].DrugId == choice.DrugId)
+				{
+					StockChoices[i] = StockChoices[i] with { HsnCode = details.HsnCode, GstRate = details.GstRate, IsNilRated = details.IsNilRated };
+				}
+			}
+		}
+
+		foreach (WholesaleInvoiceLineDraft sameProduct in Items.Where(item => item.StockChoice?.DrugId == choice.DrugId))
+		{
+			sameProduct.ApplyTax(details, entered.SaveToProduct);
+		}
+
+		NotifyTotalsChanged();
+		ErrorMessage = string.Empty;
+		StatusMessage = entered.SaveToProduct
+			? "HSN and GST saved to " + choice.DrugName + "."
+			: "HSN and GST set for " + choice.DrugName + " on this invoice only.";
+		return true;
 	}
 
 	private void OnWholesaleMrpCommitted(WholesaleInvoiceLineDraft line, decimal mrp)
@@ -2167,7 +2262,9 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			unitsPerStrip,
 			unitsPerBox,
 			drug.Schedule,
-			drug.GstRate.GetValueOrDefault());
+			drug.GstRate,
+			drug.HsnCode,
+			drug.IsNilRated);
 	}
 
 	private void RemoveLine(WholesaleInvoiceLineDraft? line)
@@ -2194,6 +2291,16 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			ErrorMessage = "Buyer Drug License (DL) Number is required for wholesale B2B invoices (Form 20B / 21B).";
 			return;
 		}
+		// An unknown GST rate blocks the invoice; it is never billed at 0%. Ask for each flagged product once.
+		foreach (WholesaleInvoiceLineDraft flagged in Items.Where(item => item.NeedsTaxDetails).ToList())
+		{
+			if (flagged.NeedsTaxDetails && !await PromptMissingWholesaleTaxAsync(flagged))
+			{
+				SelectedLine = flagged;
+				ErrorMessage = flagged.StockChoice!.DrugName + " has no " + ProductTax.DescribeMissing(flagged.StockChoice.HsnCode, flagged.StockChoice.GstRate, flagged.StockChoice.IsNilRated) + " recorded. Click 'Set HSN / GST' on the line before saving.";
+				return;
+			}
+		}
 		WholesaleInvoiceLineDraft[] array = Items.Where((WholesaleInvoiceLineDraft item) =>
 		{
 			DateOnly? dateOnly = item.StockChoice?.ExpiryDate;
@@ -2210,7 +2317,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes, MarkedInterState: IsInterStateSale), appUser.Id, appUser.Role);
+			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount, item.TaxEnteredOnBill)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes, MarkedInterState: IsInterStateSale), appUser.Id, appUser.Role);
 			LastInvoiceId = wholesaleInvoiceResult.Invoice.Id;
 			_drafts.Clear();
 			DraftSavedText = string.Empty;

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.ProductTaxPromptWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:PharmaBill.App.Controls" Icon="/Assets/Icons/app.ico" Title="HSN and GST rate needed" SizeToContent="Height" Width="480" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{DynamicResource ContentBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}">
+  <StackPanel Margin="24">
+    <TextBlock Name="MessageText" FontSize="14" TextWrapping="Wrap" Margin="0,0,0,16" />
+    <controls:FloatingField x:Name="HsnField" Label="HSN code" IsRequired="True" Margin="0,0,0,10">
+      <TextBox Name="HsnBox" />
+    </controls:FloatingField>
+    <controls:FloatingField x:Name="RateField" Label="GST rate %" IsRequired="True" Margin="0,0,0,6">
+      <TextBox Name="RateBox" />
+    </controls:FloatingField>
+    <CheckBox Name="NilRatedBox" Content="Nil-rated (billed at 0% GST)" Margin="0,4,0,0" Checked="NilRated_Changed" Unchecked="NilRated_Changed"
+              ToolTip="Tick only if this product is genuinely nil-rated. A blank rate is never treated as 0%." />
+    <CheckBox Name="SaveToProductBox" Content="Save to the product so I'm not asked again" IsChecked="True" Margin="0,10,0,0"
+              ToolTip="Untick to use these values on this bill only." />
+    <TextBlock Name="ErrorText" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,10,0,0" />
+    <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+               Text="Take these from the supplier's invoice. The rate is never guessed from the medicine name." />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button x:Name="LaterButton" Content="Later" IsCancel="True" Style="{StaticResource SecondaryButton}" MinWidth="90" Margin="0,0,8,0"
+              ToolTip="Leave the line flagged. The bill cannot be saved until this is entered." />
+      <Button Content="Use these" IsDefault="True" Style="{StaticResource PrimaryButton}" MinWidth="110" Click="Ok_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>

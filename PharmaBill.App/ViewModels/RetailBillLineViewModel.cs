@@ -8,6 +8,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PharmaBill.App.Services;
 using PharmaBill.Core;
+using PharmaBill.Core.Gst;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
@@ -23,6 +24,9 @@ public sealed class RetailBillLineViewModel : ObservableObject
 	private decimal _unitPrice;
 
 	private RetailStockChoice _choice;
+
+	/// <summary>HSN and rate entered on this bill only, for a product that has none recorded.</summary>
+	private ProductTaxDetails? _taxEnteredOnBill;
 
 	public ObservableCollection<RetailStockChoice> BatchOptions { get; } = new ObservableCollection<RetailStockChoice>();
 
@@ -48,7 +52,7 @@ public sealed class RetailBillLineViewModel : ObservableObject
 			OnPropertyChanged(nameof(ExpiryDate));
 			OnPropertyChanged(nameof(Mrp));
 			OnPropertyChanged(nameof(StockQuantity));
-			OnPropertyChanged(nameof(GstRate));
+			OnTaxChanged();
 			OnPropertyChanged(nameof(RequiresPrescription));
 			OnPropertyChanged(nameof(IsHabitForming));
 			OnPropertyChanged(nameof(Schedule));
@@ -127,7 +131,51 @@ public sealed class RetailBillLineViewModel : ObservableObject
 
 	public decimal StockQuantity => Choice.AvailableQuantity;
 
-	public decimal GstRate => Choice.GstRate;
+	/// <summary>The tax this line is billed at: the product's recorded details, else what was entered on this bill. Null blocks saving.</summary>
+	public ProductTaxDetails? Tax => Choice.KnownTax ?? _taxEnteredOnBill;
+
+	public bool NeedsTaxDetails => Tax == null;
+
+	public string MissingTaxText => NeedsTaxDetails
+		? "No " + ProductTax.DescribeMissing(Choice.HsnCode, Choice.GstRate, Choice.IsNilRated) + " · set before saving"
+		: string.Empty;
+
+	/// <summary>For on-screen estimates only; an unknown rate shows as "?" and the bill cannot be saved.</summary>
+	public decimal GstRate => Tax?.GstRate ?? 0m;
+
+	public string GstRateText => PharmaBill.App.Services.GstRateText.Format(Tax?.GstRate, Tax?.IsNilRated == true);
+
+	/// <summary>Records tax details for this line: on the product (all batches) when saved there, else on this bill only.</summary>
+	public void ApplyTax(ProductTaxDetails details, bool savedToProduct)
+	{
+		if (savedToProduct)
+		{
+			_taxEnteredOnBill = null;
+			RetailStockChoice WithTax(RetailStockChoice option) => option with { HsnCode = details.HsnCode, GstRate = details.GstRate, IsNilRated = details.IsNilRated };
+			_choice = WithTax(_choice);
+			for (int i = 0; i < BatchOptions.Count; i++)
+			{
+				BatchOptions[i] = WithTax(BatchOptions[i]);
+			}
+		}
+		else
+		{
+			_taxEnteredOnBill = details;
+		}
+
+		OnPropertyChanged(nameof(Choice));
+		OnTaxChanged();
+	}
+
+	private void OnTaxChanged()
+	{
+		OnPropertyChanged(nameof(Tax));
+		OnPropertyChanged(nameof(NeedsTaxDetails));
+		OnPropertyChanged(nameof(MissingTaxText));
+		OnPropertyChanged(nameof(GstRate));
+		OnPropertyChanged(nameof(GstRateText));
+		UpdateAmounts();
+	}
 
 	public bool RequiresPrescription
 	{
@@ -261,6 +309,7 @@ public sealed class RetailBillLineViewModel : ObservableObject
 	private RetailBillLineViewModel(RetailBillLineSnapshot snapshot)
 	{
 		_choice = snapshot.Choice;
+		_taxEnteredOnBill = snapshot.TaxEnteredOnBill;
 		BatchOptions.Add(snapshot.Choice);
 		Quantity = snapshot.Quantity;
 		DiscountAmount = snapshot.DiscountAmount;
@@ -293,17 +342,21 @@ public sealed class RetailBillLineViewModel : ObservableObject
 		{
 			return "Discount cannot be negative or exceed the line amount.";
 		}
+		if (NeedsTaxDetails)
+		{
+			return DrugName + " has no " + ProductTax.DescribeMissing(Choice.HsnCode, Choice.GstRate, Choice.IsNilRated) + " recorded. Click 'Set HSN / GST' on the line before saving.";
+		}
 		return null;
 	}
 
 	public RetailSaleLineInput ToInput()
 	{
-		return new RetailSaleLineInput(Choice.DrugId, Choice.BatchId, Quantity, DiscountAmount, UnitPrice);
+		return new RetailSaleLineInput(Choice.DrugId, Choice.BatchId, Quantity, DiscountAmount, UnitPrice, Choice.KnownTax == null ? _taxEnteredOnBill : null);
 	}
 
 	public RetailBillLineSnapshot ToSnapshot()
 	{
-		return new RetailBillLineSnapshot(Choice, Quantity, DiscountAmount, UnitPrice);
+		return new RetailBillLineSnapshot(Choice, Quantity, DiscountAmount, UnitPrice, _taxEnteredOnBill);
 	}
 
 	public static RetailBillLineViewModel FromSnapshot(RetailBillLineSnapshot snapshot)

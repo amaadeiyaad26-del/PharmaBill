@@ -92,7 +92,7 @@ public sealed class RetailVoidTests
 			BusinessMode = BusinessMode.Retail,
 			InvoicePrefix = "WIN1"
 		};
-		var drug = new Drug { Name = "Void test medicine", GstRate = 12m };
+		var drug = new Drug { Name = "Void test medicine", GstRate = 12m, HsnCode = "3004" };
 		var batch = new Batch
 		{
 			DrugId = drug.Id,

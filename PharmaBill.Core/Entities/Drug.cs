@@ -22,7 +22,11 @@ public sealed class Drug : EntityBase
 
 	public string? HsnCode { get; set; }
 
+	/// <summary>Null means not known. 0 counts as known only together with <see cref="IsNilRated"/>.</summary>
 	public decimal? GstRate { get; set; }
+
+	/// <summary>Explicitly billed at 0% ("Nil-rated"), as opposed to a rate nobody has entered.</summary>
+	public bool IsNilRated { get; set; }
 
 	public decimal? Mrp { get; set; }
 

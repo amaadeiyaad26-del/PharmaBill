@@ -28,7 +28,7 @@ public sealed class AddStockTests
     private static AddStockInput Input(Guid supplierId, string schedule = "H", string invoice = "INV-1", string batch = "B1", decimal qty = 10m) =>
         new(null, null, "Alprazolam 0.5", "Alprazolam", "Acme", schedule, batch,
             DateOnly.FromDateTime(DateTime.Today.AddYears(1)), 30m, 20m, qty, 0m, 10m, 12m,
-            supplierId, invoice, DateOnly.FromDateTime(DateTime.Today), "R1");
+            supplierId, invoice, DateOnly.FromDateTime(DateTime.Today), "R1", HsnCode: "30049099");
 
     [Fact]
     public async Task AddStock_creates_drug_batch_movement_and_audit_in_one_save()
@@ -44,6 +44,27 @@ public sealed class AddStockTests
         Assert.Equal(10m, await database.Context.StockMovements.Where(m => m.BatchId == batch.Id).SumAsync(m => m.QuantityChange));
         Assert.Single(await database.Context.PurchaseInvoices.ToListAsync());
         Assert.NotEmpty(await database.Context.AuditLogs.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AddStock_new_product_requires_hsn_and_gst_and_never_defaults_them()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var supplier = await Create(database).AddSupplierAsync("Sup", Guid.NewGuid(), UserRole.Owner);
+
+        var noHsn = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Create(database).AddStockAsync(Input(supplier.Id) with { HsnCode = null }, Guid.NewGuid(), UserRole.Owner));
+        Assert.Contains("HSN", noHsn.Message);
+        var zeroNotNil = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Create(database).AddStockAsync(Input(supplier.Id) with { GstRate = 0m }, Guid.NewGuid(), UserRole.Owner));
+        Assert.Contains("Nil-rated", zeroNotNil.Message);
+        Assert.Empty(await database.Context.Drugs.ToListAsync());
+
+        var nil = await Create(database).AddStockAsync(Input(supplier.Id) with { GstRate = 0m, IsNilRated = true }, Guid.NewGuid(), UserRole.Owner);
+        var drug = await database.Context.Drugs.SingleAsync(d => d.Id == nil.DrugId);
+        Assert.True(drug.IsNilRated);
+        Assert.Equal(0m, drug.GstRate);
+        Assert.Equal("30049099", drug.HsnCode);
     }
 
     [Fact]

@@ -297,12 +297,12 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 					schedule = normalized;
 				}
 
-				gst = drug.GstRate ?? 0m;
+				gst = drug.GstRate is > 0m ? drug.GstRate.Value : 0m;
 			}
 		}
 
 		AddStockService addStock = scope.ServiceProvider.GetRequiredService<AddStockService>();
-		AddStockResult result = await addStock.AddStockAsync(new AddStockInput(
+		AddStockInput? input = await NewProductTaxPrompt.CompleteAsync(addStock, scope.ServiceProvider.GetRequiredService<IPromptService>(), new AddStockInput(
 			drugId,
 			catalogId,
 			draft.BrandName,
@@ -320,7 +320,13 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 			supplierId,
 			"RX" + Guid.NewGuid().ToString("N")[..12],
 			DateOnly.FromDateTime(DateTime.Today),
-			null), user.Id, user.Role);
+			null));
+		if (input == null)
+		{
+			throw new InvalidOperationException(draft.BrandName + " is a new medicine and needs its HSN code and GST rate. Stock was not added.");
+		}
+
+		AddStockResult result = await addStock.AddStockAsync(input, user.Id, user.Role);
 		string name = await context.Drugs.AsNoTracking().Where((Drug item) => item.Id == result.DrugId).Select((Drug item) => item.Name).FirstAsync();
 		IReadOnlyList<RetailStockChoice> choices = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchStockAsync(name);
 		return choices.FirstOrDefault((RetailStockChoice choice) => choice.BatchId == result.BatchId)

@@ -45,12 +45,14 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
       <StackPanel Margin="0,0,8,0">
-        <TextBlock Text="HSN code" FontWeight="SemiBold" Margin="0,0,0,4" />
-        <TextBox x:Name="HsnBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" />
+        <TextBlock Text="HSN code *" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="HsnBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" ToolTip="Required. 4, 6 or 8 digits, from the supplier's invoice." />
       </StackPanel>
       <StackPanel Grid.Column="1">
-        <TextBlock Text="GST %" FontWeight="SemiBold" Margin="0,0,0,4" />
-        <TextBox x:Name="GstBox" Padding="10,8" Text="12" BorderBrush="{DynamicResource FieldBorderBrush}" />
+        <TextBlock Text="GST % *" FontWeight="SemiBold" Margin="0,0,0,4" />
+        <TextBox x:Name="GstBox" Padding="10,8" BorderBrush="{DynamicResource FieldBorderBrush}" ToolTip="Required, from the supplier's invoice. For 0% tick Nil-rated instead." />
+        <CheckBox x:Name="NilRatedBox" Content="Nil-rated (0% GST)" Margin="0,6,0,0" Checked="NilRated_Changed" Unchecked="NilRated_Changed"
+                  ToolTip="Tick only if this product is genuinely nil-rated. A blank rate is never treated as 0%." />
       </StackPanel>
     </Grid>
 

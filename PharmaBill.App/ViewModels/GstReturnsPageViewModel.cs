@@ -353,10 +353,11 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 
 	public IAsyncRelayCommand ExportEWayBillCommand => exportEWayBillCommand ?? (exportEWayBillCommand = new AsyncRelayCommand(ExportEWayBillAsync));
 
-	public GstReturnsPageViewModel(IServiceScopeFactory scopeFactory, IFilePickerService filePicker)
+	public GstReturnsPageViewModel(IServiceScopeFactory scopeFactory, IFilePickerService filePicker, CurrentSession? session = null)
 	{
 		_scopeFactory = scopeFactory;
 		_filePicker = filePicker;
+		_session = session;
 		RebuildPeriodChoices();
 		SelectedPeriod = PeriodChoices.FirstOrDefault((GstPeriodChoice choice) => choice.Key.StartsWith("M-", StringComparison.Ordinal)) ?? PeriodChoices[0];
 	}
@@ -365,6 +366,97 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 	{
 		await RefreshB2clThresholdNoticeAsync(cancellationToken);
 		await RefreshAsync(cancellationToken);
+	}
+
+	private readonly CurrentSession? _session;
+
+	private AsyncRelayCommand? saveProductTaxFixesCommand;
+
+	private string _productTaxStatus = string.Empty;
+
+	/// <summary>Active products that cannot be billed until their HSN code or GST rate is entered. Not limited to the selected period.</summary>
+	public ObservableCollection<ProductTaxFixRow> ProductsMissingTax { get; } = new ObservableCollection<ProductTaxFixRow>();
+
+	public string ProductsMissingTaxHeading => ProductsMissingTax.Count == 0
+		? "Products missing HSN or GST rate: none"
+		: $"Products missing HSN or GST rate: {ProductsMissingTax.Count}";
+
+	public bool HasProductsMissingTax => ProductsMissingTax.Count > 0;
+
+	public string ProductTaxStatus
+	{
+		get => _productTaxStatus;
+		private set => SetProperty(ref _productTaxStatus, value);
+	}
+
+	public IAsyncRelayCommand SaveProductTaxFixesCommand => saveProductTaxFixesCommand ??= new AsyncRelayCommand(SaveProductTaxFixesAsync);
+
+	private async Task RefreshProductsMissingTaxAsync(CancellationToken cancellationToken = default(CancellationToken))
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		IReadOnlyList<ProductMissingTaxRow> rows = await scope.ServiceProvider.GetRequiredService<ProductTaxService>().GetProductsMissingTaxAsync(cancellationToken);
+		ProductsMissingTax.Clear();
+		foreach (ProductMissingTaxRow row in rows)
+		{
+			ProductsMissingTax.Add(new ProductTaxFixRow(row));
+		}
+
+		OnPropertyChanged(nameof(ProductsMissingTaxHeading));
+		OnPropertyChanged(nameof(HasProductsMissingTax));
+	}
+
+	/// <summary>Saves every edited row that is valid; rows with a problem keep their values and show what is wrong.</summary>
+	private async Task SaveProductTaxFixesAsync()
+	{
+		List<ProductTaxFixRow> edited = ProductsMissingTax.Where(row => row.IsEdited).ToList();
+		if (edited.Count == 0)
+		{
+			ProductTaxStatus = "Type an HSN code and GST rate (or tick Nil-rated) on the rows to fix, then save.";
+			return;
+		}
+
+		List<ProductTaxUpdate> updates = new List<ProductTaxUpdate>();
+		foreach (ProductTaxFixRow row in edited)
+		{
+			ProductTaxUpdate? update = row.TryBuildUpdate();
+			if (update != null)
+			{
+				updates.Add(update);
+			}
+		}
+
+		int invalid = edited.Count - updates.Count;
+		try
+		{
+			if (updates.Count > 0)
+			{
+				using IServiceScope scope = _scopeFactory.CreateScope();
+				await scope.ServiceProvider.GetRequiredService<ProductTaxService>().SetManyAsync(updates, _session?.User?.Id, "GST & e-Way bulk fix");
+			}
+
+			Dictionary<Guid, (string Hsn, string Rate, bool Nil, string Error)> keep = edited
+				.Where(row => row.RowError.Length > 0)
+				.ToDictionary(row => row.DrugId, row => (row.HsnCode, row.GstRateText, row.IsNilRated, row.RowError));
+			await RefreshProductsMissingTaxAsync();
+			foreach (ProductTaxFixRow row in ProductsMissingTax)
+			{
+				if (keep.TryGetValue(row.DrugId, out var kept))
+				{
+					row.HsnCode = kept.Hsn;
+					row.IsNilRated = kept.Nil;
+					row.GstRateText = kept.Rate;
+					row.RowError = kept.Error;
+				}
+			}
+
+			ProductTaxStatus = $"Saved {updates.Count} product(s)."
+				+ (invalid > 0 ? $" {invalid} row(s) need correcting; see the message on each." : string.Empty)
+				+ $" {ProductsMissingTax.Count} still missing.";
+		}
+		catch (Exception ex)
+		{
+			ProductTaxStatus = ex.Message;
+		}
 	}
 
 	private string _b2clThresholdNotice = string.Empty;
@@ -483,6 +575,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 				Gstr1HsnRows.Add(row);
 			}
 
+			await RefreshProductsMissingTaxAsync(cancellationToken);
 			ErrorMessage = string.Empty;
 			StatusMessage = "GST returns loaded for " + SelectedPeriod.DisplayName + ".";
 		}

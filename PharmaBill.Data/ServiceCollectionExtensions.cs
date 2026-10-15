@@ -70,6 +70,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<CatalogueService>();
 		services.AddScoped<CatalogSearchService>();
 		services.AddScoped<CustomMedicineService>();
+		services.AddScoped<ProductTaxService>();
 		services.AddScoped<InventoryService>();
 		services.AddScoped<ShortageIndentService>();
 		services.AddScoped<StorageLocationService>();

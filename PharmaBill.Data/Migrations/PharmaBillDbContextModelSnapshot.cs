@@ -929,6 +929,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsNilRated")
+                        .HasColumnType("INTEGER");
+
                     b.Property<decimal>("MaxStockLevel")
                         .HasColumnType("decimal(18,2)");
 

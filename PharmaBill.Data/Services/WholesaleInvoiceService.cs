@@ -17,7 +17,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeriesService numberSeriesService, IEntitlementService entitlementService, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard)
 {
-	private sealed record PreparedLine(WholesaleInvoiceLineInput Input, Drug Drug, Batch Batch, string? Schedule, decimal TaxableAmount, decimal TaxAmount, decimal CgstAmount, decimal SgstAmount, decimal IgstAmount);
+	private sealed record PreparedLine(WholesaleInvoiceLineInput Input, Drug Drug, Batch Batch, string? Schedule, ProductTaxDetails TaxDetails, decimal TaxableAmount, decimal TaxAmount, decimal CgstAmount, decimal SgstAmount, decimal IgstAmount);
 
 	public async Task<WholesaleInvoiceResult> SaveAsync(SaveWholesaleInvoiceInput input, Guid userId, UserRole role, CancellationToken cancellationToken = default(CancellationToken))
 	{
@@ -128,10 +128,11 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			{
 				throw new InvalidOperationException("Discount exceeds line amount for " + drug.Name + ".");
 			}
-			decimal num3 = RoundMoney(num2 * drug.GstRate.GetValueOrDefault() / 100m);
+			ProductTaxDetails taxDetails = ProductTax.ForBilling(drug, item.Tax);
+			decimal num3 = RoundMoney(num2 * taxDetails.GstRate / 100m);
 			decimal num4 = (intraState ? RoundMoney(num3 / 2m) : 0m);
 			decimal sgstAmount = (intraState ? (num3 - num4) : 0m);
-			prepared.Add(new PreparedLine(item, drug, batch, schedule, num2, num3, num4, sgstAmount, intraState ? 0m : num3));
+			prepared.Add(new PreparedLine(item, drug, batch, schedule, taxDetails, num2, num3, num4, sgstAmount, intraState ? 0m : num3));
 			quantities[batch.Id] = valueOrDefault - item.Quantity - item.FreeQuantity;
 		}
 		decimal subtotal = prepared.Sum((PreparedLine line) => line.TaxableAmount);
@@ -238,14 +239,14 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 					FreeQuantity = item2.Input.FreeQuantity,
 					UnitPrice = item2.Input.UnitPrice,
 					DiscountAmount = item2.Input.DiscountAmount,
-					TaxRate = item2.Drug.GstRate.GetValueOrDefault(),
+					TaxRate = item2.TaxDetails.GstRate,
 					TaxableAmount = item2.TaxableAmount,
 					CgstAmount = item2.CgstAmount,
 					SgstAmount = item2.SgstAmount,
 					IgstAmount = item2.IgstAmount,
 					LineTotal = item2.TaxableAmount + item2.TaxAmount,
 					ItemName = item2.Drug.Name,
-					HsnCode = item2.Drug.HsnCode,
+					HsnCode = item2.TaxDetails.HsnCode,
 					Unit = item2.Drug.Unit,
 					BatchNo = item2.Batch.BatchNo,
 					BatchExpiry = item2.Batch.ExpiryDate,

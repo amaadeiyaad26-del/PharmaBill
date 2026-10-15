@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Catalog;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
@@ -16,10 +17,11 @@ public sealed record CustomMedicineRequest(
 	string? Manufacturer,
 	string? PackSizeLabel,
 	string? HsnCode,
-	decimal GstRate,
+	decimal? GstRate,
 	decimal? Mrp,
 	decimal? PurchaseRate,
-	string? Barcode = null);
+	string? Barcode = null,
+	bool IsNilRated = false);
 
 public sealed record CustomMedicineResult(
 	Guid CatalogMedicineId,
@@ -43,16 +45,14 @@ public sealed class CustomMedicineService(PharmaBillDbContext context)
 			throw new InvalidOperationException("Brand name is required.");
 		}
 
-		decimal gst = request.GstRate;
-		if (gst < 0m || gst > 100m)
-		{
-			gst = 12m;
-		}
+		// Both are required; a missing rate is never defaulted. 0% only as an explicit Nil-rated choice.
+		ProductTaxDetails tax = ProductTax.Require(name, request.HsnCode, request.GstRate, request.IsNilRated);
+		decimal gst = tax.GstRate;
 
 		string? generic = NullIfEmpty(request.GenericName);
 		string? manufacturer = NullIfEmpty(request.Manufacturer);
 		string? pack = NullIfEmpty(request.PackSizeLabel);
-		string? hsn = NullIfEmpty(request.HsnCode);
+		string hsn = tax.HsnCode;
 		string compositionKey = CompositionKeyBuilder.Build(generic);
 
 		string nameKey = name.ToLowerInvariant();
@@ -133,6 +133,7 @@ public sealed class CustomMedicineService(PharmaBillDbContext context)
 				Unit = pack,
 				HsnCode = hsn,
 				GstRate = gst,
+				IsNilRated = tax.IsNilRated,
 				Mrp = request.Mrp,
 				SalePrice = request.Mrp,
 				Barcode = NullIfEmpty(request.Barcode),
@@ -150,12 +151,9 @@ public sealed class CustomMedicineService(PharmaBillDbContext context)
 				drug.GenericName = generic;
 			}
 
-			if (!string.IsNullOrWhiteSpace(hsn))
-			{
-				drug.HsnCode = hsn;
-			}
-
+			drug.HsnCode = hsn;
 			drug.GstRate = gst;
+			drug.IsNilRated = tax.IsNilRated;
 			if (request.Mrp is > 0m)
 			{
 				drug.Mrp = request.Mrp;

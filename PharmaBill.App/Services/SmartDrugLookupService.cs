@@ -100,7 +100,7 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 			(SmartDrugSuggestion? publicMatch, string? publicFailure) = await AskOpenFdaAsync(typed, timeout.Token);
 			if (publicMatch != null)
 			{
-				return new SmartDrugLookupOutcome(publicMatch, "Filled from the public OpenFDA index. HSN 3004 and GST 12% were used. Check the MRP and purchase rate before saving.");
+				return new SmartDrugLookupOutcome(publicMatch, "Filled from the public OpenFDA index. Enter the HSN code and GST rate from the supplier invoice, and check the MRP and purchase rate before saving.");
 			}
 
 			if (timeout.IsCancellationRequested)
@@ -385,8 +385,8 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 				FirstText(root, "genericName", "generic", "composition", "salt"),
 				FirstText(root, "manufacturer", "company"),
 				FirstText(root, "packSizeLabel", "packSize", "package", "unit"),
-				ReadGst(root),
-				FirstText(root, "hsnCode", "hsn") ?? "3004",
+				null,
+				null,
 				ReadMrp(root));
 		}
 		catch
@@ -465,7 +465,7 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 				return null;
 			}
 
-			return new SmartDrugSuggestion(brand, generic, FirstText(row, "labeler_name"), pack, 12m, "3004", null);
+			return new SmartDrugSuggestion(brand, generic, FirstText(row, "labeler_name"), pack, null, null, null);
 		}
 		catch
 		{
@@ -476,9 +476,9 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 	private static string Prompt(string typed)
 	{
 		return "Look up this Indian pharmacy product name: \"" + typed + "\". "
-			+ "Return only JSON with keys brandName, genericName, manufacturer, packSizeLabel, gstRate, hsnCode, approximateMrp. "
+			+ "Return only JSON with keys brandName, genericName, manufacturer, packSizeLabel, approximateMrp. "
 			+ "brandName should match the typed product. genericName is the salt composition. packSizeLabel is the retail pack such as Strip of 10, Bottle, Box, or Vial. "
-			+ "Use gstRate 12 and hsnCode \"3004\" when the tax slab is not known. Use JSON null for genericName, manufacturer, packSizeLabel, or approximateMrp when unsure. Do not invent a different brand.";
+			+ "Use JSON null for genericName, manufacturer, packSizeLabel, or approximateMrp when unsure. Do not invent a different brand.";
 	}
 
 	private static object BuildBody(string typed)
@@ -537,16 +537,6 @@ public sealed class SmartDrugLookupService : ISmartDrugLookupService
 		}
 
 		return null;
-	}
-
-	private static decimal ReadGst(JsonElement root)
-	{
-		if (!TryDecimal(root, out decimal gst, "gstRate", "gst"))
-		{
-			return 12m;
-		}
-
-		return gst >= 0m && gst <= 100m ? gst : 12m;
 	}
 
 	private static decimal? ReadMrp(JsonElement root)

@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Ai;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
@@ -2771,6 +2772,10 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				foreach (RetailBillLineViewModel billItem in BillItems)
 				{
 					string text = billItem.Validate();
+					if (text != null && billItem.NeedsTaxDetails && await PromptMissingTaxAsync(billItem))
+					{
+						text = billItem.Validate();
+					}
 					if (text != null)
 					{
 						SelectedBillLine = billItem;
@@ -3112,6 +3117,12 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		OnPropertyChanged("HasHabitFormingItems");
 		OnPropertyChanged(nameof(RequiresPrescriptionArchive));
 		UpdateTotals();
+		if (SelectedBillLine != null && SelectedBillLine.NeedsTaxDetails)
+		{
+			_ = PromptMissingTaxThenContinueAsync(SelectedBillLine);
+			return;
+		}
+
 		if (SelectedBillLine != null && SelectedBillLine.Mrp <= 0m)
 		{
 			PromptMissingMrp(SelectedBillLine);
@@ -3119,6 +3130,72 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 
 		RequestFocus("LineQty");
+	}
+
+	private AsyncRelayCommand<RetailBillLineViewModel?>? setLineTaxCommand;
+
+	/// <summary>The line's 'Set HSN / GST' button.</summary>
+	public IAsyncRelayCommand<RetailBillLineViewModel?> SetLineTaxCommand => setLineTaxCommand ??= new AsyncRelayCommand<RetailBillLineViewModel?>(async line =>
+	{
+		if (line != null)
+		{
+			await PromptMissingTaxAsync(line);
+		}
+	});
+
+	private async Task PromptMissingTaxThenContinueAsync(RetailBillLineViewModel line)
+	{
+		await PromptMissingTaxAsync(line);
+		if (line.Mrp <= 0m)
+		{
+			PromptMissingMrp(line);
+			return;
+		}
+
+		RequestFocus("LineQty");
+	}
+
+	/// <summary>
+	/// Asks for HSN and GST rate for a product that has none recorded. Saved to the product (asked once) or kept on
+	/// this bill only. Returns false when the user chose 'Later'; the line stays flagged and the bill cannot be saved.
+	/// </summary>
+	private async Task<bool> PromptMissingTaxAsync(RetailBillLineViewModel line)
+	{
+		ProductTaxPromptResult? entered = ResolvePrompt().AskProductTax(line.DrugName, line.Choice.HsnCode, line.Choice.GstRate, line.Choice.IsNilRated);
+		if (entered == null)
+		{
+			StatusMessage = line.DrugName + ": " + line.MissingTaxText;
+			return false;
+		}
+
+		ProductTaxDetails details = entered.Details;
+		if (entered.SaveToProduct)
+		{
+			try
+			{
+				using IServiceScope scope = scopeFactory.CreateScope();
+				await scope.ServiceProvider.GetRequiredService<ProductTaxService>().SetAsync(
+					new ProductTaxUpdate(line.Choice.DrugId, details.HsnCode, details.IsNilRated ? null : details.GstRate, details.IsNilRated),
+					currentSession.User?.Id, "Retail bill");
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+				return false;
+			}
+		}
+
+		foreach (RetailBillLineViewModel sameProduct in BillItems.Where(item => item.Choice.DrugId == line.Choice.DrugId))
+		{
+			sameProduct.ApplyTax(details, entered.SaveToProduct);
+		}
+
+		UpdateTotals();
+		ErrorMessage = string.Empty;
+		StatusMessage = entered.SaveToProduct
+			? "HSN and GST saved to " + line.DrugName + "."
+			: "HSN and GST set for " + line.DrugName + " on this bill only.";
+		return true;
 	}
 
 	private void OnRetailMrpCommitted(RetailBillLineViewModel line, decimal mrp)

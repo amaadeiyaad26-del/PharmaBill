@@ -34,18 +34,6 @@ public static class SmartDrugSuggestionParser
 			string? generic = GetString(root, "genericName", "composition", "generic", "salt");
 			string? manufacturer = GetString(root, "manufacturer", "company");
 			string? pack = GetString(root, "packSizeLabel", "packLabel", "packaging", "unit", "pack");
-			string? hsn = GetString(root, "hsnCode", "hsn");
-			if (hsn != null && (hsn.Length < 4 || hsn.Length > 8 || !hsn.All(char.IsDigit)))
-			{
-				hsn = null;
-			}
-
-			decimal? gst = GetDecimal(root, "gstRate", "gst", "gstPercent");
-			if (gst is < 0m or > 100m)
-			{
-				gst = null;
-			}
-
 			decimal? mrp = GetDecimal(root, "approximateMrp", "approxMrp", "mrp");
 			if (mrp is <= 0m || mrp > MaxReasonableMrp)
 			{
@@ -62,8 +50,9 @@ public static class SmartDrugSuggestionParser
 				GenericName: generic,
 				Manufacturer: manufacturer,
 				PackSizeLabel: pack,
-				GstRate: gst ?? 12m,
-				HsnCode: hsn ?? "3004",
+				// Tax is never taken from an online answer: it would be a guess from the name.
+				GstRate: null,
+				HsnCode: null,
 				ApproximateMrp: mrp is null ? null : Math.Round(mrp.Value, 2, MidpointRounding.AwayFromZero));
 		}
 		catch (JsonException)

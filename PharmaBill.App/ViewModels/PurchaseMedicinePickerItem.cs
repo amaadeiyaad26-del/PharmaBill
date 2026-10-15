@@ -153,7 +153,7 @@ public sealed class PurchaseMedicinePickerItem
 			manufacturer: null,
 			dosageForm: null,
 			strength: null,
-			suggestedGst: 12m,
+			suggestedGst: null, // never defaulted: entered from the supplier invoice
 			suggestedHsn: null,
 			suggestedMrp: null,
 			packSizeLabel: null,

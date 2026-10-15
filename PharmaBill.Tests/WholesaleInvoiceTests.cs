@@ -26,6 +26,29 @@ public sealed class WholesaleInvoiceTests
     }
 
     [Fact]
+    public async Task WholesaleInvoice_ProductWithoutGstRate_IsRefusedUnlessEnteredOnTheInvoice()
+    {
+        var test = await CreateScenarioAsync(validLicence: true, sameState: true);
+        await using var database = test.Database;
+        test.Drug.GstRate = null;
+        await database.Context.SaveChangesAsync();
+
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+        Assert.Contains("GST rate", refused.Message);
+        Assert.Empty(await database.Context.WholesaleInvoices.ToListAsync());
+
+        var input = test.Input();
+        input = input with { Items = [input.Items[0] with { Tax = new PharmaBill.Core.Gst.ProductTaxDetails("30049099", 5m, false) }] };
+        var result = await CreateService(database).SaveAsync(input, test.Owner.Id, UserRole.Owner);
+        var item = await database.Context.WholesaleInvoiceItems.SingleAsync();
+
+        Assert.Equal(50m, result.CgstAmount + result.SgstAmount);
+        Assert.Equal(5m, item.TaxRate);
+        Assert.Equal("30049099", item.HsnCode);
+    }
+
+    [Fact]
     public async Task WholesaleInvoice_BlocksExpiredBuyerLicence()
     {
         var test = await CreateScenarioAsync(validLicence: true, licenceExpiry: DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));

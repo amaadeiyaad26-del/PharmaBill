@@ -160,7 +160,7 @@ public partial class QuickInwardWindow : Window
 			AddStockService addStock = scope.ServiceProvider.GetRequiredService<AddStockService>();
 			Guid supplierId = await EnsureQuickInwardSupplierAsync(context);
 
-			AddStockResult result = await addStock.AddStockAsync(new AddStockInput(
+			AddStockInput? input = await NewProductTaxPrompt.CompleteAsync(addStock, scope.ServiceProvider.GetRequiredService<IPromptService>(), new AddStockInput(
 				_drugId,
 				_catalogMedicineId,
 				_medicineName,
@@ -178,7 +178,14 @@ public partial class QuickInwardWindow : Window
 				supplierId,
 				"QI-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
 				DateOnly.FromDateTime(DateTime.Today),
-				null), user.Id, user.Role);
+				null));
+			if (input == null)
+			{
+				StatusText.Text = _medicineName + " is a new medicine and needs its HSN code and GST rate. Stock was not added.";
+				return;
+			}
+
+			AddStockResult result = await addStock.AddStockAsync(input, user.Id, user.Role);
 
 			Batch batch = await context.Batches.SingleAsync(b => b.Id == result.BatchId);
 			batch.Ptr = ptr;

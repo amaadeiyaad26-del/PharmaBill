@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using PharmaBill.Core.Gst;
 
 namespace PharmaBill.App.ViewModels;
 
@@ -22,6 +23,9 @@ public class WholesaleInvoiceLineDraft : ObservableObject
 	private decimal _discountPercent;
 
 	private string _saleUnit = "Unit";
+
+	/// <summary>HSN and rate entered on this invoice only, for a product that has none recorded.</summary>
+	private ProductTaxDetails? _taxEnteredOnBill;
 
 	public ObservableCollection<WholesaleStockChoice> BatchOptions { get; } = new ObservableCollection<WholesaleStockChoice>();
 
@@ -69,8 +73,58 @@ public class WholesaleInvoiceLineDraft : ObservableObject
 				OnPropertyChanged(nameof(PackLabel));
 				SyncDiscountFromPercent();
 				RaiseComputed();
+				RaiseTaxChanged();
 			}
 		}
+	}
+
+	/// <summary>The tax this line is billed at: the product's recorded details, else what was entered on this invoice. Null blocks saving.</summary>
+	public ProductTaxDetails? Tax => StockChoice?.KnownTax ?? _taxEnteredOnBill;
+
+	public bool NeedsTaxDetails => StockChoice != null && Tax == null;
+
+	public string MissingTaxText => NeedsTaxDetails
+		? "No " + ProductTax.DescribeMissing(StockChoice!.HsnCode, StockChoice.GstRate, StockChoice.IsNilRated) + " · set before saving"
+		: string.Empty;
+
+	public string GstRateText => PharmaBill.App.Services.GstRateText.Format(Tax?.GstRate, Tax?.IsNilRated == true);
+
+	/// <summary>Tax details for the line input: only when they were entered on this invoice.</summary>
+	public ProductTaxDetails? TaxEnteredOnBill => StockChoice?.KnownTax == null ? _taxEnteredOnBill : null;
+
+	/// <summary>Records tax details for this line: on the product (all batches) when saved there, else on this invoice only.</summary>
+	public void ApplyTax(ProductTaxDetails details, bool savedToProduct)
+	{
+		if (savedToProduct)
+		{
+			_taxEnteredOnBill = null;
+			WholesaleStockChoice WithTax(WholesaleStockChoice option) => option with { HsnCode = details.HsnCode, GstRate = details.GstRate, IsNilRated = details.IsNilRated };
+			if (_stockChoice != null)
+			{
+				_stockChoice = WithTax(_stockChoice);
+			}
+
+			for (int i = 0; i < BatchOptions.Count; i++)
+			{
+				BatchOptions[i] = WithTax(BatchOptions[i]);
+			}
+		}
+		else
+		{
+			_taxEnteredOnBill = details;
+		}
+
+		OnPropertyChanged(nameof(StockChoice));
+		RaiseTaxChanged();
+	}
+
+	private void RaiseTaxChanged()
+	{
+		OnPropertyChanged(nameof(Tax));
+		OnPropertyChanged(nameof(NeedsTaxDetails));
+		OnPropertyChanged(nameof(MissingTaxText));
+		OnPropertyChanged(nameof(GstRateText));
+		OnPropertyChanged(nameof(TaxEnteredOnBill));
 	}
 
 	public decimal Quantity

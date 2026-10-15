@@ -1742,6 +1742,37 @@
                   </DataGrid.Columns>
                 </DataGrid>
               </StackPanel>
+            </Border>            <Border Padding="14" CornerRadius="10" Margin="0,0,0,16" BorderThickness="1" BorderBrush="{DynamicResource DividerBrush}" Background="{DynamicResource CardBackgroundBrush}">
+              <StackPanel>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Save fixes" Padding="12,6" Style="{StaticResource PrimaryButton}" Command="{Binding SaveProductTaxFixesCommand}"
+                          Visibility="{Binding HasProductsMissingTax, Converter={StaticResource BooleanToVisibilityConverter}}"
+                          ToolTip="Save every row you filled in. Rows with a problem stay in the list with a message." />
+                  <TextBlock FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" Text="{Binding ProductsMissingTaxHeading}" />
+                </DockPanel>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                           Text="These products cannot be billed until their HSN code and GST rate are recorded. A blank rate is never billed as 0%: tick Nil-rated only for products that are genuinely nil-rated. Take the values from your supplier's invoices." />
+                <DataGrid Margin="0,10,0,0" MaxHeight="320" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                          HeadersVisibility="Column" ItemsSource="{Binding ProductsMissingTax}"
+                          Visibility="{Binding HasProductsMissingTax, Converter={StaticResource BooleanToVisibilityConverter}}">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Product" Width="2*" IsReadOnly="True" Binding="{Binding Name, Mode=OneWay}" />
+                    <DataGridTextColumn Header="Missing" Width="150" IsReadOnly="True" Binding="{Binding Missing, Mode=OneWay}" />
+                    <DataGridTextColumn Header="HSN code" Width="110" Binding="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" />
+                    <DataGridTextColumn Header="GST %" Width="80" Binding="{Binding GstRateText, UpdateSourceTrigger=PropertyChanged}" />
+                    <DataGridCheckBoxColumn Header="Nil-rated" Width="80" Binding="{Binding IsNilRated, UpdateSourceTrigger=PropertyChanged}" />
+                    <DataGridTextColumn Header="Problem" Width="2*" IsReadOnly="True" Binding="{Binding RowError, Mode=OneWay}">
+                      <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="{x:Type TextBlock}">
+                          <Setter Property="Foreground" Value="#FFB42318" />
+                          <Setter Property="TextWrapping" Value="Wrap" />
+                        </Style>
+                      </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
+                  </DataGrid.Columns>
+                </DataGrid>
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" Text="{Binding ProductTaxStatus}" />
+              </StackPanel>
             </Border>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-1 Table 4 (B2B)" Margin="0,0,0,8" Foreground="#0D4A2B" />
             <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding B2bEmptyHint}" />
@@ -2206,7 +2237,32 @@
                                  Text="{Binding LineAmount, Mode=OneWay, StringFormat=₹{0:N2}}" />
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>                <DataGridTemplateColumn Header="GST %" Width="104" IsReadOnly="True">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <Grid>
+                        <!-- An unknown rate is never shown or billed as 0%: the line is flagged until HSN and GST are entered. -->
+                        <TextBlock Text="{Binding GstRateText, Mode=OneWay}">
+                          <TextBlock.Style>
+                            <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource BillingInlineReadonlyText}">
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding NeedsTaxDetails}" Value="True">
+                                  <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                        <Button Content="Set HSN / GST" Padding="6,1" FontSize="11.5" FontWeight="SemiBold" Cursor="Hand" IsTabStop="False"
+                                Foreground="#FFB42318" Background="#FFFEF3F2" BorderBrush="#FFFDA29B" BorderThickness="1"
+                                ToolTip="{Binding MissingTaxText}" AutomationProperties.Name="Set HSN and GST rate"
+                                Command="{Binding DataContext.SetLineTaxCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"
+                                Visibility="{Binding NeedsTaxDetails, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      </Grid>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
                 <DataGridTemplateColumn Header="Pack" Width="70" IsReadOnly="True">
                   <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
@@ -3038,10 +3094,28 @@
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
-                  <DataGridTemplateColumn Header="GST %" Width="64" IsReadOnly="True">
+                  <DataGridTemplateColumn Header="GST %" Width="104" IsReadOnly="True">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <TextBlock Style="{StaticResource BillingInlineReadonlyText}" Text="{Binding GstRate, StringFormat=F2, Mode=OneWay}" />
+                        <Grid>
+                          <!-- An unknown rate is never shown or billed as 0%: the line is flagged until HSN and GST are entered. -->
+                          <TextBlock Text="{Binding GstRateText, Mode=OneWay}">
+                            <TextBlock.Style>
+                              <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource BillingInlineReadonlyText}">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding NeedsTaxDetails}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
+                          <Button Content="Set HSN / GST" Padding="6,1" FontSize="11.5" FontWeight="SemiBold" Cursor="Hand"
+                                  Foreground="#FFB42318" Background="#FFFEF3F2" BorderBrush="#FFFDA29B" BorderThickness="1"
+                                  ToolTip="{Binding MissingTaxText}" AutomationProperties.Name="Set HSN and GST rate"
+                                  Command="{Binding DataContext.SetLineTaxCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"
+                                  Visibility="{Binding NeedsTaxDetails, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </Grid>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                   </DataGridTemplateColumn>
@@ -4183,10 +4257,14 @@
                       <TextBox x:Name="PurchaseNewItemFormulation" Padding="4,2" Text="{Binding Path=NewItemFormulation, UpdateSourceTrigger=PropertyChanged}"
                                ToolTip="e.g. Tab, Syr, Inj, Cap" />
                     </controls:FloatingField>
-                    <controls:FloatingField Label="HSN code" Width="110" Margin="0,2,8,2"
+                    <controls:FloatingField Label="HSN code" Width="110" Margin="0,2,8,2" IsRequired="True"
                                             Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
-                      <TextBox x:Name="PurchaseNewItemHsn" Padding="4,2" Text="{Binding Path=NewItemHsn, UpdateSourceTrigger=PropertyChanged}" />
+                      <TextBox x:Name="PurchaseNewItemHsn" Padding="4,2" Text="{Binding Path=NewItemHsn, UpdateSourceTrigger=PropertyChanged}"
+                               ToolTip="Required for a new medicine: 4, 6 or 8 digits from the supplier's invoice." />
                     </controls:FloatingField>
+                    <CheckBox Content="Nil-rated (0% GST)" VerticalAlignment="Center" Margin="0,2,8,2" IsChecked="{Binding NewItemNilRated}"
+                              Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}"
+                              ToolTip="Tick only if this medicine is genuinely nil-rated. A blank GST % is never treated as 0%." />
                   </WrapPanel>
                   <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding RateSuggestionHint}" Visibility="{Binding HasRateSuggestion, Converter={StaticResource BooleanToVisibilityConverter}}" />
                   <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding NewItemError}" />

@@ -14,7 +14,9 @@ public class SmartDrugSuggestionParserTests
 		Assert.Equal("Foo 500", s!.BrandName);
 		Assert.Equal("Paracetamol 500mg", s.GenericName);
 		Assert.Equal("Strip", s.PackSizeLabel);
-		Assert.Equal(12m, s.GstRate);
+		// Tax is never taken from an online answer, even when it offers one: that would be a guess from the name.
+		Assert.Null(s.GstRate);
+		Assert.Null(s.HsnCode);
 		Assert.Equal(32.46m, s.ApproximateMrp);
 	}
 
@@ -23,8 +25,8 @@ public class SmartDrugSuggestionParserTests
 	{
 		SmartDrugSuggestion? s = SmartDrugSuggestionParser.Parse("{\"brandName\":\"X\",\"hsnCode\":\"abc\",\"gstRate\":500,\"approxMrp\":-4,\"manufacturer\":\"unknown\"}");
 		Assert.NotNull(s);
-		Assert.Equal("3004", s!.HsnCode);
-		Assert.Equal(12m, s.GstRate);
+		Assert.Null(s!.HsnCode);
+		Assert.Null(s.GstRate);
 		Assert.Null(s.ApproximateMrp);
 		Assert.Null(s.Manufacturer);
 		Assert.Null(SmartDrugSuggestionParser.Parse("sorry, I do not know"));

@@ -133,8 +133,20 @@ public partial class QuickAddMedicineWindow : Window
 			PackBox.Text = suggestion.PackSizeLabel.Trim();
 		}
 
-		HsnBox.Text = string.IsNullOrWhiteSpace(suggestion.HsnCode) ? "3004" : suggestion.HsnCode.Trim();
-		GstBox.Text = suggestion.GstRate.ToString("0.##", CultureInfo.InvariantCulture);
+		// Tax is filled only when this pharmacy has it recorded on a product; it is never guessed from the name.
+		if (!string.IsNullOrWhiteSpace(suggestion.HsnCode))
+		{
+			HsnBox.Text = suggestion.HsnCode.Trim();
+		}
+
+		if (suggestion.IsNilRated)
+		{
+			NilRatedBox.IsChecked = true;
+		}
+		else if (suggestion.GstRate is > 0m)
+		{
+			GstBox.Text = suggestion.GstRate.Value.ToString("0.##", CultureInfo.InvariantCulture);
+		}
 		if (suggestion.ApproximateMrp is > 0m)
 		{
 			MrpBox.Text = suggestion.ApproximateMrp.Value.ToString("0.##", CultureInfo.InvariantCulture);
@@ -160,21 +172,19 @@ public partial class QuickAddMedicineWindow : Window
 			return;
 		}
 
-		if (!TryOptionalDecimal(GstBox.Text, out decimal gst))
+		// HSN and GST are required. A blank rate is never defaulted; 0% only through Nil-rated.
+		bool nilRated = NilRatedBox.IsChecked == true;
+		if (!GstRateText.TryParse(GstBox.Text, out decimal? gst))
 		{
-			StatusText.Text = "GST % must be a number from 0 to 100.";
+			StatusText.Text = "GST % must be a number, for example 5 or 12.";
 			GstBox.Focus();
 			return;
 		}
 
-		if (string.IsNullOrWhiteSpace(GstBox.Text))
+		if (!PharmaBill.Core.Gst.ProductTax.TryCreate(HsnBox.Text, gst, nilRated, out _, out string? taxError))
 		{
-			gst = 12m;
-		}
-
-		if (gst < 0m || gst > 100m)
-		{
-			StatusText.Text = "GST % must be a number from 0 to 100.";
+			StatusText.Text = taxError ?? string.Empty;
+			(string.IsNullOrWhiteSpace(HsnBox.Text) ? HsnBox : GstBox).Focus();
 			return;
 		}
 
@@ -201,10 +211,11 @@ public partial class QuickAddMedicineWindow : Window
 					ManufacturerBox.Text,
 					PackBox.Text,
 					HsnBox.Text,
-					gst,
+					nilRated ? null : gst,
 					string.IsNullOrWhiteSpace(MrpBox.Text) ? null : mrp,
 					string.IsNullOrWhiteSpace(RateBox.Text) ? null : rate,
-					BarcodeBox.Text),
+					BarcodeBox.Text,
+					nilRated),
 				_userId);
 			DialogResult = true;
 		}
@@ -212,6 +223,16 @@ public partial class QuickAddMedicineWindow : Window
 		{
 			StatusText.Text = ex.Message;
 			SaveButton.IsEnabled = true;
+		}
+	}
+
+	private void NilRated_Changed(object sender, RoutedEventArgs e)
+	{
+		bool nil = NilRatedBox.IsChecked == true;
+		GstBox.IsEnabled = !nil;
+		if (nil)
+		{
+			GstBox.Text = string.Empty;
 		}
 	}
 

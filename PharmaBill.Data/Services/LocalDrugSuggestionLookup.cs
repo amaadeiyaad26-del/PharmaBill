@@ -36,7 +36,8 @@ public static class LocalDrugSuggestionLookup
 				packSizeLabel: drug.Unit ?? drug.DosageForm,
 				gstRate: drug.GstRate,
 				hsnCode: drug.HsnCode,
-				mrp: drug.Mrp);
+				mrp: drug.Mrp,
+				isNilRated: drug.IsNilRated);
 		}
 
 		CatalogMedicine? catalog = await context.CatalogMedicines.AsNoTracking()
@@ -62,7 +63,8 @@ public static class LocalDrugSuggestionLookup
 			catalog.PackSizeLabel,
 			gstRate: null,
 			hsnCode: null,
-			mrp: catalog.ReferencePrice);
+			mrp: catalog.ReferencePrice,
+			isNilRated: false);
 	}
 
 	private static SmartDrugSuggestion ToSuggestion(
@@ -72,10 +74,13 @@ public static class LocalDrugSuggestionLookup
 		string? packSizeLabel,
 		decimal? gstRate,
 		string? hsnCode,
-		decimal? mrp)
+		decimal? mrp,
+		bool isNilRated)
 	{
-		decimal gst = gstRate is > 0m and <= 100m ? gstRate.Value : 12m;
-		string hsn = string.IsNullOrWhiteSpace(hsnCode) ? "3004" : hsnCode.Trim();
+		// Only what this pharmacy recorded on the product. Nothing is defaulted: an unknown rate stays unknown.
+		bool knownRate = isNilRated || gstRate is > 0m and <= 100m;
+		decimal? gst = knownRate ? (isNilRated ? 0m : gstRate) : null;
+		string? hsn = string.IsNullOrWhiteSpace(hsnCode) ? null : hsnCode.Trim();
 		return new SmartDrugSuggestion(
 			brand.Trim(),
 			string.IsNullOrWhiteSpace(generic) ? null : generic.Trim(),
@@ -83,7 +88,8 @@ public static class LocalDrugSuggestionLookup
 			string.IsNullOrWhiteSpace(packSizeLabel) ? null : packSizeLabel.Trim(),
 			gst,
 			hsn,
-			mrp is > 0m ? mrp : null);
+			mrp is > 0m ? mrp : null,
+			knownRate && isNilRated);
 	}
 
 	private static string? JoinComposition(string? first, string? second)

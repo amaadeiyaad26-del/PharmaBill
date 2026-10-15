@@ -517,6 +517,73 @@ public sealed class RetailBillingTests
             .SumAsync(movement => movement.QuantityChange));
     }
 
+    [Theory]
+    [InlineData(null, null, false)]
+    [InlineData("3004", null, false)]
+    [InlineData(null, 12, false)]
+    [InlineData("3004", 0, false)]
+    public async Task SaveSale_ProductWithoutKnownHsnOrGst_IsRefusedNotBilledAtZero(string? hsn, int? rate, bool nilRated)
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        drug.HsnCode = hsn;
+        drug.GstRate = rate;
+        drug.IsNilRated = nilRated;
+        await database.Context.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with { Payments = [new RetailPaymentInput("Cash", 100m)] },
+            Guid.NewGuid(),
+            UserRole.Owner));
+
+        Assert.Contains("cannot be billed", exception.Message);
+        Assert.Empty(await database.Context.Sales.ToListAsync());
+    }
+
+    [Fact]
+    public async Task SaveSale_TaxEnteredOnTheBill_IsChargedAndRecordedWithoutChangingTheProduct()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        drug.HsnCode = null;
+        drug.GstRate = null;
+        await database.Context.SaveChangesAsync();
+        var input = NewSaleInput(drug, batch);
+        input = input with
+        {
+            Items = [input.Items[0] with { Tax = new PharmaBill.Core.Gst.ProductTaxDetails("30049099", 5m, false) }],
+            Payments = [new RetailPaymentInput("Cash", 100m)]
+        };
+
+        var result = await service.SaveSaleAsync(input, Guid.NewGuid(), UserRole.Owner);
+        var item = await database.Context.SaleItems.SingleAsync();
+
+        Assert.Equal(4.76m, result.TaxAmount);
+        Assert.Equal(5m, item.TaxRate);
+        Assert.Equal("30049099", item.HsnCode);
+        var stored = await database.Context.Drugs.AsNoTracking().SingleAsync(d => d.Id == drug.Id);
+        Assert.Null(stored.HsnCode);
+        Assert.Null(stored.GstRate);
+    }
+
+    [Fact]
+    public async Task SaveSale_NilRatedProduct_BillsAtZeroPercent()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database);
+        drug.GstRate = 0m;
+        drug.IsNilRated = true;
+        await database.Context.SaveChangesAsync();
+
+        var result = await service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with { Payments = [new RetailPaymentInput("Cash", 100m)] },
+            Guid.NewGuid(),
+            UserRole.Owner);
+
+        Assert.Equal(0m, result.TaxAmount);
+        Assert.Equal(0m, (await database.Context.SaleItems.SingleAsync()).TaxRate);
+    }
+
     private static SaveRetailSaleInput NewSaleInput(Drug drug, Batch batch) =>
         new(
             "Test Patient",
@@ -544,7 +611,7 @@ public sealed class RetailBillingTests
             BusinessMode = BusinessMode.Retail,
             InvoicePrefix = "WIN1"
         };
-        var drug = new Drug { Name = "Test medicine", Schedule = schedule, GstRate = 12m };
+        var drug = new Drug { Name = "Test medicine", Schedule = schedule, GstRate = 12m, HsnCode = "3004" };
         var batch = new Batch
         {
             DrugId = drug.Id,

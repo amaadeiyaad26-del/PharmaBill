@@ -988,6 +988,18 @@ public sealed class AddStockViewModel : ObservableObject
 				{
 					return;
 				}
+				if (_prompt != null)
+				{
+					AddStockInput? completed = await NewProductTaxPrompt.CompleteAsync(service, _prompt, input);
+					if (completed == null)
+					{
+						ErrorMessage = input.MedicineName.Trim() + " is a new medicine and needs its HSN code and GST rate. Stock was not added.";
+						return;
+					}
+
+					input = completed;
+				}
+
 				AddStockResult e = await service.AddStockAsync(input, _session.User.Id, _session.User.Role);
 				Saved?.Invoke(this, e);
 			}

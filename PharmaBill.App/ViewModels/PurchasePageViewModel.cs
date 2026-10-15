@@ -23,6 +23,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Ai;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using PharmaBill.Sync;
@@ -1054,6 +1055,48 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanged(nameof(NewItemHsn));
 			}
 		}
+	}
+
+	private bool _newItemNilRated;
+
+	/// <summary>The new medicine is billed at 0% GST. Only an explicit tick means 0%; a blank GST % never does.</summary>
+	public bool NewItemNilRated
+	{
+		get => _newItemNilRated;
+		set
+		{
+			if (_newItemNilRated != value)
+			{
+				_newItemNilRated = value;
+				OnPropertyChanged(nameof(NewItemNilRated));
+				if (value)
+				{
+					NewItemGst = string.Empty;
+				}
+			}
+		}
+	}
+
+	/// <summary>HSN and GST for a medicine being created here. Both required; throws with a message naming the medicine.</summary>
+	private ProductTaxDetails RequireNewProductTax(string name)
+	{
+		if (!GstRateText.TryParse(NewItemGst, out decimal? rate))
+		{
+			throw new InvalidOperationException("GST % must be a number, for example 5 or 12.");
+		}
+
+		return ProductTax.Require(name, NewItemHsn, NewItemNilRated ? null : rate, NewItemNilRated);
+	}
+
+	/// <summary>
+	/// A scanned or typed purchase line names a medicine that is not in the master. Ask for its HSN and GST before it
+	/// is created; the GST % from the supplier's invoice line is offered when it has one. Null when the user cancels.
+	/// </summary>
+	private ProductTaxDetails? AskNewMedicineTax(string name, decimal invoiceLineGst)
+	{
+		using IServiceScope scope = scopeFactory.CreateScope();
+		return scope.ServiceProvider.GetRequiredService<IPromptService>()
+			.AskProductTax(name, null, invoiceLineGst > 0m ? invoiceLineGst : null, false, newProduct: true)?.Details;
 	}
 
 	/// <summary>Drug Bank pack / packaging description (e.g. "100ml Bottle", "10 Tablets / Strip").</summary>
@@ -2121,6 +2164,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private void ApplyImmediateDefaults(PurchaseMedicinePickerItem item)
 	{
+		NewItemNilRated = item.Drug?.IsNilRated == true;
 		if (item.SuggestedGst is > 0m)
 		{
 			NewItemGst = FormatAmount(item.SuggestedGst.Value);
@@ -2487,11 +2531,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 			CatalogMedicine catalog = await context.CatalogMedicines.AsNoTracking()
 				.FirstAsync(m => m.Id == catalogId);
-			decimal gst = OptionalDecimal(NewItemGst);
-			if (gst < 0m || gst > 100m)
-			{
-				gst = selected.SuggestedGst ?? 12m;
-			}
+			ProductTaxDetails tax = RequireNewProductTax(catalog.Name.Trim());
 
 			Drug created = new Drug
 			{
@@ -2500,8 +2540,9 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				GenericName = catalog.GenericName ?? catalog.CompositionKey,
 				Strength = catalog.Strength,
 				DosageForm = string.IsNullOrWhiteSpace(NewItemFormulation) ? catalog.DosageForm : NewItemFormulation.Trim(),
-				HsnCode = string.IsNullOrWhiteSpace(NewItemHsn) ? selected.SuggestedHsn : NewItemHsn.Trim(),
-				GstRate = gst,
+				HsnCode = tax.HsnCode,
+				GstRate = tax.GstRate,
+				IsNilRated = tax.IsNilRated,
 				Mrp = catalog.ReferencePrice,
 				SalePrice = catalog.ReferencePrice,
 				CatalogMedicineId = catalog.Id,
@@ -2530,12 +2571,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				throw new InvalidOperationException("Enter the new medicine name.");
 			}
 
-			decimal gst = 12m;
-			if (TryDecimal(NewItemGst, out var parsedGst) && parsedGst >= 0m && parsedGst <= 100m)
-			{
-				gst = parsedGst;
-			}
-
+			ProductTaxDetails tax = RequireNewProductTax(name);
 			decimal? mrp = TryDecimal(NewItemMrp, out var parsedMrp) && parsedMrp >= 0m ? parsedMrp : null;
 			decimal? rate = TryDecimal(NewItemRate, out var parsedRate) && parsedRate >= 0m ? parsedRate : null;
 			CustomMedicineResult saved = await scope.ServiceProvider.GetRequiredService<CustomMedicineService>().SaveAsync(
@@ -2544,10 +2580,11 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 					null,
 					null,
 					string.IsNullOrWhiteSpace(NewItemPackLabel) ? NewItemFormulation : NewItemPackLabel,
-					NewItemHsn,
-					gst,
+					tax.HsnCode,
+					tax.IsNilRated ? null : tax.GstRate,
 					mrp,
-					rate),
+					rate,
+					IsNilRated: tax.IsNilRated),
 				currentSession.User?.Id);
 			Drug manual = await context.Drugs.FirstAsync(item => item.Id == saved.DrugId);
 			if (Drugs.All(item => item.Id != manual.Id))
@@ -3248,7 +3285,14 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 			if (drug == null && !string.IsNullOrWhiteSpace(line.MedicineName))
 			{
-				CustomMedicineResult created = await medicines.SaveAsync(new CustomMedicineRequest(line.MedicineName.Trim(), null, null, null, "3004", line.Gst, line.Mrp > 0m ? line.Mrp : null, line.Rate), currentSession.User.Id);
+				ProductTaxDetails? newTax = AskNewMedicineTax(line.MedicineName.Trim(), line.Gst);
+				if (newTax == null)
+				{
+					ErrorMessage = "Bill " + bill.Index + ": '" + line.MedicineName.Trim() + "' is a new medicine and needs its HSN code and GST rate. Nothing was inwarded.";
+					return false;
+				}
+
+				CustomMedicineResult created = await medicines.SaveAsync(new CustomMedicineRequest(line.MedicineName.Trim(), null, null, null, newTax.HsnCode, newTax.IsNilRated ? null : newTax.GstRate, line.Mrp > 0m ? line.Mrp : null, line.Rate, IsNilRated: newTax.IsNilRated), currentSession.User.Id);
 				drug = await context.Drugs.FirstOrDefaultAsync((Drug item) => item.Id == created.DrugId);
 				if (drug != null && Drugs.All((Drug item) => item.Id != drug.Id))
 				{
@@ -3731,6 +3775,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		NewItemRack = string.Empty;
 		NewItemFormulation = string.Empty;
 		NewItemHsn = string.Empty;
+		NewItemNilRated = false;
 		NewItemPackLabel = string.Empty;
 		NewItemError = string.Empty;
 		_defaultsEnrichCts?.Cancel();
@@ -4463,7 +4508,8 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	public event Func<Task>? PurchasePosted;
 
-	private async Task EnsurePurchaseMedicinesAsync()
+	/// <summary>Creates master records for purchase lines naming unknown medicines. False when the user cancelled an HSN / GST prompt.</summary>
+	private async Task<bool> EnsurePurchaseMedicinesAsync()
 	{
 		foreach (PurchaseLineDraft named in Lines.Where((PurchaseLineDraft line) => line.Drug == null && !string.IsNullOrWhiteSpace(line.MedicineName)))
 		{
@@ -4473,7 +4519,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		List<PurchaseLineDraft> missing = Lines.Where((PurchaseLineDraft line) => line.Drug == null && !string.IsNullOrWhiteSpace(line.MedicineName)).ToList();
 		if (missing.Count == 0 || currentSession.User == null)
 		{
-			return;
+			return true;
 		}
 
 		using IServiceScope scope = scopeFactory.CreateScope();
@@ -4481,7 +4527,14 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		foreach (PurchaseLineDraft line in missing)
 		{
-			CustomMedicineResult created = await medicines.SaveAsync(new CustomMedicineRequest(line.MedicineName.Trim(), null, null, null, "3004", line.GstRate, line.Mrp > 0m ? line.Mrp : null, line.Rate), currentSession.User.Id);
+			ProductTaxDetails? tax = AskNewMedicineTax(line.MedicineName.Trim(), line.GstRate);
+			if (tax == null)
+			{
+				ErrorMessage = "'" + line.MedicineName.Trim() + "' is a new medicine and needs its HSN code and GST rate. The purchase was not saved.";
+				return false;
+			}
+
+			CustomMedicineResult created = await medicines.SaveAsync(new CustomMedicineRequest(line.MedicineName.Trim(), null, null, null, tax.HsnCode, tax.IsNilRated ? null : tax.GstRate, line.Mrp > 0m ? line.Mrp : null, line.Rate, IsNilRated: tax.IsNilRated), currentSession.User.Id);
 			Drug? drug = await context.Drugs.FirstOrDefaultAsync((Drug item) => item.Id == created.DrugId);
 			if (drug == null)
 			{
@@ -4495,6 +4548,8 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				Drugs.Add(drug);
 			}
 		}
+
+		return true;
 	}
 
 	private async Task TransferToStockAsync()
@@ -4563,7 +4618,10 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 
 		NormalizeLineExpiries();
-		await EnsurePurchaseMedicinesAsync();
+		if (!await EnsurePurchaseMedicinesAsync())
+		{
+			return;
+		}
 		PurchaseLineDraft? invalid = Lines.FirstOrDefault((PurchaseLineDraft line) => !line.TryCreateInput(out PurchaseLineInput _));
 		if (Lines.Count == 0 || invalid != null)
 		{

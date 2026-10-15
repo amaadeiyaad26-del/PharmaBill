@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using PharmaBill.Core.Gst;
 
 namespace PharmaBill.App.ViewModels;
 
@@ -16,8 +17,13 @@ public sealed record WholesaleStockChoice(
 	decimal UnitsPerStrip,
 	decimal UnitsPerBox,
 	string? Schedule,
-	decimal GstRate)
+	decimal? GstRate,
+	string? HsnCode = null,
+	bool IsNilRated = false)
 {
+	/// <summary>The product's recorded HSN and GST rate, or null when either is not known (never treated as 0%).</summary>
+	public ProductTaxDetails? KnownTax => ProductTax.Known(HsnCode, GstRate, IsNilRated);
+
 	/// <summary>Default trade rate: PTR when present and ≤ MRP, otherwise MRP.</summary>
 	public decimal DefaultWholesaleRate
 	{
