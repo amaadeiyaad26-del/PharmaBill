@@ -139,7 +139,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public ObservableCollection<string> LicenceTypeOptions { get; } = new ObservableCollection<string>();
 
-	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string>(BuyerLicenceRules.Defaults.Keys);
+	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string>(CustomerListRules.RetailBuyerTypes.Concat(CustomerListRules.WholesaleBuyerTypes));
 
 	/// <summary>Known licence types with a tick for those allowed for <see cref="BuyerLicenceRuleType"/>.</summary>
 	public ObservableCollection<LicenceTypeChoice> BuyerLicenceRuleChoices { get; } = new ObservableCollection<LicenceTypeChoice>();

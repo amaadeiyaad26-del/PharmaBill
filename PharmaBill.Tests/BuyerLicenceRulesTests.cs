@@ -22,6 +22,18 @@ public sealed class BuyerLicenceRulesTests
     }
 
     [Fact]
+    public void OtherBuyerType_ShipsWithNoRuleAndExplainsWhereToSetIt()
+    {
+        var rules = BuyerLicenceRules.Parse(BuyerLicenceRules.AddMissingDefaults("{}").Json);
+
+        Assert.Empty(BuyerLicenceRules.AllowedFor(rules, "Other"));
+        string? message = BuyerLicenceRules.MissingRuleMessage(rules, "Other");
+        Assert.NotNull(message);
+        Assert.Contains("\"Other\" buyers are blocked", message);
+        Assert.Contains(BuyerLicenceRules.WhereToSet, message);
+    }
+
+    [Fact]
     public void AddMissingDefaults_FillsGapsWithoutChangingConfiguredRules()
     {
         string legacy = JsonSerializer.Serialize(new Dictionary<string, string[]> { ["retailer"] = ["20"], ["Distributor"] = [] });

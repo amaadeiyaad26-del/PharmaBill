@@ -20,8 +20,8 @@ public static class BuyerLicenceRules
 		["Hospital"] = new[] { "20", "21" },
 		["Institution"] = new[] { "20", "21" },
 		["Distributor"] = new[] { "20B", "21B" },
-		["Wholesaler"] = new[] { "20B", "21B" },
-		["Other"] = new[] { "20B", "21B" }
+		["Wholesaler"] = new[] { "20B", "21B" }
+		// "Other" deliberately has no default: an unknown buyer type must not inherit the permissive 20B/21B rule.
 	};
 
 	public const string TypicalExample = "Retailer → 20, 21; Distributor / Wholesaler → 20B, 21B";
