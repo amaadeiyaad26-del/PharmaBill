@@ -2217,7 +2217,8 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				await scope.ServiceProvider.GetRequiredService<QuotationService>().MarkConvertedAsync(convertedQuoteId, wholesaleInvoiceResult.Invoice.InvoiceNo);
 				_quotationConversionId = null;
 			}
-			StatusMessage = $"Invoice {wholesaleInvoiceResult.Invoice.InvoiceNo} saved. Total {MoneyFormat.Rupees(wholesaleInvoiceResult.Invoice.TotalAmount)}; outstanding {MoneyFormat.Rupees(wholesaleInvoiceResult.OutstandingAfterPosting)}.";
+			StatusMessage = $"Invoice {wholesaleInvoiceResult.Invoice.InvoiceNo} saved. Total {MoneyFormat.Rupees(wholesaleInvoiceResult.Invoice.TotalAmount)}; outstanding {MoneyFormat.Rupees(wholesaleInvoiceResult.OutstandingAfterPosting)}."
+				+ (wholesaleInvoiceResult.StateNotes is { Count: > 0 } stateNotes ? " " + string.Join(" ", stateNotes) : string.Empty);
 			ErrorMessage = string.Empty;
 			Items.Clear();
 			await LoadAsync();
@@ -2637,9 +2638,95 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	private string _gstStateNote = string.Empty;
+
+	private bool _canCorrectGstState;
+
+	private IAsyncRelayCommand? correctGstStateCommand;
+
+	/// <summary>Visible note when a GSTIN overrides a stored state name, or when billing will be refused.</summary>
+	public string GstStateNote
+	{
+		get => _gstStateNote;
+		private set
+		{
+			if (SetProperty(ref _gstStateNote, value))
+			{
+				OnPropertyChanged(nameof(HasGstStateNote));
+			}
+		}
+	}
+
+	public bool HasGstStateNote => !string.IsNullOrWhiteSpace(GstStateNote);
+
+	public bool CanCorrectGstState
+	{
+		get => _canCorrectGstState;
+		private set => SetProperty(ref _canCorrectGstState, value);
+	}
+
+	public IAsyncRelayCommand CorrectGstStateCommand => correctGstStateCommand ??= new AsyncRelayCommand(CorrectGstStateAsync);
+
+	private async Task RefreshGstStateNoteAsync(Customer? customer, CancellationToken cancellationToken = default)
+	{
+		if (customer == null)
+		{
+			GstStateNote = string.Empty;
+			CanCorrectGstState = false;
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			WholesaleGstStateCheck check = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().CheckGstStatesAsync(customer.Id, cancellationToken);
+			if (SelectedCustomer?.Id != customer.Id)
+			{
+				return;
+			}
+			List<string> lines = new List<string>(check.Notes);
+			if (check.RefusalMessage != null)
+			{
+				lines.Add(check.RefusalMessage);
+			}
+			GstStateNote = string.Join(Environment.NewLine, lines);
+			CanCorrectGstState = check.Pharmacy.HasMismatch || check.Buyer.HasMismatch;
+		}
+		catch (Exception ex)
+		{
+			GstStateNote = "GST state check failed: " + ex.Message;
+			CanCorrectGstState = false;
+		}
+	}
+
+	private async Task CorrectGstStateAsync()
+	{
+		Customer? customer = SelectedCustomer;
+		AppUser? user = _session.User;
+		if (customer == null || user == null)
+		{
+			return;
+		}
+		if (!_confirmation.Confirm(GstStateNote + Environment.NewLine + Environment.NewLine + "Replace the stored state name with the state from the GSTIN?", "Correct GST state"))
+		{
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			IReadOnlyList<string> changes = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().CorrectStoredStatesFromGstinAsync(customer.Id, user.Id);
+			StatusMessage = changes.Count == 0 ? "Stored GST states already match the GSTIN." : "Corrected: " + string.Join("; ", changes) + ".";
+			await RefreshGstStateNoteAsync(customer);
+		}
+		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
 	private async Task RefreshBuyerHeaderAsync(CancellationToken cancellationToken = default)
 	{
 		Customer? customer = SelectedCustomer;
+		_ = RefreshGstStateNoteAsync(customer, cancellationToken);
 		if (customer == null)
 		{
 			BuyerDrugLicence = string.Empty;

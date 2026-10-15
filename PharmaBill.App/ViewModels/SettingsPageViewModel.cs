@@ -1415,20 +1415,26 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 	}
 
-	private bool TryGetPharmacyStateForSave(out string? state, out string error)
+	/// <summary>A valid GSTIN decides the GST state; the typed name is only used without one. Mismatches are kept and reported.</summary>
+	private bool TryGetPharmacyStateForSave(out string? state, out string error, out string? note)
 	{
-		state = null;
+		state = string.IsNullOrWhiteSpace(PharmacyState) ? null : PharmacyState.Trim();
 		error = string.Empty;
-		if (string.IsNullOrWhiteSpace(PharmacyState))
+		GstStateResolution resolution = IndianGstStateCodes.ResolveForTax(PharmacyState, PharmacyGstin);
+		note = resolution.Note;
+		if (!resolution.IsResolved)
 		{
-			return true;
-		}
-		if (!IndianGstStateCodes.TryResolve(PharmacyState, null, out string? code))
-		{
-			error = "State \"" + PharmacyState.Trim() + "\" is not a recognised Indian GST state. Pick one from the list.";
+			if (state == null)
+			{
+				return true;
+			}
+			error = "State \"" + state + "\" is not a recognised Indian GST state and there is no valid GSTIN. Pick one from the list.";
 			return false;
 		}
-		state = IndianGstStateCodes.NameForCode(code) ?? PharmacyState.Trim();
+		if (state == null || resolution.Source == GstStateSource.StateName)
+		{
+			state = resolution.CanonicalName;
+		}
 		return true;
 	}
 
@@ -3347,7 +3353,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			PharmacyProfile pharmacyProfile = await unitOfWork.Context.PharmacyProfiles.SingleOrDefaultAsync();
 			if (pharmacyProfile != null && !string.IsNullOrWhiteSpace(PharmacyStoreName))
 			{
-				if (!TryGetPharmacyStateForSave(out string? state, out string stateError))
+				if (!TryGetPharmacyStateForSave(out string? state, out string stateError, out _))
 				{
 					DocumentOutputStatus = "Print settings saved, but pharmacy profile not updated: " + stateError;
 					return;
@@ -3423,7 +3429,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			FirmProfileStatus = "Store name is required.";
 			return;
 		}
-		if (!TryGetPharmacyStateForSave(out string? state, out string stateError))
+		if (!TryGetPharmacyStateForSave(out string? state, out string stateError, out string? stateNote))
 		{
 			FirmProfileStatus = stateError;
 			return;
@@ -3452,7 +3458,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			_documentOutputSettings.DrugLicence20B = DrugLicence20B.Trim();
 			_documentOutputSettings.DrugLicence21B = DrugLicence21B.Trim();
 			_documentOutputSettingsStore.Save(_documentOutputSettings);
-			FirmProfileStatus = "Saved successfully ✓";
+			FirmProfileStatus = stateNote == null ? "Saved successfully ✓" : "Saved. Note: " + stateNote;
 		}
 		catch (Exception ex)
 		{

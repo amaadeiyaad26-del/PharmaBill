@@ -85,21 +85,24 @@ public sealed class WholesaleInvoiceTests
         Assert.Equal(120m, result.IgstAmount);
     }
 
+    // GSTIN arguments: "29" => valid GSTIN for state 29; "29!" => state 29 but bad check digit; else literal.
     [Theory]
     [InlineData("J&K", null, "Jammu and Kashmir", null)]
     [InlineData("Jammu & Kashmir", null, "j & k", null)]
     [InlineData("01", null, "Jammu and Kashmir", null)]
-    [InlineData("Karnataka", null, "", "29ABCDE1234F1Z5")]
-    [InlineData("", "29AAAAA0000A1Z5", "karnataka", null)]
-    public async Task WholesaleInvoice_SameStateCodeViaDifferentSpellingsUsesCgstSgst(
+    [InlineData("Karnataka", null, "", "29")]
+    [InlineData("", "29", "karnataka", null)]
+    [InlineData("Tamil Nadu", "29", "Karnataka", null)]
+    [InlineData("Karnatak", "29", "Karnataka", null)]
+    public async Task WholesaleInvoice_SameStateCodeUsesCgstSgst(
         string pharmacyState, string? pharmacyGstin, string buyerState, string? buyerGstin)
     {
         var test = await CreateScenarioAsync(
             validLicence: true,
             pharmacyState: pharmacyState,
-            pharmacyGstin: pharmacyGstin,
+            pharmacyGstin: TestGstin.From(pharmacyGstin),
             buyerState: buyerState,
-            buyerGstin: buyerGstin);
+            buyerGstin: TestGstin.From(buyerGstin));
         await using var database = test.Database;
 
         var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
@@ -111,17 +114,18 @@ public sealed class WholesaleInvoiceTests
 
     [Theory]
     [InlineData("Karnataka", null, "Tamil Nadu", null)]
-    [InlineData("", "29AAAAA0000A1Z5", "", "33ABCDE1234F1Z5")]
+    [InlineData("", "29", "", "33")]
     [InlineData("Jammu and Kashmir", null, "Ladakh", null)]
+    [InlineData("Karnataka", "29", "Karnataka", "33")]
     public async Task WholesaleInvoice_DifferentStateCodesUseIgst(
         string pharmacyState, string? pharmacyGstin, string buyerState, string? buyerGstin)
     {
         var test = await CreateScenarioAsync(
             validLicence: true,
             pharmacyState: pharmacyState,
-            pharmacyGstin: pharmacyGstin,
+            pharmacyGstin: TestGstin.From(pharmacyGstin),
             buyerState: buyerState,
-            buyerGstin: buyerGstin);
+            buyerGstin: TestGstin.From(buyerGstin));
         await using var database = test.Database;
 
         var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
@@ -133,21 +137,22 @@ public sealed class WholesaleInvoiceTests
 
     [Theory]
     [InlineData("", null, "Karnataka", null, "pharmacy's")]
-    [InlineData("Narnia", "29AAAAA0000A1Z5", "Karnataka", null, "pharmacy's")]
+    [InlineData("Narnia", "29!", "Karnataka", null, "pharmacy's")]
     [InlineData("Karnataka", null, "", null, "buyer's")]
     [InlineData("Karnataka", null, "Atlantis", null, "buyer's")]
     [InlineData("Karnataka", null, "", "XXABCDE1234F1Z5", "buyer's")]
+    [InlineData("Karnataka", null, "Karnatak", "29!", "buyer's")]
     [InlineData("", null, "", null, "pharmacy's")]
     [InlineData("Narnia", null, "Atlantis", null, "pharmacy's")]
-    public async Task WholesaleInvoice_UnresolvedStateRefusesAndNamesTheSide(
+    public async Task WholesaleInvoice_NoValidGstinAndNoRecognisedStateRefusesAndNamesTheSide(
         string pharmacyState, string? pharmacyGstin, string buyerState, string? buyerGstin, string side)
     {
         var test = await CreateScenarioAsync(
             validLicence: true,
             pharmacyState: pharmacyState,
-            pharmacyGstin: pharmacyGstin,
+            pharmacyGstin: TestGstin.From(pharmacyGstin),
             buyerState: buyerState,
-            buyerGstin: buyerGstin);
+            buyerGstin: TestGstin.From(buyerGstin));
         await using var database = test.Database;
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -155,6 +160,43 @@ public sealed class WholesaleInvoiceTests
 
         Assert.Contains(side + " GST state could not be determined", error.Message);
         Assert.Empty(await database.Context.WholesaleInvoices.ToListAsync());
+    }
+
+    [Fact]
+    public async Task WholesaleInvoice_GstinOverridesStoredNameVisiblyAndCanBeCorrected()
+    {
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: "Karnatak",
+            pharmacyGstin: TestGstin.From("29"),
+            buyerState: "Tamil Nadu",
+            buyerGstin: TestGstin.From("29"));
+        await using var database = test.Database;
+        var service = CreateService(database);
+
+        var check = await service.CheckGstStatesAsync(test.Customer.Id);
+        Assert.Null(check.RefusalMessage);
+        Assert.Equal(
+            [
+                "Pharmacy: Using Karnataka (29) from the GSTIN; 'Karnatak' was not recognised.",
+                "Buyer: Using Karnataka (29) from the GSTIN; the stored state 'Tamil Nadu' (33) disagrees."
+            ],
+            check.Notes);
+
+        var result = await service.SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        Assert.Equal(120m, result.CgstAmount + result.SgstAmount);
+        Assert.Equal(check.Notes, result.StateNotes);
+        Assert.Contains(
+            await database.Context.AuditLogs.ToListAsync(),
+            log => log.Action == "WholesaleInvoicePosted" && log.Details!.Contains("'Karnatak' was not recognised"));
+        Assert.Equal("Karnatak", (await database.Context.PharmacyProfiles.SingleAsync()).State);
+
+        var changes = await service.CorrectStoredStatesFromGstinAsync(test.Customer.Id, test.Owner.Id);
+
+        Assert.Equal(2, changes.Count);
+        Assert.Equal("Karnataka", (await database.Context.PharmacyProfiles.SingleAsync()).State);
+        Assert.Equal("Karnataka", (await database.Context.Customers.SingleAsync()).State);
+        Assert.Empty((await service.CheckGstStatesAsync(test.Customer.Id)).Notes);
     }
 
     [Fact]

@@ -42,20 +42,23 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		{
 			throw new InvalidOperationException("Wholesale invoicing is unavailable in Retail mode.");
 		}
-		if (!IndianGstStateCodes.TryResolve(profile.State, profile.Gstin, out string? pharmacyStateCode))
+		GstStateResolution pharmacyState = IndianGstStateCodes.ResolveForTax(profile.State, profile.Gstin);
+		if (!pharmacyState.IsResolved)
 		{
-			throw new InvalidOperationException("The pharmacy's GST state could not be determined. Set the pharmacy state (or a valid GSTIN) in Settings → Firm Profile before calculating CGST/SGST or IGST.");
+			throw new InvalidOperationException(UnresolvedPharmacyMessage);
 		}
 		Customer customer = (await context.Customers.SingleOrDefaultAsync((Customer item) => item.Id == input.CustomerId, cancellationToken)) ?? throw new InvalidOperationException("Select a wholesale customer; walk-ins and patients are not allowed.");
 		if (!customer.IsActive)
 		{
 			throw new InvalidOperationException("This customer is Blocked and cannot be invoiced.");
 		}
-		if (!IndianGstStateCodes.TryResolve(customer.State, customer.Gstin, out string? buyerStateCode))
+		GstStateResolution buyerState = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
+		if (!buyerState.IsResolved)
 		{
-			throw new InvalidOperationException("The buyer's GST state could not be determined for " + customer.Name + ". Enter the buyer's state (or a valid GSTIN) on the customer record before calculating CGST/SGST or IGST.");
+			throw new InvalidOperationException(UnresolvedBuyerMessage(customer.Name));
 		}
-		bool intraState = string.Equals(pharmacyStateCode, buyerStateCode, StringComparison.Ordinal);
+		bool intraState = string.Equals(pharmacyState.Code, buyerState.Code, StringComparison.Ordinal);
+		IReadOnlyList<string> stateNotes = new WholesaleGstStateCheck(pharmacyState, buyerState).Notes;
 		DateTime invoiceAtUtc = DateTime.SpecifyKind(input.InvoiceAtUtc ?? DateTime.UtcNow, DateTimeKind.Utc);
 		DateOnly invoiceDate = DateOnly.FromDateTime(invoiceAtUtc.ToLocalTime());
 		IReadOnlyList<CustomerLicence> validLicences = await GetValidLicencesAsync(customer, profile, invoiceDate, cancellationToken);
@@ -299,7 +302,8 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				EntityName = "WholesaleInvoice",
 				EntityId = invoice.Id,
 				BranchId = branch.Id,
-				Details = $"Invoice {text2}; buyer {customer.Name}; total {roundedTotal}; branch {branch.Code}."
+				Details = $"Invoice {text2}; buyer {customer.Name}; total {roundedTotal}; branch {branch.Code}; GST states {pharmacyState.Code}->{buyerState.Code}."
+					+ (stateNotes.Count == 0 ? string.Empty : " " + string.Join(" ", stateNotes))
 			});
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
@@ -307,9 +311,65 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			{
 				throw new InvalidOperationException("System clock manipulation detected. Please set your system time correctly to resume.");
 			}
-			result = new WholesaleInvoiceResult(invoice, cgstTotal, sgstTotal, igstTotal, roundOff, outstandingAfter, hasOverdue);
+			result = new WholesaleInvoiceResult(invoice, cgstTotal, sgstTotal, igstTotal, roundOff, outstandingAfter, hasOverdue, stateNotes);
 		}
 		return result;
+	}
+
+	private const string UnresolvedPharmacyMessage = "The pharmacy's GST state could not be determined: no valid GSTIN and no recognised state. Set it in Settings → Firm Profile before calculating CGST/SGST or IGST.";
+
+	private static string UnresolvedBuyerMessage(string buyerName) =>
+		"The buyer's GST state could not be determined for " + buyerName + ": no valid GSTIN and no recognised state. Enter it on the customer record before calculating CGST/SGST or IGST.";
+
+	/// <summary>Resolves both sides for the invoice screen so mismatches and refusals are shown before saving.</summary>
+	public async Task<WholesaleGstStateCheck> CheckGstStatesAsync(Guid customerId, CancellationToken cancellationToken = default)
+	{
+		PharmacyProfile profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
+		Customer customer = await unitOfWork.Context.Customers.AsNoTracking().SingleAsync(item => item.Id == customerId, cancellationToken);
+		WholesaleGstStateCheck check = new WholesaleGstStateCheck(
+			IndianGstStateCodes.ResolveForTax(profile.State, profile.Gstin),
+			IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin));
+		return check with
+		{
+			RefusalMessage = !check.Pharmacy.IsResolved ? UnresolvedPharmacyMessage
+				: !check.Buyer.IsResolved ? UnresolvedBuyerMessage(customer.Name)
+				: null
+		};
+	}
+
+	/// <summary>Replaces a stored state name that disagrees with the GSTIN by the GSTIN's canonical state name.</summary>
+	public async Task<IReadOnlyList<string>> CorrectStoredStatesFromGstinAsync(Guid customerId, Guid userId, CancellationToken cancellationToken = default)
+	{
+		PharmaBillDbContext context = unitOfWork.Context;
+		PharmacyProfile profile = await context.PharmacyProfiles.SingleAsync(cancellationToken);
+		Customer customer = await context.Customers.SingleAsync(item => item.Id == customerId, cancellationToken);
+		List<string> changes = new List<string>();
+		GstStateResolution pharmacy = IndianGstStateCodes.ResolveForTax(profile.State, profile.Gstin);
+		if (pharmacy.HasMismatch && pharmacy.CanonicalName != null)
+		{
+			changes.Add($"Pharmacy state '{profile.State}' -> '{pharmacy.CanonicalName}'");
+			profile.State = pharmacy.CanonicalName;
+		}
+		GstStateResolution buyer = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
+		if (buyer.HasMismatch && buyer.CanonicalName != null)
+		{
+			changes.Add($"Buyer {customer.Name} state '{customer.State}' -> '{buyer.CanonicalName}'");
+			customer.State = buyer.CanonicalName;
+		}
+		if (changes.Count > 0)
+		{
+			context.AuditLogs.Add(new AuditLog
+			{
+				UserId = userId,
+				ActionAtUtc = DateTime.UtcNow,
+				Action = "GstStateCorrectedFromGstin",
+				EntityName = "Customer",
+				EntityId = customer.Id,
+				Details = string.Join("; ", changes) + "."
+			});
+			await unitOfWork.SaveChangesAsync(cancellationToken);
+		}
+		return changes;
 	}
 
 	public async Task CancelAsync(Guid invoiceId, string reason, Guid userId, UserRole role, CancellationToken cancellationToken = default(CancellationToken))

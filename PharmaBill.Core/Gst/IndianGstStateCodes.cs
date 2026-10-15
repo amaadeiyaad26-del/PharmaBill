@@ -6,6 +6,23 @@ using System.Text.RegularExpressions;
 
 namespace PharmaBill.Core.Gst;
 
+public enum GstStateSource
+{
+	None,
+	Gstin,
+	StateName
+}
+
+/// <summary>Code is null when unresolved. Note is set when the typed state was overridden by the GSTIN.</summary>
+public sealed record GstStateResolution(string? Code, GstStateSource Source, string? TypedState, string? TypedCode, string? Note)
+{
+	public bool IsResolved => Code != null;
+
+	public bool HasMismatch => Note != null;
+
+	public string? CanonicalName => IndianGstStateCodes.NameForCode(Code);
+}
+
 public static class IndianGstStateCodes
 {
 	public const string UnresolvedCode = "97";
@@ -99,10 +116,10 @@ public static class IndianGstStateCodes
 		return ByName.TryGetValue(Normalize(text), out code);
 	}
 
-	private static bool TryResolveGstin(string? gstin, [NotNullWhen(true)] out string? code)
+	private static bool TryGstinPrefix(string? gstin, bool requireValid, [NotNullWhen(true)] out string? code)
 	{
 		code = null;
-		if (string.IsNullOrWhiteSpace(gstin))
+		if (string.IsNullOrWhiteSpace(gstin) || (requireValid && !GstinValidator.IsValid(gstin)))
 		{
 			return false;
 		}
@@ -120,31 +137,53 @@ public static class IndianGstStateCodes
 		return true;
 	}
 
-	/// <summary>Lenient lookup for reports: state first, then GSTIN prefix, else "97".</summary>
+	/// <summary>Lenient lookup for reports, same precedence as <see cref="ResolveForTax"/> but never fails: else "97".</summary>
 	public static string Resolve(string? stateOrCode, string? fallbackGstin = null)
 	{
-		if (!string.IsNullOrWhiteSpace(stateOrCode) && TryResolveState(stateOrCode, out string? fromState))
+		GstStateResolution resolution = ResolveForTax(stateOrCode, fallbackGstin);
+		if (resolution.IsResolved)
 		{
-			return fromState;
+			return resolution.Code!;
 		}
-		if (TryResolveGstin(fallbackGstin, out string? fromGstin))
-		{
-			return fromGstin;
-		}
-		return UnresolvedCode;
+		return TryGstinPrefix(fallbackGstin, requireValid: false, out string? prefix) ? prefix : UnresolvedCode;
 	}
 
 	/// <summary>
-	/// Strict lookup for tax decisions. A non-blank state must be recognised on its own (no GSTIN guess
-	/// behind a typo); a blank state falls back to the GSTIN prefix. Returns false when neither resolves.
+	/// Tax-decision lookup. A valid GSTIN is the source of truth and the typed state is ignored for the code;
+	/// the typed state is used only when there is no valid GSTIN. A typed state that is unrecognised or
+	/// disagrees with the GSTIN is reported in <see cref="GstStateResolution.Note"/>, never dropped silently.
 	/// </summary>
+	public static GstStateResolution ResolveForTax(string? typedState, string? gstin)
+	{
+		string? typed = string.IsNullOrWhiteSpace(typedState) ? null : typedState.Trim();
+		string? typedCode = null;
+		if (typed != null && TryResolveState(typed, out string? resolvedTyped))
+		{
+			typedCode = resolvedTyped;
+		}
+		if (TryGstinPrefix(gstin, requireValid: true, out string? gstinCode))
+		{
+			string label = (NameForCode(gstinCode) ?? gstinCode) + " (" + gstinCode + ")";
+			string? note = null;
+			if (typed != null && typedCode == null)
+			{
+				note = "Using " + label + " from the GSTIN; '" + typed + "' was not recognised.";
+			}
+			else if (typedCode != null && typedCode != gstinCode)
+			{
+				note = "Using " + label + " from the GSTIN; the stored state '" + typed + "' (" + typedCode + ") disagrees.";
+			}
+			return new GstStateResolution(gstinCode, GstStateSource.Gstin, typed, typedCode, note);
+		}
+		return typedCode != null
+			? new GstStateResolution(typedCode, GstStateSource.StateName, typed, typedCode, null)
+			: new GstStateResolution(null, GstStateSource.None, typed, null, null);
+	}
+
 	public static bool TryResolve(string? stateOrCode, string? gstin, [NotNullWhen(true)] out string? code)
 	{
-		if (!string.IsNullOrWhiteSpace(stateOrCode))
-		{
-			return TryResolveState(stateOrCode, out code);
-		}
-		return TryResolveGstin(gstin, out code);
+		code = ResolveForTax(stateOrCode, gstin).Code;
+		return code != null;
 	}
 
 	public static string? NameForCode(string? code)
@@ -163,10 +202,10 @@ public static class IndianGstStateCodes
 		return null;
 	}
 
-	/// <summary>Canonical state name derived from a GSTIN's first two digits, or null.</summary>
+	/// <summary>Canonical state name from a valid GSTIN's first two digits, or null.</summary>
 	public static string? StateNameFromGstin(string? gstin)
 	{
-		return TryResolveGstin(gstin, out string? code) ? NameForCode(code) : null;
+		return TryGstinPrefix(gstin, requireValid: true, out string? code) ? NameForCode(code) : null;
 	}
 
 	public static bool IsSameState(string? supplierState, string? buyerState, string? supplierGstin, string? buyerGstin)

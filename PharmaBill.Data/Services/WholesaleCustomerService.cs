@@ -245,27 +245,23 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 	}
 
 	/// <summary>
-	/// Wholesale buyers need a resolvable GST state: taken from the GSTIN when the state is blank,
-	/// otherwise the entered state must be recognised. Stored as the canonical state name.
+	/// Wholesale buyers need a resolvable GST state: a valid GSTIN decides it, otherwise a recognised state name.
+	/// A blank state is filled from the GSTIN; a name that disagrees with the GSTIN is kept as entered so the
+	/// invoice screen shows the mismatch and offers the correction (never fixed silently).
 	/// </summary>
 	private static void ApplyBuyerGstState(Customer customer)
 	{
-		if (string.IsNullOrWhiteSpace(customer.State))
+		GstStateResolution resolution = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
+		if (!resolution.IsResolved)
 		{
-			customer.State = IndianGstStateCodes.StateNameFromGstin(customer.Gstin);
-			if (customer.State == null)
-			{
-				throw new ArgumentException(string.IsNullOrWhiteSpace(customer.Gstin)
-					? "Enter the buyer's state; it decides CGST/SGST vs IGST when the buyer has no GSTIN."
-					: "The buyer's GSTIN does not start with a valid state code; enter the buyer's state.");
-			}
-			return;
+			throw new ArgumentException(string.IsNullOrWhiteSpace(customer.State)
+				? "Enter the buyer's state, or a valid GSTIN; it decides CGST/SGST vs IGST."
+				: "State \"" + customer.State.Trim() + "\" is not a recognised Indian GST state, and there is no valid GSTIN.");
 		}
-		if (!IndianGstStateCodes.TryResolve(customer.State, null, out string? code))
+		if (resolution.TypedState == null || resolution.Source == GstStateSource.StateName)
 		{
-			throw new ArgumentException("State \"" + customer.State.Trim() + "\" is not a recognised Indian GST state.");
+			customer.State = resolution.CanonicalName;
 		}
-		customer.State = IndianGstStateCodes.NameForCode(code) ?? customer.State.Trim();
 	}
 
 	private static void ValidateLicences(IEnumerable<CustomerLicence> licences)

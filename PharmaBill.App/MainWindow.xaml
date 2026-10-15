@@ -1986,6 +1986,16 @@
                 <TextBlock Text="Billing Address" FontWeight="SemiBold" Margin="0,8,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
                 <TextBox IsReadOnly="True" Padding="8,6" TextWrapping="Wrap" MinHeight="40" Text="{Binding BuyerAddress, Mode=OneWay}"
                          Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6" Background="#FFFFFBEB" BorderBrush="#FFF59E0B" BorderThickness="1"
+                        Visibility="{Binding HasGstStateNote, Converter={StaticResource BooleanToVisibilityConverter}}">
+                  <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="Correct stored state" Padding="10,4" Margin="8,0,0,0" VerticalAlignment="Center"
+                            Style="{StaticResource SecondaryButton}" Command="{Binding CorrectGstStateCommand}"
+                            Visibility="{Binding CanCorrectGstState, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            ToolTip="Replace the stored state name with the state from the GSTIN." />
+                    <TextBlock TextWrapping="Wrap" Foreground="#FF92400E" FontWeight="SemiBold" Text="{Binding GstStateNote}" />
+                  </DockPanel>
+                </Border>
               </StackPanel>
             </Border>
             <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
