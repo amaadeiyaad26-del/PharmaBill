@@ -75,6 +75,8 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{ap
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"; Tasks: desktopicon
 
 [Run]
+; No firewall or antivirus changes here: install stays per-user/unelevated. On first LAN listen (TCP 5184)
+; Windows shows its native "Allow PharmaBill to communicate on private networks" prompt.
 Filename: "{app}\{#AppExe}"; Description: "Launch PharmaBill"; Flags: nowait postinstall skipifsilent
 
 ; Intentionally no [UninstallDelete] for {localappdata}\PharmaBill — data survives uninstall/update.
