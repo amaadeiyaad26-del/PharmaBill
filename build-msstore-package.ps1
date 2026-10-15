@@ -111,9 +111,10 @@ if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $layout | Out-Null
 
 Invoke-Step 'Publish (Release, win-x64, self-contained, MASTER_ADMIN_BUILD off)' {
+    # Not single-file: single-file leaves Assembly.Location empty and WPF content-file pack URIs
+    # (e.g. the window icon) then crash MainWindow at startup.
     dotnet publish $appProject -c Release -r win-x64 --self-contained true `
-        -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true `
-        -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:DebugSymbols=false `
+        -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false `
         -p:MasterAdminBuild=false -p:GenerateAppxPackageOnBuild=false -p:PublishAppxPackage=false `
         "-p:BuildDateUtc=$buildDate" -o $layout
 }
@@ -121,17 +122,22 @@ Invoke-Step 'Publish (Release, win-x64, self-contained, MASTER_ADMIN_BUILD off)'
 $exePath = Join-Path $layout 'PharmaBill.App.exe'
 if (-not (Test-Path $exePath)) { throw 'PharmaBill.App.exe missing from publish output.' }
 
-$exeBytes = [IO.File]::ReadAllBytes($exePath)
-foreach ($secret in @(
-    'RSA private key not found',
-    'PHARMABILL_LICENSE_PRIVATE_KEY_PEM',
-    'pharmabill-license-private.pem'
-)) {
-    if ([PharmaBillMsixScan]::ContainsUtf16($exeBytes, $secret)) {
-        throw "Published PharmaBill.App.exe contains master-admin signing text ('$secret'). MASTER_ADMIN_BUILD leaked into this Release publish."
+# App code lives in PharmaBill.*.dll (not single-file), so scan those as well as the exe.
+$scanned = Get-ChildItem $layout -File | Where-Object { $_.Name -like 'PharmaBill*.dll' -or $_.Name -eq 'PharmaBill.App.exe' }
+if (-not ($scanned | Where-Object Name -eq 'PharmaBill.App.dll')) { throw 'PharmaBill.App.dll missing from publish output.' }
+foreach ($file in $scanned) {
+    $bytes = [IO.File]::ReadAllBytes($file.FullName)
+    foreach ($secret in @(
+        'RSA private key not found',
+        'PHARMABILL_LICENSE_PRIVATE_KEY_PEM',
+        'pharmabill-license-private.pem'
+    )) {
+        if ([PharmaBillMsixScan]::ContainsUtf16($bytes, $secret)) {
+            throw "Published $($file.Name) contains master-admin signing text ('$secret'). MASTER_ADMIN_BUILD leaked into this Release publish."
+        }
     }
 }
-Remove-Variable exeBytes
+Remove-Variable bytes -ErrorAction SilentlyContinue
 
 Get-ChildItem $layout -Recurse -File | Where-Object { $_.Extension -eq '.pdb' } | Remove-Item -Force
 
@@ -176,6 +182,14 @@ if ($app.GetAttribute('Executable') -ne 'PharmaBill.App.exe' -or $app.GetAttribu
     throw 'Staged manifest must launch PharmaBill.App.exe as Windows.FullTrustApplication.'
 }
 if ($caps -notcontains 'runFullTrust') { throw 'Staged manifest is missing runFullTrust.' }
+# Store policy 10.6.3 denied unvirtualizedResources for this app; never ship it (or the settings that need it) again.
+if ($caps -contains 'unvirtualizedResources') { throw 'Staged manifest requests unvirtualizedResources, which the Store denied (policy 10.6.3).' }
+if ($check.SelectNodes('//*[local-name()="FileSystemWriteVirtualization" or local-name()="RegistryWriteVirtualization"]').Count -gt 0) {
+    throw 'Staged manifest disables file-system/registry write virtualization, which requires unvirtualizedResources.'
+}
+$allowedCaps = @('runFullTrust')
+$extra = $caps | Where-Object { $allowedCaps -notcontains $_ }
+if ($extra) { throw "Staged manifest declares capabilities beyond runFullTrust: $($extra -join ', ')." }
 
 $stagedPublisher = $check.SelectSingleNode('/d:Package/d:Identity', $checkNs).GetAttribute('Publisher')
 if ($stagedPublisher -like '*REPLACE-WITH-PARTNER-CENTER-CN*') {
