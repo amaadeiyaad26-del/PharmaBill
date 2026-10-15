@@ -20,8 +20,6 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 
 	private sealed record GstDocument(string InvoiceNo, DateOnly InvoiceDate, string? CounterpartyGstin, string PlaceOfSupply, decimal Taxable, decimal TaxAmount, decimal Cgst, decimal Sgst, decimal Igst, decimal InvoiceValue, bool IsCancelled, IReadOnlyList<GstLine> Lines, string SupplierState, bool StateVerified = true);
 
-	public const decimal B2clThresholdRupees = 250000m;
-
 	private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
 	{
 		WriteIndented = true,
@@ -124,7 +122,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 		IReadOnlyList<GstDocument> posted = await LoadDocumentsAsync(from, to, includeCancelled: false, cancellationToken);
 		IReadOnlyList<GstDocument> documents = await LoadDocumentsAsync(from, to, includeCancelled: true, cancellationToken);
 		List<object> value = BuildB2b(posted, pharmacyState);
-		List<object> list = BuildB2cl(posted, pharmacyState);
+		List<object> list = BuildB2cl(posted, pharmacyState, pharmacyProfile.B2cLargeInvoiceThreshold);
 		List<object> value2 = BuildB2cs(posted, pharmacyState, list);
 		List<object> value3 = BuildHsn(posted);
 		Dictionary<string, object> value4 = BuildDocIssue(documents);
@@ -140,7 +138,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 			["b2cs"] = value2,
 			["hsn"] = new Dictionary<string, object> { ["data"] = value3 },
 			["doc_issue"] = value4,
-			["pharmabill_note"] = "Generated for GST portal offline utility import. Verify with your CA before filing. Retail CGST/SGST is estimated from inclusive tax; confirm inter-state B2C (B2CL) thresholds for the return period."
+			["pharmabill_note"] = "Generated for GST portal offline utility import. Verify with your CA before filing. Retail CGST/SGST is estimated from inclusive tax; B2CL uses the threshold set in Settings → Firm Profile (" + pharmacyProfile.B2cLargeInvoiceThreshold.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "); confirm it for the return period."
 		};
 		if (unverified.Length > 0)
 		{
@@ -161,11 +159,11 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 		})).ToList();
 	}
 
-	private static List<object> BuildB2cl(IReadOnlyList<GstDocument> documents, string pharmacyPos)
+	private static List<object> BuildB2cl(IReadOnlyList<GstDocument> documents, string pharmacyPos, decimal b2cLargeThreshold)
 	{
 		return (from document in documents
 			where string.IsNullOrWhiteSpace(document.CounterpartyGstin) || !GstinValidator.IsValid(document.CounterpartyGstin)
-			where !string.Equals(document.SupplierState, document.PlaceOfSupply, StringComparison.Ordinal) && document.InvoiceValue > 250000m
+			where !string.Equals(document.SupplierState, document.PlaceOfSupply, StringComparison.Ordinal) && document.InvoiceValue > b2cLargeThreshold
 			group document by document.PlaceOfSupply).Select((Func<IGrouping<string, GstDocument>, object>)((IGrouping<string, GstDocument> group) => new Dictionary<string, object>
 		{
 			["pos"] = group.Key,

@@ -10,7 +10,10 @@ public enum GstStateSource
 {
 	None,
 	Gstin,
-	StateName
+	StateName,
+
+	/// <summary>Unregistered buyer with no state on record: place of supply defaults to the supplier's location.</summary>
+	SupplierDefault
 }
 
 /// <summary>Code is null when unresolved. Note is set when the typed state was overridden by the GSTIN.</summary>

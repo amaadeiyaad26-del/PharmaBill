@@ -54,6 +54,12 @@ public sealed class WholesaleInvoice : EntityBase
 	/// <summary>Buyer's GST state code (place of supply) as resolved when the invoice was saved. Null on older invoices.</summary>
 	public string? BuyerStateCode { get; set; }
 
+	/// <summary>
+	/// True when the buyer had no valid GSTIN and no state on record, so <see cref="BuyerStateCode"/> is the
+	/// pharmacy's own state (place of supply defaults to the supplier's location; sale treated as intra-state).
+	/// </summary>
+	public bool BuyerStateDefaulted { get; set; }
+
 	/// <summary>Buyer GSTIN as it stood at save; decides B2B vs B2C in returns. Null on older invoices.</summary>
 	public string? BuyerGstin { get; set; }
 

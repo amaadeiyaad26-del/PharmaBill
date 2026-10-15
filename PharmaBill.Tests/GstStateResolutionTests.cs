@@ -145,10 +145,21 @@ public sealed class GstStateResolutionTests
     }
 
     [Theory]
-    [InlineData(null, null)]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task WholesaleCustomer_UnregisteredWithoutStateIsAllowed(string? state)
+    {
+        await using var database = await CreateAsync(BusinessMode.Wholesaler);
+
+        await Service(database).SaveAsync(NewCustomer(state, gstin: null), [], [], Guid.NewGuid());
+
+        Assert.Null((await database.Context.Customers.SingleAsync()).State);
+    }
+
+    [Theory]
     [InlineData("Atlantis", null)]
     [InlineData("Atlantis", "29!")]
-    public async Task WholesaleCustomer_WithoutValidGstinMustHaveRecognisedState(string? state, string? gstin)
+    public async Task WholesaleCustomer_TypedStateMustBeRecognisedWithoutValidGstin(string? state, string? gstin)
     {
         await using var database = await CreateAsync(BusinessMode.Wholesaler);
 

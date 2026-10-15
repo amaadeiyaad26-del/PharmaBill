@@ -44,6 +44,9 @@ public sealed class PharmacyProfile : EntityBase
 
 	public string WholesaleBuyerLicenceRulesJson { get; set; } = PharmaBill.Core.Wholesale.BuyerLicenceRules.DefaultsJson;
 
+	/// <summary>B2C-large (GSTR-1 Table 5) invoice value threshold in rupees; see <see cref="PharmaBill.Core.Gst.GstThresholds"/>.</summary>
+	public decimal B2cLargeInvoiceThreshold { get; set; } = PharmaBill.Core.Gst.GstThresholds.DefaultB2cLargeInvoiceThreshold;
+
 	public DateTime? TrialStartedAtUtc { get; set; }
 
 	public DateTime? LastEntitlementCheckAtUtc { get; set; }

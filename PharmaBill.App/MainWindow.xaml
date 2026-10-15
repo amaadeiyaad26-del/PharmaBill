@@ -1992,6 +1992,11 @@
                 <TextBlock Text="Billing Address" FontWeight="SemiBold" Margin="0,8,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
                 <TextBox IsReadOnly="True" Padding="8,6" TextWrapping="Wrap" MinHeight="40" Text="{Binding BuyerAddress, Mode=OneWay}"
                          Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                <CheckBox Margin="0,8,0,0" Content="Inter-state sale" IsChecked="{Binding IsInterStateSale}"
+                          ToolTip="Tick when goods are supplied to another state. The buyer's state must then be on the customer record (IGST applies)." />
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}"
+                           Text="{Binding LocalSaleNote, Mode=OneWay}"
+                           Visibility="{Binding HasLocalSaleNote, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6" Background="#FFFEF2F2" BorderBrush="#FFF87171" BorderThickness="1"
                         Visibility="{Binding HasLicenceRuleNote, Converter={StaticResource BooleanToVisibilityConverter}}">
                   <TextBlock TextWrapping="Wrap" Foreground="#FF991B1B" FontWeight="SemiBold" Text="{Binding LicenceRuleNote, Mode=OneWay}" />

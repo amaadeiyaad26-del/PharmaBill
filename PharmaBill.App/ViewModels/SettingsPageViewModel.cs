@@ -1397,6 +1397,15 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 
 	public IReadOnlyList<string> GstStateNames { get; } = IndianGstStateCodes.States.Select(s => s.Name).ToList();
 
+	private string _b2cLargeThreshold = GstThresholds.DefaultB2cLargeInvoiceThreshold.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture);
+
+	/// <summary>B2C-large (GSTR-1 Table 5) invoice threshold in rupees; above it an unregistered buyer's state is required.</summary>
+	public string B2cLargeThreshold
+	{
+		get => _b2cLargeThreshold;
+		set => SetProperty(ref _b2cLargeThreshold, value ?? string.Empty);
+	}
+
 	/// <summary>Pharmacy's GST state. Defaults from the GSTIN prefix until the user overrides it.</summary>
 	public string PharmacyState
 	{
@@ -3078,6 +3087,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 				hasStoredState ? pharmacyProfile.State! : IndianGstStateCodes.StateNameFromGstin(pharmacyProfile.Gstin) ?? string.Empty,
 				fromGstin: !hasStoredState);
 			StoreUpiId = pharmacyProfile.UpiId ?? string.Empty;
+			B2cLargeThreshold = pharmacyProfile.B2cLargeInvoiceThreshold.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture);
 			DocumentOutputSettings documentOutputSettings = _documentOutputSettingsStore.Load();
 			UpiPayeeName = documentOutputSettings.UpiPayeeName;
 			ShowCustomerQrWindow = documentOutputSettings.ShowCustomerQrWindow;
@@ -3434,6 +3444,11 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			FirmProfileStatus = stateError;
 			return;
 		}
+		if (!decimal.TryParse(B2cLargeThreshold, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out decimal b2cLargeThreshold) || b2cLargeThreshold <= 0m)
+		{
+			FirmProfileStatus = "Enter the B2C-large threshold as a positive amount in rupees (current limit: ₹1,00,000).";
+			return;
+		}
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
@@ -3450,6 +3465,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			pharmacyProfile.Email = (string.IsNullOrWhiteSpace(PharmacyEmail) ? null : PharmacyEmail.Trim());
 			pharmacyProfile.Gstin = (string.IsNullOrWhiteSpace(PharmacyGstin) ? null : PharmacyGstin.Trim());
 			pharmacyProfile.State = state;
+			pharmacyProfile.B2cLargeInvoiceThreshold = b2cLargeThreshold;
 			await unitOfWork.SaveChangesAsync();
 			PharmacyState = state ?? string.Empty;
 			_documentOutputSettings = _documentOutputSettingsStore.Load();

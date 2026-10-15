@@ -1227,6 +1227,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("B2cLargeInvoiceThreshold")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("BankAccountName")
                         .HasColumnType("TEXT");
 
@@ -2867,6 +2870,9 @@ namespace PharmaBill.Data.Migrations
 
                     b.Property<string>("BuyerStateCode")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("BuyerStateDefaulted")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("CancellationReason")
                         .HasColumnType("TEXT");

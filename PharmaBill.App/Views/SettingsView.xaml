@@ -275,6 +275,9 @@
               </Grid>
               <TextBlock Style="{StaticResource FieldLabel}" Text="State (for GST)" />
               <ComboBox IsEditable="True" Padding="6" Margin="0,0,0,10" ItemsSource="{Binding GstStateNames}" Text="{Binding PharmacyState, UpdateSourceTrigger=PropertyChanged}" ToolTip="Filled from your GSTIN; change it if needed. Decides CGST/SGST vs IGST on wholesale invoices." />
+              <TextBlock Style="{StaticResource FieldLabel}" Text="B2C-large invoice threshold (₹)" />
+              <TextBox Padding="8" Margin="0,0,0,10" Text="{Binding B2cLargeThreshold, UpdateSourceTrigger=PropertyChanged}"
+                       ToolTip="GSTR-1 Table 5 (B2C Large). Default ₹1,00,000 per CBIC Notification 12/2024–Central Tax (from 1 Aug 2024). Above this value an unregistered buyer's state must be entered, and inter-state B2C invoices are reported invoice-wise." />
               <TextBlock Style="{StaticResource FieldLabel}" Text="FSSAI" />
               <TextBox Padding="8" Margin="0,0,0,10" Text="{Binding FssaiNumber, UpdateSourceTrigger=PropertyChanged}" />
               <Button Content="Save Profile" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding SaveFirmProfileCommand}" />

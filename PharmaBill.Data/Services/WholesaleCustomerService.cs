@@ -284,9 +284,14 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		GstStateResolution resolution = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
 		if (!resolution.IsResolved)
 		{
-			throw new ArgumentException(string.IsNullOrWhiteSpace(customer.State)
-				? "Enter the buyer's state, or a valid GSTIN; it decides CGST/SGST vs IGST."
-				: "State \"" + customer.State.Trim() + "\" is not a recognised Indian GST state, and there is no valid GSTIN.");
+			// Unregistered buyers (below the GST threshold) need no state: invoices default the place of
+			// supply to the pharmacy's own state. A state that is typed must still be a real one.
+			if (string.IsNullOrWhiteSpace(customer.State))
+			{
+				customer.State = null;
+				return;
+			}
+			throw new ArgumentException("State \"" + customer.State.Trim() + "\" is not a recognised Indian GST state, and there is no valid GSTIN.");
 		}
 		if (resolution.TypedState == null || resolution.Source == GstStateSource.StateName)
 		{

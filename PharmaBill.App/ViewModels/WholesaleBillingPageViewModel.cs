@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -2103,6 +2103,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 
 		Items.Clear();
+		IsInterStateSale = false;
 		_quotationConversionId = null;
 		SelectedCustomer = null;
 		CustomerSearchText = string.Empty;
@@ -2209,7 +2210,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes), appUser.Id, appUser.Role);
+			WholesaleInvoiceResult wholesaleInvoiceResult = await scope.ServiceProvider.GetRequiredService<WholesaleInvoiceService>().SaveAsync(new SaveWholesaleInvoiceInput(SelectedCustomer.Id, Items.Select((WholesaleInvoiceLineDraft item) => new WholesaleInvoiceLineInput(item.StockChoice.DrugId, item.StockChoice.BatchId, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToArray(), PaidAmount, UpiPaymentPayload.NormalizeMethod(PaymentMethod), PaymentReference, ConfirmNearExpiry, 90, OverrideCreditOrOverdue, OverrideReason, TransportDetails, VehicleNumber, EWayBillNumber, Irn, Notes, MarkedInterState: IsInterStateSale), appUser.Id, appUser.Role);
 			LastInvoiceId = wholesaleInvoiceResult.Invoice.Id;
 			_drafts.Clear();
 			DraftSavedText = string.Empty;
@@ -2660,6 +2661,32 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public bool HasGstStateNote => !string.IsNullOrWhiteSpace(GstStateNote);
 
+	private string _localSaleNote = string.Empty;
+
+	private bool _isInterStateSale;
+
+	/// <summary>Quiet note (not an error) when an unregistered buyer is treated as a local sale.</summary>
+	public string LocalSaleNote
+	{
+		get => _localSaleNote;
+		private set
+		{
+			if (SetProperty(ref _localSaleNote, value))
+			{
+				OnPropertyChanged(nameof(HasLocalSaleNote));
+			}
+		}
+	}
+
+	public bool HasLocalSaleNote => !string.IsNullOrWhiteSpace(LocalSaleNote);
+
+	/// <summary>User marks the sale as inter-state; the buyer's state must then be on record.</summary>
+	public bool IsInterStateSale
+	{
+		get => _isInterStateSale;
+		set => SetProperty(ref _isInterStateSale, value);
+	}
+
 	public bool CanCorrectGstState
 	{
 		get => _canCorrectGstState;
@@ -2674,6 +2701,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		{
 			GstStateNote = string.Empty;
 			CanCorrectGstState = false;
+			LocalSaleNote = string.Empty;
 			return;
 		}
 		try
@@ -2691,11 +2719,13 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			}
 			GstStateNote = string.Join(Environment.NewLine, lines);
 			CanCorrectGstState = check.Pharmacy.HasMismatch || check.Buyer.HasMismatch;
+			LocalSaleNote = check.LocalSaleNote ?? string.Empty;
 		}
 		catch (Exception ex)
 		{
 			GstStateNote = "GST state check failed: " + ex.Message;
 			CanCorrectGstState = false;
+			LocalSaleNote = string.Empty;
 		}
 	}
 

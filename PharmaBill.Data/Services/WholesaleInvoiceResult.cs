@@ -10,6 +10,14 @@ public sealed record WholesaleGstStateCheck(GstStateResolution Pharmacy, GstStat
 {
 	public string? RefusalMessage { get; init; }
 
+	/// <summary>Unregistered buyer with no state on record: the pharmacy's state is used (intra-state sale).</summary>
+	public bool BuyerStateDefaulted { get; init; }
+
+	/// <summary>Quiet, non-error note for the invoice screen when the buyer's state was defaulted.</summary>
+	public string? LocalSaleNote { get; init; }
+
+	public decimal B2cLargeInvoiceThreshold { get; init; }
+
 	public IReadOnlyList<string> Notes
 	{
 		get

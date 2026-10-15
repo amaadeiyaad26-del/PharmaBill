@@ -53,10 +53,22 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		{
 			throw new InvalidOperationException("This customer is Blocked and cannot be invoiced.");
 		}
-		GstStateResolution buyerState = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
-		if (!buyerState.IsResolved)
+		BuyerPlaceOfSupply buyerPlace = ResolveBuyerPlaceOfSupply(customer, pharmacyState);
+		if (buyerPlace.RefusalMessage != null)
 		{
-			throw new InvalidOperationException(UnresolvedBuyerMessage(customer.Name));
+			throw new InvalidOperationException(buyerPlace.RefusalMessage);
+		}
+		GstStateResolution buyerState = buyerPlace.Resolution;
+		if (input.MarkedInterState)
+		{
+			if (buyerPlace.Defaulted)
+			{
+				throw new InvalidOperationException("This sale is marked inter-state, so the buyer's state is required: enter it (or a valid GSTIN) on the customer record for " + customer.Name + ".");
+			}
+			if (string.Equals(pharmacyState.Code, buyerState.Code, StringComparison.Ordinal))
+			{
+				throw new InvalidOperationException($"This sale is marked inter-state, but the buyer's state ({buyerState.CanonicalName} {buyerState.Code}) is the pharmacy's own state. Untick inter-state or correct the buyer's state.");
+			}
 		}
 		bool intraState = string.Equals(pharmacyState.Code, buyerState.Code, StringComparison.Ordinal);
 		IReadOnlyList<string> stateNotes = new WholesaleGstStateCheck(pharmacyState, buyerState).Notes;
@@ -130,6 +142,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		decimal num5 = subtotal + taxTotal;
 		decimal roundedTotal = decimal.Round(num5, 0, MidpointRounding.AwayFromZero);
 		decimal roundOff = RoundMoney(roundedTotal - num5);
+		if (buyerPlace.Defaulted && roundedTotal > profile.B2cLargeInvoiceThreshold)
+		{
+			throw new InvalidOperationException($"Invoice value ₹{roundedTotal:N2} is above the B2C-large threshold (₹{profile.B2cLargeInvoiceThreshold:N2}), where place of supply must be reported. Enter the buyer's state (or a valid GSTIN) on the customer record for {customer.Name}.");
+		}
 		if (input.PaidAmount > roundedTotal)
 		{
 			throw new InvalidOperationException("Payment cannot exceed the invoice total.");
@@ -176,7 +192,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				Phone = customer.Phone,
 				Gstin = customer.Gstin,
 				StateCode = buyerState.Code,
-				StateName = buyerState.CanonicalName,
+				StateName = buyerPlace.Defaulted ? buyerState.CanonicalName + " (buyer's state not on record; supplier's state used)" : buyerState.CanonicalName,
 				Licences = buyerLicences.Select(item => new LicenceSnapshot(item.LicenceType, item.LicenceNumber, item.ExpiresOn)).ToArray()
 			};
 			WholesaleInvoice invoice = new WholesaleInvoice
@@ -202,6 +218,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				BranchId = branch.Id,
 				PharmacyStateCode = pharmacyState.Code,
 				BuyerStateCode = buyerState.Code,
+				BuyerStateDefaulted = buyerPlace.Defaulted,
 				BuyerGstin = customer.Gstin,
 				BuyerLegalName = customer.Name,
 				BuyerAddress = customer.Address,
@@ -332,7 +349,8 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				EntityName = "WholesaleInvoice",
 				EntityId = invoice.Id,
 				BranchId = branch.Id,
-				Details = $"Invoice {text2}; buyer {customer.Name}; total {roundedTotal}; branch {branch.Code}; GST states {pharmacyState.Code}->{buyerState.Code}."
+				Details = $"Invoice {text2}; buyer {customer.Name}; total {roundedTotal}; branch {branch.Code}; GST states {pharmacyState.Code}->{buyerState.Code}"
+					+ (buyerPlace.Defaulted ? " (buyer state defaulted to supplier's: no GSTIN or state on record)." : ".")
 					+ (stateNotes.Count == 0 ? string.Empty : " " + string.Join(" ", stateNotes))
 			});
 			await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -348,22 +366,52 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 
 	private const string UnresolvedPharmacyMessage = "The pharmacy's GST state could not be determined: no valid GSTIN and no recognised state. Set it in Settings → Firm Profile before calculating CGST/SGST or IGST.";
 
-	private static string UnresolvedBuyerMessage(string buyerName) =>
-		"The buyer's GST state could not be determined for " + buyerName + ": no valid GSTIN and no recognised state. Enter it on the customer record before calculating CGST/SGST or IGST.";
+	/// <summary>How the buyer's place of supply was decided for an invoice.</summary>
+	private sealed record BuyerPlaceOfSupply(GstStateResolution Resolution, bool Defaulted, string? LocalSaleNote, string? RefusalMessage);
+
+	/// <summary>
+	/// Valid GSTIN → its state; else a recorded state; else (unregistered, nothing on record) the supplier's own
+	/// state, i.e. an intra-state sale. Only a recorded state that is not a real state is refused.
+	/// </summary>
+	private static BuyerPlaceOfSupply ResolveBuyerPlaceOfSupply(Customer customer, GstStateResolution pharmacyState)
+	{
+		GstStateResolution resolution = IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin);
+		if (resolution.IsResolved)
+		{
+			return new BuyerPlaceOfSupply(resolution, Defaulted: false, LocalSaleNote: null, RefusalMessage: null);
+		}
+		if (!string.IsNullOrWhiteSpace(customer.State))
+		{
+			return new BuyerPlaceOfSupply(resolution, false, null,
+				$"The buyer's GST state could not be determined for {customer.Name}: \"{customer.State.Trim()}\" is not a recognised Indian GST state. Pick the state from the list on the customer record.");
+		}
+		string note = string.IsNullOrWhiteSpace(customer.Gstin)
+			? "No GSTIN on record — treated as a local sale (CGST/SGST)."
+			: "GSTIN on record is not valid — treated as an unregistered local sale (CGST/SGST).";
+		return new BuyerPlaceOfSupply(
+			new GstStateResolution(pharmacyState.Code, GstStateSource.SupplierDefault, null, null, null),
+			Defaulted: true,
+			LocalSaleNote: note,
+			RefusalMessage: null);
+	}
 
 	/// <summary>Resolves both sides for the invoice screen so mismatches and refusals are shown before saving.</summary>
 	public async Task<WholesaleGstStateCheck> CheckGstStatesAsync(Guid customerId, CancellationToken cancellationToken = default)
 	{
 		PharmacyProfile profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
 		Customer customer = await unitOfWork.Context.Customers.AsNoTracking().SingleAsync(item => item.Id == customerId, cancellationToken);
-		WholesaleGstStateCheck check = new WholesaleGstStateCheck(
-			IndianGstStateCodes.ResolveForTax(profile.State, profile.Gstin),
-			IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin));
-		return check with
+		GstStateResolution pharmacy = IndianGstStateCodes.ResolveForTax(profile.State, profile.Gstin);
+		if (!pharmacy.IsResolved)
 		{
-			RefusalMessage = !check.Pharmacy.IsResolved ? UnresolvedPharmacyMessage
-				: !check.Buyer.IsResolved ? UnresolvedBuyerMessage(customer.Name)
-				: null
+			return new WholesaleGstStateCheck(pharmacy, IndianGstStateCodes.ResolveForTax(customer.State, customer.Gstin)) { RefusalMessage = UnresolvedPharmacyMessage };
+		}
+		BuyerPlaceOfSupply buyer = ResolveBuyerPlaceOfSupply(customer, pharmacy);
+		return new WholesaleGstStateCheck(pharmacy, buyer.Resolution)
+		{
+			RefusalMessage = buyer.RefusalMessage,
+			BuyerStateDefaulted = buyer.Defaulted,
+			LocalSaleNote = buyer.LocalSaleNote,
+			B2cLargeInvoiceThreshold = profile.B2cLargeInvoiceThreshold
 		};
 	}
 

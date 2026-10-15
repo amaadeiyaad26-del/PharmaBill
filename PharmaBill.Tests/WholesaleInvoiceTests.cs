@@ -138,9 +138,7 @@ public sealed class WholesaleInvoiceTests
     [Theory]
     [InlineData("", null, "Karnataka", null, "pharmacy's")]
     [InlineData("Narnia", "29!", "Karnataka", null, "pharmacy's")]
-    [InlineData("Karnataka", null, "", null, "buyer's")]
     [InlineData("Karnataka", null, "Atlantis", null, "buyer's")]
-    [InlineData("Karnataka", null, "", "XXABCDE1234F1Z5", "buyer's")]
     [InlineData("Karnataka", null, "Karnatak", "29!", "buyer's")]
     [InlineData("", null, "", null, "pharmacy's")]
     [InlineData("Narnia", null, "Atlantis", null, "pharmacy's")]
@@ -160,6 +158,119 @@ public sealed class WholesaleInvoiceTests
 
         Assert.Contains(side + " GST state could not be determined", error.Message);
         Assert.Empty(await database.Context.WholesaleInvoices.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("XXABCDE1234F1Z5")]
+    [InlineData("29!")]
+    public async Task UnregisteredBuyerWithNoState_IsALocalSaleRecordedAsDefaultedAndFiledAsB2c(string? buyerGstin)
+    {
+        var test = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "", buyerGstin: TestGstin.From(buyerGstin));
+        await using var database = test.Database;
+        var service = CreateService(database);
+
+        var check = await service.CheckGstStatesAsync(test.Customer.Id);
+        Assert.Null(check.RefusalMessage);
+        Assert.True(check.BuyerStateDefaulted);
+        Assert.Equal(
+            buyerGstin == null ? "No GSTIN on record — treated as a local sale (CGST/SGST)." : "GSTIN on record is not valid — treated as an unregistered local sale (CGST/SGST).",
+            check.LocalSaleNote);
+
+        var result = await service.SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+
+        Assert.Equal(60m, result.CgstAmount);
+        Assert.Equal(60m, result.SgstAmount);
+        Assert.Equal(0m, result.IgstAmount);
+        var stored = await database.Context.WholesaleInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("29", stored.BuyerStateCode);
+        Assert.True(stored.BuyerStateDefaulted);
+        Assert.Contains(await database.Context.AuditLogs.ToListAsync(), log => log.Action == "WholesaleInvoicePosted" && log.Details!.Contains("buyer state defaulted"));
+
+        // GSTR-1: an unregistered buyer is B2C (Table 7), never B2B, with the pharmacy's state as place of supply.
+        var gst = database.CreateGstService();
+        var day = DateOnly.FromDateTime(stored.InvoiceAtUtc.ToLocalTime());
+        var tables = await gst.BuildGstr1TablesAsync(day, day);
+        Assert.Empty(tables.Table4B2b);
+        Assert.Equal(1, tables.Table7B2c.Sum(row => row.InvoiceCount));
+        using var offline = JsonDocument.Parse(await gst.ExportGstr1OfflineJsonAsync(day, day));
+        Assert.Equal(0, offline.RootElement.GetProperty("b2b").GetArrayLength());
+        Assert.Equal(0, offline.RootElement.GetProperty("b2cl").GetArrayLength());
+        JsonElement b2cs = Assert.Single(offline.RootElement.GetProperty("b2cs").EnumerateArray());
+        Assert.Equal("29", b2cs.GetProperty("pos").GetString());
+        Assert.Equal("INTRA", b2cs.GetProperty("sply_ty").GetString());
+    }
+
+    [Fact]
+    public async Task UnregisteredBuyerWithRecordedState_UsesThatStateAndIsNotDefaulted()
+    {
+        var test = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "Tamil Nadu", buyerGstin: null);
+        await using var database = test.Database;
+
+        var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+
+        Assert.Equal(120m, result.IgstAmount);
+        var stored = await database.Context.WholesaleInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("33", stored.BuyerStateCode);
+        Assert.False(stored.BuyerStateDefaulted);
+    }
+
+    [Fact]
+    public async Task MarkedInterState_RequiresARecordedBuyerStateThatDiffers()
+    {
+        var noState = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "", buyerGstin: null);
+        await using (noState.Database)
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                CreateService(noState.Database).SaveAsync(noState.Input() with { MarkedInterState = true }, noState.Owner.Id, UserRole.Owner));
+            Assert.Contains("marked inter-state, so the buyer's state is required", error.Message);
+        }
+
+        var sameState = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "Karnataka", buyerGstin: null);
+        await using (sameState.Database)
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                CreateService(sameState.Database).SaveAsync(sameState.Input() with { MarkedInterState = true }, sameState.Owner.Id, UserRole.Owner));
+            Assert.Contains("is the pharmacy's own state", error.Message);
+        }
+
+        var otherState = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "Tamil Nadu", buyerGstin: null);
+        await using (otherState.Database)
+        {
+            var result = await CreateService(otherState.Database).SaveAsync(otherState.Input() with { MarkedInterState = true }, otherState.Owner.Id, UserRole.Owner);
+            Assert.Equal(120m, result.IgstAmount);
+        }
+    }
+
+    [Fact]
+    public async Task AboveB2cLargeThreshold_UnregisteredBuyerNeedsAStateAndLandsInB2cl()
+    {
+        // Invoice value is 1,120; a 1,000 threshold puts it above the B2C-large limit.
+        var defaulted = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "", buyerGstin: null, b2cLargeThreshold: 1000m);
+        await using (defaulted.Database)
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                CreateService(defaulted.Database).SaveAsync(defaulted.Input(), defaulted.Owner.Id, UserRole.Owner));
+            Assert.Contains("above the B2C-large threshold", error.Message);
+            Assert.Empty(await defaulted.Database.Context.WholesaleInvoices.ToListAsync());
+        }
+
+        var recorded = await CreateScenarioAsync(validLicence: true, pharmacyState: "Karnataka", buyerState: "Tamil Nadu", buyerGstin: null, b2cLargeThreshold: 1000m);
+        await using (recorded.Database)
+        {
+            await CreateService(recorded.Database).SaveAsync(recorded.Input(), recorded.Owner.Id, UserRole.Owner);
+            var day = DateOnly.FromDateTime(DateTime.UtcNow.ToLocalTime());
+            using var offline = JsonDocument.Parse(await recorded.Database.CreateGstService().ExportGstr1OfflineJsonAsync(day, day));
+            JsonElement b2cl = Assert.Single(offline.RootElement.GetProperty("b2cl").EnumerateArray());
+            Assert.Equal("33", b2cl.GetProperty("pos").GetString());
+        }
+    }
+
+    [Fact]
+    public void B2cLargeThreshold_DefaultsToCurrentLimit()
+    {
+        Assert.Equal(100000m, new PharmacyProfile().B2cLargeInvoiceThreshold);
+        Assert.Equal(100000m, PharmaBill.Core.Gst.GstThresholds.DefaultB2cLargeInvoiceThreshold);
     }
 
     [Fact]
@@ -703,7 +814,8 @@ public sealed class WholesaleInvoiceTests
         string? buyerGstin = null,
         string buyerType = "Distributor",
         string licenceType = "W1",
-        bool shippedLicenceRules = false)
+        bool shippedLicenceRules = false,
+        decimal? b2cLargeThreshold = null)
     {
         var database = await DatabaseTestContext.CreateAsync();
         var profile = new PharmacyProfile
@@ -714,6 +826,10 @@ public sealed class WholesaleInvoiceTests
             BusinessMode = BusinessMode.Wholesaler,
             InvoicePrefix = "WHO"
         };
+        if (b2cLargeThreshold.HasValue)
+        {
+            profile.B2cLargeInvoiceThreshold = b2cLargeThreshold.Value;
+        }
         if (!shippedLicenceRules)
         {
             profile.WholesaleBuyerLicenceRulesJson = JsonSerializer.Serialize(
