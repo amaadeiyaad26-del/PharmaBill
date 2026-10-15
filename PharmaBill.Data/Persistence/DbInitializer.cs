@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using PharmaBill.Core.Entities;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.Data.Persistence;
@@ -55,6 +56,24 @@ public sealed class DbInitializer(
 		await TryAddNullableTextColumnAsync("Sales", "PrescriptionFilePath", indexName: null, cancellationToken);
 		await EnsureBanAndReorderColumnsAsync(cancellationToken);
 		await EnsureModelColumnsAsync(cancellationToken);
+
+		// Fill in default licence-type rules for any standard buyer type that has none (never overrides a configured rule).
+		try
+		{
+			foreach (PharmacyProfile profile in await context.PharmacyProfiles.ToListAsync(cancellationToken))
+			{
+				(string json, bool changed) = PharmaBill.Core.Wholesale.BuyerLicenceRules.AddMissingDefaults(profile.WholesaleBuyerLicenceRulesJson);
+				if (changed)
+				{
+					profile.WholesaleBuyerLicenceRulesJson = json;
+				}
+			}
+			await context.SaveChangesAsync(cancellationToken);
+		}
+		catch (Exception)
+		{
+			// Retried on the next launch; billing explains the missing rule meanwhile.
+		}
 
 		// Split legacy free-text customer "State / Area" into a canonical State and an Area.
 		try

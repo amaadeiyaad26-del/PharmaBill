@@ -21,7 +21,7 @@ public static class CustomerListRules
 	public static readonly string[] RetailBuyerTypes = { "Retailer", "Hospital", "Institution" };
 
 	// Buyers who are themselves wholesale trade (distributors) or anything not retail.
-	public static readonly string[] WholesaleBuyerTypes = { "Distributor", "Other" };
+	public static readonly string[] WholesaleBuyerTypes = { "Distributor", "Wholesaler", "Other" };
 
 	public static bool IsPatientType(string? buyerType)
 	{

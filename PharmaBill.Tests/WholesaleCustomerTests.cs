@@ -100,7 +100,7 @@ public sealed class WholesaleCustomerTests
         Assert.Equal("Document checked", stored.VerificationMethod);
         Assert.Equal(2, await database.Context.CustomerLicences.CountAsync());
         Assert.Equal(
-            ["20", "21", "WHOLESALE-A", "WHOLESALE-B"],
+            ["20", "20B", "21", "21B", "WHOLESALE-A", "WHOLESALE-B"],
             await service.GetLicenceTypesAsync());
         Assert.Contains(
             await database.Context.AuditLogs.ToListAsync(),

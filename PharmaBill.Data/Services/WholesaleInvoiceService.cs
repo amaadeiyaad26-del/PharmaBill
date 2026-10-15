@@ -10,6 +10,7 @@ using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Gst;
 using PharmaBill.Core.Security;
+using PharmaBill.Core.Wholesale;
 using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
@@ -478,11 +479,12 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 
 	private async Task<IReadOnlyList<CustomerLicence>> GetValidLicencesAsync(Customer customer, PharmacyProfile profile, DateOnly invoiceDate, CancellationToken cancellationToken)
 	{
-		Dictionary<string, string[]> source = JsonSerializer.Deserialize<Dictionary<string, string[]>>(profile.WholesaleBuyerLicenceRulesJson) ?? new Dictionary<string, string[]>();
-		string[] allowedTypes = source.FirstOrDefault((KeyValuePair<string, string[]> rule) => string.Equals(rule.Key, customer.BuyerType, StringComparison.OrdinalIgnoreCase)).Value ?? Array.Empty<string>();
+		Dictionary<string, string[]> source = BuyerLicenceRules.Parse(profile.WholesaleBuyerLicenceRulesJson);
+		string[] allowedTypes = BuyerLicenceRules.AllowedFor(source, customer.BuyerType);
 		if (allowedTypes.Length == 0)
 		{
-			throw new InvalidOperationException("No permitted drug licence types are configured for buyer type '" + customer.BuyerType + "'.");
+			throw new InvalidOperationException(BuyerLicenceRules.MissingRuleMessage(source, customer.BuyerType ?? string.Empty)
+				?? "No permitted drug licence types are configured for buyer type '" + customer.BuyerType + "'.");
 		}
 		CustomerLicence[] array = (await unitOfWork.Context.CustomerLicences.Where((CustomerLicence licence) => licence.CustomerId == customer.Id && licence.IssuedOn.HasValue && licence.IssuedOn.Value <= invoiceDate && licence.ExpiresOn.HasValue && licence.ExpiresOn.Value >= invoiceDate).ToListAsync(cancellationToken)).Where((CustomerLicence licence) => allowedTypes.Contains(licence.LicenceType, StringComparer.OrdinalIgnoreCase)).ToArray();
 		if (array.Length == 0)

@@ -42,7 +42,7 @@ public sealed class PharmacyProfile : EntityBase
 
 	public string WholesaleLicenceTypesJson { get; set; } = "[]";
 
-	public string WholesaleBuyerLicenceRulesJson { get; set; } = "{}";
+	public string WholesaleBuyerLicenceRulesJson { get; set; } = PharmaBill.Core.Wholesale.BuyerLicenceRules.DefaultsJson;
 
 	public DateTime? TrialStartedAtUtc { get; set; }
 

@@ -1102,6 +1102,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
+		_ = RefreshLicenceRuleNoteAsync(SelectedCustomer, cancellationToken);
 		IsStockChoicesLoading = true;
 		OnPropertyChanged("StockPickerPlaceholder");
 		OnPropertyChanged("HasStockChoices");
@@ -2723,10 +2724,45 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	private string _licenceRuleNote = string.Empty;
+
+	/// <summary>Plain explanation when wholesale sales are blocked because no licence-type rule applies.</summary>
+	public string LicenceRuleNote
+	{
+		get => _licenceRuleNote;
+		private set
+		{
+			if (SetProperty(ref _licenceRuleNote, value))
+			{
+				OnPropertyChanged(nameof(HasLicenceRuleNote));
+			}
+		}
+	}
+
+	public bool HasLicenceRuleNote => !string.IsNullOrWhiteSpace(LicenceRuleNote);
+
+	private async Task RefreshLicenceRuleNoteAsync(Customer? customer, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			string? message = await scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>().GetLicenceRuleBlockMessageAsync(customer?.BuyerType, cancellationToken);
+			if (SelectedCustomer?.Id == customer?.Id)
+			{
+				LicenceRuleNote = message ?? string.Empty;
+			}
+		}
+		catch (Exception)
+		{
+			LicenceRuleNote = string.Empty;
+		}
+	}
+
 	private async Task RefreshBuyerHeaderAsync(CancellationToken cancellationToken = default)
 	{
 		Customer? customer = SelectedCustomer;
 		_ = RefreshGstStateNoteAsync(customer, cancellationToken);
+		_ = RefreshLicenceRuleNoteAsync(customer, cancellationToken);
 		if (customer == null)
 		{
 			BuyerDrugLicence = string.Empty;

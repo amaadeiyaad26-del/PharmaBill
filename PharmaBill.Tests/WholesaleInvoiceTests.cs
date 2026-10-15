@@ -374,6 +374,37 @@ public sealed class WholesaleInvoiceTests
         Assert.Contains("UNVERIFIED", await new WholesaleGstReportsService(database.Context).ExportGstr1CsvAsync(day, day));
     }
 
+    [Theory]
+    [InlineData("Retailer", "20")]
+    [InlineData("Retailer", "21")]
+    [InlineData("Distributor", "20B")]
+    [InlineData("Wholesaler", "21B")]
+    public async Task WholesaleInvoice_ShippedLicenceRulesAllowTypicalLicences(string buyerType, string licenceType)
+    {
+        var test = await CreateScenarioAsync(validLicence: true, buyerType: buyerType, licenceType: licenceType, shippedLicenceRules: true);
+        await using var database = test.Database;
+
+        var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+
+        Assert.Equal(1120m, result.Invoice.TotalAmount);
+    }
+
+    [Fact]
+    public async Task WholesaleInvoice_MissingLicenceRuleSaysWhereToSetItAndGivesAnExample()
+    {
+        var test = await CreateScenarioAsync(validLicence: true, buyerType: "Nursing home", licenceType: "20", shippedLicenceRules: true);
+        await using var database = test.Database;
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+
+        Assert.Contains("\"Nursing home\" buyers are blocked", error.Message);
+        Assert.Contains(PharmaBill.Core.Wholesale.BuyerLicenceRules.WhereToSet, error.Message);
+        Assert.Contains("Retailer → 20, 21", error.Message);
+        Assert.Contains("blocked", await new WholesaleCustomerService(new UnitOfWork(database.Context)).GetLicenceRuleBlockMessageAsync("Nursing home"));
+        Assert.Null(await new WholesaleCustomerService(new UnitOfWork(database.Context)).GetLicenceRuleBlockMessageAsync("Retailer"));
+    }
+
     [Fact]
     public async Task WholesaleInvoice_RequiresOwnerReasonToOverrideCreditLimit()
     {
@@ -669,7 +700,10 @@ public sealed class WholesaleInvoiceTests
         string? pharmacyState = "Karnataka",
         string? pharmacyGstin = null,
         string? buyerState = null,
-        string? buyerGstin = null)
+        string? buyerGstin = null,
+        string buyerType = "Distributor",
+        string licenceType = "W1",
+        bool shippedLicenceRules = false)
     {
         var database = await DatabaseTestContext.CreateAsync();
         var profile = new PharmacyProfile
@@ -678,10 +712,13 @@ public sealed class WholesaleInvoiceTests
             State = pharmacyState,
             Gstin = pharmacyGstin,
             BusinessMode = BusinessMode.Wholesaler,
-            InvoicePrefix = "WHO",
-            WholesaleBuyerLicenceRulesJson = JsonSerializer.Serialize(
-                new Dictionary<string, string[]> { ["Distributor"] = ["W1"] })
+            InvoicePrefix = "WHO"
         };
+        if (!shippedLicenceRules)
+        {
+            profile.WholesaleBuyerLicenceRulesJson = JsonSerializer.Serialize(
+                new Dictionary<string, string[]> { ["Distributor"] = ["W1"] });
+        }
         var owner = new AppUser
         {
             DisplayName = "Owner",
@@ -692,7 +729,7 @@ public sealed class WholesaleInvoiceTests
         var customer = new Customer
         {
             Name = "Buyer",
-            BuyerType = "Distributor",
+            BuyerType = buyerType,
             State = buyerState ?? (sameState ? "Karnataka" : "Tamil Nadu"),
             Gstin = buyerGstin,
             IsActive = !blocked,
@@ -721,7 +758,7 @@ public sealed class WholesaleInvoiceTests
             database.Context.CustomerLicences.Add(new CustomerLicence
             {
                 CustomerId = customer.Id,
-                LicenceType = "W1",
+                LicenceType = licenceType,
                 LicenceNumber = "DL-W1",
                 IssuedOn = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)),
                 ExpiresOn = licenceExpiry ?? DateOnly.FromDateTime(DateTime.Today.AddYears(1)),

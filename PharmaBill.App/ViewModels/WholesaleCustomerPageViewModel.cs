@@ -81,7 +81,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private string _buyerLicenceRuleType = "Distributor";
 
-	private string _buyerLicenceRuleTypes = string.Empty;
+	private IReadOnlyDictionary<string, IReadOnlyCollection<string>> _buyerLicenceRules = new Dictionary<string, IReadOnlyCollection<string>>();
 
 	private string _newLicenceType = string.Empty;
 
@@ -139,7 +139,12 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	public ObservableCollection<string> LicenceTypeOptions { get; } = new ObservableCollection<string>();
 
-	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string> { "Distributor", "Retailer", "Hospital", "Institution", "Other" };
+	public ObservableCollection<string> BuyerTypeOptions { get; } = new ObservableCollection<string>(BuyerLicenceRules.Defaults.Keys);
+
+	/// <summary>Known licence types with a tick for those allowed for <see cref="BuyerLicenceRuleType"/>.</summary>
+	public ObservableCollection<LicenceTypeChoice> BuyerLicenceRuleChoices { get; } = new ObservableCollection<LicenceTypeChoice>();
+
+	public string BuyerLicenceRuleHint => "Tick the licence types a buyer of this type must hold. Typical: " + BuyerLicenceRules.TypicalExample + ". Wholesale invoices are refused for a buyer type with nothing ticked.";
 
 	public ObservableCollection<string> PatientTypeOptions { get; } = new ObservableCollection<string>(CustomerListRules.PatientTypes);
 
@@ -616,27 +621,21 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 				OnPropertyChanging(nameof(BuyerLicenceRuleType));
 				_buyerLicenceRuleType = value;
 				OnPropertyChanged(nameof(BuyerLicenceRuleType));
+				RefreshBuyerLicenceRuleChoices();
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string BuyerLicenceRuleTypes
+	private void RefreshBuyerLicenceRuleChoices()
 	{
-		get
+		string[] allowed = _buyerLicenceRules.FirstOrDefault(rule => string.Equals(rule.Key, _buyerLicenceRuleType, StringComparison.OrdinalIgnoreCase)).Value?.ToArray() ?? Array.Empty<string>();
+		IEnumerable<string> known = LicenceTypeOptions.Concat(BuyerLicenceRules.StandardLicenceTypes).Concat(allowed)
+			.Where(type => !string.IsNullOrWhiteSpace(type))
+			.Distinct(StringComparer.OrdinalIgnoreCase);
+		BuyerLicenceRuleChoices.Clear();
+		foreach (string type in known)
 		{
-			return _buyerLicenceRuleTypes;
-		}
-		[MemberNotNull("_buyerLicenceRuleTypes")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_buyerLicenceRuleTypes, value))
-			{
-				OnPropertyChanging(nameof(BuyerLicenceRuleTypes));
-				_buyerLicenceRuleTypes = value;
-				OnPropertyChanged(nameof(BuyerLicenceRuleTypes));
-			}
+			BuyerLicenceRuleChoices.Add(new LicenceTypeChoice(type, allowed.Contains(type, StringComparer.OrdinalIgnoreCase)));
 		}
 	}
 
@@ -774,8 +773,9 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		OnPropertyChanged(nameof(ActiveFlagLabel));
 		OnPropertyChanged(nameof(TypeOptions));
 		WholesaleCustomerService service = scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>();
-		BuyerLicenceRuleTypes = ((await service.GetBuyerLicenceRulesAsync(cancellationToken)).TryGetValue(BuyerLicenceRuleType, out var value) ? string.Join(", ", value) : string.Empty);
+		_buyerLicenceRules = await service.GetBuyerLicenceRulesAsync(cancellationToken);
 		await ReloadCustomersAsync(service, cancellationToken);
+		RefreshBuyerLicenceRuleChoices();
 	}
 
 	private void NewCustomer()
@@ -851,15 +851,17 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task SaveBuyerLicenceRuleAsync()
 	{
-		string[] array = BuyerLicenceRuleTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+		string[] array = BuyerLicenceRuleChoices.Where(choice => choice.IsSelected).Select(choice => choice.Type).ToArray();
 		if (string.IsNullOrWhiteSpace(BuyerLicenceRuleType) || array.Length == 0)
 		{
-			ErrorMessage = "Configure one or more permitted licence types for this buyer type.";
+			ErrorMessage = "Tick at least one licence type for " + BuyerLicenceRuleType + " (typical: " + BuyerLicenceRules.TypicalExample + ").";
 			return;
 		}
 		using IServiceScope scope = _scopeFactory.CreateScope();
-		await scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>().SaveBuyerLicenceRulesAsync(new Dictionary<string, IReadOnlyCollection<string>> { [BuyerLicenceRuleType.Trim()] = array });
-		StatusMessage = "Allowed licence types saved for " + BuyerLicenceRuleType + ".";
+		WholesaleCustomerService service = scope.ServiceProvider.GetRequiredService<WholesaleCustomerService>();
+		await service.SaveBuyerLicenceRulesAsync(new Dictionary<string, IReadOnlyCollection<string>> { [BuyerLicenceRuleType.Trim()] = array });
+		_buyerLicenceRules = await service.GetBuyerLicenceRulesAsync();
+		StatusMessage = BuyerLicenceRuleType + " buyers must now hold: " + string.Join(", ", array) + ".";
 		ErrorMessage = string.Empty;
 	}
 

@@ -1992,6 +1992,10 @@
                 <TextBlock Text="Billing Address" FontWeight="SemiBold" Margin="0,8,0,4" Foreground="{DynamicResource SecondaryTextBrush}" />
                 <TextBox IsReadOnly="True" Padding="8,6" TextWrapping="Wrap" MinHeight="40" Text="{Binding BuyerAddress, Mode=OneWay}"
                          Background="{DynamicResource FieldReadOnlyBrush}" BorderBrush="{DynamicResource FieldBorderBrush}" />
+                <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6" Background="#FFFEF2F2" BorderBrush="#FFF87171" BorderThickness="1"
+                        Visibility="{Binding HasLicenceRuleNote, Converter={StaticResource BooleanToVisibilityConverter}}">
+                  <TextBlock TextWrapping="Wrap" Foreground="#FF991B1B" FontWeight="SemiBold" Text="{Binding LicenceRuleNote, Mode=OneWay}" />
+                </Border>
                 <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="6" Background="#FFFFFBEB" BorderBrush="#FFF59E0B" BorderThickness="1"
                         Visibility="{Binding HasGstStateNote, Converter={StaticResource BooleanToVisibilityConverter}}">
                   <DockPanel LastChildFill="True">
@@ -2523,14 +2527,27 @@
               <StackPanel Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <StackPanel Orientation="Horizontal" Margin="0,12,0,6">
                   <TextBlock Text="Licence type rules for buyer types" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-                  <controls:InfoHelper Title="Licence type rules (Form 20 / 21)" Body="Retail chemists typically need Form 20/21 (or state equivalents); wholesale buyers need wholesale/distributor DL types. Configure which licence types each buyer type must hold. Sales are blocked until a matching unexpired licence exists." />
+                  <controls:InfoHelper Title="Licence type rules (Form 20 / 21)" Body="Retail chemists hold Form 20/21 retail drug licences; wholesalers and distributors hold Form 20B/21B wholesale licences. Defaults: Retailer, Hospital, Institution → 20, 21; Distributor, Wholesaler, Other → 20B, 21B. A wholesale invoice is refused unless the buyer has an unexpired licence of a ticked type." />
                 </StackPanel>
-                <WrapPanel>
+                <WrapPanel VerticalAlignment="Center">
+                  <TextBlock Text="Buyer type" VerticalAlignment="Center" Margin="0,0,6,0" />
                   <ComboBox Width="180" Padding="5" ItemsSource="{Binding BuyerTypeOptions}" SelectedItem="{Binding BuyerLicenceRuleType}" />
-                  <TextBox Width="260" ToolTip="Comma-separated permitted licence types" Padding="6" Margin="6,0,0,0" Text="{Binding Path=BuyerLicenceRuleTypes, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Text="must hold" VerticalAlignment="Center" Margin="10,0,6,0" />
+                  <ItemsControl ItemsSource="{Binding BuyerLicenceRuleChoices}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <CheckBox Margin="0,0,12,0" VerticalAlignment="Center" Content="{Binding Type, Mode=OneWay}" IsChecked="{Binding IsSelected}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
                   <Button Content="Save buyer licence rule" Padding="9,5" Margin="6,0,0,0" Command="{Binding SaveBuyerLicenceRuleCommand}" />
                 </WrapPanel>
-                <TextBlock Text="Configure licence types permitted for each buyer type. Sales are blocked until a rule is configured." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="3,4,3,8" />
+                <TextBlock Text="{Binding BuyerLicenceRuleHint, Mode=OneWay}" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="3,4,3,8" />
                 <TextBlock Text="Drug licences" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,6" />
                 <WrapPanel Margin="0,0,0,6">
                   <ComboBox Width="180" IsEditable="True" Padding="4" ItemsSource="{Binding LicenceTypeOptions}" Text="{Binding NewLicenceType, UpdateSourceTrigger=PropertyChanged}" />

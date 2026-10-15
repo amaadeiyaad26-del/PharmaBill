@@ -14,7 +14,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 {
-	private static readonly string[] FixedLicenceTypes = new string[2] { "20", "21" };
+	private static readonly IReadOnlyList<string> FixedLicenceTypes = BuyerLicenceRules.StandardLicenceTypes;
 
 	public async Task<IReadOnlyList<string>> GetLicenceTypesAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
@@ -31,14 +31,21 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 			throw new InvalidOperationException("Configure at least one allowed licence type for every buyer type.");
 		}
 		PharmacyProfile pharmacyProfile = await unitOfWork.Context.PharmacyProfiles.SingleAsync(cancellationToken);
-		Dictionary<string, string[]> dictionary = JsonSerializer.Deserialize<Dictionary<string, string[]>>(pharmacyProfile.WholesaleBuyerLicenceRulesJson) ?? new Dictionary<string, string[]>();
+		Dictionary<string, string[]> dictionary = BuyerLicenceRules.Parse(pharmacyProfile.WholesaleBuyerLicenceRulesJson);
 		foreach (KeyValuePair<string, IReadOnlyCollection<string>> rule in rules)
 		{
-			dictionary[rule.Key.Trim()] = (dictionary.TryGetValue(rule.Key, out var value) ? (from type in value.Concat(rule.Value)
-				select type.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() : rule.Value.Select((string type) => type.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+			// The editor sends the complete ticked set, so this replaces the rule (types can be removed).
+			dictionary[rule.Key.Trim()] = rule.Value.Select((string type) => type.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 		}
 		pharmacyProfile.WholesaleBuyerLicenceRulesJson = JsonSerializer.Serialize(dictionary);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
+	}
+
+	/// <summary>Plain message for the billing screen when sales are blocked for lack of a licence-type rule; null otherwise.</summary>
+	public async Task<string?> GetLicenceRuleBlockMessageAsync(string? buyerType, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		PharmacyProfile? profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+		return profile == null ? null : BuyerLicenceRules.MissingRuleMessage(BuyerLicenceRules.Parse(profile.WholesaleBuyerLicenceRulesJson), buyerType);
 	}
 
 	public async Task<IReadOnlyDictionary<string, IReadOnlyCollection<string>>> GetBuyerLicenceRulesAsync(CancellationToken cancellationToken = default(CancellationToken))
