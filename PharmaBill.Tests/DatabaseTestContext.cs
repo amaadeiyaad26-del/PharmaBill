@@ -104,10 +104,8 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
         }.ToString());
         await connection.OpenAsync();
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
-        // Mirror production (ServiceCollectionExtensions): columns added by DbInitializer's
-        // runtime schema guards are not in a migration, so ignore the pending-model warning.
+        // Mirror production: the pending-model warning is not suppressed, so model drift fails tests.
         var options = new DbContextOptionsBuilder<PharmaBillDbContext>()
-            .ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
             .UseSqlite(connection)
             .AddInterceptors(new SaveChangesAuditInterceptor(deviceId))
             .Options;

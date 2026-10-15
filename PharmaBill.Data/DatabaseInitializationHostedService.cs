@@ -19,7 +19,7 @@ internal sealed class DatabaseInitializationHostedService(
 {
 	public async Task StartAsync(CancellationToken cancellationToken)
 	{
-		logger.LogInformation("Database initialization starting (migrate/patch schema in-place, then seed defaults).");
+		logger.LogInformation("Database initialization starting (apply migrations; a failed migration stops startup).");
 		try
 		{
 			await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();

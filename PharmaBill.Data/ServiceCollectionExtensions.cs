@@ -46,9 +46,8 @@ public static class ServiceCollectionExtensions
 				Mode = SqliteOpenMode.ReadWriteCreate,
 				Password = Convert.ToHexString(keyProvider.GetOrCreateKey())
 			}.ToString();
+			// PendingModelChangesWarning is deliberately NOT suppressed: model drift without a migration must fail loudly.
 			options
-				.ConfigureWarnings(warnings =>
-					warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
 				.UseSqlite(connectionString)
 				.AddInterceptors(provider.GetRequiredService<SaveChangesAuditInterceptor>());
 		});
