@@ -74,6 +74,22 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 
 	public ObservableCollection<Gstr1B2bRow> Gstr1B2bRows { get; } = new ObservableCollection<Gstr1B2bRow>();
 
+	private string _unverifiedStateNotice = string.Empty;
+
+	public string UnverifiedStateNotice
+	{
+		get => _unverifiedStateNotice;
+		private set
+		{
+			if (SetProperty(ref _unverifiedStateNotice, value))
+			{
+				OnPropertyChanged(nameof(HasUnverifiedStateNotice));
+			}
+		}
+	}
+
+	public bool HasUnverifiedStateNotice => !string.IsNullOrEmpty(UnverifiedStateNotice);
+
 	public ObservableCollection<Gstr1B2cSlabRow> Gstr1B2cRows { get; } = new ObservableCollection<Gstr1B2cSlabRow>();
 
 	public ObservableCollection<Gstr1HsnRow> Gstr1HsnRows { get; } = new ObservableCollection<Gstr1HsnRow>();
@@ -392,6 +408,11 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 				Gstr1B2bRows.Add(row);
 			}
 
+			IReadOnlyList<string> unverified = tables.UnverifiedStateInvoiceNos ?? Array.Empty<string>();
+			UnverifiedStateNotice = unverified.Count == 0
+				? string.Empty
+				: $"{unverified.Count} wholesale invoice(s) were saved before GST state codes were recorded; their place of supply is re-resolved from current master data and is UNVERIFIED: {string.Join(", ", unverified.Take(10))}{(unverified.Count > 10 ? ", …" : string.Empty)}. Check them before filing.";
+
 			OnPropertyChanged(nameof(B2bEmptyHint));
 
 			Gstr1B2cRows.Clear();
@@ -534,7 +555,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			{
 				using XLWorkbook workbook = new XLWorkbook();
 				IXLWorksheet b2b = workbook.Worksheets.Add("Table4-B2B");
-				string[] b2bHeaders = ["GSTIN", "Invoice", "Date", "Taxable", "CGST", "SGST", "IGST", "Invoice value", "POS"];
+				string[] b2bHeaders = ["GSTIN", "Invoice", "Date", "Taxable", "CGST", "SGST", "IGST", "Invoice value", "POS", "POS status"];
 				for (int i = 0; i < b2bHeaders.Length; i++)
 				{
 					b2b.Cell(1, i + 1).Value = b2bHeaders[i];
@@ -553,6 +574,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 					b2b.Cell(row, 7).Value = item.Igst;
 					b2b.Cell(row, 8).Value = item.InvoiceValue;
 					b2b.Cell(row, 9).Value = item.PlaceOfSupply;
+					b2b.Cell(row, 10).Value = item.PlaceOfSupplyStatus;
 					row++;
 				}
 
@@ -673,7 +695,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			}
 
 			await File.WriteAllTextAsync(path, payload.Json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-			StatusMessage = "e-Invoice JSON (schema v1.03) saved: " + path;
+			StatusMessage = "e-Invoice JSON (schema v1.03) saved: " + path + (payload.StateWarning == null ? string.Empty : " WARNING: " + payload.StateWarning);
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
@@ -708,7 +730,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			}
 
 			await File.WriteAllTextAsync(path, payload.Json, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-			StatusMessage = "e-Way Bill Part-A/B JSON saved: " + path;
+			StatusMessage = "e-Way Bill Part-A/B JSON saved: " + path + (payload.StateWarning == null ? string.Empty : " WARNING: " + payload.StateWarning);
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)

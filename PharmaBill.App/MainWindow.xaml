@@ -1736,6 +1736,10 @@
             </Border>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-1 Table 4 (B2B)" Margin="0,0,0,8" Foreground="#0D4A2B" />
             <TextBlock Margin="0,0,0,6" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding B2bEmptyHint}" />
+            <Border Margin="0,0,0,8" Padding="10,8" CornerRadius="6" Background="#FFFFFBEB" BorderBrush="#FFF59E0B" BorderThickness="1"
+                    Visibility="{Binding HasUnverifiedStateNotice, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock TextWrapping="Wrap" Foreground="#FF92400E" FontWeight="SemiBold" Text="{Binding UnverifiedStateNotice}" />
+            </Border>
             <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MaxHeight="180" Margin="0,0,0,12" ItemsSource="{Binding Gstr1B2bRows}">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="GSTIN" Width="140" Binding="{Binding Gstin}" />
@@ -1745,6 +1749,8 @@
                 <DataGridTextColumn Header="CGST" Width="80" Binding="{Binding Cgst, StringFormat=N2}" />
                 <DataGridTextColumn Header="SGST" Width="80" Binding="{Binding Sgst, StringFormat=N2}" />
                 <DataGridTextColumn Header="IGST" Width="80" Binding="{Binding Igst, StringFormat=N2}" />
+                <DataGridTextColumn Header="POS" Width="50" Binding="{Binding PlaceOfSupply, Mode=OneWay}" />
+                <DataGridTextColumn Header="POS status" Width="150" Binding="{Binding PlaceOfSupplyStatus, Mode=OneWay}" />
               </DataGrid.Columns>
             </DataGrid>
             <TextBlock FontWeight="SemiBold" FontSize="16" Text="GSTR-1 Table 7 (B2C by slab)" Margin="0,0,0,8" Foreground="#0D4A2B" />

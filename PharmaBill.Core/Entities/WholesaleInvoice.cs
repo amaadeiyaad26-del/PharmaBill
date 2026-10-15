@@ -47,4 +47,10 @@ public sealed class WholesaleInvoice : EntityBase
 	public string? Notes { get; set; }
 
 	public Guid? BranchId { get; set; }
+
+	/// <summary>Pharmacy's GST state code as resolved when the invoice was saved. Null on invoices saved before it was recorded.</summary>
+	public string? PharmacyStateCode { get; set; }
+
+	/// <summary>Buyer's GST state code (place of supply) as resolved when the invoice was saved. Null on older invoices.</summary>
+	public string? BuyerStateCode { get; set; }
 }

@@ -56,7 +56,8 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				Round(d.Sgst),
 				Round(d.Igst),
 				Round(d.InvoiceValue),
-				d.PlaceOfSupply))
+				d.PlaceOfSupply,
+				d.StateVerified))
 			.OrderBy(r => r.InvoiceDate)
 			.ThenBy(r => r.InvoiceNo, StringComparer.OrdinalIgnoreCase)
 			.ToList();
@@ -98,7 +99,8 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			.ToList();
 
 		_ = pharmacyPos;
-		return new Gstr1Tables(b2b, b2c, hsn);
+		List<string> unverified = documents.Where(d => !d.StateVerified).Select(d => d.InvoiceNo).ToList();
+		return new Gstr1Tables(b2b, b2c, hsn, unverified);
 	}
 
 	public async Task<IReadOnlyList<Gstr2PurchaseItcRow>> GetPurchaseItcAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
@@ -295,6 +297,10 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			.ToListAsync(cancellationToken);
 		Dictionary<Guid, Drug> drugs = await context.Drugs.AsNoTracking().ToDictionaryAsync(d => d.Id, cancellationToken);
 		Dictionary<Guid, Batch> batches = await context.Batches.AsNoTracking().ToDictionaryAsync(b => b.Id, cancellationToken);
+		RecordedGstStates states = RecordedGstStates.For(
+			invoice,
+			() => IndianGstStateCodes.Resolve(seller.State, seller.Gstin),
+			() => IndianGstStateCodes.Resolve(customer.State, customer.Gstin));
 
 		List<object> itemList = new();
 		int sl = 1;
@@ -351,17 +357,17 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				["Addr1"] = seller.Address ?? string.Empty,
 				["Loc"] = seller.State ?? string.Empty,
 				["Pin"] = 0,
-				["Stcd"] = IndianGstStateCodes.Resolve(seller.State, seller.Gstin)
+				["Stcd"] = states.PharmacyStateCode
 			},
 			["BuyerDtls"] = new Dictionary<string, object?>
 			{
 				["Gstin"] = customer.Gstin ?? string.Empty,
 				["LglNm"] = customer.Name,
-				["Pos"] = IndianGstStateCodes.Resolve(customer.State, customer.Gstin),
+				["Pos"] = states.BuyerStateCode,
 				["Addr1"] = customer.Address ?? string.Empty,
 				["Loc"] = customer.State ?? string.Empty,
 				["Pin"] = 0,
-				["Stcd"] = IndianGstStateCodes.Resolve(customer.State, customer.Gstin)
+				["Stcd"] = states.BuyerStateCode
 			},
 			["ItemList"] = itemList,
 			["ValDtls"] = new Dictionary<string, object?>
@@ -377,7 +383,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 		};
 
 		string json = JsonSerializer.Serialize(payload, JsonOptions);
-		return new EInvoicePayloadResult(json, $"eInvoice_{invoice.InvoiceNo}.json");
+		return new EInvoicePayloadResult(json, $"eInvoice_{invoice.InvoiceNo}.json", states.Recorded ? null : RecordedGstStates.UnverifiedWarning(invoice.InvoiceNo));
 	}
 
 	public async Task<EWayBillPayloadResult> BuildEWayBillJsonAsync(
@@ -391,6 +397,10 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			.SingleAsync(i => i.Id == wholesaleInvoiceId, cancellationToken);
 		Customer customer = await context.Customers.AsNoTracking().SingleAsync(c => c.Id == invoice.CustomerId, cancellationToken);
 		PharmacyProfile seller = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
+		RecordedGstStates states = RecordedGstStates.For(
+			invoice,
+			() => IndianGstStateCodes.Resolve(seller.State, seller.Gstin),
+			() => IndianGstStateCodes.Resolve(customer.State, customer.Gstin));
 
 		Dictionary<string, object?> payload = new()
 		{
@@ -409,12 +419,12 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 					["fromTrdName"] = seller.LegalName ?? seller.Name,
 					["fromAddr1"] = seller.Address ?? string.Empty,
 					["fromPincode"] = 0,
-					["fromStateCode"] = int.TryParse(IndianGstStateCodes.Resolve(seller.State, seller.Gstin), out int fs) ? fs : 0,
+					["fromStateCode"] = int.TryParse(states.PharmacyStateCode, out int fs) ? fs : 0,
 					["toGstin"] = customer.Gstin ?? "URP",
 					["toTrdName"] = customer.Name,
 					["toAddr1"] = customer.Address ?? string.Empty,
 					["toPincode"] = 0,
-					["toStateCode"] = int.TryParse(IndianGstStateCodes.Resolve(customer.State, customer.Gstin), out int ts) ? ts : 0,
+					["toStateCode"] = int.TryParse(states.BuyerStateCode, out int ts) ? ts : 0,
 					["totalValue"] = invoice.Subtotal,
 					["cgstValue"] = invoice.CgstAmount,
 					["sgstValue"] = invoice.SgstAmount,
@@ -446,7 +456,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 		};
 
 		string json = JsonSerializer.Serialize(payload, JsonOptions);
-		return new EWayBillPayloadResult(json, $"eWayBill_{invoice.InvoiceNo}.json");
+		return new EWayBillPayloadResult(json, $"eWayBill_{invoice.InvoiceNo}.json", states.Recorded ? null : RecordedGstStates.UnverifiedWarning(invoice.InvoiceNo));
 	}
 
 	private async Task<IReadOnlyList<GstSaleDocument>> LoadSaleDocumentsAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
@@ -470,11 +480,14 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 		foreach (WholesaleInvoice invoice in wholesale)
 		{
 			Customer customer = customers.GetValueOrDefault(invoice.CustomerId) ?? new Customer { Name = "Unknown" };
-			string pos = IndianGstStateCodes.Resolve(customer.State, customer.Gstin);
-			if (string.IsNullOrWhiteSpace(pos))
-			{
-				pos = pharmacyPos;
-			}
+			RecordedGstStates states = RecordedGstStates.For(
+				invoice,
+				() => pharmacyPos,
+				() =>
+				{
+					string legacyPos = IndianGstStateCodes.Resolve(customer.State, customer.Gstin);
+					return string.IsNullOrWhiteSpace(legacyPos) ? pharmacyPos : legacyPos;
+				});
 
 			List<GstSaleLine> lines = wholesaleItems
 				.Where(i => i.WholesaleInvoiceId == invoice.Id)
@@ -488,13 +501,14 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				invoice.InvoiceNo,
 				DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()),
 				customer.Gstin,
-				pos,
+				states.BuyerStateCode,
 				invoice.Subtotal,
 				invoice.CgstAmount,
 				invoice.SgstAmount,
 				invoice.IgstAmount,
 				invoice.TotalAmount,
-				lines));
+				lines,
+				states.Recorded));
 		}
 
 		List<Sale> retail = await context.Sales.AsNoTracking()
@@ -536,7 +550,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 
 	private sealed record GstSaleLine(string Description, string? HsnCode, decimal Quantity, decimal Rate, decimal Taxable, decimal Cgst, decimal Sgst, decimal Igst, decimal LineTotal);
 
-	private sealed record GstSaleDocument(string InvoiceNo, DateOnly InvoiceDate, string? CounterpartyGstin, string PlaceOfSupply, decimal Taxable, decimal Cgst, decimal Sgst, decimal Igst, decimal InvoiceValue, IReadOnlyList<GstSaleLine> Lines);
+	private sealed record GstSaleDocument(string InvoiceNo, DateOnly InvoiceDate, string? CounterpartyGstin, string PlaceOfSupply, decimal Taxable, decimal Cgst, decimal Sgst, decimal Igst, decimal InvoiceValue, IReadOnlyList<GstSaleLine> Lines, bool StateVerified = true);
 
 	private static void ValidatePeriod(DateOnly from, DateOnly to)
 	{

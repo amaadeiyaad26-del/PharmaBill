@@ -182,7 +182,9 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				EWayBillNumber = NullIfWhiteSpace(input.EWayBillNumber),
 				Irn = NullIfWhiteSpace(input.Irn),
 				Notes = NullIfWhiteSpace(input.Notes),
-				BranchId = branch.Id
+				BranchId = branch.Id,
+				PharmacyStateCode = pharmacyState.Code,
+				BuyerStateCode = buyerState.Code
 			};
 			context.WholesaleInvoices.Add(invoice);
 			foreach (PreparedLine item2 in prepared)

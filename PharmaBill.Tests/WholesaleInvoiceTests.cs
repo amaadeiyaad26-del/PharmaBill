@@ -200,6 +200,98 @@ public sealed class WholesaleInvoiceTests
     }
 
     [Fact]
+    public async Task GstExports_UseStateCodesRecordedAtSaveEvenAfterMasterDataChanges()
+    {
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: "Karnataka",
+            pharmacyGstin: TestGstin.From("29"),
+            buyerState: "Tamil Nadu",
+            buyerGstin: TestGstin.From("33"));
+        await using var database = test.Database;
+        var saved = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        var stored = await database.Context.WholesaleInvoices.AsNoTracking().SingleAsync();
+        Assert.Equal("29", stored.PharmacyStateCode);
+        Assert.Equal("33", stored.BuyerStateCode);
+        Assert.Equal(120m, saved.IgstAmount);
+
+        // Master data changes after the invoice was filed.
+        var profile = await database.Context.PharmacyProfiles.SingleAsync();
+        profile.State = "Maharashtra";
+        profile.Gstin = TestGstin.From("27");
+        var customer = await database.Context.Customers.SingleAsync();
+        customer.State = "Kerala";
+        customer.Gstin = TestGstin.From("32");
+        await database.Context.SaveChangesAsync();
+
+        var gst = database.CreateGstService();
+        var day = DateOnly.FromDateTime(stored.InvoiceAtUtc.ToLocalTime());
+        var tables = await gst.BuildGstr1TablesAsync(day, day);
+        var row = Assert.Single(tables.Table4B2b);
+        Assert.Equal("33", row.PlaceOfSupply);
+        Assert.True(row.PlaceOfSupplyVerified);
+        Assert.Empty(tables.UnverifiedStateInvoiceNos!);
+
+        var eInvoice = await gst.BuildEInvoiceJsonAsync(stored.Id);
+        using (var json = JsonDocument.Parse(eInvoice.Json))
+        {
+            Assert.Equal("29", json.RootElement.GetProperty("SellerDtls").GetProperty("Stcd").GetString());
+            Assert.Equal("33", json.RootElement.GetProperty("BuyerDtls").GetProperty("Pos").GetString());
+        }
+        Assert.Null(eInvoice.StateWarning);
+
+        var eWay = await gst.BuildEWayBillJsonAsync(stored.Id, null, null, 10m);
+        using (var json = JsonDocument.Parse(eWay.Json))
+        {
+            var bill = json.RootElement.GetProperty("billLists")[0];
+            Assert.Equal(29, bill.GetProperty("fromStateCode").GetInt32());
+            Assert.Equal(33, bill.GetProperty("toStateCode").GetInt32());
+        }
+        Assert.Null(eWay.StateWarning);
+
+        using (var offline = JsonDocument.Parse(await gst.ExportGstr1OfflineJsonAsync(day, day)))
+        {
+            Assert.Equal("33", offline.RootElement.GetProperty("b2b")[0].GetProperty("inv")[0].GetProperty("pos").GetString());
+            Assert.False(offline.RootElement.TryGetProperty("pharmabill_unverified_state_invoices", out _));
+        }
+    }
+
+    [Fact]
+    public async Task GstExports_MarkInvoicesWithoutRecordedStateCodesAsUnverified()
+    {
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: "Karnataka",
+            pharmacyGstin: TestGstin.From("29"),
+            buyerState: "Tamil Nadu",
+            buyerGstin: TestGstin.From("33"));
+        await using var database = test.Database;
+        await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+        var invoice = await database.Context.WholesaleInvoices.SingleAsync();
+        invoice.PharmacyStateCode = null;
+        invoice.BuyerStateCode = null;
+        await database.Context.SaveChangesAsync();
+
+        var gst = database.CreateGstService();
+        var day = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime());
+        var tables = await gst.BuildGstr1TablesAsync(day, day);
+        var row = Assert.Single(tables.Table4B2b);
+        Assert.False(row.PlaceOfSupplyVerified);
+        Assert.Equal("33", row.PlaceOfSupply);
+        Assert.Equal([invoice.InvoiceNo], tables.UnverifiedStateInvoiceNos!);
+
+        var eInvoice = await gst.BuildEInvoiceJsonAsync(invoice.Id);
+        Assert.Contains("UNVERIFIED", eInvoice.StateWarning);
+        var eWay = await gst.BuildEWayBillJsonAsync(invoice.Id, null, null, 10m);
+        Assert.Contains("UNVERIFIED", eWay.StateWarning);
+
+        using var offline = JsonDocument.Parse(await gst.ExportGstr1OfflineJsonAsync(day, day));
+        Assert.Equal(
+            invoice.InvoiceNo,
+            offline.RootElement.GetProperty("pharmabill_unverified_state_invoices")[0].GetString());
+    }
+
+    [Fact]
     public async Task WholesaleInvoice_RequiresOwnerReasonToOverrideCreditLimit()
     {
         var test = await CreateScenarioAsync(validLicence: true, creditLimit: 500m);

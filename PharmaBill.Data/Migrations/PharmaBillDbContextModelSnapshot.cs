@@ -2829,6 +2829,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid?>("BranchId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BuyerStateCode")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CancellationReason")
                         .HasColumnType("TEXT");
 
@@ -2881,6 +2884,9 @@ namespace PharmaBill.Data.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("PaymentStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyStateCode")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("RoundOff")

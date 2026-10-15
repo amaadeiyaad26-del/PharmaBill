@@ -12,7 +12,11 @@ public sealed record Gstr1B2bRow(
 	decimal Sgst,
 	decimal Igst,
 	decimal InvoiceValue,
-	string PlaceOfSupply);
+	string PlaceOfSupply,
+	bool PlaceOfSupplyVerified = true)
+{
+	public string PlaceOfSupplyStatus => PlaceOfSupplyVerified ? "Recorded at save" : "Unverified (re-resolved)";
+}
 
 public sealed record Gstr1B2cSlabRow(
 	decimal TaxRate,
@@ -34,7 +38,8 @@ public sealed record Gstr1HsnRow(
 public sealed record Gstr1Tables(
 	IReadOnlyList<Gstr1B2bRow> Table4B2b,
 	IReadOnlyList<Gstr1B2cSlabRow> Table7B2c,
-	IReadOnlyList<Gstr1HsnRow> Table12Hsn);
+	IReadOnlyList<Gstr1HsnRow> Table12Hsn,
+	IReadOnlyList<string>? UnverifiedStateInvoiceNos = null);
 
 public sealed record Gstr2PurchaseItcRow(
 	string SupplierName,
@@ -82,6 +87,7 @@ public sealed record Gstr3bOffsetSummary(
 	decimal NetIgstPayable,
 	decimal NetGstPayable);
 
-public sealed record EInvoicePayloadResult(string Json, string SuggestedFileName);
+/// <summary>StateWarning is set when the invoice predates recorded GST state codes and states were re-resolved.</summary>
+public sealed record EInvoicePayloadResult(string Json, string SuggestedFileName, string? StateWarning = null);
 
-public sealed record EWayBillPayloadResult(string Json, string SuggestedFileName);
+public sealed record EWayBillPayloadResult(string Json, string SuggestedFileName, string? StateWarning = null);
