@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 
@@ -41,15 +42,20 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		{
 			throw new InvalidOperationException("Wholesale invoicing is unavailable in Retail mode.");
 		}
-		if (string.IsNullOrWhiteSpace(profile.State))
+		if (!IndianGstStateCodes.TryResolve(profile.State, profile.Gstin, out string? pharmacyStateCode))
 		{
-			throw new InvalidOperationException("Set the pharmacy state before calculating CGST/SGST or IGST.");
+			throw new InvalidOperationException("The pharmacy's GST state could not be determined. Set the pharmacy state (or a valid GSTIN) in Settings → Firm Profile before calculating CGST/SGST or IGST.");
 		}
 		Customer customer = (await context.Customers.SingleOrDefaultAsync((Customer item) => item.Id == input.CustomerId, cancellationToken)) ?? throw new InvalidOperationException("Select a wholesale customer; walk-ins and patients are not allowed.");
 		if (!customer.IsActive)
 		{
 			throw new InvalidOperationException("This customer is Blocked and cannot be invoiced.");
 		}
+		if (!IndianGstStateCodes.TryResolve(customer.State, customer.Gstin, out string? buyerStateCode))
+		{
+			throw new InvalidOperationException("The buyer's GST state could not be determined for " + customer.Name + ". Enter the buyer's state (or a valid GSTIN) on the customer record before calculating CGST/SGST or IGST.");
+		}
+		bool intraState = string.Equals(pharmacyStateCode, buyerStateCode, StringComparison.Ordinal);
 		DateTime invoiceAtUtc = DateTime.SpecifyKind(input.InvoiceAtUtc ?? DateTime.UtcNow, DateTimeKind.Utc);
 		DateOnly invoiceDate = DateOnly.FromDateTime(invoiceAtUtc.ToLocalTime());
 		IReadOnlyList<CustomerLicence> validLicences = await GetValidLicencesAsync(customer, profile, invoiceDate, cancellationToken);
@@ -107,10 +113,9 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				throw new InvalidOperationException("Discount exceeds line amount for " + drug.Name + ".");
 			}
 			decimal num3 = RoundMoney(num2 * drug.GstRate.GetValueOrDefault() / 100m);
-			bool flag2 = string.Equals(profile.State.Trim(), customer.State?.Trim(), StringComparison.OrdinalIgnoreCase);
-			decimal num4 = (flag2 ? RoundMoney(num3 / 2m) : 0m);
-			decimal sgstAmount = (flag2 ? (num3 - num4) : 0m);
-			prepared.Add(new PreparedLine(item, drug, batch, schedule, num2, num3, num4, sgstAmount, flag2 ? 0m : num3));
+			decimal num4 = (intraState ? RoundMoney(num3 / 2m) : 0m);
+			decimal sgstAmount = (intraState ? (num3 - num4) : 0m);
+			prepared.Add(new PreparedLine(item, drug, batch, schedule, num2, num3, num4, sgstAmount, intraState ? 0m : num3));
 			quantities[batch.Id] = valueOrDefault - item.Quantity - item.FreeQuantity;
 		}
 		decimal subtotal = prepared.Sum((PreparedLine line) => line.TaxableAmount);

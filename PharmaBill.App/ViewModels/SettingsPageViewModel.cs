@@ -16,6 +16,7 @@ using Microsoft.Win32;
 using PharmaBill.App.Services;
 using PharmaBill.Core;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
@@ -163,6 +164,10 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 	private string _pharmacyPhone = string.Empty;
 
 	private string _pharmacyGstin = string.Empty;
+
+	private string _pharmacyState = string.Empty;
+
+	private bool _pharmacyStateFromGstin;
 
 	private string _fssaiNumber = string.Empty;
 
@@ -1382,8 +1387,49 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 				OnPropertyChanging(nameof(PharmacyGstin));
 				_pharmacyGstin = value;
 				OnPropertyChanged(nameof(PharmacyGstin));
+				if (string.IsNullOrWhiteSpace(_pharmacyState) || _pharmacyStateFromGstin)
+				{
+					SetPharmacyState(IndianGstStateCodes.StateNameFromGstin(value) ?? string.Empty, fromGstin: true);
+				}
 			}
 		}
+	}
+
+	public IReadOnlyList<string> GstStateNames { get; } = IndianGstStateCodes.States.Select(s => s.Name).ToList();
+
+	/// <summary>Pharmacy's GST state. Defaults from the GSTIN prefix until the user overrides it.</summary>
+	public string PharmacyState
+	{
+		get => _pharmacyState;
+		set => SetPharmacyState(value ?? string.Empty, fromGstin: false);
+	}
+
+	private void SetPharmacyState(string value, bool fromGstin)
+	{
+		_pharmacyStateFromGstin = fromGstin;
+		if (!string.Equals(_pharmacyState, value, StringComparison.Ordinal))
+		{
+			OnPropertyChanging(nameof(PharmacyState));
+			_pharmacyState = value;
+			OnPropertyChanged(nameof(PharmacyState));
+		}
+	}
+
+	private bool TryGetPharmacyStateForSave(out string? state, out string error)
+	{
+		state = null;
+		error = string.Empty;
+		if (string.IsNullOrWhiteSpace(PharmacyState))
+		{
+			return true;
+		}
+		if (!IndianGstStateCodes.TryResolve(PharmacyState, null, out string? code))
+		{
+			error = "State \"" + PharmacyState.Trim() + "\" is not a recognised Indian GST state. Pick one from the list.";
+			return false;
+		}
+		state = IndianGstStateCodes.NameForCode(code) ?? PharmacyState.Trim();
+		return true;
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
@@ -3021,6 +3067,10 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			PharmacyPhone = pharmacyProfile.Phone ?? string.Empty;
 			PharmacyEmail = pharmacyProfile.Email ?? string.Empty;
 			PharmacyGstin = pharmacyProfile.Gstin ?? string.Empty;
+			bool hasStoredState = !string.IsNullOrWhiteSpace(pharmacyProfile.State);
+			SetPharmacyState(
+				hasStoredState ? pharmacyProfile.State! : IndianGstStateCodes.StateNameFromGstin(pharmacyProfile.Gstin) ?? string.Empty,
+				fromGstin: !hasStoredState);
 			StoreUpiId = pharmacyProfile.UpiId ?? string.Empty;
 			DocumentOutputSettings documentOutputSettings = _documentOutputSettingsStore.Load();
 			UpiPayeeName = documentOutputSettings.UpiPayeeName;
@@ -3297,11 +3347,17 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			PharmacyProfile pharmacyProfile = await unitOfWork.Context.PharmacyProfiles.SingleOrDefaultAsync();
 			if (pharmacyProfile != null && !string.IsNullOrWhiteSpace(PharmacyStoreName))
 			{
+				if (!TryGetPharmacyStateForSave(out string? state, out string stateError))
+				{
+					DocumentOutputStatus = "Print settings saved, but pharmacy profile not updated: " + stateError;
+					return;
+				}
 				pharmacyProfile.Name = PharmacyStoreName.Trim();
 				pharmacyProfile.Address = (string.IsNullOrWhiteSpace(PharmacyAddress) ? null : PharmacyAddress.Trim());
 				pharmacyProfile.Phone = (string.IsNullOrWhiteSpace(PharmacyPhone) ? null : PharmacyPhone.Trim());
 				pharmacyProfile.Email = (string.IsNullOrWhiteSpace(PharmacyEmail) ? null : PharmacyEmail.Trim());
 				pharmacyProfile.Gstin = (string.IsNullOrWhiteSpace(PharmacyGstin) ? null : PharmacyGstin.Trim());
+				pharmacyProfile.State = state;
 				if (!string.IsNullOrWhiteSpace(StoreUpiId))
 				{
 					pharmacyProfile.UpiId = StoreUpiId.Trim();
@@ -3367,6 +3423,11 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			FirmProfileStatus = "Store name is required.";
 			return;
 		}
+		if (!TryGetPharmacyStateForSave(out string? state, out string stateError))
+		{
+			FirmProfileStatus = stateError;
+			return;
+		}
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
@@ -3382,7 +3443,9 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			pharmacyProfile.Phone = (string.IsNullOrWhiteSpace(PharmacyPhone) ? null : PharmacyPhone.Trim());
 			pharmacyProfile.Email = (string.IsNullOrWhiteSpace(PharmacyEmail) ? null : PharmacyEmail.Trim());
 			pharmacyProfile.Gstin = (string.IsNullOrWhiteSpace(PharmacyGstin) ? null : PharmacyGstin.Trim());
+			pharmacyProfile.State = state;
 			await unitOfWork.SaveChangesAsync();
+			PharmacyState = state ?? string.Empty;
 			_documentOutputSettings = _documentOutputSettingsStore.Load();
 			_documentOutputSettings.AddressLine2 = PrintAddressLine2.Trim();
 			_documentOutputSettings.FssaiNumber = FssaiNumber.Trim();

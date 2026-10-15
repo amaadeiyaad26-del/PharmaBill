@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Wholesale;
 using PharmaBill.Data.Persistence;
 
@@ -73,6 +74,10 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		ArgumentException.ThrowIfNullOrWhiteSpace(customer.BuyerType, "customer.BuyerType");
 		ValidateCustomer(customer);
 		ValidateLicences(licences);
+		if (await RequiresGstStateAsync(cancellationToken))
+		{
+			ApplyBuyerGstState(customer);
+		}
 		await EnsureNoDuplicatesAsync(customer, licences, cancellationToken);
 		PharmaBillDbContext context = unitOfWork.Context;
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -135,6 +140,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		List<WholesaleCustomerImportRecord> accepted = new List<WholesaleCustomerImportRecord>();
 		List<string> errors = new List<string>();
 		int skippedDuplicates = 0;
+		bool requiresGstState = await RequiresGstStateAsync(cancellationToken);
 		foreach (WholesaleCustomerImportRecord import in imports)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
@@ -144,6 +150,10 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 				ArgumentException.ThrowIfNullOrWhiteSpace(import.Customer.BuyerType, "import.Customer.BuyerType");
 				ValidateCustomer(import.Customer);
 				ValidateLicences(import.Licences);
+				if (requiresGstState)
+				{
+					ApplyBuyerGstState(import.Customer);
+				}
 			}
 			catch (ArgumentException ex)
 			{
@@ -226,6 +236,36 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		{
 			throw new ArgumentException("Credit limit and credit days cannot be negative.");
 		}
+	}
+
+	private async Task<bool> RequiresGstStateAsync(CancellationToken cancellationToken)
+	{
+		PharmacyProfile? profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+		return profile != null && profile.BusinessMode != BusinessMode.Retail;
+	}
+
+	/// <summary>
+	/// Wholesale buyers need a resolvable GST state: taken from the GSTIN when the state is blank,
+	/// otherwise the entered state must be recognised. Stored as the canonical state name.
+	/// </summary>
+	private static void ApplyBuyerGstState(Customer customer)
+	{
+		if (string.IsNullOrWhiteSpace(customer.State))
+		{
+			customer.State = IndianGstStateCodes.StateNameFromGstin(customer.Gstin);
+			if (customer.State == null)
+			{
+				throw new ArgumentException(string.IsNullOrWhiteSpace(customer.Gstin)
+					? "Enter the buyer's state; it decides CGST/SGST vs IGST when the buyer has no GSTIN."
+					: "The buyer's GSTIN does not start with a valid state code; enter the buyer's state.");
+			}
+			return;
+		}
+		if (!IndianGstStateCodes.TryResolve(customer.State, null, out string? code))
+		{
+			throw new ArgumentException("State \"" + customer.State.Trim() + "\" is not a recognised Indian GST state.");
+		}
+		customer.State = IndianGstStateCodes.NameForCode(code) ?? customer.State.Trim();
 	}
 
 	private static void ValidateLicences(IEnumerable<CustomerLicence> licences)

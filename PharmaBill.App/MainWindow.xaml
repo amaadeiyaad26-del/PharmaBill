@@ -2445,7 +2445,7 @@
                 </StackPanel>
                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="3">
                   <TextBlock Text="State / Area" />
-                  <TextBox Padding="6" TabIndex="5" Text="{Binding Path=State, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Padding="6" TabIndex="5" ToolTip="Wholesale: filled from the buyer's GSTIN; enter it only if the buyer has no GSTIN." Text="{Binding Path=State, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
                 <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="3">
                   <TextBlock Text="{Binding AddressFieldLabel}" />

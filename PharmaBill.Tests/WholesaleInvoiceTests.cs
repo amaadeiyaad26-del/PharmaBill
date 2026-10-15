@@ -85,6 +85,78 @@ public sealed class WholesaleInvoiceTests
         Assert.Equal(120m, result.IgstAmount);
     }
 
+    [Theory]
+    [InlineData("J&K", null, "Jammu and Kashmir", null)]
+    [InlineData("Jammu & Kashmir", null, "j & k", null)]
+    [InlineData("01", null, "Jammu and Kashmir", null)]
+    [InlineData("Karnataka", null, "", "29ABCDE1234F1Z5")]
+    [InlineData("", "29AAAAA0000A1Z5", "karnataka", null)]
+    public async Task WholesaleInvoice_SameStateCodeViaDifferentSpellingsUsesCgstSgst(
+        string pharmacyState, string? pharmacyGstin, string buyerState, string? buyerGstin)
+    {
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: pharmacyState,
+            pharmacyGstin: pharmacyGstin,
+            buyerState: buyerState,
+            buyerGstin: buyerGstin);
+        await using var database = test.Database;
+
+        var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+
+        Assert.Equal(60m, result.CgstAmount);
+        Assert.Equal(60m, result.SgstAmount);
+        Assert.Equal(0m, result.IgstAmount);
+    }
+
+    [Theory]
+    [InlineData("Karnataka", null, "Tamil Nadu", null)]
+    [InlineData("", "29AAAAA0000A1Z5", "", "33ABCDE1234F1Z5")]
+    [InlineData("Jammu and Kashmir", null, "Ladakh", null)]
+    public async Task WholesaleInvoice_DifferentStateCodesUseIgst(
+        string pharmacyState, string? pharmacyGstin, string buyerState, string? buyerGstin)
+    {
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: pharmacyState,
+            pharmacyGstin: pharmacyGstin,
+            buyerState: buyerState,
+            buyerGstin: buyerGstin);
+        await using var database = test.Database;
+
+        var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
+
+        Assert.Equal(0m, result.CgstAmount);
+        Assert.Equal(0m, result.SgstAmount);
+        Assert.Equal(120m, result.IgstAmount);
+    }
+
+    [Theory]
+    [InlineData("", null, "Karnataka", null, "pharmacy's")]
+    [InlineData("Narnia", "29AAAAA0000A1Z5", "Karnataka", null, "pharmacy's")]
+    [InlineData("Karnataka", null, "", null, "buyer's")]
+    [InlineData("Karnataka", null, "Atlantis", null, "buyer's")]
+    [InlineData("Karnataka", null, "", "XXABCDE1234F1Z5", "buyer's")]
+    [InlineData("", null, "", null, "pharmacy's")]
+    [InlineData("Narnia", null, "Atlantis", null, "pharmacy's")]
+    public async Task WholesaleInvoice_UnresolvedStateRefusesAndNamesTheSide(
+        string pharmacyState, string? pharmacyGstin, string buyerState, string? buyerGstin, string side)
+    {
+        var test = await CreateScenarioAsync(
+            validLicence: true,
+            pharmacyState: pharmacyState,
+            pharmacyGstin: pharmacyGstin,
+            buyerState: buyerState,
+            buyerGstin: buyerGstin);
+        await using var database = test.Database;
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+
+        Assert.Contains(side + " GST state could not be determined", error.Message);
+        Assert.Empty(await database.Context.WholesaleInvoices.ToListAsync());
+    }
+
     [Fact]
     public async Task WholesaleInvoice_RequiresOwnerReasonToOverrideCreditLimit()
     {
@@ -376,13 +448,18 @@ public sealed class WholesaleInvoiceTests
         string? authorisation = null,
         decimal creditLimit = 0m,
         DateOnly? licenceExpiry = null,
-        DateOnly? batchExpiry = null)
+        DateOnly? batchExpiry = null,
+        string? pharmacyState = "Karnataka",
+        string? pharmacyGstin = null,
+        string? buyerState = null,
+        string? buyerGstin = null)
     {
         var database = await DatabaseTestContext.CreateAsync();
         var profile = new PharmacyProfile
         {
             Name = "Test Pharmacy",
-            State = "Karnataka",
+            State = pharmacyState,
+            Gstin = pharmacyGstin,
             BusinessMode = BusinessMode.Wholesaler,
             InvoicePrefix = "WHO",
             WholesaleBuyerLicenceRulesJson = JsonSerializer.Serialize(
@@ -399,7 +476,8 @@ public sealed class WholesaleInvoiceTests
         {
             Name = "Buyer",
             BuyerType = "Distributor",
-            State = sameState ? "Karnataka" : "Tamil Nadu",
+            State = buyerState ?? (sameState ? "Karnataka" : "Tamil Nadu"),
+            Gstin = buyerGstin,
             IsActive = !blocked,
             CreditLimit = creditLimit,
             CreditDays = 30

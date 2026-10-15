@@ -273,6 +273,8 @@
                   <TextBox Padding="8" Text="{Binding DrugLicence21B, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
               </Grid>
+              <TextBlock Style="{StaticResource FieldLabel}" Text="State (for GST)" />
+              <ComboBox IsEditable="True" Padding="6" Margin="0,0,0,10" ItemsSource="{Binding GstStateNames}" Text="{Binding PharmacyState, UpdateSourceTrigger=PropertyChanged}" ToolTip="Filled from your GSTIN; change it if needed. Decides CGST/SGST vs IGST on wholesale invoices." />
               <TextBlock Style="{StaticResource FieldLabel}" Text="FSSAI" />
               <TextBox Padding="8" Margin="0,0,0,10" Text="{Binding FssaiNumber, UpdateSourceTrigger=PropertyChanged}" />
               <Button Content="Save Profile" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Command="{Binding SaveFirmProfileCommand}" />

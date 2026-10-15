@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Wholesale;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
@@ -336,27 +337,37 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 				OnPropertyChanging(nameof(Gstin));
 				_gstin = value;
 				OnPropertyChanged(nameof(Gstin));
+				if (IsWholesaleMode && (string.IsNullOrWhiteSpace(_state) || _stateFromGstin))
+				{
+					SetState(IndianGstStateCodes.StateNameFromGstin(value) ?? string.Empty, fromGstin: true);
+				}
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
+	private bool _stateFromGstin;
+
+	/// <summary>Buyer state. In wholesale mode it follows the GSTIN prefix until the user types their own.</summary>
 	public string State
 	{
 		get
 		{
 			return _state;
 		}
-		[MemberNotNull("_state")]
 		set
 		{
-			if (!EqualityComparer<string>.Default.Equals(_state, value))
-			{
-				OnPropertyChanging(nameof(State));
-				_state = value;
-				OnPropertyChanged(nameof(State));
-			}
+			SetState(value ?? string.Empty, fromGstin: false);
+		}
+	}
+
+	private void SetState(string value, bool fromGstin)
+	{
+		_stateFromGstin = fromGstin;
+		if (!EqualityComparer<string>.Default.Equals(_state, value))
+		{
+			OnPropertyChanging(nameof(State));
+			_state = value;
+			OnPropertyChanged(nameof(State));
 		}
 	}
 

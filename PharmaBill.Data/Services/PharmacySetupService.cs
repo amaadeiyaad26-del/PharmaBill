@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
+using PharmaBill.Core.Gst;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 
@@ -23,6 +24,7 @@ public sealed class PharmacySetupService(
 		ArgumentNullException.ThrowIfNull(profile, "profile");
 		ArgumentNullException.ThrowIfNull(owner, "owner");
 		ArgumentException.ThrowIfNullOrWhiteSpace(ownerSecret, "ownerSecret");
+		DefaultStateFromGstin(profile);
 		List<LicenceRecord> licenceList = licences.ToList();
 		if (!OperatingSystem.IsWindows())
 		{
@@ -76,6 +78,7 @@ public sealed class PharmacySetupService(
 	private async Task<AppUser> CompleteFirstRunAsync(PharmacyProfile profile, List<LicenceRecord> licenceList, AppUser owner, string ownerSecret, CancellationToken cancellationToken)
 	{
 		DateTime now = DateTime.UtcNow;
+		DefaultStateFromGstin(profile);
 		profile.TrialStartedAtUtc = now;
 		profile.LastEntitlementCheckAtUtc = now;
 		owner.Role = UserRole.Owner;
@@ -168,6 +171,13 @@ public sealed class PharmacySetupService(
 		protectedAccessStateStore.Write(new AccessState(now, now));
 	}
 
+	private static void DefaultStateFromGstin(PharmacyProfile profile)
+	{
+		profile.State = string.IsNullOrWhiteSpace(profile.State)
+			? IndianGstStateCodes.StateNameFromGstin(profile.Gstin)
+			: profile.State.Trim();
+	}
+
 	private static void ApplyProfileFields(PharmacyProfile existing, PharmacyProfile profile, DateTime now)
 	{
 		existing.Name = profile.Name.Trim();
@@ -176,6 +186,7 @@ public sealed class PharmacySetupService(
 		existing.Phone = profile.Phone;
 		existing.Email = profile.Email;
 		existing.Gstin = profile.Gstin;
+		existing.State = profile.State;
 		existing.Pan = profile.Pan;
 		existing.BusinessMode = profile.BusinessMode;
 		existing.CompetentPersonName = profile.CompetentPersonName;
