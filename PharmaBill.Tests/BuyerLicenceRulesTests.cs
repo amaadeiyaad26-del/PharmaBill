@@ -78,6 +78,7 @@ public sealed class BuyerLicenceRulesTests
     public async Task Startup_AddsDefaultsToAnExistingEmptyRuleSet()
     {
         await using var database = await DatabaseTestContext.CreateAsync();
+        await MarkAllMigrationsAppliedAsync(database);
         database.Context.PharmacyProfiles.Add(new PharmacyProfile { Name = "Legacy pharmacy", WholesaleBuyerLicenceRulesJson = "{}" });
         await database.Context.SaveChangesAsync();
 
@@ -85,5 +86,17 @@ public sealed class BuyerLicenceRulesTests
 
         string json = (await database.Context.PharmacyProfiles.AsNoTracking().SingleAsync()).WholesaleBuyerLicenceRulesJson;
         Assert.Equal(["20", "21"], BuyerLicenceRules.AllowedFor(BuyerLicenceRules.Parse(json), "Retailer"));
+    }
+
+    // Simulates an installed, fully migrated database (schema current, history complete).
+    private static async Task MarkAllMigrationsAppliedAsync(DatabaseTestContext database)
+    {
+        await database.Context.Database.ExecuteSqlRawAsync(
+            "CREATE TABLE IF NOT EXISTS \"__EFMigrationsHistory\" (\"MigrationId\" TEXT NOT NULL PRIMARY KEY, \"ProductVersion\" TEXT NOT NULL);");
+        foreach (string id in database.Context.Database.GetMigrations())
+        {
+            await database.Context.Database.ExecuteSqlRawAsync(
+                "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, '10.0.0');", id);
+        }
     }
 }

@@ -11,7 +11,17 @@ public static class AppDataPaths
 {
 	public static string RootDirectory { get; } = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-		"PharmaBill");
+		RootFolderName);
+
+	/// <summary>
+	/// Debug builds keep their databases, key, store pointer and logs in a separate folder so a development
+	/// build (with half-finished migrations) can never open or alter the real pharmacy database.
+	/// </summary>
+#if DEBUG
+	public const string RootFolderName = "PharmaBill-Debug";
+#else
+	public const string RootFolderName = "PharmaBill";
+#endif
 
 	public static string DataDirectory => Path.Combine(RootDirectory, "data");
 

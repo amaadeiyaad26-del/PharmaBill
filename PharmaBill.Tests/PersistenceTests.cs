@@ -137,27 +137,6 @@ public sealed class PersistenceTests
     }
 
     [Fact]
-    public async Task DbInitializer_AddsModelColumnsMissingFromInstalledDatabase()
-    {
-        await using var database = await DatabaseTestContext.CreateAsync();
-        await database.Context.Database.ExecuteSqlRawAsync(
-            "ALTER TABLE \"PurchaseInvoices\" DROP COLUMN \"StorageLocationId\";");
-
-        await database.CreateDbInitializer().InitializeAsync();
-
-        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        await using var command = database.Connection.CreateCommand();
-        command.CommandText = "PRAGMA table_info(\"PurchaseInvoices\");";
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            columns.Add(reader.GetString(1));
-        }
-
-        Assert.Contains("StorageLocationId", columns);
-    }
-
-    [Fact]
     public async Task MigrationSnapshot_MatchesCurrentModel()
     {
         await using var database = await DatabaseTestContext.CreateAsync();

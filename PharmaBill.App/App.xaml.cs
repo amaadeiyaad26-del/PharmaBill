@@ -29,11 +29,7 @@ public partial class App : Application
 	[DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
 	private static extern int SetCurrentProcessExplicitAppUserModelID(string appID);
 
-	private readonly string _logDirectory = Path.Combine(
-		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-		"PharmaBill",
-		"data",
-		"logs");
+	private readonly string _logDirectory = PharmaBill.Data.Persistence.AppDataPaths.LogsDirectory;
 
 	private IHost? _host;
 
@@ -63,7 +59,7 @@ public partial class App : Application
 		try
 		{
 			// Persistent Win32 AppData (DB/logs/licence under data\) — never cleared by EXE reinstall.
-			string appRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill");
+			string appRoot = PharmaBill.Data.Persistence.AppDataPaths.RootDirectory;
 			Directory.CreateDirectory(appRoot);
 			Directory.CreateDirectory(Path.Combine(appRoot, "data"));
 			Directory.CreateDirectory(_logDirectory);
@@ -215,8 +211,8 @@ public partial class App : Application
 			bool setupRequired;
 			using (IServiceScope scope = _host.Services.CreateScope())
 			{
-				// Schema must exist before PharmacyProfiles / AppUsers probes (wiped DB / first run).
-				await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync();
+				// Schema was migrated by DatabaseInitializationHostedService during _host.StartAsync();
+				// a failed migration already stopped startup there.
 				setupRequired = await PharmacySetupProbe.IsInitialSetupRequiredAsync(scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>());
 			}
 			await StartupFlow.RunAsync(setupRequired, ShowSetupAsync, () => currentSession.IsAuthenticated, ShowLoginAsync, (Action shutdownWhenMainCloses) =>

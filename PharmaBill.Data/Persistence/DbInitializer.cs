@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
@@ -19,15 +20,29 @@ public sealed class DbInitializer(
 	BranchService branchService,
 	DatabaseStorageOptions storageOptions)
 {
+	// Databases already initialised in this process. Startup paths (hosted service, login window, store switch)
+	// may all ask; migrations and data tidy-ups must run once per database file per launch.
+	private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> InitializedDatabases = new(StringComparer.OrdinalIgnoreCase);
+
 	public async Task InitializeAsync(CancellationToken cancellationToken = default(CancellationToken))
+	{
+		string databaseKey = Path.GetFullPath(storageOptions.DatabasePath);
+		if (InitializedDatabases.ContainsKey(databaseKey))
+		{
+			return;
+		}
+		await InitializeOnceAsync(cancellationToken);
+		InitializedDatabases.TryAdd(databaseKey, 0);
+	}
+
+	private async Task InitializeOnceAsync(CancellationToken cancellationToken)
 	{
 		// NEVER delete, truncate, or recreate storageOptions.DatabasePath here.
 		// Preloaded Drug Bank catalogues (116–119MB) must survive schema upgrades in-place.
 		EnsureDatabaseDirectory();
 
 		// 1) CREATE / MIGRATE SCHEMA — must run before any PharmacyProfiles / AppUsers query.
-		// Tolerate migrate failures on older preloaded DBs that already have tables, but never
-		// leave a wiped/empty file without core tables (startup would crash on PharmacyProfiles).
+		// A failed migration throws DatabaseMigrationException and startup stops.
 		await EnsureCoreSchemaAsync(cancellationToken);
 
 		// Patch critical columns so setup never hits "no such column".
@@ -55,7 +70,6 @@ public sealed class DbInitializer(
 		await EnsureSaleMrdNumberColumnAsync(cancellationToken);
 		await TryAddNullableTextColumnAsync("Sales", "PrescriptionFilePath", indexName: null, cancellationToken);
 		await EnsureBanAndReorderColumnsAsync(cancellationToken);
-		await EnsureModelColumnsAsync(cancellationToken);
 
 		// Store buyer-type synonyms (Wholesaler, Stockist…) as Distributor, with an audit entry per remap.
 		try
@@ -127,54 +141,37 @@ public sealed class DbInitializer(
 		}
 	}
 
+	/// <summary>
+	/// Applies migrations once. A failure stops startup and names the migration; there is no retry,
+	/// EnsureCreated fallback or column patching that would hide a broken migration history.
+	/// </summary>
 	private async Task EnsureCoreSchemaAsync(CancellationToken cancellationToken)
 	{
-		Exception? migrateError = null;
+		List<string> pending = (await context.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
 		try
 		{
 			await context.Database.MigrateAsync(cancellationToken);
 		}
 		catch (Exception ex)
 		{
-			// Keep the existing SQLite file when an older catalogue DB trips migrate.
-			migrateError = ex;
-		}
-
-		if (await TableExistsAsync("PharmacyProfiles", cancellationToken))
-		{
-			return;
-		}
-
-		// Wiped or brand-new database: migrations must create core tables before any probe/UI.
-		try
-		{
-			await context.Database.MigrateAsync(cancellationToken);
-		}
-		catch (Exception ex)
-		{
-			migrateError ??= ex;
-		}
-
-		if (await TableExistsAsync("PharmacyProfiles", cancellationToken))
-		{
-			return;
-		}
-
-		try
-		{
-			await context.Database.EnsureCreatedAsync(cancellationToken);
-		}
-		catch (Exception ex)
-		{
-			migrateError ??= ex;
+			HashSet<string> applied;
+			try
+			{
+				applied = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToHashSet(StringComparer.Ordinal);
+			}
+			catch (Exception)
+			{
+				applied = new HashSet<string>(StringComparer.Ordinal);
+			}
+			string failed = pending.FirstOrDefault(id => !applied.Contains(id)) ?? "(unknown)";
+			throw new DatabaseMigrationException(failed, storageOptions.DatabasePath, ex);
 		}
 
 		if (!await TableExistsAsync("PharmacyProfiles", cancellationToken))
 		{
 			throw new InvalidOperationException(
-				"PharmaBill could not create the database schema (PharmacyProfiles is missing). " +
-				"Delete a corrupted empty pharmabill.db if testing, or restore from backup.",
-				migrateError);
+				"Migrations completed but the PharmacyProfiles table is missing; the database at "
+				+ storageOptions.DatabasePath + " is not a PharmaBill database. Restore a backup or contact support.");
 		}
 	}
 
@@ -469,85 +466,6 @@ public sealed class DbInitializer(
 		await TryAddNullableTextColumnAsync("PurchaseInvoices", "BranchId", "IX_PurchaseInvoices_BranchId", cancellationToken);
 		await TryAddNullableTextColumnAsync("Sales", "BranchId", "IX_Sales_BranchId", cancellationToken);
 		await TryAddNullableTextColumnAsync("WholesaleInvoices", "BranchId", indexName: null, cancellationToken);
-	}
-
-	// Adds any column present in the EF model but missing from an installed database (older builds skipped migrations).
-	private async Task EnsureModelColumnsAsync(CancellationToken cancellationToken)
-	{
-		foreach (IEntityType entityType in context.Model.GetEntityTypes())
-		{
-			string? tableName = entityType.GetTableName();
-			if (string.IsNullOrWhiteSpace(tableName) || entityType.GetViewName() != null)
-			{
-				continue;
-			}
-
-			if (!await TableExistsAsync(tableName, cancellationToken))
-			{
-				continue;
-			}
-
-			StoreObjectIdentifier table = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
-			HashSet<string> existing = await GetTableColumnsAsync(tableName, cancellationToken);
-			foreach (IProperty property in entityType.GetProperties())
-			{
-				string? columnName = property.GetColumnName(table);
-				string? columnType = property.GetColumnType(table);
-				if (string.IsNullOrWhiteSpace(columnName) || string.IsNullOrWhiteSpace(columnType) || existing.Contains(columnName))
-				{
-					continue;
-				}
-
-				string definition = property.IsNullable
-					? $"{columnType} NULL"
-					: $"{columnType} NOT NULL DEFAULT {DefaultLiteral(property)}";
-				try
-				{
-					await context.Database.ExecuteSqlRawAsync(
-						$"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {definition};",
-						cancellationToken);
-				}
-				catch (Exception ex) when (ex.ToString().Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
-				{
-				}
-			}
-		}
-	}
-
-	private static string DefaultLiteral(IProperty property)
-	{
-		Type type = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
-		if (type == typeof(Guid))
-		{
-			return "'00000000-0000-0000-0000-000000000000'";
-		}
-
-		if (type == typeof(string))
-		{
-			return "''";
-		}
-
-		if (type == typeof(DateTime) || type == typeof(DateTimeOffset))
-		{
-			return "'0001-01-01 00:00:00'";
-		}
-
-		if (type == typeof(DateOnly))
-		{
-			return "'0001-01-01'";
-		}
-
-		if (type == typeof(TimeOnly) || type == typeof(TimeSpan))
-		{
-			return "'00:00:00'";
-		}
-
-		if (type == typeof(byte[]))
-		{
-			return "X''";
-		}
-
-		return "0";
 	}
 
 	private async Task TryAddNullableTextColumnAsync(
