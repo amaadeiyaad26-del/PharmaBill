@@ -12,18 +12,24 @@ downloaded them. That route was removed along with Google Drive backup (see
 credentials were always placeholders, and every branch had to sign in to the same
 Google account.
 
-The old route had two consumers, and both stay in the code:
+The old route fed two features. The billing hint stays in the code; the report rows are
+removed for now:
 
 - **Billing search.** When a medicine is out of stock here, search shows "Branch X had
   N in stock at <time>" (`BranchService.FindPeerAvailability`). The hint is shown only
   while the figure is under 24 hours old (`BranchService.PeerStockFreshFor`). Older
   figures are hidden, so a pharmacist never promises stock that has since been sold.
-- **Reports.** The "Consolidated network summary" filter adds one summary row per other
-  branch to the sales report. The purchase report has no network rows: branches never
-  sent purchase figures.
+- **Reports.** The "Consolidated network summary" filter used to add one row per other
+  branch to the sales and purchase reports. Both are removed:
+  - The sales rows covered whatever period a branch last published (the last month by
+    default), not the report's own dates.
+  - The purchase rows carried sales totals, because branches never sent purchase
+    figures.
 
-Both read the head office's cache folder, `<data folder>\branch-cache\`. Nothing fills
-that cache any more.
+  The filter still exists and shows this PC's own rows only.
+
+The billing hint reads the head office's cache folder, `<data folder>\branch-cache\`.
+Nothing fills that cache any more.
 
 ## Agreed design (Option A)
 
@@ -52,10 +58,21 @@ that cache any more.
 Drive or Dropbox folder, that sync app moves the files and the flow is close to
 automatic. Without one, USB or e-mail works. It is the same approach as folder backup.
 
+**Network rows in reports.** These come back with the rebuild, under one rule: a branch
+row covers exactly the report's date range.
+
+- **Sales report:** the export must carry figures for the requested dates. Either:
+  - each branch exports per-day totals and the head office sums the report's range; or
+  - the head office asks for an export of a stated range.
+
+  A summary covering any other period is not shown.
+- **Purchase report:** gets network rows only if branches export purchase figures. Sales
+  totals never stand in for them.
+- **Row label:** each row shows the branch's "as of" time.
+
 **Freshness.**
 
 - Billing search keeps the 24-hour rule above.
-- The consolidated report shows each branch's "as of" time on its row.
 - If imports become routine, consider an import on a timer from the chosen folder,
   like folder backup's daily option.
 
@@ -76,9 +93,9 @@ automatic. Without one, USB or e-mail works. It is the same approach as folder b
 - **Encrypt the export or not.** The documents hold stock quantities and sales totals,
   but no patient data. Encrypting them would need a shared network password, which is
   one more thing a shop can lose.
-- **Sales-summary period.** The current builder defaults to the last month. The
-  consolidated report should either export for the report's own date range or label
-  the period it shows.
+- **How to match the report's period.** Choose between per-day totals in every export
+  and an export for a requested range (see "Network rows in reports"). Per-day totals
+  let one export serve any report.
 - **Clearing the cache.** Decide whether head office can remove a branch that has
   closed. Today a stale cache file stays until it is deleted by hand.
 

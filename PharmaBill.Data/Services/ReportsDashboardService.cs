@@ -359,31 +359,10 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			Format(item.LineTotal),
 			item.BranchCode
 		}))).ToList();
-		if (branchScope == ReportBranchScope.ConsolidatedNetwork)
-		{
-			foreach (BranchSalesSummaryDocument item in branchService.LoadPeerSalesSummaries())
-			{
-				list.Add(new _003C_003Ez__ReadOnlyArray<string>(new string[10]
-				{
-					item.GeneratedAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm"),
-					item.BranchCode + " summary",
-					item.BranchName,
-					$"{item.InvoiceCount} invoice(s) (network)",
-					"—",
-					"—",
-					"—",
-					"—",
-					Format(item.SalesTotal),
-					item.BranchCode
-				}));
-			}
-		}
+		// Other branches' summaries are left out until they can be exported for this report's own dates;
+		// the cached ones cover a different period and are never refreshed (docs/BRANCH_SUMMARIES.md).
 		List<string> list2 = (from item in source.OrderBy((SalesLineFact item) => item.AtUtc).ThenBy((SalesLineFact item) => item.InvoiceNo, StringComparer.Ordinal)
 			select item.RowKey).ToList();
-		while (list2.Count < list.Count)
-		{
-			list2.Add(string.Empty);
-		}
 		return new ReportTable((branchScope == ReportBranchScope.ConsolidatedNetwork) ? "Sales Summary (network)" : "Sales Summary (General)", new _003C_003Ez__ReadOnlyArray<string>(new string[10] { "Date", "Invoice", "Patient / buyer", "Item Name", "Batch / B.No", "Expiry", "Qty", "Rate", "Total", "Branch" }), list, list2);
 	}
 

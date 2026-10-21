@@ -44,7 +44,7 @@ public sealed class BranchCacheTests
     }
 
     [Fact]
-    public async Task PurchaseReport_NetworkScope_HasNoBranchSalesRows()
+    public async Task SalesAndPurchaseReports_NetworkScope_HaveNoCachedBranchRows()
     {
         await using var database = await DatabaseTestContext.CreateAsync();
         BranchService branches = database.CreateBranchService();
@@ -60,8 +60,10 @@ public sealed class BranchCacheTests
         DateOnly today = BusinessClock.Today;
 
         ReportTable purchases = await reports.GetReportAsync(ReportKind.Purchases, today.AddMonths(-1), today, ReportBranchScope.ConsolidatedNetwork);
+        ReportTable sales = await reports.GetReportAsync(ReportKind.Sales, today, today, ReportBranchScope.ConsolidatedNetwork);
 
         Assert.Empty(purchases.Rows);
+        Assert.Empty(sales.Rows);
     }
 
     private static BranchStockIndexDocument Index(string code, string name, DateTime generatedAtUtc, string medicine, decimal quantity) => new()
