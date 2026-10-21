@@ -1568,6 +1568,11 @@ public class MainWindowViewModel : ObservableObject
 		EntitlementStatus entitlementStatus = ((trialStatus == "EXPIRED") ? EntitlementStatus.EXPIRED : ((!(trialStatus == "GRACE OFFLINE")) ? EntitlementStatus.SUBSCRIBED : EntitlementStatus.GRACE_OFFLINE));
 		EntitlementStatus status = entitlementStatus;
 		WelcomeStatusLine = WelcomeGreeting.BuildStatusLine(status);
+		if (PharmaBill.Data.Persistence.DbInitializer.LastArchivedUnreadableDatabase is string archived)
+		{
+			// Non-blocking: the app has started on a fresh database; say where the old one went so records are not presumed lost.
+			WelcomeStatusLine = "The previous database could not be opened and was archived as " + System.IO.Path.GetFileName(archived) + " in the data folder. Contact support to recover its records.";
+		}
 		ShowWelcomeToast = true;
 		AutoDismissWelcomeToastAsync();
 	}

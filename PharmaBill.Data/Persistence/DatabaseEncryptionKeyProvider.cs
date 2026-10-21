@@ -8,6 +8,9 @@ public sealed class DatabaseEncryptionKeyProvider
 {
 	private readonly string _keyFilePath;
 
+	/// <summary>True when this process had to create a new key because none existed. An existing database cannot open with it.</summary>
+	public bool CreatedNewKey { get; private set; }
+
 	public DatabaseEncryptionKeyProvider(string? keyFilePath = null)
 	{
 		_keyFilePath = keyFilePath ?? AppDataPaths.DatabaseKeyPath;
@@ -44,6 +47,7 @@ public sealed class DatabaseEncryptionKeyProvider
 			using FileStream fileStream = new FileStream(_keyFilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
 			fileStream.Write(array2);
 			fileStream.Flush(flushToDisk: true);
+			CreatedNewKey = true;
 			return bytes;
 		}
 		catch (IOException) when (File.Exists(_keyFilePath))

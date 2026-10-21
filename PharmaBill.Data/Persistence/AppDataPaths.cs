@@ -106,12 +106,13 @@ public static class AppDataPaths
 		{
 			if (File.Exists(databasePath) && new FileInfo(databasePath).Length == 0)
 			{
-				File.Delete(databasePath);
+				// Moved aside, never deleted (it holds no records); migrations then create a fresh database.
+				DatabaseFileHealth.Quarantine(databasePath, "empty");
 			}
 		}
 		catch
 		{
-			// Best-effort cleanup of corrupt stubs only.
+			// Best effort; DbInitializer checks the file again before opening it.
 		}
 
 		if (File.Exists(databasePath))

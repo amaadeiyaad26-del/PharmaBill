@@ -25,6 +25,15 @@ internal sealed class DatabaseInitializationHostedService(
 			await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
 			await scope.ServiceProvider.GetRequiredService<DbInitializer>().InitializeAsync(cancellationToken);
 			logger.LogInformation("Database initialization completed.");
+			if (DbInitializer.LastQuarantinedEmptyDatabase is string moved)
+			{
+				logger.LogWarning("The database file was empty (no records) and was moved to {Moved}; a fresh database was created.", moved);
+			}
+
+			if (DbInitializer.LastArchivedUnreadableDatabase is string archived)
+			{
+				logger.LogError("The database could not be opened (damaged or a different encryption key). It was archived unchanged at {Archived} and a fresh database was created. Its records can be recovered with the original database.key.", archived);
+			}
 		}
 		catch (Exception ex)
 		{

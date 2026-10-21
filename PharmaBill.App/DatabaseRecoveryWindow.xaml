@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.DatabaseRecoveryWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/Assets/Icons/app.ico" Title="Pharma Remit - database could not be opened" Width="580" SizeToContent="Height"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="#FFFFFFFF" Foreground="#FF182230">
+  <StackPanel Margin="28">
+    <TextBlock Name="HeadingText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <TextBlock Name="ExplanationText" FontSize="13.5" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,12" />
+    <Border Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock Text="Database file" FontSize="11.5" FontWeight="SemiBold" Foreground="#FF667085" />
+        <TextBox Name="PathText" IsReadOnly="True" BorderThickness="0" Background="Transparent" TextWrapping="Wrap" FontSize="12.5" Margin="0,2,0,6" />
+        <TextBlock Text="What SQLite reported" FontSize="11.5" FontWeight="SemiBold" Foreground="#FF667085" />
+        <TextBlock Name="DetailText" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
+      </StackPanel>
+    </Border>
+
+    <Border BorderBrush="#FFFECDCA" Background="#FFFEF3F2" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,16">
+      <StackPanel>
+        <TextBlock FontWeight="SemiBold" Foreground="#FFB42318" Text="Start a new empty database" Margin="0,0,0,4" />
+        <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="#FF7A271A"
+                   Text="Use this only if you have no backup to restore. The current file is renamed, not deleted, and kept next to it. Your existing records will not appear in the new database." />
+        <CheckBox Name="ConfirmFreshBox" Margin="0,8,0,0" Checked="ConfirmFresh_Changed" Unchecked="ConfirmFresh_Changed"
+                  Content="I understand my existing records will not appear until this file is restored." />
+      </StackPanel>
+    </Border>
+
+    <TextBlock Name="ResultText" TextWrapping="Wrap" FontSize="12.5" Foreground="#FF027A48" Margin="0,0,0,12" />
+
+    <DockPanel LastChildFill="False">
+      <Button DockPanel.Dock="Left" Content="Open data folder" Padding="14,7" Click="OpenFolder_Click" />
+      <Button DockPanel.Dock="Right" Content="Exit" Padding="18,7" Margin="8,0,0,0" IsCancel="True" Click="Exit_Click" />
+      <Button DockPanel.Dock="Right" Name="StartFreshButton" Content="Start new database" Padding="14,7" IsEnabled="False" Click="StartFresh_Click" />
+    </DockPanel>
+  </StackPanel>
+</Window>

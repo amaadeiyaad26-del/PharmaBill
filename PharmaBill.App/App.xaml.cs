@@ -231,12 +231,44 @@ public partial class App : Application
 				ScheduleBackgroundUpdateCheck();
 			}, Shutdown);
 		}
+		catch (Exception ex) when (FindInner<PharmaBill.Data.Persistence.DatabaseUnreadableException>(ex) is { } unreadable)
+		{
+			// SQLite Error 26 / corruption: a recovery screen instead of a crash. The file is left untouched unless the
+			// user explicitly starts a new database, and even then it is renamed, never deleted.
+			Log.Error(ex, "The pharmacy database at {Path} could not be opened; showing recovery options.", unreadable.DatabasePath);
+			new DatabaseRecoveryWindow(unreadable).ShowDialog();
+			Shutdown(-1);
+		}
 		catch (Exception ex)
 		{
 			Log.Fatal(ex, "The application could not start.");
 			ShowError("Pharma Remit could not start.", ex.ToString());
 			Shutdown(-1);
 		}
+	}
+
+	private static T? FindInner<T>(Exception? exception) where T : Exception
+	{
+		for (Exception? current = exception; current != null; current = current.InnerException)
+		{
+			if (current is T match)
+			{
+				return match;
+			}
+
+			if (current is AggregateException aggregate)
+			{
+				foreach (Exception inner in aggregate.InnerExceptions)
+				{
+					if (FindInner<T>(inner) is { } nested)
+					{
+						return nested;
+					}
+				}
+			}
+		}
+
+		return null;
 	}
 
 	private static void ApplyTrialWindowTitle(MainWindow mainWindow)

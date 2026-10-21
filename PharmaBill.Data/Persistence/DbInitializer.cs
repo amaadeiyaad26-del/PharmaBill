@@ -18,8 +18,15 @@ public sealed class DbInitializer(
 	PharmaBillDbContext context,
 	StorageLocationService storageLocations,
 	BranchService branchService,
-	DatabaseStorageOptions storageOptions)
+	DatabaseStorageOptions storageOptions,
+	DatabaseEncryptionKeyProvider? keyProvider = null)
 {
+	/// <summary>Where the last empty database file was moved this process, for the startup log. Null when none was.</summary>
+	public static string? LastQuarantinedEmptyDatabase { get; private set; }
+
+	/// <summary>Where an unreadable database was archived this process, so startup can tell the user. Null when none was.</summary>
+	public static string? LastArchivedUnreadableDatabase { get; private set; }
+
 	// Databases already initialised in this process. Startup paths (hosted service, login window, store switch)
 	// may all ask; migrations and data tidy-ups must run once per database file per launch.
 	private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> InitializedDatabases = new(StringComparer.OrdinalIgnoreCase);
@@ -40,6 +47,9 @@ public sealed class DbInitializer(
 		// NEVER delete, truncate, or recreate storageOptions.DatabasePath here.
 		// Preloaded Drug Bank catalogues (116–119MB) must survive schema upgrades in-place.
 		EnsureDatabaseDirectory();
+
+		// 0) CHECK THE FILE before EF opens it (SQLite Error 26 used to crash startup here).
+		CheckDatabaseFile();
 
 		// 1) CREATE / MIGRATE SCHEMA — must run before any PharmacyProfiles / AppUsers query.
 		// Migrations are the only thing that changes the schema. A failed migration throws
@@ -147,6 +157,62 @@ public sealed class DbInitializer(
 			throw new InvalidOperationException(
 				"Migrations completed but the PharmacyProfiles table is missing; the database at "
 				+ storageOptions.DatabasePath + " is not a Pharma Remit database. Restore a backup or contact support.");
+		}
+	}
+
+	/// <summary>
+	/// A file that provably holds no records (0 bytes or only zeros) is moved aside. A non-empty file that will not
+	/// open (damaged, or encrypted with a different key) is archived next to itself as ".key-mismatch-&lt;time&gt;" or
+	/// ".unreadable-&lt;time&gt;", never deleted. Either way the migrations then create a fresh database so the app starts.
+	/// Only when the file cannot even be archived (held open elsewhere) does startup stop, with
+	/// <see cref="DatabaseUnreadableException"/>, so the recovery screen can explain it.
+	/// </summary>
+	private void CheckDatabaseFile()
+	{
+		string? connectionString = context.Database.GetConnectionString();
+		if (string.IsNullOrWhiteSpace(connectionString))
+		{
+			return;
+		}
+
+		DatabaseFileCheck check = DatabaseFileHealth.Inspect(connectionString);
+		switch (check.State)
+		{
+			case DatabaseFileState.Empty:
+			{
+				string path = new SqliteConnectionStringBuilder(connectionString).DataSource;
+				try
+				{
+					LastQuarantinedEmptyDatabase = DatabaseFileHealth.Quarantine(path, "empty");
+				}
+				catch (IOException) when (new FileInfo(path).Length == 0)
+				{
+					// A 0-byte file still open elsewhere (SQLite creates one when a connection first opens a new
+					// database). SQLite initialises a 0-byte file as a new empty database, so it can stay.
+				}
+				catch (IOException ex)
+				{
+					throw new DatabaseUnreadableException(path, check.Detail + " It could not be moved aside: " + ex.Message, keyProvider?.CreatedNewKey == true, isUnencryptedSqlite: false);
+				}
+
+				break;
+			}
+			case DatabaseFileState.Unreadable:
+			{
+				string path = new SqliteConnectionStringBuilder(connectionString).DataSource;
+				bool newKey = keyProvider?.CreatedNewKey == true;
+				try
+				{
+					// The key file was missing at startup, so the archived file almost certainly needs the original key.
+					LastArchivedUnreadableDatabase = DatabaseFileHealth.Quarantine(path, newKey ? "key-mismatch" : "unreadable");
+				}
+				catch (IOException ex)
+				{
+					throw new DatabaseUnreadableException(path, check.Detail + " It could not be archived: " + ex.Message, newKey, check.IsUnencryptedSqlite);
+				}
+
+				break;
+			}
 		}
 	}
 
