@@ -16,13 +16,6 @@
     </StackPanel>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" PanningMode="VerticalOnly">
       <StackPanel Margin="0,0,8,8">
-        <GroupBox Header="Sign in with Google (optional)" Padding="14" Margin="0,0,0,12">
-          <StackPanel>
-            <TextBlock Text="Use Google sign-in to pre-fill your admin name and email, then complete store details below." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10" />
-            <TextBlock Text="─── OR CONTINUE WITH ───" HorizontalAlignment="Center" Foreground="#94A3B8" FontSize="11" Margin="0,0,0,10" />
-            <Button Style="{StaticResource GoogleSignInButton}" Content="Continue with Google" HorizontalAlignment="Stretch" Command="{Binding SignInWithGoogleCommand}" IsEnabled="{Binding CanUseSocialSignIn}" />
-          </StackPanel>
-        </GroupBox>
         <GroupBox Header="Store type" Padding="14" Margin="0,0,0,12">
           <StackPanel Orientation="Horizontal">
             <RadioButton Content="Retail Pharmacy" GroupName="StoreType" Margin="0,0,20,0" IsChecked="{Binding IsRetailStoreSelected, Mode=TwoWay}" />

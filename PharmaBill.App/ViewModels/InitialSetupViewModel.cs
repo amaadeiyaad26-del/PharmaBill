@@ -122,7 +122,8 @@ public partial class InitialSetupViewModel : ObservableObject
 
 	public string RecoveryCode { get; private set; } = string.Empty;
 
-	public bool CanUseSocialSignIn => !IsSocialBusy;
+	/// <summary>Google Sign-In is disabled for Store certification (policy 10.1.2.10 / invalid_client).</summary>
+	public bool CanUseSocialSignIn => false;
 
 	public bool ShowRetailLicenceFields =>
 		SelectedBusinessMode is BusinessMode.Retail or BusinessMode.Both;
@@ -215,9 +216,11 @@ public partial class InitialSetupViewModel : ObservableObject
 	}
 
 	[RelayCommand(CanExecute = nameof(CanUseSocialSignIn))]
-	private async Task SignInWithGoogleAsync()
+	private Task SignInWithGoogleAsync()
 	{
-		await HandleSocialSignInAsync(await _socialLoginCoordinator.SignInWithGoogleAsync());
+		// Google OAuth client is not configured for Store builds; local admin credentials only.
+		ErrorMessage = "Google sign-in is not available. Complete setup with a local Admin PIN or password.";
+		return Task.CompletedTask;
 	}
 
 	private async Task HandleSocialSignInAsync(SocialLoginOutcome outcome)

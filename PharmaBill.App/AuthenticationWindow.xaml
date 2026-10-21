@@ -160,11 +160,9 @@
           <Button Grid.Row="0" Style="{StaticResource PrimaryUnlockButtonStyle}" Content="Unlock / Sign In" IsDefault="True" Height="48" MinHeight="44" Command="{Binding AuthenticateCommand}" IsEnabled="{Binding CanUnlock}" />
           <Button Grid.Row="1" Style="{StaticResource LoginLinkButtonStyle}" Content="Forgot PIN?" HorizontalAlignment="Center" Margin="0,8,0,0" Padding="10,4" Click="ForgotPin_Click" />
           <Button Grid.Row="2" Style="{StaticResource LoginLinkButtonStyle}" Content="Set up new pharmacy or admin account" HorizontalAlignment="Center" Margin="0,4,0,0" Padding="10,4" ToolTip="Run the initial setup wizard for a new pharmacy install" Click="CreateAccount_Click" />
-          <TextBlock Grid.Row="3" Text="─── OR CONTINUE WITH ───" HorizontalAlignment="Center" Foreground="#94A3B8" FontSize="11" Margin="0,14,0,10" />
-          <Button Grid.Row="4" Style="{StaticResource GoogleSignInButton}" Content="Continue with Google" HorizontalAlignment="Stretch" Margin="0,0,0,4" Command="{Binding SignInWithGoogleCommand}" IsEnabled="{Binding CanUseSocialSignIn}" />
-          <TextBlock Grid.Row="5" HorizontalAlignment="Center" Foreground="#94A3B8" Margin="0,8,0,0" Text="{Binding VersionText}" />
-          <TextBlock Grid.Row="6" Margin="0,14,0,0" FontSize="11" LineHeight="16" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" Foreground="#94A3B8" Text="Designed and developed by S.A.E.R. to serve pharma professionals." />
-          <TextBlock Grid.Row="7" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" Foreground="#94A3B8">
+          <TextBlock Grid.Row="3" HorizontalAlignment="Center" Foreground="#94A3B8" Margin="0,14,0,0" Text="{Binding VersionText}" />
+          <TextBlock Grid.Row="4" Margin="0,14,0,0" FontSize="11" LineHeight="16" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" Foreground="#94A3B8" Text="Designed and developed by S.A.E.R. to serve pharma professionals." />
+          <TextBlock Grid.Row="5" Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" Foreground="#94A3B8">
             <Run Text="For any query: email at " /> <Hyperlink NavigateUri="mailto:pharma.bill26@gmail.com" Foreground="{DynamicResource AccentBrush}" RequestNavigate="SupportEmail_RequestNavigate">pharma.bill26@gmail.com</Hyperlink></TextBlock>
         </Grid>
       </Grid>

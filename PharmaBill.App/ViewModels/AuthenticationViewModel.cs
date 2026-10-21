@@ -46,7 +46,8 @@ public class AuthenticationViewModel(AuthenticationService authenticationService
 
 	public bool CanUnlock => !IsLockedOut;
 
-	public bool CanUseSocialSignIn => !IsSocialBusy;
+	/// <summary>Google Sign-In is disabled for Store certification (policy 10.1.2.10 / invalid_client).</summary>
+	public bool CanUseSocialSignIn => false;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -222,9 +223,11 @@ public class AuthenticationViewModel(AuthenticationService authenticationService
 
 	public event EventHandler<SocialLinkAdminRequest>? SocialLinkAdminRequired;
 
-	private async Task SignInWithGoogleAsync()
+	private Task SignInWithGoogleAsync()
 	{
-		await HandleSocialSignInAsync(await socialLoginCoordinator.SignInWithGoogleAsync());
+		// Google OAuth client is not configured for Store builds; local PIN/password only.
+		ErrorMessage = "Google sign-in is not available. Use your Admin PIN or password.";
+		return Task.CompletedTask;
 	}
 
 	private async Task AuthenticateAsync()
