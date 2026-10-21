@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.IO;
 using System.Linq;
@@ -81,7 +82,7 @@ public sealed class RegistrationNotificationService
 			if (userManualSentAtUtc.HasValue)
 			{
 				DateTime valueOrDefault = userManualSentAtUtc.GetValueOrDefault();
-				result = $"User manual email was already sent on {valueOrDefault.ToLocalTime():dd-MMM-yyyy HH:mm}.";
+				result = $"User manual email was already sent on {valueOrDefault.ToBusinessLocal():dd-MMM-yyyy HH:mm}.";
 			}
 			else
 			{
@@ -91,7 +92,7 @@ public sealed class RegistrationNotificationService
 		}
 		if (!NetworkInterface.GetIsNetworkAvailable())
 		{
-			_queue.Enqueue(new PendingUserManualEmail(email, pharmacyName, ownerName, DateTime.UtcNow, forceResend));
+			_queue.Enqueue(new PendingUserManualEmail(email, pharmacyName, ownerName, BusinessClock.UtcNow, forceResend));
 			return "No internet connection. The welcome email is queued and will send automatically when you are online.";
 		}
 		try
@@ -100,8 +101,8 @@ public sealed class RegistrationNotificationService
 			SmtpCredentials credentials = ResolveSmtpCredentials();
 			await SendSmtpAsync(credentials, email, pharmacyName, ownerName, pdfPath, cancellationToken);
 			profile.UserManualEmailSent = true;
-			profile.UserManualSentAtUtc = DateTime.UtcNow;
-			profile.UpdatedAtUtc = DateTime.UtcNow;
+			profile.UserManualSentAtUtc = BusinessClock.UtcNow;
+			profile.UpdatedAtUtc = BusinessClock.UtcNow;
 			await context.SaveChangesAsync(cancellationToken);
 			_queue.Clear();
 			_logger.LogInformation("Welcome user-manual email sent to {Email}.", email);
@@ -109,7 +110,7 @@ public sealed class RegistrationNotificationService
 		}
 		catch (Exception ex) when ((ex is SmtpException || ex is IOException || ex is InvalidOperationException) ? true : false)
 		{
-			_queue.Enqueue(new PendingUserManualEmail(email, pharmacyName, ownerName, DateTime.UtcNow, forceResend));
+			_queue.Enqueue(new PendingUserManualEmail(email, pharmacyName, ownerName, BusinessClock.UtcNow, forceResend));
 			_logger.LogWarning(ex, "Welcome email failed; queued for retry.");
 			return "Could not send email yet (" + ex.Message + "). It is queued for automatic retry when online.";
 		}

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -12,7 +13,7 @@ public sealed class WholesaleRateHistory : EntityBase
 
 	public Guid InvoiceId { get; set; }
 
-	public DateTime SoldAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime SoldAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public decimal UnitRate { get; set; }
 

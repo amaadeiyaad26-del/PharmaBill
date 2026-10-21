@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -12,7 +13,7 @@ public sealed class Sale : EntityBase
 
 	public string InvoiceNo { get; set; } = string.Empty;
 
-	public DateTime SaleAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime SaleAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public decimal Subtotal { get; set; }
 

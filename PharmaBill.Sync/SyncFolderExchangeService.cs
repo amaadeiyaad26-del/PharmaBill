@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -81,8 +82,8 @@ public sealed class SyncFolderExchangeService(IServiceScopeFactory scopeFactory,
 			await SaveSettingsAsync(syncFolderSettings with
 			{
 				Status = ((text == null) ? "Idle" : "Error"),
-				LastSyncAtUtc = DateTime.UtcNow,
-				LastOutgoingAtUtc = DateTime.UtcNow,
+				LastSyncAtUtc = BusinessClock.UtcNow,
+				LastOutgoingAtUtc = BusinessClock.UtcNow,
 				LastOutgoingPackages = outgoing.Packages,
 				LastIncomingPackages = incoming.Packages,
 				LastAppliedChanges = incoming.Applied,
@@ -114,7 +115,7 @@ public sealed class SyncFolderExchangeService(IServiceScopeFactory scopeFactory,
 				Status = "Syncing"
 			}, cancellationToken);
 			IncomingResult incoming = await ProcessIncomingPackagesAsync(settings.FolderPath, cancellationToken);
-			bool shouldPublish = !settings.LastOutgoingAtUtc.HasValue || DateTime.UtcNow - settings.LastOutgoingAtUtc.Value >= OutgoingInterval;
+			bool shouldPublish = !settings.LastOutgoingAtUtc.HasValue || BusinessClock.UtcNow - settings.LastOutgoingAtUtc.Value >= OutgoingInterval;
 			OutgoingResult outgoingResult = ((!shouldPublish) ? new OutgoingResult(0) : (await PublishOutgoingPackagesAsync(settings.FolderPath, cancellationToken)));
 			OutgoingResult outgoing = outgoingResult;
 			SyncFolderSettings syncFolderSettings = await settingsStore.LoadAsync(cancellationToken);
@@ -122,8 +123,8 @@ public sealed class SyncFolderExchangeService(IServiceScopeFactory scopeFactory,
 			await SaveSettingsAsync(syncFolderSettings with
 			{
 				Status = ((text == null) ? "Idle" : "Error"),
-				LastSyncAtUtc = ((incoming.Packages > 0 || outgoing.Packages > 0) ? new DateTime?(DateTime.UtcNow) : syncFolderSettings.LastSyncAtUtc),
-				LastOutgoingAtUtc = (shouldPublish ? new DateTime?(DateTime.UtcNow) : syncFolderSettings.LastOutgoingAtUtc),
+				LastSyncAtUtc = ((incoming.Packages > 0 || outgoing.Packages > 0) ? new DateTime?(BusinessClock.UtcNow) : syncFolderSettings.LastSyncAtUtc),
+				LastOutgoingAtUtc = (shouldPublish ? new DateTime?(BusinessClock.UtcNow) : syncFolderSettings.LastOutgoingAtUtc),
 				LastOutgoingPackages = outgoing.Packages,
 				LastIncomingPackages = incoming.Packages,
 				LastAppliedChanges = incoming.Applied,
@@ -228,7 +229,7 @@ public sealed class SyncFolderExchangeService(IServiceScopeFactory scopeFactory,
 		foreach (DeviceInfo item in source.Where((DeviceInfo device) => !device.IsCurrentDevice && !device.IsDeleted && string.Equals(device.Platform, "Android", StringComparison.OrdinalIgnoreCase) && devices.IsPaired(device.Id)))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			string path = $"PharmaBill-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{item.Id:N}-{Guid.NewGuid():N}.pbsync";
+			string path = $"PharmaBill-{BusinessClock.UtcNow:yyyyMMdd-HHmmssfff}-{item.Id:N}-{Guid.NewGuid():N}.pbsync";
 			string destinationPath = Path.Combine(outgoingDirectory, path);
 			await packageService.ExportAsync(item.Id, destinationPath, pendingChangeIds, cancellationToken);
 			packages++;

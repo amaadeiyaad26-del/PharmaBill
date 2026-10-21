@@ -97,7 +97,7 @@ public sealed class RetailVoidTests
 		{
 			DrugId = drug.Id,
 			BatchNo = "VOID-1",
-			ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(6)),
+			ExpiryDate = BusinessClock.Today.AddMonths(6),
 			Quantity = 5m,
 			Mrp = 100m,
 			SalePrice = 95m

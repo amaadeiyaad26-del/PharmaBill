@@ -205,8 +205,8 @@ internal static class E2EHealthSeed
 				CustomerId = burhan.Id,
 				LicenceType = "W1",
 				LicenceNumber = "JK/W1/BMH-2024",
-				IssuedOn = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)),
-				ExpiresOn = DateOnly.FromDateTime(DateTime.Today.AddYears(1)),
+				IssuedOn = BusinessClock.Today.AddYears(-1),
+				ExpiresOn = BusinessClock.Today.AddYears(1),
 				Authorisation = "General wholesale"
 			},
 			new CustomerLicence
@@ -214,8 +214,8 @@ internal static class E2EHealthSeed
 				CustomerId = valley.Id,
 				LicenceType = "W1",
 				LicenceNumber = "JK/W1/VHP-2024",
-				IssuedOn = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)),
-				ExpiresOn = DateOnly.FromDateTime(DateTime.Today.AddYears(1)),
+				IssuedOn = BusinessClock.Today.AddYears(-1),
+				ExpiresOn = BusinessClock.Today.AddYears(1),
 				Authorisation = "Hospital supply"
 			});
 
@@ -283,7 +283,7 @@ internal static class E2EHealthSeed
 		{
 			DrugId = drug.Id,
 			BatchNo = batchNo,
-			ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(9)),
+			ExpiryDate = BusinessClock.Today.AddMonths(9),
 			Mrp = mrp,
 			SalePrice = mrp > 0m ? mrp - 2m : null,
 			PurchasePrice = mrp > 0m ? mrp * 0.6m : 10m,

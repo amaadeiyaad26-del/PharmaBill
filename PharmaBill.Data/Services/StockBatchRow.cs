@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using PharmaBill.Core.Inventory;
 
@@ -5,7 +6,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed record StockBatchRow(Guid BatchId, string BatchNo, DateOnly? ExpiryDate, decimal Mrp, decimal? Ptr, decimal PurchaseRate, decimal Quantity, string? Rack, bool IsBanned = false, string? BanReason = null)
 {
-	public BatchExpiryStatus ExpiryBand => BatchExpiryStatuses.Evaluate(ExpiryDate, DateOnly.FromDateTime(DateTime.Today));
+	public BatchExpiryStatus ExpiryBand => BatchExpiryStatuses.Evaluate(ExpiryDate, BusinessClock.Today);
 
 	public string ExpiryStatus => ExpiryBand switch
 	{
@@ -14,5 +15,5 @@ public sealed record StockBatchRow(Guid BatchId, string BatchNo, DateOnly? Expir
 		_ => "Good",
 	};
 
-	public bool IsNearExpiry => BatchExpiryStatuses.IsNearExpiry(ExpiryDate, DateOnly.FromDateTime(DateTime.Today));
+	public bool IsNearExpiry => BatchExpiryStatuses.IsNearExpiry(ExpiryDate, BusinessClock.Today);
 }

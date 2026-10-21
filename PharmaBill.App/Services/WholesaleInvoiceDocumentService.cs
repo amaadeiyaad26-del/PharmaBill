@@ -134,7 +134,7 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 						row.RelativeItem().Column(details =>
 						{
 							details.Item().Text("Invoice no: " + invoice.InvoiceNo).Bold();
-							details.Item().Text($"Date: {invoice.InvoiceAtUtc.ToLocalTime():dd-MMM-yyyy}");
+							details.Item().Text($"Date: {invoice.InvoiceAtUtc.ToBusinessLocal():dd-MMM-yyyy}");
 							details.Item().Text("Buyer: " + buyer.Name).Bold();
 							details.Item().Text(buyer.Address ?? string.Empty);
 							details.Item().Text("Buyer GSTIN: " + (buyer.Gstin ?? "Not provided / unregistered"));

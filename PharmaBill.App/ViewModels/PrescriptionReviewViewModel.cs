@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -246,7 +247,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 
 	private async Task<bool> CreateCounterItemsAsync(IReadOnlyList<PrescriptionReviewRow> rows)
 	{
-		DateTime expiryMonth = DateTime.Today.AddYears(1);
+		DateTime expiryMonth = BusinessClock.Now.Date.AddYears(1);
 		DateOnly expiry = new DateOnly(expiryMonth.Year, expiryMonth.Month, DateTime.DaysInMonth(expiryMonth.Year, expiryMonth.Month));
 		foreach (PrescriptionReviewRow row in rows)
 		{
@@ -319,7 +320,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 			gst,
 			supplierId,
 			"RX" + Guid.NewGuid().ToString("N")[..12],
-			DateOnly.FromDateTime(DateTime.Today),
+			BusinessClock.Today,
 			null));
 		if (input == null)
 		{

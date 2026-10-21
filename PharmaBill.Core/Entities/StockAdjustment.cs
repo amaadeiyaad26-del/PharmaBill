@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -12,5 +13,5 @@ public sealed class StockAdjustment : EntityBase
 
 	public string Reason { get; set; } = string.Empty;
 
-	public DateTime AdjustedAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime AdjustedAtUtc { get; set; } = BusinessClock.UtcNow;
 }

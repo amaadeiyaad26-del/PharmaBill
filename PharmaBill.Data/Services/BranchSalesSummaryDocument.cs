@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Data.Services;
@@ -10,7 +11,7 @@ public sealed class BranchSalesSummaryDocument
 
 	public string BranchName { get; set; } = string.Empty;
 
-	public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime GeneratedAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public decimal SalesTotal { get; set; }
 

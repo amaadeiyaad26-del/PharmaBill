@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -215,7 +216,7 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		{
 			return new Dictionary<Guid, decimal>();
 		}
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		Guid[] batches = await (from batch in context.Batches.AsNoTracking()
 			where drugIds.Contains(batch.DrugId) && (batch.ExpiryDate == null || batch.ExpiryDate >= today)
 			select batch.Id).ToArrayAsync(cancellationToken);
@@ -245,7 +246,7 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 			return result;
 		}
 		Guid[] drugIds = links.Select(((Guid DrugId, Guid CatalogId) link) => link.DrugId).Distinct().ToArray();
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<Batch> batches = await (from batch2 in context.Batches.AsNoTracking()
 			where drugIds.Contains(batch2.DrugId) && (batch2.ExpiryDate == null || batch2.ExpiryDate >= today)
 			select batch2).ToListAsync(cancellationToken);

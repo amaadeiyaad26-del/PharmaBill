@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -83,7 +84,7 @@ public sealed class StockTransferService(IUnitOfWork unitOfWork, NumberSeriesSer
 					MovementType = "TransferOut",
 					ReferenceType = "StockTransfer",
 					ReferenceId = transfer.Id,
-					MovementAtUtc = DateTime.UtcNow,
+					MovementAtUtc = BusinessClock.UtcNow,
 					Notes = transferNumber
 				});
 				unitOfWork.Context.StockMovements.Add(new StockMovement
@@ -95,7 +96,7 @@ public sealed class StockTransferService(IUnitOfWork unitOfWork, NumberSeriesSer
 					MovementType = "TransferIn",
 					ReferenceType = "StockTransfer",
 					ReferenceId = transfer.Id,
-					MovementAtUtc = DateTime.UtcNow,
+					MovementAtUtc = BusinessClock.UtcNow,
 					Notes = transferNumber
 				});
 				await StorageLocationService.ApplyBalanceDeltaAsync(unitOfWork.Context, source.Id, batch.Id, batch.DrugId, -line.Quantity, cancellationToken);
@@ -146,7 +147,7 @@ public sealed class StockTransferService(IUnitOfWork unitOfWork, NumberSeriesSer
 
 	public async Task<IReadOnlyList<(Guid BatchId, string DrugName, string BatchNo, DateOnly? Expiry, decimal Quantity, string? Rack)>> GetSaleableBatchesAtLocationAsync(Guid locationId, string? medicineFilter = null, CancellationToken cancellationToken = default(CancellationToken))
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		var list = await (from movement in unitOfWork.Context.StockMovements.AsNoTracking()
 			where movement.LocationId == locationId
 			group movement by movement.BatchId into @group

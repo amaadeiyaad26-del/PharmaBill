@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,7 +50,7 @@ public sealed class WholesalePricingService(IUnitOfWork unitOfWork)
 					unitOfWork.Context.AuditLogs.Add(new AuditLog
 					{
 						UserId = userId,
-						ActionAtUtc = DateTime.UtcNow,
+						ActionAtUtc = BusinessClock.UtcNow,
 						Action = "WholesaleBatchRatesUpdated",
 						EntityName = "Batch",
 						EntityId = batch.Id,

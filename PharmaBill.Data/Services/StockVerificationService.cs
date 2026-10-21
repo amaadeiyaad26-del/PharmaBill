@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
@@ -116,7 +117,7 @@ public sealed class StockVerificationService(IUnitOfWork unitOfWork, IEntitlemen
 			});
 		}
 		session.Status = "Posted";
-		session.PostedAtUtc = DateTime.UtcNow;
+		session.PostedAtUtc = BusinessClock.UtcNow;
 		unitOfWork.Context.AuditLogs.Add(new AuditLog
 		{
 			UserId = userId,

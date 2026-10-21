@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -181,7 +182,7 @@ public sealed class PersistenceTests
         var firstMigration = database.Context.Database.GetMigrations().First();
         await database.Context.Database.MigrateAsync(firstMigration);
         var id = Guid.NewGuid();
-        var now = DateTime.UtcNow;
+        var now = BusinessClock.UtcNow;
         await database.Context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO PharmacyProfiles
                 (Id, Name, BusinessMode, CreatedAtUtc, UpdatedAtUtc, DeviceId, IsDeleted, HlcStamp, SyncState)
@@ -219,7 +220,7 @@ public sealed class PersistenceTests
     public async Task BusinessModeService_RequiresLicencesAndAuditsApprovedChanges()
     {
         await using var database = await DatabaseTestContext.CreateAsync();
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = BusinessClock.Today;
         var profile = new PharmacyProfile { Name = "Mode test", BusinessMode = BusinessMode.Retail };
         database.Context.PharmacyProfiles.Add(profile);
         var owner = new AppUser

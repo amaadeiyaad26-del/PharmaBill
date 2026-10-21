@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -891,7 +892,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 	private void RebuildPeriodChoices()
 	{
 		PeriodChoices.Clear();
-		DateTime today = DateTime.Today;
+		DateTime today = BusinessClock.Now.Date;
 		for (int i = 0; i < 18; i++)
 		{
 			DateTime dateTime = today.AddMonths(-i);
@@ -937,7 +938,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			dateOnly2 = new DateOnly(num + 1, 3, 31);
 			break;
 		}
-		DateOnly dateOnly3 = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly dateOnly3 = BusinessClock.Today;
 		if (dateOnly2 > dateOnly3)
 		{
 			dateOnly2 = dateOnly3;

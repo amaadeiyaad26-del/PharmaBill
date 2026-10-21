@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,7 +20,7 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 		await DemandReturnAllowed(role, cancellationToken);
 		ArgumentException.ThrowIfNullOrWhiteSpace(returnNo, "returnNo");
 		ArgumentException.ThrowIfNullOrWhiteSpace(reason, "reason");
-		if (returnDate > DateOnly.FromDateTime(DateTime.Today) || lines.Count == 0 || lines.Any((WholesaleCreditLineInput wholesaleCreditLineInput) => wholesaleCreditLineInput.Quantity <= 0m))
+		if (returnDate > BusinessClock.Today || lines.Count == 0 || lines.Any((WholesaleCreditLineInput wholesaleCreditLineInput) => wholesaleCreditLineInput.Quantity <= 0m))
 		{
 			throw new InvalidOperationException("Credit note needs a non-future date, reason, and positive item quantities.");
 		}
@@ -62,7 +63,7 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 				ReturnNo = returnNo.Trim(),
 				SourceType = "WholesaleCreditNote",
 				SourceId = invoice.Id,
-				ReturnAtUtc = DateTime.UtcNow,
+				ReturnAtUtc = BusinessClock.UtcNow,
 				TotalAmount = creditTotal,
 				Reason = reason.Trim(),
 				Notes = "Against invoice " + invoice.InvoiceNo + "; quarantined returns remain outside saleable stock."
@@ -144,7 +145,7 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 		await DemandReturnAllowed(role, cancellationToken);
 		ArgumentException.ThrowIfNullOrWhiteSpace(debitNoteNo, "debitNoteNo");
 		ArgumentException.ThrowIfNullOrWhiteSpace(reason, "reason");
-		if (amount <= 0m || date > DateOnly.FromDateTime(DateTime.Today))
+		if (amount <= 0m || date > BusinessClock.Today)
 		{
 			throw new InvalidOperationException("Debit note requires a positive amount and a non-future date.");
 		}
@@ -162,7 +163,7 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 				ReturnNo = debitNoteNo.Trim(),
 				SourceType = "WholesaleDebitNote",
 				SourceId = customer.Id,
-				ReturnAtUtc = DateTime.UtcNow,
+				ReturnAtUtc = BusinessClock.UtcNow,
 				TotalAmount = RoundMoney(amount),
 				Reason = reason.Trim()
 			};

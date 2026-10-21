@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -197,7 +198,7 @@ public sealed class GoogleDriveSyncService
 			string folderId = await EnsureSyncFolderAsync(service, cancellationToken);
 			Report(55, "Uploading connection test payload…", 0L, 0L);
 			string temp = Path.Combine(Path.GetTempPath(), $"PharmaBill-gdrive-test-{Guid.NewGuid():N}.txt");
-			await System.IO.File.WriteAllTextAsync(temp, $"Pharma Remit Google Drive connection test at {DateTime.UtcNow:O} UTC", cancellationToken);
+			await System.IO.File.WriteAllTextAsync(temp, $"Pharma Remit Google Drive connection test at {BusinessClock.UtcNow:O} UTC", cancellationToken);
 			try
 			{
 				await UploadOrReplaceAsync(service, folderId, temp, "PharmaBill-connection-test.txt", "Uploading connection test payload…", cancellationToken);
@@ -210,7 +211,7 @@ public sealed class GoogleDriveSyncService
 			{
 				Status = "Connected",
 				LastError = null,
-				LastSyncAtUtc = DateTime.UtcNow
+				LastSyncAtUtc = BusinessClock.UtcNow
 			};
 			await _settingsStore.SaveAsync(done, cancellationToken);
 			SettingsChanged?.Invoke(done);
@@ -268,7 +269,7 @@ public sealed class GoogleDriveSyncService
 				GoogleDriveSyncSettings done = settings with
 				{
 					Status = "Connected",
-					LastSyncAtUtc = DateTime.UtcNow,
+					LastSyncAtUtc = BusinessClock.UtcNow,
 					LastError = null
 				};
 				await _settingsStore.SaveAsync(done, cancellationToken);
@@ -335,7 +336,7 @@ public sealed class GoogleDriveSyncService
 				GoogleDriveSyncSettings done = settings with
 				{
 					Status = "Connected",
-					LastSyncAtUtc = DateTime.UtcNow,
+					LastSyncAtUtc = BusinessClock.UtcNow,
 					LastError = null
 				};
 				await _settingsStore.SaveAsync(done, cancellationToken);
@@ -393,7 +394,7 @@ public sealed class GoogleDriveSyncService
 			GoogleDriveSyncSettings done = settings with
 			{
 				Status = "Connected",
-				LastSyncAtUtc = DateTime.UtcNow,
+				LastSyncAtUtc = BusinessClock.UtcNow,
 				LastError = null
 			};
 			await _settingsStore.SaveAsync(done, cancellationToken);
@@ -449,7 +450,7 @@ public sealed class GoogleDriveSyncService
 			GoogleDriveSyncSettings done = settings with
 			{
 				Status = "Connected",
-				LastSyncAtUtc = DateTime.UtcNow,
+				LastSyncAtUtc = BusinessClock.UtcNow,
 				LastError = null
 			};
 			await _settingsStore.SaveAsync(done, cancellationToken);

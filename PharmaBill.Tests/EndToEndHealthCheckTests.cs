@@ -200,7 +200,7 @@ public sealed class EndToEndHealthCheckTests
 			UserRole.Owner);
 
 		var dashboard = database.CreateWholesaleDashboardService();
-		var snapshot = await dashboard.GetSnapshotAsync(DateTime.Now);
+		var snapshot = await dashboard.GetSnapshotAsync(BusinessClock.Now);
 
 		Assert.NotNull(snapshot);
 		Assert.True(snapshot.TodayTurnover >= 0m);
@@ -259,7 +259,7 @@ public sealed class EndToEndHealthCheckTests
 		var line = new PurchaseLineInput(
 			drug.Id,
 			"NEW-INWARD-1",
-			DateOnly.FromDateTime(DateTime.Today.AddMonths(6)),
+			BusinessClock.Today.AddMonths(6),
 			10m,
 			0m,
 			25m,
@@ -274,12 +274,12 @@ public sealed class EndToEndHealthCheckTests
 
 		await Assert.ThrowsAsync<InvalidOperationException>(() =>
 			purchases.SavePurchaseAsync(
-				new SavePurchaseInput(supplier.Id, "DIST-INV-MISMATCH", DateOnly.FromDateTime(DateTime.Today), subtotal, 0m, tax, grand + 50m, [line]),
+				new SavePurchaseInput(supplier.Id, "DIST-INV-MISMATCH", BusinessClock.Today, subtotal, 0m, tax, grand + 50m, [line]),
 				catalog.Admin.Id,
 				UserRole.Owner));
 
 		await purchases.SavePurchaseAsync(
-			new SavePurchaseInput(supplier.Id, "DIST-INV-OK", DateOnly.FromDateTime(DateTime.Today), subtotal, 0m, tax, grand, [line]),
+			new SavePurchaseInput(supplier.Id, "DIST-INV-OK", BusinessClock.Today, subtotal, 0m, tax, grand, [line]),
 			catalog.Admin.Id,
 			UserRole.Owner);
 
@@ -358,7 +358,7 @@ public sealed class EndToEndHealthCheckTests
 			UserRole.Owner);
 
 		var sale = await database.Context.Sales.SingleAsync(s => s.Id == saved.Sale.Id);
-		sale.SaleAtUtc = DateTime.UtcNow.AddDays(-10);
+		sale.SaleAtUtc = BusinessClock.UtcNow.AddDays(-10);
 		await database.Context.SaveChangesAsync();
 
 		await Assert.ThrowsAsync<RecordLockedException>(() =>

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -241,11 +242,11 @@ public sealed class ChangeApplier(PharmaBillDbContext context, HybridLogicalCloc
 			}
 		}
 		conflict.Resolution = (acceptRemote ? "Accepted remote" : "Kept local") + ": " + reason.Trim();
-		conflict.ResolvedAtUtc = DateTime.UtcNow;
+		conflict.ResolvedAtUtc = BusinessClock.UtcNow;
 		context.AuditLogs.Add(new AuditLog
 		{
 			UserId = userId,
-			ActionAtUtc = DateTime.UtcNow,
+			ActionAtUtc = BusinessClock.UtcNow,
 			Action = "SyncConflictResolved",
 			EntityName = conflict.EntityName,
 			EntityId = conflict.EntityId,
@@ -311,8 +312,8 @@ public sealed class ChangeApplier(PharmaBillDbContext context, HybridLogicalCloc
 			RemotePayload = remotePayload,
 			Resolution = null,
 			DeviceId = change.OriginDeviceId,
-			CreatedAtUtc = DateTime.UtcNow,
-			UpdatedAtUtc = DateTime.UtcNow,
+			CreatedAtUtc = BusinessClock.UtcNow,
+			UpdatedAtUtc = BusinessClock.UtcNow,
 			HlcStamp = change.HlcStamp
 		});
 	}
@@ -334,7 +335,7 @@ public sealed class ChangeApplier(PharmaBillDbContext context, HybridLogicalCloc
 		if (syncConflict != null)
 		{
 			syncConflict.RemotePayload = remotePayload;
-			syncConflict.UpdatedAtUtc = DateTime.UtcNow;
+			syncConflict.UpdatedAtUtc = BusinessClock.UtcNow;
 			return;
 		}
 		context.SyncConflicts.Add(new SyncConflict
@@ -357,7 +358,7 @@ public sealed class ChangeApplier(PharmaBillDbContext context, HybridLogicalCloc
 			StockMovement stockMovement = movements.Where((StockMovement item) => item.MovementType == "Adjustment" && item.ReferenceType == "StockAdjustment" && item.QuantityChange > 0m && !string.IsNullOrWhiteSpace(item.Notes) && HybridLogicalClockState.Compare(item.HlcStamp, conflict.HlcStamp) > 0).MaxBy((StockMovement item) => item.MovementAtUtc);
 			if (stockMovement != null)
 			{
-				DateTime utcNow = DateTime.UtcNow;
+				DateTime utcNow = BusinessClock.UtcNow;
 				conflict.Resolution = "Resolved by stock adjustment: " + stockMovement.Notes.Trim();
 				conflict.ResolvedAtUtc = utcNow;
 				conflict.UpdatedAtUtc = utcNow;

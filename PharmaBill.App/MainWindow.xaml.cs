@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.ComponentModel;
 using System.Data;
@@ -42,7 +43,7 @@ public partial class MainWindow : Window
 
 	private int _hintIndex;
 
-	private DateTime _lastInputUtc = DateTime.UtcNow;
+	private DateTime _lastInputUtc = BusinessClock.UtcNow;
 
 	private bool _showingLockScreen;
 
@@ -594,14 +595,14 @@ public partial class MainWindow : Window
 		InputEventArgs input = e.StagingItem.Input;
 		if (input != null && (input.RoutedEvent == Keyboard.KeyDownEvent || input.RoutedEvent == Mouse.MouseDownEvent || input.RoutedEvent == Mouse.MouseMoveEvent))
 		{
-			_lastInputUtc = DateTime.UtcNow;
+			_lastInputUtc = BusinessClock.UtcNow;
 		}
 	}
 
 	private async void OnIdleTimerTick(object? sender, EventArgs e)
 	{
 		TimeSpan timeSpan = TimeSpan.FromMinutes(Math.Clamp(_currentSession.User?.IdleLockMinutes ?? 10, 1, 240));
-		if (!_showingLockScreen && !(DateTime.UtcNow - _lastInputUtc < timeSpan))
+		if (!_showingLockScreen && !(BusinessClock.UtcNow - _lastInputUtc < timeSpan))
 		{
 			LockTerminal();
 		}
@@ -660,7 +661,7 @@ public partial class MainWindow : Window
 				return;
 			}
 			_viewModel.RefreshLoggedInUser();
-			_lastInputUtc = DateTime.UtcNow;
+			_lastInputUtc = BusinessClock.UtcNow;
 		}
 		finally
 		{

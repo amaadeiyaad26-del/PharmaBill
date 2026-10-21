@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -501,7 +502,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public static string DefaultSessionName()
 	{
-		return $"Count {DateTime.Now:dd-MMM-yyyy HH:mm}";
+		return $"Count {BusinessClock.Now:dd-MMM-yyyy HH:mm}";
 	}
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -626,7 +627,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 		return batch.ExpiryBand switch
 		{
-			BatchExpiryStatus.Critical => (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today)) ? "Expired" : "Critical",
+			BatchExpiryStatus.Critical => (batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < BusinessClock.Today) ? "Expired" : "Critical",
 			BatchExpiryStatus.Warning => "Near expiry",
 			_ => drug.IsShortage ? "Shortage" : "OK",
 		};
@@ -815,7 +816,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 					item.Advice
 				})
 				.ToArray();
-			string? destination = filePicker.PickExportDestination("csv", $"reorder-suggestions-{DateTime.Now:yyyyMMdd-HHmm}");
+			string? destination = filePicker.PickExportDestination("csv", $"reorder-suggestions-{BusinessClock.Now:yyyyMMdd-HHmm}");
 			if (destination == null)
 			{
 				return;
@@ -865,12 +866,12 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 				StatusMessage = $"None of the {items.Count} batches has a printable barcode. Add barcodes to the medicines first.";
 				return;
 			}
-			string? destination = filePicker.PickExportDestination("pdf", $"shelf-labels-{DateTime.Now:yyyyMMdd-HHmm}");
+			string? destination = filePicker.PickExportDestination("pdf", $"shelf-labels-{BusinessClock.Now:yyyyMMdd-HHmm}");
 			if (destination == null)
 			{
 				return;
 			}
-			byte[] pdf = new BarcodeLabelPdfService().Build(plan, "Shelf labels " + DateTime.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture), columns: 3);
+			byte[] pdf = new BarcodeLabelPdfService().Build(plan, "Shelf labels " + BusinessClock.Now.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture), columns: 3);
 			await File.WriteAllBytesAsync(destination, pdf);
 			StatusMessage = plan.SkippedWithoutBarcode > 0
 				? $"{plan.Cells.Count} labels saved to {destination}. {plan.SkippedWithoutBarcode} batch(es) skipped: no printable barcode."
@@ -907,7 +908,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 				item.SupplierName ?? "General requisition"
 			}))).ToArray();
 			Clipboard.SetText(ShortageIndentService.FormatIndentText(items));
-			string destination = filePicker.PickExportDestination("csv", $"shortage-indent-{DateTime.Now:yyyyMMdd-HHmm}");
+			string destination = filePicker.PickExportDestination("csv", $"shortage-indent-{BusinessClock.Now:yyyyMMdd-HHmm}");
 			if (destination != null)
 			{
 				await exportService.ExportAsync(destination, "Shortage purchase indent", columns, rows);
@@ -1198,8 +1199,8 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			"In stock" => true,
 			"Shortage" => drug.IsShortage,
 			"Near expiry" => batch.IsNearExpiry,
-			"Critical" => batch.ExpiryBand == BatchExpiryStatus.Critical && !(batch.ExpiryDate < DateOnly.FromDateTime(DateTime.Today)),
-			"Expired" => batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today),
+			"Critical" => batch.ExpiryBand == BatchExpiryStatus.Critical && !(batch.ExpiryDate < BusinessClock.Today),
+			"Expired" => batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < BusinessClock.Today,
 			"Missing MRP" => batch.Mrp <= 0m,
 			"Dump Stock" => true,
 			"Banned" => drug.IsBanned || batch.IsBanned,

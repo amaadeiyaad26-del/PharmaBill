@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.IO;
 using System.Threading;
@@ -38,8 +39,8 @@ public sealed class AutomaticBackupHostedService(BackupSettingsStore settingsSto
 		{
 			return;
 		}
-		DateOnly dateOnly = DateOnly.FromDateTime(DateTime.Now);
-		if (settings.LastBackupAtUtc.HasValue && DateOnly.FromDateTime(settings.LastBackupAtUtc.Value.ToLocalTime()) >= dateOnly)
+		DateOnly dateOnly = BusinessClock.Today;
+		if (settings.LastBackupAtUtc.HasValue && settings.LastBackupAtUtc.Value.ToBusinessDate() >= dateOnly)
 		{
 			return;
 		}
@@ -57,7 +58,7 @@ public sealed class AutomaticBackupHostedService(BackupSettingsStore settingsSto
 		}
 		settingsStore.Save(settings with
 		{
-			LastBackupAtUtc = DateTime.UtcNow
+			LastBackupAtUtc = BusinessClock.UtcNow
 		});
 	}
 }

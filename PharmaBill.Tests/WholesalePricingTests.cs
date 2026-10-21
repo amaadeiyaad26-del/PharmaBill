@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
@@ -99,7 +100,7 @@ public sealed class WholesalePricingTests
         await database.Context.SaveChangesAsync();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.GetQuoteAsync(customer, drug, batch, 1m, DateOnly.FromDateTime(DateTime.Today)));
+            service.GetQuoteAsync(customer, drug, batch, 1m, BusinessClock.Today));
     }
 
     [Fact]

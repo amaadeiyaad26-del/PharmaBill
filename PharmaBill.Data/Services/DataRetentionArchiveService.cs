@@ -66,12 +66,12 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 		int purchaseCount = await context.PurchaseInvoices.CountAsync(cancellationToken);
 		if (purchaseCount > 0)
 		{
-			oldestCandidates.Add((await context.PurchaseInvoices.MinAsync((PurchaseInvoice item) => item.InvoiceDate, cancellationToken)).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+			oldestCandidates.Add((await context.PurchaseInvoices.MinAsync((PurchaseInvoice item) => item.InvoiceDate, cancellationToken)).StartOfDayUtc());
 		}
 		int purchaseReturnCount = await context.PurchaseReturns.CountAsync(cancellationToken);
 		if (purchaseReturnCount > 0)
 		{
-			oldestCandidates.Add((await context.PurchaseReturns.MinAsync((PurchaseReturn item) => item.ReturnDate, cancellationToken)).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc));
+			oldestCandidates.Add((await context.PurchaseReturns.MinAsync((PurchaseReturn item) => item.ReturnDate, cancellationToken)).StartOfDayUtc());
 		}
 		int returnCount = await context.ReturnNotes.CountAsync(cancellationToken);
 		if (returnCount > 0)
@@ -132,7 +132,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 		string destinationPath = Path.Combine(storage.ArchivesPath, $"pharmabill_archive_{year}.zip");
 		if (File.Exists(destinationPath))
 		{
-			destinationPath = Path.Combine(storage.ArchivesPath, $"pharmabill_archive_{year}_{DateTime.UtcNow:yyyyMMddHHmmss}.zip");
+			destinationPath = Path.Combine(storage.ArchivesPath, $"pharmabill_archive_{year}_{BusinessClock.UtcNow:yyyyMMddHHmmss}.zip");
 		}
 		try
 		{
@@ -145,7 +145,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 			{
 				Format = "PharmaBill encrypted retention archive",
 				ArchiveVersion = 1,
-				CreatedAtUtc = DateTime.UtcNow,
+				CreatedAtUtc = BusinessClock.UtcNow,
 				CutoffUtc = cutoff,
 				RetentionPeriod = settings.Period.ToString(),
 				RetentionYears = StatutoryRetentionPolicy.GetRetentionYears(settings.Period),
@@ -166,7 +166,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 			long softDeleted = await SoftDeleteExportedDocumentsAsync(cutoff, export.SoftDeleteIds, cancellationToken);
 			context.AuditLogs.Add(new AuditLog
 			{
-				ActionAtUtc = DateTime.UtcNow,
+				ActionAtUtc = BusinessClock.UtcNow,
 				Action = "DataRetentionArchive",
 				EntityName = "RetentionArchive",
 				Details = $"Archived {export.TotalRows} row(s) before {cutoff:O}; soft-deleted {softDeleted}; file={destinationPath}"
@@ -174,7 +174,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 			await context.SaveChangesAsync(cancellationToken);
 			settingsStore.Save(settings with
 			{
-				LastArchiveAtUtc = DateTime.UtcNow,
+				LastArchiveAtUtc = BusinessClock.UtcNow,
 				LastArchivePath = destinationPath,
 				LastArchivedRowCount = export.TotalRows
 			});
@@ -269,7 +269,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 				where item.InvoiceDate < cutoffDate
 				select item).ToListAsync(cancellationToken);
 			num = total;
-			total = num + await WriteAsync<PurchaseInvoice>("PurchaseInvoices", purchases, (PurchaseInvoice item) => item.Id, (PurchaseInvoice item) => item.InvoiceDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), softDelete: true);
+			total = num + await WriteAsync<PurchaseInvoice>("PurchaseInvoices", purchases, (PurchaseInvoice item) => item.Id, (PurchaseInvoice item) => item.InvoiceDate.StartOfDayUtc(), softDelete: true);
 			if (purchases.Count > 0)
 			{
 				HashSet<Guid> purchaseIds = purchases.Select((PurchaseInvoice item) => item.Id).ToHashSet();
@@ -283,7 +283,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 				where item.ReturnDate < cutoffDate
 				select item).ToListAsync(cancellationToken);
 			num = total;
-			total = num + await WriteAsync<PurchaseReturn>("PurchaseReturns", purchaseReturns, (PurchaseReturn item) => item.Id, (PurchaseReturn item) => item.ReturnDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), softDelete: true);
+			total = num + await WriteAsync<PurchaseReturn>("PurchaseReturns", purchaseReturns, (PurchaseReturn item) => item.Id, (PurchaseReturn item) => item.ReturnDate.StartOfDayUtc(), softDelete: true);
 			if (purchaseReturns.Count > 0)
 			{
 				HashSet<Guid> returnIds = purchaseReturns.Select((PurchaseReturn item) => item.Id).ToHashSet();
@@ -406,7 +406,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 	private async Task<long> SoftDeleteExportedDocumentsAsync(DateTime cutoff, Dictionary<string, List<Guid>> softDeleteIds, CancellationToken cancellationToken)
 	{
 		long deleted = 0L;
-		DateTime now = DateTime.UtcNow;
+		DateTime now = BusinessClock.UtcNow;
 		await SoftDeleteSetAsync<Sale>("Sales", context.Sales);
 		await SoftDeleteSetAsync<SaleItem>("SaleItems", context.SaleItems);
 		await SoftDeleteSetAsync<WholesaleInvoice>("WholesaleInvoices", context.WholesaleInvoices);

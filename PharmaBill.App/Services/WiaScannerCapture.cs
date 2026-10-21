@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -61,7 +62,7 @@ public static class WiaScannerCapture
 
 			string directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "prescription-captures");
 			Directory.CreateDirectory(directory);
-			string path = Path.Combine(directory, $"scan-{DateTime.Now:yyyyMMdd-HHmmss}.jpg");
+			string path = Path.Combine(directory, $"scan-{BusinessClock.Now:yyyyMMdd-HHmmss}.jpg");
 			((dynamic)image).SaveFile(path);
 			return path;
 		}

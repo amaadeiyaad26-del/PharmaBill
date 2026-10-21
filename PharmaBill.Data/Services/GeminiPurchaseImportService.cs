@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -156,7 +157,7 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 			{
 				List<ExtractedPurchaseLine> lines = ParseLineArray(root);
 				decimal sub = lines.Sum(ComputeAmount);
-				return new ExtractedPurchaseInvoice("PURCHASE_INVOICE", "Supplier", "PHONE-" + DateTime.Now.ToString("yyyyMMdd-HHmm"), DateTime.Today.ToString("yyyy-MM-dd"), lines, sub, sub);
+				return new ExtractedPurchaseInvoice("PURCHASE_INVOICE", "Supplier", "PHONE-" + BusinessClock.Now.ToString("yyyyMMdd-HHmm"), BusinessClock.Now.Date.ToString("yyyy-MM-dd"), lines, sub, sub);
 			}
 
 			if (root.ValueKind == JsonValueKind.Object)
@@ -179,9 +180,9 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 					{
 						string supplier = ReadString(root, "supplier", "supplierName", "distributor") ?? "Supplier";
 						string invoiceNo = ReadString(root, "invoiceNo", "invoiceNumber", "billNo", "billNumber")
-							?? "PHONE-" + DateTime.Now.ToString("yyyyMMdd-HHmm");
+							?? "PHONE-" + BusinessClock.Now.ToString("yyyyMMdd-HHmm");
 						string invoiceDate = ReadString(root, "invoiceDate", "billDate", "date")
-							?? DateTime.Today.ToString("yyyy-MM-dd");
+							?? BusinessClock.Now.Date.ToString("yyyy-MM-dd");
 						string documentType = ReadString(root, "documentType", "type") ?? "PURCHASE_INVOICE";
 						decimal subtotal = ReadDecimal(root, "subtotal", "taxable") ?? flexibleLines.Sum(ComputeAmount);
 						decimal grand = ReadDecimal(root, "grandTotal", "total", "netAmount") ?? subtotal;
@@ -328,7 +329,7 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 		string supplier = SanitizeSupplierName(invoice.Supplier);
 		string invoiceNo = SanitizeInvoiceNo(invoice.InvoiceNo);
 		string invoiceDate = string.IsNullOrWhiteSpace(invoice.InvoiceDate)
-			? DateTime.Today.ToString("yyyy-MM-dd")
+			? BusinessClock.Now.Date.ToString("yyyy-MM-dd")
 			: invoice.InvoiceDate.Trim();
 
 		List<ExtractedPurchaseLine> items = new List<ExtractedPurchaseLine>();

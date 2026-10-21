@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -76,7 +77,7 @@ public sealed class InspectorPageViewModel(IServiceScopeFactory scopeFactory, Se
 		{
 			string[] array = new string[7]
 			{
-				item.EntryAtUtc.ToLocalTime().ToString("g"),
+				item.EntryAtUtc.ToBusinessLocal().ToString("g"),
 				item.RegisterType,
 				wholesaleOnly ? string.Empty : (item.PatientName ?? string.Empty),
 				null,
@@ -110,14 +111,14 @@ public sealed class InspectorPageViewModel(IServiceScopeFactory scopeFactory, Se
 		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync((Supplier item) => item.Id, (Supplier item) => item.Name, cancellationToken);
 		IEnumerable<string[]> rows = sales.Select((Sale item) => new string[5]
 		{
-			item.SaleAtUtc.ToLocalTime().ToString("g"),
+			item.SaleAtUtc.ToBusinessLocal().ToString("g"),
 			"Retail sale",
 			item.InvoiceNo,
 			(!wholesaleOnly && item.PatientId.HasValue) ? patients.GetValueOrDefault(item.PatientId.Value, string.Empty) : string.Empty,
 			item.TotalAmount.ToString("N2")
 		}).Concat(wholesale.Select((WholesaleInvoice item) => new string[5]
 		{
-			item.InvoiceAtUtc.ToLocalTime().ToString("g"),
+			item.InvoiceAtUtc.ToBusinessLocal().ToString("g"),
 			"Wholesale invoice",
 			item.InvoiceNo,
 			customers.GetValueOrDefault(item.CustomerId, string.Empty),

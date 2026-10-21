@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,10 +20,10 @@ public sealed class WholesaleDashboardService(PharmaBillDbContext context, Whole
 	{
 		DateOnly today = DateOnly.FromDateTime(nowLocal);
 		DateOnly yesterday = today.AddDays(-1);
-		DateTime todayStartUtc = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime tomorrowStartUtc = today.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime yesterdayStartUtc = yesterday.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime weekStartUtc = today.AddDays(-6).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime todayStartUtc = today.StartOfDayUtc();
+		DateTime tomorrowStartUtc = today.AddDays(1).StartOfDayUtc();
+		DateTime yesterdayStartUtc = yesterday.StartOfDayUtc();
+		DateTime weekStartUtc = today.AddDays(-6).StartOfDayUtc();
 
 		List<WholesaleInvoice> allPosted = await context.WholesaleInvoices.AsNoTracking()
 			.Where(i => i.Status == "Posted")
@@ -95,7 +96,7 @@ public sealed class WholesaleDashboardService(PharmaBillDbContext context, Whole
 		int pendingEWay = allPosted.Count(i =>
 			string.IsNullOrWhiteSpace(i.EWayBillNumber)
 			&& i.TotalAmount >= 50000m
-			&& i.InvoiceAtUtc >= today.AddDays(-7).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime());
+			&& i.InvoiceAtUtc >= today.AddDays(-7).StartOfDayUtc());
 
 		int pipelineReceived = todayCount;
 		decimal pipelineReceivedValue = todayTurnover;

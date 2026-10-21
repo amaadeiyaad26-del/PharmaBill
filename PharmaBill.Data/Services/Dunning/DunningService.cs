@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +39,7 @@ public sealed class DunningService(IUnitOfWork unitOfWork) : IDunningService
 
 	public async Task<IReadOnlyList<DunningReceivableRow>> GetOpenReceivablesAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		PharmaBillDbContext context = unitOfWork.Context;
 		Dictionary<Guid, Customer> customers = await (from customer in context.Customers.AsNoTracking()
 			where customer.IsActive
@@ -64,7 +65,7 @@ public sealed class DunningService(IUnitOfWork unitOfWork) : IDunningService
 				decimal num3 = Math.Max(0m, invoice.TotalAmount - num - num2);
 				if (!(num3 <= 0m))
 				{
-					DateOnly invoiceDate = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime());
+					DateOnly invoiceDate = invoice.InvoiceAtUtc.ToBusinessDate();
 					int num4 = Math.Max(0, value.CreditDays);
 					DateOnly dueDate = invoiceDate.AddDays(num4);
 					int num5 = today.DayNumber - dueDate.DayNumber;
@@ -169,8 +170,8 @@ public sealed class DunningService(IUnitOfWork unitOfWork) : IDunningService
 			if (wholesaleInvoice != null && dictionary.TryGetValue(wholesaleInvoice.CustomerId, out var value))
 			{
 				DateTime dateTime = group.Max((Receipt receipt) => receipt.ReceiptAtUtc);
-				DateOnly dateOnly = DateOnly.FromDateTime(wholesaleInvoice.InvoiceAtUtc.ToLocalTime()).AddDays(Math.Max(0, value.CreditDays));
-				int num = DateOnly.FromDateTime(dateTime.ToLocalTime()).DayNumber - dateOnly.DayNumber;
+				DateOnly dateOnly = wholesaleInvoice.InvoiceAtUtc.ToBusinessDate().AddDays(Math.Max(0, value.CreditDays));
+				int num = dateTime.ToBusinessDate().DayNumber - dateOnly.DayNumber;
 				if (!dictionary2.TryGetValue(value.Id, out var value2))
 				{
 					value2 = new List<double>();

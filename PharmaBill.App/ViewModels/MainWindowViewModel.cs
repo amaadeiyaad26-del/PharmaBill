@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -128,7 +129,7 @@ public class MainWindowViewModel : ObservableObject
 
 	private bool _criticalUpdateDialogShown;
 
-	private DateTime _shiftStartedLocal = DateTime.Now;
+	private DateTime _shiftStartedLocal = BusinessClock.Now;
 
 	private CancellationTokenSource? _welcomeDismissCts;
 
@@ -1529,7 +1530,7 @@ public class MainWindowViewModel : ObservableObject
 
 	private void RefreshUsbBackupReminder()
 	{
-		ShowUsbBackupReminder = _usbBackupSettings.IsReminderDue(DateTime.UtcNow);
+		ShowUsbBackupReminder = _usbBackupSettings.IsReminderDue(BusinessClock.UtcNow);
 	}
 
 	private void UsbBackupReminderBackupNow()
@@ -1543,7 +1544,7 @@ public class MainWindowViewModel : ObservableObject
 		UsbBackupSettings usbBackupSettings = _usbBackupSettings.Load();
 		_usbBackupSettings.Save(usbBackupSettings with
 		{
-			ReminderSnoozeUntilUtc = DateTime.UtcNow.AddDays(1.0)
+			ReminderSnoozeUntilUtc = BusinessClock.UtcNow.AddDays(1.0)
 		});
 		RefreshUsbBackupReminder();
 	}
@@ -1555,13 +1556,13 @@ public class MainWindowViewModel : ObservableObject
 
 	public void ShowWelcomeGreeting()
 	{
-		_shiftStartedLocal = DateTime.Now;
+		_shiftStartedLocal = BusinessClock.Now;
 		AppUser user = _currentSession.User;
 		LoggedInUser = WelcomeGreeting.ResolveDisplayName(user);
 		UserRoleLabel = WelcomeGreeting.ResolveRoleLabel(user);
 		ShiftStartedDisplay = _shiftStartedLocal.ToString("h:mm tt");
 		ProfileStatusSummary = $"Online / Ready{Environment.NewLine}Shift started {ShiftStartedDisplay}{Environment.NewLine}Branch {ActiveBranchCode}";
-		WelcomeHeadline = WelcomeGreeting.BuildHeadline(DateTime.Now, user);
+		WelcomeHeadline = WelcomeGreeting.BuildHeadline(BusinessClock.Now, user);
 		// The shop's name is the dashboard heading; the greeting does not repeat it.
 		WelcomeSubtitle = WelcomeGreeting.ResolveRoleLabel(user);
 		string trialStatus = TrialStatus;
@@ -1707,7 +1708,7 @@ public class MainWindowViewModel : ObservableObject
 			IsHeaderSearchFlyoutOpen = false;
 			return;
 		}
-		AssistantAction assistantAction = AssistantQueryInterpreter.Interpret(text, DateOnly.FromDateTime(DateTime.Today));
+		AssistantAction assistantAction = AssistantQueryInterpreter.Interpret(text, BusinessClock.Today);
 		if (!assistantAction.Recognised || assistantAction.SectionKey == null)
 		{
 			await RunHeaderMedicineSearchAsync(text);
@@ -1804,7 +1805,7 @@ public class MainWindowViewModel : ObservableObject
 	{
 		try
 		{
-			DateOnly dateOnly = DateOnly.FromDateTime(DateTime.Today);
+			DateOnly dateOnly = BusinessClock.Today;
 			switch (target)
 			{
 			case DashboardTarget.SalesToday:
@@ -1908,7 +1909,7 @@ public class MainWindowViewModel : ObservableObject
 			};
 
 			string? endsOn = licensedUntil?.ToString("dd-MMM-yyyy")
-				?? (trialLeft is > 0 ? DateTime.Today.AddDays(trialLeft.Value).ToString("dd-MMM-yyyy") : null);
+				?? (trialLeft is > 0 ? BusinessClock.Now.Date.AddDays(trialLeft.Value).ToString("dd-MMM-yyyy") : null);
 			_accountDialogs.ShowLicence(new LicenceSummary(offlineStatus, headline, detail, LicenseManager.AnnualGrantDays, trialLeft, endsOn));
 		}
 		catch (Exception exception)
@@ -2976,7 +2977,7 @@ public class MainWindowViewModel : ObservableObject
 
 	private void UpdateClock()
 	{
-		LocalDateTime = DateTime.Now.ToString("f");
+		LocalDateTime = BusinessClock.Now.ToString("f");
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]

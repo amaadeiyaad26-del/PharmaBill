@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -2030,7 +2031,7 @@ public static class InvoiceTextParser
 			return iso;
 		}
 
-		return DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+		return BusinessClock.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 	}
 
 	private static bool TryBuildIsoDate(string a, string b, string c, out string iso)

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -138,7 +139,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 			SyncConflict syncConflict = await context.SyncConflicts.IgnoreQueryFilters().SingleOrDefaultAsync((SyncConflict item) => item.EntityName == "StockConflict" && item.EntityId == batch.Id && item.Resolution == "Open", cancellationToken);
 			if (syncConflict != null)
 			{
-				DateTime utcNow = DateTime.UtcNow;
+				DateTime utcNow = BusinessClock.UtcNow;
 				syncConflict.Resolution = "Resolved by stock adjustment: " + reason.Trim();
 				syncConflict.ResolvedAtUtc = utcNow;
 				syncConflict.UpdatedAtUtc = utcNow;
@@ -161,7 +162,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 
 	public async Task<IReadOnlyList<ExpiredBatchRow>> GetExpiredBatchesAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<Batch> expired = await (from batch in context.Batches.AsNoTracking()
 			where batch.ExpiryDate != null && batch.ExpiryDate < today
 			select batch).ToListAsync(cancellationToken);
@@ -239,7 +240,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 					BatchId = batch.Id,
 					Quantity = row.Quantity,
 					BatchNo = batch.BatchNo,
-					EntryAtUtc = DateTime.UtcNow,
+					EntryAtUtc = BusinessClock.UtcNow,
 					Notes = reason.Trim()
 				});
 				context.AuditLogs.Add(new AuditLog
@@ -286,7 +287,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 		}
 		Batch batch = await context.Batches.SingleAsync((Batch item) => item.Id == batchId, cancellationToken);
 		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { batch.BatchNo, batch.Quantity, batch.ExpiryDate });
-		DateOnly dateOnly = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly dateOnly = BusinessClock.Today;
 		if (!batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= dateOnly)
 		{
 			throw new InvalidOperationException("Only expired batches can be written off.");
@@ -324,7 +325,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 			BatchId = batch.Id,
 			Quantity = quantity,
 			BatchNo = batch.BatchNo,
-			EntryAtUtc = DateTime.UtcNow,
+			EntryAtUtc = BusinessClock.UtcNow,
 			Notes = reason.Trim()
 		});
 		context.AuditLogs.Add(new AuditLog

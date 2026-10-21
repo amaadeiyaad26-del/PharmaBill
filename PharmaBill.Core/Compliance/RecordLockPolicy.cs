@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Compliance;
@@ -13,15 +14,11 @@ public static class RecordLockPolicy
 
 	public const string LockedToolTip = "Locked & Immutable (> 5 days). Admin authorization required to modify.";
 
+	/// <summary>Elapsed time is measured between instants, so it does not depend on any timezone.</summary>
 	public static bool IsLocked(DateTime createdAtUtc)
 	{
-		DateTime createdLocal = createdAtUtc.Kind switch
-		{
-			DateTimeKind.Utc => createdAtUtc.ToLocalTime(),
-			DateTimeKind.Local => createdAtUtc,
-			_ => DateTime.SpecifyKind(createdAtUtc, DateTimeKind.Utc).ToLocalTime()
-		};
-		return (DateTime.Now - createdLocal).TotalDays > LockAfterDays;
+		DateTime created = createdAtUtc.Kind == DateTimeKind.Local ? createdAtUtc.ToUniversalTime() : DateTime.SpecifyKind(createdAtUtc, DateTimeKind.Utc);
+		return (BusinessClock.UtcNow - created).TotalDays > LockAfterDays;
 	}
 }
 

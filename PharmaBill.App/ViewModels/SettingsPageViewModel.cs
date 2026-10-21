@@ -3205,11 +3205,11 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			DataRetentionActiveSummary dataRetentionActiveSummary = await scope.ServiceProvider.GetRequiredService<DataRetentionArchiveService>().GetActiveSummaryAsync(cancellationToken);
-			string value = dataRetentionActiveSummary.OldestActiveUtc?.ToLocalTime().ToString("yyyy-MM-dd") ?? "—";
+			string value = dataRetentionActiveSummary.OldestActiveUtc?.ToBusinessLocal().ToString("yyyy-MM-dd") ?? "—";
 			ActiveRecordsSummary = $"Active Records: {dataRetentionActiveSummary.ActiveRecordCount:N0} (from {value} to Today)";
 			if (dataRetentionActiveSummary.Period != DataRetentionPeriod.Permanent && dataRetentionActiveSummary.CandidateArchiveCount > 0)
 			{
-				RetentionStatus = $"{dataRetentionActiveSummary.CandidateArchiveCount:N0} record(s) older than the retention cutoff ({dataRetentionActiveSummary.CutoffUtc.ToLocalTime():yyyy-MM-dd}) can be archived.";
+				RetentionStatus = $"{dataRetentionActiveSummary.CandidateArchiveCount:N0} record(s) older than the retention cutoff ({dataRetentionActiveSummary.CutoffUtc.ToBusinessLocal():yyyy-MM-dd}) can be archived.";
 			}
 		}
 		catch (Exception ex)

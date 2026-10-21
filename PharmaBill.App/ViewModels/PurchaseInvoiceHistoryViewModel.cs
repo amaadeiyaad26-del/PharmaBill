@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -86,15 +87,15 @@ public sealed class PurchaseInvoiceHistoryViewModel(IServiceScopeFactory scopeFa
 
 	public IAsyncRelayCommand TodayCommand => new AsyncRelayCommand(async () =>
 	{
-		FromDate = DateTime.Today;
-		ToDate = DateTime.Today;
+		FromDate = BusinessClock.Now.Date;
+		ToDate = BusinessClock.Now.Date;
 		await LoadAsync();
 	});
 
 	public IAsyncRelayCommand ThisMonthCommand => new AsyncRelayCommand(async () =>
 	{
-		FromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-		ToDate = DateTime.Today;
+		FromDate = new DateTime(BusinessClock.Now.Date.Year, BusinessClock.Now.Date.Month, 1);
+		ToDate = BusinessClock.Now.Date;
 		await LoadAsync();
 	});
 

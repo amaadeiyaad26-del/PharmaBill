@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -27,7 +28,7 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 
 	private string _errorMessage = string.Empty;
 	private string _statusMessage = string.Empty;
-	private DateTime _lastUpdated = DateTime.Now;
+	private DateTime _lastUpdated = BusinessClock.Now;
 	private AsyncRelayCommand? _refreshCommand;
 	private RelayCommand? _newB2bOrderCommand;
 	private RelayCommand? _outstandingStatementCommand;
@@ -136,7 +137,7 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			WholesaleDashboardService service = scope.ServiceProvider.GetRequiredService<WholesaleDashboardService>();
-			WholesaleDashboardSnapshot snapshot = await service.GetSnapshotAsync(DateTime.Now, cancellationToken);
+			WholesaleDashboardSnapshot snapshot = await service.GetSnapshotAsync(BusinessClock.Now, cancellationToken);
 			Snapshot = snapshot;
 			TopOverdueBuyers.Clear();
 			foreach (WholesaleOverdueBuyerRow row in snapshot.TopOverdueBuyers)
@@ -150,7 +151,7 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 				FastMovingBulk.Add(row);
 			}
 
-			LastUpdated = DateTime.Now;
+			LastUpdated = BusinessClock.Now;
 			ErrorMessage = string.Empty;
 			StatusMessage = "Wholesale B2B dashboard refreshed from local books.";
 		}

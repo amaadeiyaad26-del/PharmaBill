@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,7 +24,7 @@ public sealed class SyncFolderExchangeTests
                 FolderPath = Path.Combine(root, "chosen-cloud-folder"),
                 AutoSyncEnabled = true,
                 Status = "Idle",
-                LastSyncAtUtc = DateTime.UtcNow,
+                LastSyncAtUtc = BusinessClock.UtcNow,
                 LastOutgoingPackages = 2,
                 LastIncomingPackages = 1,
                 LastAppliedChanges = 14

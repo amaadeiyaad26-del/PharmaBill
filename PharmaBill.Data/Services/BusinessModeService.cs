@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -13,7 +14,7 @@ public sealed class BusinessModeService(IUnitOfWork unitOfWork)
 {
 	public async Task<IReadOnlyList<string>> GetMissingRequirementsAsync(BusinessMode mode, CancellationToken cancellationToken = default(CancellationToken))
 	{
-		return ModeGuard.GetMissingLicenceTypes(mode, await unitOfWork.Context.LicenceRecords.ToListAsync(cancellationToken), DateOnly.FromDateTime(DateTime.UtcNow));
+		return ModeGuard.GetMissingLicenceTypes(mode, await unitOfWork.Context.LicenceRecords.ToListAsync(cancellationToken), BusinessClock.Today);
 	}
 
 	public async Task ChangeModeAsync(BusinessMode mode, Guid actingUserId, CancellationToken cancellationToken = default(CancellationToken))
@@ -39,7 +40,7 @@ public sealed class BusinessModeService(IUnitOfWork unitOfWork)
 		unitOfWork.Context.AuditLogs.Add(new AuditLog
 		{
 			UserId = actingUserId,
-			ActionAtUtc = DateTime.UtcNow,
+			ActionAtUtc = BusinessClock.UtcNow,
 			Action = "BusinessModeChanged",
 			EntityName = "PharmacyProfile",
 			EntityId = profile.Id,

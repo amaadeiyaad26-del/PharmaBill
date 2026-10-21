@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.App.ViewModels;
@@ -32,6 +33,6 @@ public static class DrugRecordsPeriodRange
 		{
 			throw new ArgumentException("The custom end date must not be earlier than the start date.");
 		}
-		return (StartUtc: dateOnly3.ToDateTime(TimeOnly.MinValue).ToUniversalTime(), EndUtc: dateOnly4.ToDateTime(TimeOnly.MinValue).ToUniversalTime());
+		return (StartUtc: dateOnly3.StartOfDayUtc(), EndUtc: dateOnly4.StartOfDayUtc());
 	}
 }

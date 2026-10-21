@@ -320,7 +320,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 		}
 		List<WholesaleInvoice> wholesale = (await source.ToListAsync(cancellationToken)).Where((WholesaleInvoice wholesaleInvoice) =>
 		{
-			DateOnly dateOnly = DateOnly.FromDateTime(wholesaleInvoice.InvoiceAtUtc.ToLocalTime());
+			DateOnly dateOnly = wholesaleInvoice.InvoiceAtUtc.ToBusinessDate();
 			return dateOnly >= from && dateOnly <= to;
 		}).ToList();
 		Guid[] wholesaleIds = wholesale.Select((WholesaleInvoice wholesaleInvoice) => wholesaleInvoice.Id).ToArray();
@@ -348,10 +348,10 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 					? new GstLine(item.ItemName ?? valueOrDefault?.Name ?? "Item", item.HsnCode, item.Quantity + item.FreeQuantity, item.TaxRate, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal)
 					: new GstLine(valueOrDefault?.Name ?? "Item", valueOrDefault?.HsnCode, item.Quantity + item.FreeQuantity, item.TaxRate, item.TaxableAmount, item.CgstAmount, item.SgstAmount, item.IgstAmount, item.LineTotal);
 			}).ToArray();
-			documents.Add(new GstDocument(invoice.InvoiceNo, DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()), states.Recorded ? invoice.BuyerGstin : customer.Gstin, states.BuyerStateCode, invoice.Subtotal, invoice.TaxAmount, invoice.CgstAmount, invoice.SgstAmount, invoice.IgstAmount, invoice.TotalAmount, invoice.Status == "Cancelled", lines, states.PharmacyStateCode, states.Recorded));
+			documents.Add(new GstDocument(invoice.InvoiceNo, invoice.InvoiceAtUtc.ToBusinessDate(), states.Recorded ? invoice.BuyerGstin : customer.Gstin, states.BuyerStateCode, invoice.Subtotal, invoice.TaxAmount, invoice.CgstAmount, invoice.SgstAmount, invoice.IgstAmount, invoice.TotalAmount, invoice.Status == "Cancelled", lines, states.PharmacyStateCode, states.Recorded));
 		}
-		DateTime fromUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime toUtcExclusive = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime fromUtc = from.StartOfDayUtc();
+		DateTime toUtcExclusive = to.AddDays(1).StartOfDayUtc();
 		List<Sale> retailSales = await (from sale2 in context.Sales.AsNoTracking()
 			where sale2.SaleAtUtc >= fromUtc && sale2.SaleAtUtc < toUtcExclusive && !sale2.IsDeleted
 			select sale2).ToListAsync(cancellationToken);
@@ -377,7 +377,7 @@ public sealed class GstReturnExportService(PharmaBillDbContext context)
 			decimal num2 = Round(array.Sum((GstLine line) => line.Sgst));
 			bool recorded = RecordedGstStates.IsRecorded(sale);
 			string saleState = recorded ? sale.PharmacyStateCode! : pharmacyPos;
-			documents.Add(new GstDocument(sale.InvoiceNo, DateOnly.FromDateTime(sale.SaleAtUtc.ToLocalTime()), null, saleState, Round(array.Sum((GstLine line) => line.Taxable)), Round(num + num2), num, num2, 0m, sale.TotalAmount, sale.IsDeleted, array, saleState, recorded));
+			documents.Add(new GstDocument(sale.InvoiceNo, sale.SaleAtUtc.ToBusinessDate(), null, saleState, Round(array.Sum((GstLine line) => line.Taxable)), Round(num + num2), num, num2, 0m, sale.TotalAmount, sale.IsDeleted, array, saleState, recorded));
 		}
 		return (from document in documents
 			orderby document.InvoiceDate, document.InvoiceNo

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,8 +44,8 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 			{
 				CustomerId = customer.Id,
 				WholesaleInvoiceId = invoice?.Id,
-				ReceiptNo = $"RCPT-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}".Substring(0, 30),
-				ReceiptAtUtc = DateTime.UtcNow,
+				ReceiptNo = $"RCPT-{BusinessClock.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}".Substring(0, 30),
+				ReceiptAtUtc = BusinessClock.UtcNow,
 				Amount = decimal.Round(amount, 2, MidpointRounding.AwayFromZero),
 				PaymentMethod = method,
 				ReferenceNumber = NullIfWhiteSpace(referenceNumber),
@@ -97,7 +98,7 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 		Receipt result;
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
-			DateTime utcNow = DateTime.UtcNow;
+			DateTime utcNow = BusinessClock.UtcNow;
 			Receipt payment = new Receipt
 			{
 				SupplierId = supplier.Id,
@@ -186,11 +187,11 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 				{
 					Guid? customerId = receipt.CustomerId;
 					Guid id = customer.Id;
-					return customerId.HasValue && customerId.GetValueOrDefault() == id && !receipt.WholesaleInvoiceId.HasValue && DateOnly.FromDateTime(receipt.ReceiptAtUtc.ToLocalTime()) <= asOfDate;
+					return customerId.HasValue && customerId.GetValueOrDefault() == id && !receipt.WholesaleInvoiceId.HasValue && receipt.ReceiptAtUtc.ToBusinessDate() <= asOfDate;
 				}).Sum((Receipt receipt) => receipt.Amount);
 				foreach (WholesaleInvoice invoice in value.OrderBy((WholesaleInvoice item) => item.InvoiceAtUtc))
 				{
-					decimal val2 = receipts.Where((Receipt receipt) => receipt.WholesaleInvoiceId == invoice.Id && DateOnly.FromDateTime(receipt.ReceiptAtUtc.ToLocalTime()) <= asOfDate).Sum((Receipt receipt) => receipt.Amount);
+					decimal val2 = receipts.Where((Receipt receipt) => receipt.WholesaleInvoiceId == invoice.Id && receipt.ReceiptAtUtc.ToBusinessDate() <= asOfDate).Sum((Receipt receipt) => receipt.Amount);
 					decimal num = Math.Max(invoice.PaidAmount, val2);
 					decimal num2 = source.Where((CustomerLedgerEntry entry) =>
 					{
@@ -211,7 +212,7 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 						}
 						return false;
 						IL_0080:
-						return DateOnly.FromDateTime(entry.EntryAtUtc.ToLocalTime()) <= asOfDate;
+						return entry.EntryAtUtc.ToBusinessDate() <= asOfDate;
 					}).Sum((CustomerLedgerEntry entry) => entry.Credit);
 					decimal num3 = Math.Max(0m, invoice.TotalAmount - num - num2);
 					decimal num4 = Math.Min(num3, val);
@@ -219,7 +220,7 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 					val -= num4;
 					if (!(num3 == 0m))
 					{
-						DateOnly dateOnly = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()).AddDays(customer.CreditDays);
+						DateOnly dateOnly = invoice.InvoiceAtUtc.ToBusinessDate().AddDays(customer.CreditDays);
 						int num5 = Math.Max(0, asOfDate.DayNumber - dateOnly.DayNumber);
 						int num6;
 						if (num5 <= 60)
@@ -327,7 +328,7 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 			context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
 			{
 				SupplierId = supplierId,
-				EntryAtUtc = invoice.InvoiceDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+				EntryAtUtc = invoice.InvoiceDate.StartOfDayUtc(),
 				EntryType = LedgerEntryTypes.PurchaseBill,
 				ReferenceId = invoice.Id,
 				ReferenceNo = invoice.InvoiceNo,

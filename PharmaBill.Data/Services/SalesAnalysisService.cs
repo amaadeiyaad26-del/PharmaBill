@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -165,13 +166,13 @@ public sealed class SalesAnalysisService(PharmaBillDbContext context)
 
 		var facts = retail.Select(s => new
 		{
-			Local = DateTime.SpecifyKind(s.SaleAtUtc, DateTimeKind.Utc).ToLocalTime(),
+			Local = s.SaleAtUtc.ToBusinessLocal(),
 			Taxable = s.Subtotal,
 			Tax = s.TaxAmount,
 			Total = s.TotalAmount
 		}).Concat(wholesale.Select(i => new
 		{
-			Local = DateTime.SpecifyKind(i.InvoiceAtUtc, DateTimeKind.Utc).ToLocalTime(),
+			Local = i.InvoiceAtUtc.ToBusinessLocal(),
 			Taxable = i.Subtotal,
 			Tax = i.TaxAmount,
 			Total = i.TotalAmount
@@ -268,8 +269,8 @@ public sealed class SalesAnalysisService(PharmaBillDbContext context)
 
 	private static (DateTime StartUtc, DateTime EndUtc) GetUtcBounds(DateOnly from, DateOnly to)
 	{
-		DateTime startUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime endUtc = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime startUtc = from.StartOfDayUtc();
+		DateTime endUtc = to.AddDays(1).StartOfDayUtc();
 		return (startUtc, endUtc);
 	}
 

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -311,7 +312,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			if (lastGoogleDriveSyncAtUtc.HasValue)
 			{
 				DateTime valueOrDefault = lastGoogleDriveSyncAtUtc.GetValueOrDefault();
-				return $"Up to date • Last synced: {valueOrDefault.ToLocalTime():dd-MMM HH:mm}";
+				return $"Up to date • Last synced: {valueOrDefault.ToBusinessLocal():dd-MMM HH:mm}";
 			}
 			return "Connected • Waiting for first sync";
 		}
@@ -325,7 +326,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			if (lastUsbBackupAtUtc.HasValue)
 			{
 				DateTime valueOrDefault = lastUsbBackupAtUtc.GetValueOrDefault();
-				return $"Last USB Backup: {valueOrDefault.ToLocalTime():dd-MMM-yyyy HH:mm}";
+				return $"Last USB Backup: {valueOrDefault.ToBusinessLocal():dd-MMM-yyyy HH:mm}";
 			}
 			return "Last USB Backup: Never";
 		}
@@ -2504,7 +2505,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			using IServiceScope serviceScope = _scopeFactory.CreateScope();
 			PairingCode pairingCode = serviceScope.ServiceProvider.GetRequiredService<SyncDeviceService>().CreatePairingCode();
 			GeneratedPairingCode = pairingCode.Code;
-			PackageStatus = $"One-time pairing code; expires {pairingCode.ExpiresAtUtc.ToLocalTime():g}. Share it with the other device out of band.";
+			PackageStatus = $"One-time pairing code; expires {pairingCode.ExpiresAtUtc.ToBusinessLocal():g}. Share it with the other device out of band.";
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
@@ -2570,7 +2571,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			ErrorMessage = "Select the paired destination device.";
 			return;
 		}
-		string destination = _filePicker.PickExportDestination("pbsync", $"PharmaBill-sync-{DateTime.Now:yyyyMMdd-HHmm}");
+		string destination = _filePicker.PickExportDestination("pbsync", $"PharmaBill-sync-{BusinessClock.Now:yyyyMMdd-HHmm}");
 		if (destination == null)
 		{
 			return;

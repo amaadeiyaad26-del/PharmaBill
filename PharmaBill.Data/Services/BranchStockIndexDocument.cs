@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 
@@ -11,7 +12,7 @@ public sealed class BranchStockIndexDocument
 
 	public string BranchName { get; set; } = string.Empty;
 
-	public DateTime GeneratedAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime GeneratedAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public List<BranchStockIndexItem> Items { get; set; } = new List<BranchStockIndexItem>();
 }

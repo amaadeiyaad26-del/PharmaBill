@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
@@ -136,7 +137,7 @@ public sealed class BackupAndReportsTests
     public async Task ReportsAndDashboard_UseSelectedPeriodAndCurrentMovementBalances()
     {
         await using var database = await DatabaseTestContext.CreateAsync();
-        var now = DateTime.Now;
+        var now = BusinessClock.Now;
         var drug = new Drug { Name = "Report medicine", HsnCode = "3004", GstRate = 12m, ReorderLevel = 5m };
         var patient = new Patient { Name = "Report patient", Phone = "9876543210" };
         var supplier = new Supplier { Name = "Report supplier" };

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ namespace PharmaBill.App.ViewModels;
 
 public class StockInHandPageViewModel(IServiceScopeFactory scopeFactory, IUserSessionService userSession) : ObservableObject, ILoadablePage
 {
-	private DateTime _asOfDate = DateTime.Today;
+	private DateTime _asOfDate = BusinessClock.Now.Date;
 
 	private DateTime? _fromDate;
 
@@ -208,8 +209,8 @@ public class StockInHandPageViewModel(IServiceScopeFactory scopeFactory, IUserSe
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
 			StockInHandService service = scope.ServiceProvider.GetRequiredService<StockInHandService>();
-			DateTime asOfUtc = AsOfDate.Date.AddDays(1.0).ToUniversalTime();
-			DateTime? fromUtc = (FromDate.HasValue ? new DateTime?(FromDate.Value.Date.ToUniversalTime()) : ((DateTime?)null));
+			DateTime asOfUtc = DateOnly.FromDateTime(AsOfDate.Date).AddDays(1).StartOfDayUtc();
+			DateTime? fromUtc = (FromDate.HasValue ? new DateTime?(DateOnly.FromDateTime(FromDate.Value.Date).StartOfDayUtc()) : ((DateTime?)null));
 			Guid? supplierId = SelectedSupplier?.Id;
 			string schedule = (string.IsNullOrWhiteSpace(ScheduleFilter) ? null : ScheduleFilter.Trim());
 			string manufacturer = (string.IsNullOrWhiteSpace(ManufacturerFilter) ? null : ManufacturerFilter.Trim());
@@ -227,7 +228,7 @@ public class StockInHandPageViewModel(IServiceScopeFactory scopeFactory, IUserSe
 			DeadStock.Clear();
 			if (DeadStockBefore.HasValue)
 			{
-				DateTime inactiveBeforeUtc = DeadStockBefore.Value.Date.ToUniversalTime();
+				DateTime inactiveBeforeUtc = DateOnly.FromDateTime(DeadStockBefore.Value.Date).StartOfDayUtc();
 				foreach (DeadStockAlert item3 in await service.GetDeadStockAsync(inactiveBeforeUtc, cancellationToken))
 				{
 					DeadStock.Add(item3);

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -47,7 +48,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 
 	private string _chequeNumber = string.Empty;
 
-	private DateTime? _chequeDate = DateTime.Today;
+	private DateTime? _chequeDate = BusinessClock.Now.Date;
 
 	private string _bankName = string.Empty;
 
@@ -57,7 +58,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 
 	private string _supplierPaymentMethod = "Cash";
 
-	private DateTime? _supplierPaymentDate = DateTime.Today;
+	private DateTime? _supplierPaymentDate = BusinessClock.Now.Date;
 
 	private string _errorMessage = string.Empty;
 
@@ -69,7 +70,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 
 	private DateTime? _ledgerFromDate;
 
-	private DateTime? _ledgerToDate = DateTime.Today;
+	private DateTime? _ledgerToDate = BusinessClock.Now.Date;
 
 	private string _ledgerSearchText = string.Empty;
 
@@ -770,7 +771,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		{
 			IReadOnlyList<string>[] rows = ((IEnumerable<LedgerRow>)CustomerLedger).Select((Func<LedgerRow, IReadOnlyList<string>>)((LedgerRow row) => new _003C_003Ez__ReadOnlyArray<string>(new string[7]
 			{
-				(row.EntryAtUtc == DateTime.MinValue) ? "Opening balance" : row.EntryAtUtc.ToLocalTime().ToString("dd-MMM-yyyy"),
+				(row.EntryAtUtc == DateTime.MinValue) ? "Opening balance" : row.EntryAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy"),
 				row.EntryType,
 				row.ReferenceNo ?? string.Empty,
 				row.Debit.ToString("0.00"),
@@ -858,12 +859,12 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		WholesaleAccountsService accounts = scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		Ageing.Clear();
-		foreach (CustomerAgeing item in await accounts.GetAgeingAsync(DateOnly.FromDateTime(DateTime.Today), cancellationToken))
+		foreach (CustomerAgeing item in await accounts.GetAgeingAsync(BusinessClock.Today, cancellationToken))
 		{
 			Ageing.Add(item);
 		}
 		CashBankBook.Clear();
-		foreach (CashBankBookRow item2 in await accounts.GetCashBankBookAsync(DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(1.0), cancellationToken))
+		foreach (CashBankBookRow item2 in await accounts.GetCashBankBookAsync(BusinessClock.Now.Date, BusinessClock.Now.Date.AddDays(1.0), cancellationToken))
 		{
 			CashBankBook.Add(item2);
 		}
@@ -876,7 +877,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		TotalPayables = decimal.Round(SupplierPayables.Sum(item => item.Payable), 2, MidpointRounding.AwayFromZero);
 		ActiveDistributors = SupplierPayables.Count(item => item.Payable > 0m);
 
-		DateTime monthStartUtc = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+		DateTime monthStartUtc = new DateTime(BusinessClock.Now.Date.Year, BusinessClock.Now.Date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 		PaidThisMonth = decimal.Round(
 			await context.SupplierLedgerEntries.AsNoTracking()
 				.Where(entry => entry.EntryType == LedgerEntryTypes.SupplierPayment && entry.EntryAtUtc >= monthStartUtc)
@@ -894,7 +895,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 	private async Task RebuildSupplierPayablesAgeingAsync(PharmaBillDbContext context, CancellationToken cancellationToken)
 	{
 		SupplierPayablesAgeing.Clear();
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<(Guid SupplierId, DateOnly InvoiceDate, decimal TotalAmount)> invoices = (await context.PurchaseInvoices.AsNoTracking()
 			.Select(invoice => new { invoice.SupplierId, invoice.InvoiceDate, invoice.TotalAmount })
 			.ToListAsync(cancellationToken))
@@ -998,7 +999,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 	{
 		string key = string.IsNullOrWhiteSpace(filter) ? "All" : filter.Trim();
 		LedgerQuickFilter = key;
-		DateTime today = DateTime.Today;
+		DateTime today = BusinessClock.Now.Date;
 		switch (key)
 		{
 			case "Today":
@@ -1031,7 +1032,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		DateTime? toLocal = LedgerToDate?.Date;
 		foreach (LedgerRow row in _supplierLedgerSource)
 		{
-			DateTime local = row.EntryAtUtc == DateTime.MinValue ? DateTime.MinValue : row.EntryAtUtc.ToLocalTime().Date;
+			DateTime local = row.EntryAtUtc == DateTime.MinValue ? DateTime.MinValue : row.EntryAtUtc.ToBusinessLocal().Date;
 			if (fromLocal.HasValue && local != DateTime.MinValue && local < fromLocal.Value)
 			{
 				continue;

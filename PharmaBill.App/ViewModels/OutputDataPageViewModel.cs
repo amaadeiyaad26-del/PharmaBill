@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -153,7 +154,7 @@ public class OutputDataPageViewModel : SectionPageViewModel, ILoadablePage
 				_columns = new string[9] { "Entry date", "Register", "Medicine", "Batch", "Quantity", "Patient", "Prescriber", "Registration no.", "Notes / reason" };
 				_rows = (from item in (from item in entries.Select((ScheduleRegisterEntry item) => (At: item.EntryAtUtc, Values: new string[9]
 						{
-							item.EntryAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm"),
+							item.EntryAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm"),
 							item.RegisterType,
 							item.DrugId.HasValue ? drugNames.GetValueOrDefault(item.DrugId.Value, string.Empty) : string.Empty,
 							item.BatchNo ?? string.Empty,
@@ -164,7 +165,7 @@ public class OutputDataPageViewModel : SectionPageViewModel, ILoadablePage
 							item.Notes ?? string.Empty
 						})).Concat(writeOffs.Select((ExpiryWriteOff item) => (At: item.WrittenOffAtUtc, Values: new string[9]
 						{
-							item.WrittenOffAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm"),
+							item.WrittenOffAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm"),
 							"Expiry dump",
 							drugNames.GetValueOrDefault(item.DrugId, string.Empty),
 							batchNumbers.GetValueOrDefault(item.BatchId, string.Empty),
@@ -202,7 +203,7 @@ public class OutputDataPageViewModel : SectionPageViewModel, ILoadablePage
 				_columns = ((businessMode != BusinessMode.Wholesaler) ? new string[9] { "Date", "Invoice no.", "Patient / customer", "Subtotal", "GST", "Discount", "Total", "Paid", "Status" } : new string[9] { "Date", "Invoice no.", "Customer", "Subtotal", "GST", "Discount", "Total", "Paid", "Status" });
 				_rows = (from item in (from item in sales.Select((Sale item) => (At: item.SaleAtUtc, Values: new string[9]
 						{
-							item.SaleAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm"),
+							item.SaleAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm"),
 							item.InvoiceNo,
 							item.PatientId.HasValue ? patients.GetValueOrDefault(item.PatientId.Value, string.Empty) : string.Empty,
 							item.Subtotal.ToString("N2"),
@@ -213,7 +214,7 @@ public class OutputDataPageViewModel : SectionPageViewModel, ILoadablePage
 							item.PaymentStatus ?? string.Empty
 						})).Concat(wholesaleInvoices.Select((WholesaleInvoice item) => (At: item.InvoiceAtUtc, Values: new string[9]
 						{
-							item.InvoiceAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm"),
+							item.InvoiceAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm"),
 							item.InvoiceNo,
 							customers.GetValueOrDefault(item.CustomerId, string.Empty),
 							item.Subtotal.ToString("N2"),

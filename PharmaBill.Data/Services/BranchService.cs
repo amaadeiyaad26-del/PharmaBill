@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -164,7 +165,7 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 			BranchId = branch.Id,
 			BranchCode = branch.Code,
 			BranchName = branch.BranchName,
-			GeneratedAtUtc = DateTime.UtcNow,
+			GeneratedAtUtc = BusinessClock.UtcNow,
 			Items = (from item in quantities.Select(item =>
 				{
 					drugs.TryGetValue(item.DrugId, out var value);
@@ -194,10 +195,10 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 	public async Task<BranchSalesSummaryDocument> BuildLocalSalesSummaryAsync(DateOnly? from = null, DateOnly? to = null, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		Branch branch = await EnsureCurrentBranchAsync(cancellationToken);
-		DateOnly end = to ?? DateOnly.FromDateTime(DateTime.Today);
+		DateOnly end = to ?? BusinessClock.Today;
 		DateOnly start = from ?? end.AddMonths(-1);
-		DateTime startUtc = start.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime endUtc = end.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime startUtc = start.StartOfDayUtc();
+		DateTime endUtc = end.AddDays(1).StartOfDayUtc();
 		List<decimal> list = await (from sale in unitOfWork.Context.Sales.AsNoTracking()
 			where !sale.IsDeleted && sale.SaleAtUtc >= startUtc && sale.SaleAtUtc < endUtc && (sale.BranchId == null || sale.BranchId == branch.Id)
 			select sale.TotalAmount).ToListAsync(cancellationToken);
@@ -206,7 +207,7 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 			BranchId = branch.Id,
 			BranchCode = branch.Code,
 			BranchName = branch.BranchName,
-			GeneratedAtUtc = DateTime.UtcNow,
+			GeneratedAtUtc = BusinessClock.UtcNow,
 			FromDate = start,
 			ToDate = end,
 			InvoiceCount = list.Count,

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,7 +35,7 @@ public sealed class BreakageExpiryReturnService(
 {
 	public async Task<IReadOnlyList<BrkExpCandidateRow>> GetCandidatesAsync(CancellationToken cancellationToken = default)
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<Batch> batches = await unitOfWork.Context.Batches.AsNoTracking()
 			.Where(b => b.Quantity > 0m)
 			.ToListAsync(cancellationToken);
@@ -74,7 +75,7 @@ public sealed class BreakageExpiryReturnService(
 			throw new InvalidOperationException("Breakage / expiry returns are unavailable in read-only mode.");
 		}
 
-		string returnNo = await numberSeries.AllocateAsync("BE", DateOnly.FromDateTime(DateTime.Today), cancellationToken);
+		string returnNo = await numberSeries.AllocateAsync("BE", BusinessClock.Today, cancellationToken);
 		IReadOnlyList<PurchaseReturnLineInput> mapped = lines
 			.Where(l => l.Quantity > 0m)
 			.Select(l => new PurchaseReturnLineInput(l.BatchId, l.Quantity))
@@ -85,7 +86,7 @@ public sealed class BreakageExpiryReturnService(
 		return await purchaseService.SavePurchaseReturnAsync(
 			supplierId,
 			returnNo,
-			DateOnly.FromDateTime(DateTime.Today),
+			BusinessClock.Today,
 			mapped,
 			note,
 			actingUserId,

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -123,7 +124,7 @@ public class LicenceDraftViewModel : ObservableObject
 		{
 			throw new InvalidOperationException("Enter the licence number.");
 		}
-		if (IssueDate.HasValue && IssueDate.Value.Date > DateTime.Today)
+		if (IssueDate.HasValue && IssueDate.Value.Date > BusinessClock.Now.Date)
 		{
 			throw new InvalidOperationException("The licence issue date cannot be in the future.");
 		}

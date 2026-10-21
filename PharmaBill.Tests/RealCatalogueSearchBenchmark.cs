@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System.Diagnostics;
 using System.Text;
 using Microsoft.Data.Sqlite;
@@ -40,7 +41,7 @@ public sealed class RealCatalogueSearchBenchmark
             Console.WriteLine(text);
         }
 
-        Line($"=== SearchPerf {label} === {DateTime.Now:yyyy-MM-dd HH:mm:ss} Release={!IsDebug()}");
+        Line($"=== SearchPerf {label} === {BusinessClock.Now:yyyy-MM-dd HH:mm:ss} Release={!IsDebug()}");
         await using SearchStack stack = SearchStack.Open(databasePath, hex, directory);
 
         await using (SqliteConnection raw = new SqliteConnection(stack.ConnectionString))

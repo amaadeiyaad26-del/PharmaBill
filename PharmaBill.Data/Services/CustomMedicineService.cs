@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Data.Common;
 using System.Linq;
@@ -119,7 +120,7 @@ public sealed class CustomMedicineService(PharmaBillDbContext context)
 				medicine.ReferencePrice = request.Mrp;
 			}
 
-			medicine.UpdatedAtUtc = DateTime.UtcNow;
+			medicine.UpdatedAtUtc = BusinessClock.UtcNow;
 		}
 
 		if (drug == null)
@@ -171,7 +172,7 @@ public sealed class CustomMedicineService(PharmaBillDbContext context)
 				drug.Barcode = NullIfEmpty(request.Barcode);
 			}
 
-			drug.UpdatedAtUtc = DateTime.UtcNow;
+			drug.UpdatedAtUtc = BusinessClock.UtcNow;
 		}
 
 		if (userId.HasValue)

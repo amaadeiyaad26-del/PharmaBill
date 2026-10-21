@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ public sealed class AccessService(PharmaBillDbContext context, ProtectedAccessSt
 		{
 			return EntitlementStatus.EXPIRED;
 		}
-		DateTime now = DateTime.UtcNow;
+		DateTime now = BusinessClock.UtcNow;
 		BusinessMode businessMode = profile.BusinessMode;
 		if (ModeGuard.GetMissingLicenceTypes(businessMode, await context.LicenceRecords.ToListAsync(cancellationToken), DateOnly.FromDateTime(now)).Count != 0)
 		{

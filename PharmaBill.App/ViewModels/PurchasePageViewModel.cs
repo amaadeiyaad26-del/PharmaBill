@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -38,7 +39,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private string _invoiceNo = string.Empty;
 
-	private DateTime _invoiceDate = DateTime.Today;
+	private DateTime _invoiceDate = BusinessClock.Now.Date;
 
 	private string _errorMessage = string.Empty;
 
@@ -1808,9 +1809,9 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			Guid supplierId2 = supplierId.GetValueOrDefault();
 			SelectedSupplier = Suppliers.FirstOrDefault((Supplier supplier) => supplier.Id == supplierId2);
 		}
-		InvoiceNo = (string.IsNullOrWhiteSpace(InvoiceNo) ? $"INDENT-{DateTime.Now:yyyyMMdd-HHmm}" : InvoiceNo);
-		InvoiceDate = DateTime.Today;
-		Remarks = $"Auto indent from shortage list · {group.SupplierName} · {DateTime.Now:dd-MMM-yyyy HH:mm}";
+		InvoiceNo = (string.IsNullOrWhiteSpace(InvoiceNo) ? $"INDENT-{BusinessClock.Now:yyyyMMdd-HHmm}" : InvoiceNo);
+		InvoiceDate = BusinessClock.Now.Date;
+		Remarks = $"Auto indent from shortage list · {group.SupplierName} · {BusinessClock.Now:dd-MMM-yyyy HH:mm}";
 		_pagingSuspend++;
 		try
 		{
@@ -1822,7 +1823,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				PurchaseLineDraft line = new PurchaseLineDraft(drug)
 				{
 					BatchNo = string.Empty,
-					Expiry = DateTime.Today.AddMonths(12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+					Expiry = BusinessClock.Now.Date.AddMonths(12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
 					Quantity = item.SuggestedOrderQty,
 					FreeQuantity = 0m,
 					Mrp = (item.LastMrp ?? drug.Mrp.GetValueOrDefault()),
@@ -2008,7 +2009,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			RequestFocus("NewItemExpiry");
 			return;
 		}
-		if (lastDay < DateOnly.FromDateTime(DateTime.Today))
+		if (lastDay < BusinessClock.Today)
 		{
 			NewItemError = "This date has expired; expired stock cannot be purchased";
 			RequestFocus("NewItemExpiry");
@@ -2099,7 +2100,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		NewItemDrug = drug;
 		ApplyImmediateDefaults(picker);
 		NewItemBatch = "COUNTER";
-		NewItemExpiry = DateTime.Today.AddYears(1).ToString("MM/yyyy", CultureInfo.InvariantCulture);
+		NewItemExpiry = BusinessClock.Now.Date.AddYears(1).ToString("MM/yyyy", CultureInfo.InvariantCulture);
 		NewItemQuantity = "1";
 		if (saved.Mrp is > 0m)
 		{
@@ -2631,7 +2632,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		Lines.Clear();
 		SelectedLine = null;
 		InvoiceNo = string.Empty;
-		InvoiceDate = DateTime.Today;
+		InvoiceDate = BusinessClock.Now.Date;
 		Remarks = string.Empty;
 		InvoiceImagePath = null;
 		OriginalInvoiceFileName = null;
@@ -2981,7 +2982,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			bill.InvoiceNo = GeminiPurchaseImportService.SanitizeInvoiceNo(extracted.InvoiceNo);
 		}
 
-		if (bill.InvoiceDate.Date == DateTime.Today && DateOnly.TryParse(extracted.InvoiceDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly extractedDate))
+		if (bill.InvoiceDate.Date == BusinessClock.Now.Date && DateOnly.TryParse(extracted.InvoiceDate, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateOnly extractedDate))
 		{
 			bill.InvoiceDate = extractedDate.ToDateTime(TimeOnly.MinValue);
 		}
@@ -3120,7 +3121,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 						Rate = snapshot.Rate,
 						GstRate = snapshot.Gst,
 						DiscountAmount = snapshot.Discount,
-						InwardDate = bill.InvoiceDate.Date == default ? DateTime.Today : bill.InvoiceDate.Date,
+						InwardDate = bill.InvoiceDate.Date == default ? BusinessClock.Now.Date : bill.InvoiceDate.Date,
 						AcceptMedicineEdits = true
 					};
 					line.PropertyChanged += OnLineChanged;
@@ -3146,7 +3147,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				InvoiceNo = bill.InvoiceNo;
 			}
 
-			InvoiceDate = bill.InvoiceDate == default ? DateTime.Today : bill.InvoiceDate;
+			InvoiceDate = bill.InvoiceDate == default ? BusinessClock.Now.Date : bill.InvoiceDate;
 			_pendingSupplierName = bill.SupplierName;
 			_ = EnsureExtractedSupplierAsync(bill.SupplierName);
 			if (!string.IsNullOrWhiteSpace(bill.FilePath))
@@ -3256,7 +3257,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 		if (string.IsNullOrWhiteSpace(bill.InvoiceNo))
 		{
-			bill.InvoiceNo = "PHONE-" + bill.Index + "-" + DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+			bill.InvoiceNo = "PHONE-" + bill.Index + "-" + BusinessClock.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
 		}
 
 		_pendingSupplierName = bill.SupplierName;
@@ -3929,7 +3930,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 					InvoiceNo = header.InvoiceNo;
 				}
 
-				if (DateOnly.TryParse(header.InvoiceDate, CultureInfo.InvariantCulture, out DateOnly parsedDate) && InvoiceDate.Date == DateTime.Today)
+				if (DateOnly.TryParse(header.InvoiceDate, CultureInfo.InvariantCulture, out DateOnly parsedDate) && InvoiceDate.Date == BusinessClock.Now.Date)
 				{
 					InvoiceDate = parsedDate.ToDateTime(TimeOnly.MinValue);
 				}
@@ -4149,7 +4150,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			{
 				InvoiceNo = extracted.InvoiceNo;
 			}
-			if (DateOnly.TryParse(extracted.InvoiceDate, CultureInfo.InvariantCulture, out var result) && InvoiceDate.Date == DateTime.Today)
+			if (DateOnly.TryParse(extracted.InvoiceDate, CultureInfo.InvariantCulture, out var result) && InvoiceDate.Date == BusinessClock.Now.Date)
 			{
 				InvoiceDate = result.ToDateTime(TimeOnly.MinValue);
 			}
@@ -4439,11 +4440,11 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			}
 			else if (fromSpreadsheet)
 			{
-				InvoiceNo = $"CSV-{DateTime.Now:yyyyMMdd-HHmm}";
+				InvoiceNo = $"CSV-{BusinessClock.Now:yyyyMMdd-HHmm}";
 			}
 			else
 			{
-				InvoiceNo = $"INV-{DateTime.Now:yyyyMMdd-HHmmss}";
+				InvoiceNo = $"INV-{BusinessClock.Now:yyyyMMdd-HHmmss}";
 			}
 		}
 
@@ -4471,7 +4472,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch
 		{
-			return "sheet-" + DateTime.UtcNow.Ticks.ToString("x", CultureInfo.InvariantCulture);
+			return "sheet-" + BusinessClock.UtcNow.Ticks.ToString("x", CultureInfo.InvariantCulture);
 		}
 	}
 
@@ -4579,7 +4580,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 		if (string.IsNullOrWhiteSpace(InvoiceNo))
 		{
-			InvoiceNo = $"CSV-{DateTime.Now:yyyyMMdd-HHmm}";
+			InvoiceNo = $"CSV-{BusinessClock.Now:yyyyMMdd-HHmm}";
 		}
 
 		SupplierError = SelectedSupplier == null ? "Supplier is required" : string.Empty;
@@ -4796,7 +4797,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				PurchaseReturn? posted = null;
 				await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
 				{
-					posted = await scope.ServiceProvider.GetRequiredService<PurchaseService>().SavePurchaseReturnAsync(SelectedSupplier.Id, ReturnNo, DateOnly.FromDateTime(DateTime.Today), array, ReturnReason, currentSession.User.Id, currentSession.User.Role);
+					posted = await scope.ServiceProvider.GetRequiredService<PurchaseService>().SavePurchaseReturnAsync(SelectedSupplier.Id, ReturnNo, BusinessClock.Today, array, ReturnReason, currentSession.User.Id, currentSession.User.Role);
 				});
 				LastPostedReturnId = posted?.Id;
 				LastPostedReturnText = posted == null ? string.Empty : $"Return {posted.ReturnNo} to {SelectedSupplier.Name} · ₹{posted.TotalAmount.ToString("N2", CultureInfo.GetCultureInfo("en-IN"))}";

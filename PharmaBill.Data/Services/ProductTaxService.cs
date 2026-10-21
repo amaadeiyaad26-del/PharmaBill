@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -78,7 +79,7 @@ public sealed class ProductTaxService(PharmaBillDbContext context)
 		drug.HsnCode = details.HsnCode;
 		drug.GstRate = details.GstRate;
 		drug.IsNilRated = details.IsNilRated;
-		drug.UpdatedAtUtc = DateTime.UtcNow;
+		drug.UpdatedAtUtc = BusinessClock.UtcNow;
 		context.AuditLogs.Add(new AuditLog
 		{
 			UserId = userId,

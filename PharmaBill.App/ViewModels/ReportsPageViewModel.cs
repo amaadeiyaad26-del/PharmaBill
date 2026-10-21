@@ -150,11 +150,11 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	{
 		get
 		{
-			if (SelectedYear >= DateTime.Today.Year)
+			if (SelectedYear >= BusinessClock.Now.Date.Year)
 			{
-				if (SelectedYear == DateTime.Today.Year)
+				if (SelectedYear == BusinessClock.Now.Date.Year)
 				{
-					return SelectedMonth < DateTime.Today.Month;
+					return SelectedMonth < BusinessClock.Now.Date.Month;
 				}
 				return false;
 			}
@@ -485,7 +485,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		_invoiceDialog = invoiceDialog;
 		_retentionSettingsStore = retentionSettingsStore;
 		RebuildYearOptions();
-		DateTime today = DateTime.Today;
+		DateTime today = BusinessClock.Now.Date;
 		SelectedMonth = today.Month;
 		SelectedYear = today.Year;
 		FromDate = new DateTime(today.Year, today.Month, 1);
@@ -616,7 +616,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task SelectQuickPeriodAsync(string period)
 	{
-		DateTime today = DateTime.Today;
+		DateTime today = BusinessClock.Now.Date;
 		switch (period)
 		{
 		case "Today":
@@ -664,14 +664,14 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		DateTime cutoffUtc = StatutoryRetentionPolicy.GetCutoffUtc(period);
 		if (period != DataRetentionPeriod.Permanent)
 		{
-			return cutoffUtc.ToLocalTime();
+			return cutoffUtc.ToBusinessLocal();
 		}
-		return new DateTime(DateTime.Today.Year - 10, 1, 1);
+		return new DateTime(BusinessClock.Now.Date.Year - 10, 1, 1);
 	}
 
 	private void RebuildYearOptions()
 	{
-		DateTime today = DateTime.Today;
+		DateTime today = BusinessClock.Now.Date;
 		int year = GetActiveWindowStartLocal().Year;
 		Years.Clear();
 		foreach (int item in Enumerable.Range(year, today.Year - year + 1))
@@ -683,7 +683,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	private void ClampToActiveRetentionWindow()
 	{
 		DateTime date = GetActiveWindowStartLocal().Date;
-		DateTime today = DateTime.Today;
+		DateTime today = BusinessClock.Now.Date;
 		if (FromDate < date)
 		{
 			FromDate = date;
@@ -794,7 +794,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		if (!flag)
 		{
 			DateTime dateTime = (FromDate = new DateTime(SelectedYear, SelectedMonth, 1));
-			ToDate = ((SelectedYear == DateTime.Today.Year && SelectedMonth == DateTime.Today.Month) ? DateTime.Today : dateTime.AddMonths(1).AddDays(-1.0));
+			ToDate = ((SelectedYear == BusinessClock.Now.Date.Year && SelectedMonth == BusinessClock.Now.Date.Month) ? BusinessClock.Now.Date : dateTime.AddMonths(1).AddDays(-1.0));
 			OnPropertyChanged("CanNavigateNext");
 			NextMonthCommand.NotifyCanExecuteChanged();
 		}
@@ -802,9 +802,9 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private void SetMonth(DateTime value)
 	{
-		if (value > new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1))
+		if (value > new DateTime(BusinessClock.Now.Date.Year, BusinessClock.Now.Date.Month, 1))
 		{
-			value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+			value = new DateTime(BusinessClock.Now.Date.Year, BusinessClock.Now.Date.Month, 1);
 		}
 		SelectedYear = value.Year;
 		SelectedMonth = value.Month;
@@ -837,9 +837,9 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	{
 		if (Months.Count != 0)
 		{
-			if (SelectedYear == DateTime.Today.Year && value > DateTime.Today.Month)
+			if (SelectedYear == BusinessClock.Now.Date.Year && value > BusinessClock.Now.Date.Month)
 			{
-				SelectedMonth = DateTime.Today.Month;
+				SelectedMonth = BusinessClock.Now.Date.Month;
 			}
 			else if (value >= 1 && value <= 12)
 			{
@@ -858,11 +858,11 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		int num = Years.FirstOrDefault();
 		if (num != 0)
 		{
-			if (value > DateTime.Today.Year)
+			if (value > BusinessClock.Now.Date.Year)
 			{
-				SelectedYear = DateTime.Today.Year;
+				SelectedYear = BusinessClock.Now.Date.Year;
 			}
-			else if (value >= num && value <= DateTime.Today.Year)
+			else if (value >= num && value <= BusinessClock.Now.Date.Year)
 			{
 				ApplySelectedMonth();
 				OnPropertyChanged("CanNavigateNext");

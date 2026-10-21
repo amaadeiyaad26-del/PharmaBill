@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using PharmaBill.Core;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
@@ -49,9 +50,21 @@ public sealed class WholesaleInvoiceTests
     }
 
     [Fact]
+    public async Task WholesaleInvoiceAt0200Ist_TreatsALicenceThatExpiredYesterdayAsExpired()
+    {
+        // 02:00 IST on 21 Oct is 20:30 UTC on 20 Oct: the licence expired on 20 Oct (IST) and must not be accepted.
+        using var _ = BusinessClock.Use(new FixedClock(BusinessClock.FromLocal(new DateTime(2026, 10, 21, 2, 0, 0))));
+        var test = await CreateScenarioAsync(validLicence: true, licenceExpiry: new DateOnly(2026, 10, 20));
+        await using var database = test.Database;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner));
+        Assert.Equal(new DateOnly(2026, 10, 21), BusinessClock.Today);
+    }
+    [Fact]
     public async Task WholesaleInvoice_BlocksExpiredBuyerLicence()
     {
-        var test = await CreateScenarioAsync(validLicence: true, licenceExpiry: DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
+        var test = await CreateScenarioAsync(validLicence: true, licenceExpiry: BusinessClock.Today.AddDays(-1));
         await using var database = test.Database;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -79,7 +92,7 @@ public sealed class WholesaleInvoiceTests
 
         var result = await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
 
-        Assert.Equal("WS/2026-27/000001", result.Invoice.InvoiceNo);
+        Assert.Equal($"WS/{BusinessClock.FinancialYear(BusinessClock.Today)}/000001", result.Invoice.InvoiceNo);
         Assert.Equal(120m, result.CgstAmount + result.SgstAmount);
         Assert.Equal(0m, result.IgstAmount);
         Assert.Equal(-11m, await database.Context.StockMovements
@@ -212,7 +225,7 @@ public sealed class WholesaleInvoiceTests
 
         // GSTR-1: an unregistered buyer is B2C (Table 7), never B2B, with the pharmacy's state as place of supply.
         var gst = database.CreateGstService();
-        var day = DateOnly.FromDateTime(stored.InvoiceAtUtc.ToLocalTime());
+        var day = stored.InvoiceAtUtc.ToBusinessDate();
         var tables = await gst.BuildGstr1TablesAsync(day, day);
         Assert.Empty(tables.Table4B2b);
         Assert.Equal(1, tables.Table7B2c.Sum(row => row.InvoiceCount));
@@ -282,7 +295,7 @@ public sealed class WholesaleInvoiceTests
         await using (recorded.Database)
         {
             await CreateService(recorded.Database).SaveAsync(recorded.Input(), recorded.Owner.Id, UserRole.Owner);
-            var day = DateOnly.FromDateTime(DateTime.UtcNow.ToLocalTime());
+            var day = BusinessClock.UtcNow.ToBusinessDate();
             using var offline = JsonDocument.Parse(await recorded.Database.CreateGstService().ExportGstr1OfflineJsonAsync(day, day));
             JsonElement b2cl = Assert.Single(offline.RootElement.GetProperty("b2cl").EnumerateArray());
             Assert.Equal("33", b2cl.GetProperty("pos").GetString());
@@ -359,7 +372,7 @@ public sealed class WholesaleInvoiceTests
         await database.Context.SaveChangesAsync();
 
         var gst = database.CreateGstService();
-        var day = DateOnly.FromDateTime(stored.InvoiceAtUtc.ToLocalTime());
+        var day = stored.InvoiceAtUtc.ToBusinessDate();
         var tables = await gst.BuildGstr1TablesAsync(day, day);
         var row = Assert.Single(tables.Table4B2b);
         Assert.Equal("33", row.PlaceOfSupply);
@@ -431,7 +444,7 @@ public sealed class WholesaleInvoiceTests
         await database.Context.SaveChangesAsync();
 
         var gst = database.CreateGstService();
-        var day = DateOnly.FromDateTime(stored.InvoiceAtUtc.ToLocalTime());
+        var day = stored.InvoiceAtUtc.ToBusinessDate();
         var tables = await gst.BuildGstr1TablesAsync(day, day);
         var b2b = Assert.Single(tables.Table4B2b);
         Assert.Equal(originalGstin, b2b.Gstin);
@@ -486,7 +499,7 @@ public sealed class WholesaleInvoiceTests
         await database.Context.SaveChangesAsync();
 
         var gst = database.CreateGstService();
-        var day = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime());
+        var day = invoice.InvoiceAtUtc.ToBusinessDate();
         var tables = await gst.BuildGstr1TablesAsync(day, day);
         var row = Assert.Single(tables.Table4B2b);
         Assert.False(row.PlaceOfSupplyVerified);
@@ -565,7 +578,7 @@ public sealed class WholesaleInvoiceTests
     {
         var nearExpiry = await CreateScenarioAsync(
             validLicence: true,
-            batchExpiry: DateOnly.FromDateTime(DateTime.Today.AddDays(30)));
+            batchExpiry: BusinessClock.Today.AddDays(30));
         await using (nearExpiry.Database)
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -575,7 +588,7 @@ public sealed class WholesaleInvoiceTests
 
         var expired = await CreateScenarioAsync(
             validLicence: true,
-            batchExpiry: DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
+            batchExpiry: BusinessClock.Today.AddDays(-1));
         await using (expired.Database)
         {
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -594,7 +607,7 @@ public sealed class WholesaleInvoiceTests
 
         await service.CancelAsync(result.Invoice.Id, "Duplicate order", test.Owner.Id, UserRole.Owner);
 
-        Assert.Equal("WS/2026-27/000001", (await database.Context.WholesaleInvoices.SingleAsync()).InvoiceNo);
+        Assert.Equal($"WS/{BusinessClock.FinancialYear(BusinessClock.Today)}/000001", (await database.Context.WholesaleInvoices.SingleAsync()).InvoiceNo);
         Assert.Equal("Cancelled", (await database.Context.WholesaleInvoices.SingleAsync()).Status);
         Assert.Equal(100m, await database.Context.StockMovements.SumAsync(item => item.QuantityChange));
         Assert.Contains(
@@ -616,7 +629,7 @@ public sealed class WholesaleInvoiceTests
         var note = await returns.CreateCreditNoteAsync(
             invoice.Invoice.Id,
             "CN-1",
-            DateOnly.FromDateTime(DateTime.Today),
+            BusinessClock.Today,
             [new WholesaleCreditLineInput(invoiceLine.Id, 2m, Restock: false)],
             "Damaged on delivery",
             test.Owner.Id,
@@ -631,7 +644,7 @@ public sealed class WholesaleInvoiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => returns.CreateCreditNoteAsync(
             invoice.Invoice.Id,
             "CN-2",
-            DateOnly.FromDateTime(DateTime.Today),
+            BusinessClock.Today,
             [new WholesaleCreditLineInput(invoiceLine.Id, 9m, Restock: true)],
             "Return excess",
             test.Owner.Id,
@@ -654,18 +667,18 @@ public sealed class WholesaleInvoiceTests
             "Cheque",
             "REF-1",
             "CHQ-1",
-            DateOnly.FromDateTime(DateTime.Today),
+            BusinessClock.Today,
             "Local bank",
             test.Owner.Id);
         var ledger = await accounts.GetCustomerLedgerAsync(test.Customer.Id);
-        var ageing = await accounts.GetAgeingAsync(DateOnly.FromDateTime(DateTime.Today));
+        var ageing = await accounts.GetAgeingAsync(BusinessClock.Today);
 
         Assert.Equal("CHQ-1", receipt.ChequeNumber);
         Assert.Equal(620m, Assert.Single(ageing).Current0To30);
         Assert.Equal(620m, ledger.Last().Balance);
         var book = await accounts.GetCashBankBookAsync(
-            DateTime.UtcNow.AddDays(-1),
-            DateTime.UtcNow.AddDays(1));
+            BusinessClock.UtcNow.AddDays(-1),
+            BusinessClock.UtcNow.AddDays(1));
         Assert.Contains(book, row => row.ReceiptNo == receipt.ReceiptNo && row.Direction == "In");
     }
 
@@ -681,25 +694,25 @@ public sealed class WholesaleInvoiceTests
         var accounts = new WholesaleAccountsService(new UnitOfWork(database.Context));
         await accounts.RecordReceiptAsync(
             test.Customer.Id, null, 100m, "UPI", "ON-ACCOUNT", null, null, null, test.Owner.Id);
-        var ageing = Assert.Single(await accounts.GetAgeingAsync(DateOnly.FromDateTime(DateTime.Today)));
+        var ageing = Assert.Single(await accounts.GetAgeingAsync(BusinessClock.Today));
 
         Assert.Equal(1020m, ageing.Current0To30);
         database.Context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
         {
             SupplierId = supplier.Id,
-            EntryAtUtc = DateTime.UtcNow,
+            EntryAtUtc = BusinessClock.UtcNow,
             EntryType = "PurchaseBill",
             Credit = 500m
         });
         await database.Context.SaveChangesAsync();
         var payment = await accounts.RecordSupplierPaymentAsync(
             supplier.Id, 200m, "Cheque", "PAYREF", "CHQ-2",
-            DateOnly.FromDateTime(DateTime.Today), "Test bank", test.Owner.Id);
+            BusinessClock.Today, "Test bank", test.Owner.Id);
 
         Assert.Equal(300m, Assert.Single(await accounts.GetSupplierPayablesAsync()).Payable);
         Assert.Contains(await accounts.GetSupplierLedgerAsync(supplier.Id), row => row.ReferenceNo == payment.ReceiptNo);
         Assert.Contains(await accounts.GetCashBankBookAsync(
-            DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1)),
+            BusinessClock.UtcNow.AddDays(-1), BusinessClock.UtcNow.AddDays(1)),
             row => row.ReceiptNo == payment.ReceiptNo && row.Direction == "Out");
         Assert.Equal(1120m, invoice.Invoice.TotalAmount);
     }
@@ -759,7 +772,7 @@ public sealed class WholesaleInvoiceTests
         await using var database = test.Database;
         await CreateService(database).SaveAsync(test.Input(), test.Owner.Id, UserRole.Owner);
         var reports = new WholesaleGstReportsService(database.Context);
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var today = BusinessClock.Today;
 
         var hsn = await reports.GetHsnSummaryAsync(today, today);
         var csv = await reports.ExportGstr1CsvAsync(today, today);
@@ -767,7 +780,7 @@ public sealed class WholesaleInvoiceTests
         var reference = await reports.GetGstr3bReferenceSummaryAsync(today, today);
 
         Assert.Equal("3004", Assert.Single(hsn).Hsn);
-        Assert.Contains("WS/2026-27/000001", csv);
+        Assert.Contains($"WS/{BusinessClock.FinancialYear(BusinessClock.Today)}/000001", csv);
         Assert.Contains("GSTR-1-style reference export", json);
         Assert.Equal("For reference only; verify with your CA.", reference.Notice);
         Assert.Equal(120m, reference.Igst);
@@ -785,7 +798,7 @@ public sealed class WholesaleInvoiceTests
         {
             SupplierId = supplier.Id,
             InvoiceNo = "SUP-INV-1",
-            InvoiceDate = DateOnly.FromDateTime(DateTime.Today),
+            InvoiceDate = BusinessClock.Today,
             TotalAmount = 224m,
             Status = "Posted"
         };
@@ -803,7 +816,7 @@ public sealed class WholesaleInvoiceTests
         await database.Context.SaveChangesAsync();
 
         var row = Assert.Single(await new WholesaleGstReportsService(database.Context)
-            .GetPurchaseRegisterAsync(DateOnly.FromDateTime(DateTime.Today), DateOnly.FromDateTime(DateTime.Today)));
+            .GetPurchaseRegisterAsync(BusinessClock.Today, BusinessClock.Today));
 
         Assert.Equal("SUP-INV-1", row.InvoiceNo);
         Assert.Equal("3004", row.Hsn);
@@ -880,7 +893,7 @@ public sealed class WholesaleInvoiceTests
         {
             DrugId = drug.Id,
             BatchNo = "B-1",
-            ExpiryDate = batchExpiry ?? DateOnly.FromDateTime(DateTime.Today.AddYears(1)),
+            ExpiryDate = batchExpiry ?? BusinessClock.Today.AddYears(1),
             Mrp = 100m,
             PurchasePrice = 50m
         };
@@ -899,8 +912,8 @@ public sealed class WholesaleInvoiceTests
                 CustomerId = customer.Id,
                 LicenceType = licenceType,
                 LicenceNumber = "DL-W1",
-                IssuedOn = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)),
-                ExpiresOn = licenceExpiry ?? DateOnly.FromDateTime(DateTime.Today.AddYears(1)),
+                IssuedOn = BusinessClock.Today.AddYears(-1),
+                ExpiresOn = licenceExpiry ?? BusinessClock.Today.AddYears(1),
                 Authorisation = authorisation
             });
         }
@@ -931,7 +944,7 @@ public sealed class WholesaleInvoiceTests
             null,
             null,
             null,
-            new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, DateTime.UtcNow.Day, 10, 0, 0, DateTimeKind.Utc));
+            BusinessClock.UtcNow);
     }
 
     private sealed class AllowedEntitlement : IEntitlementService

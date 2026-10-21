@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using PharmaBill.Core.Sync;
 using PharmaBill.Data.Persistence;
@@ -8,12 +9,12 @@ public sealed class HybridLogicalClock(HybridLogicalClockState state, DatabaseDe
 {
 	public string Now()
 	{
-		return state.Now(deviceId.Value, DateTime.UtcNow);
+		return state.Now(deviceId.Value, BusinessClock.UtcNow);
 	}
 
 	public string Receive(string remoteStamp)
 	{
-		return state.Receive(remoteStamp, deviceId.Value, DateTime.UtcNow);
+		return state.Receive(remoteStamp, deviceId.Value, BusinessClock.UtcNow);
 	}
 
 	public void Observe(string stamp)

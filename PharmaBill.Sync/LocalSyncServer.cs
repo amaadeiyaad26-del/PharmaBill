@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -332,7 +333,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 					pharmacy = PharmacyPayload(profile),
 					pendingChanges = pendingChanges,
 					hlc = clock.Now(),
-					serverTimeUtc = DateTime.UtcNow
+					serverTimeUtc = BusinessClock.UtcNow
 				}, Json);
 			}
 		}
@@ -426,7 +427,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 			acknowledged = acknowledged,
 			nextAfter = page.NextAfter,
 			hlc = clock.Now(),
-			serverTimeUtc = DateTime.UtcNow
+			serverTimeUtc = BusinessClock.UtcNow
 		};
 	}
 
@@ -484,7 +485,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 		foreach (ChangeLog item in rows)
 		{
 			item.SyncState = SyncState.Synced;
-			item.UpdatedAtUtc = DateTime.UtcNow;
+			item.UpdatedAtUtc = BusinessClock.UtcNow;
 		}
 		if (rows.Count > 0)
 		{
@@ -597,7 +598,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 				dateTime = page[page.Count - 1].ChangedAtUtc;
 			}
 			DateTime next = dateTime;
-			DateOnly today = DateOnly.FromDateTime(DateTime.UtcNow);
+			DateOnly today = BusinessClock.Today;
 			List<Drug> products = await (from drug in context.Drugs.AsNoTracking()
 				where drug.UpdatedAtUtc > since
 				orderby drug.Name
@@ -755,7 +756,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 					nextSince = DateTime.SpecifyKind(value, DateTimeKind.Utc),
 					hasMore = flag,
 					hlc = clock.Now(),
-					serverTimeUtc = DateTime.UtcNow
+					serverTimeUtc = BusinessClock.UtcNow
 				}, Json);
 			}
 		}

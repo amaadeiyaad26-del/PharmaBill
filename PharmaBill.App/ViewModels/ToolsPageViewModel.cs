@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -20,7 +21,7 @@ public sealed class ToolsPageViewModel : ObservableObject, ILoadablePage
 
 	private static readonly string NarrationsPath = Path.Combine(ToolsFolder, "narrations.json");
 
-	private DateTime _selectedDate = DateTime.Today;
+	private DateTime _selectedDate = BusinessClock.Now.Date;
 
 	private string _noteText = string.Empty;
 

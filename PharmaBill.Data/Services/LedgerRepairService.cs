@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,7 +60,7 @@ public sealed class LedgerRepairService(PharmaBillDbContext context)
 			context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
 			{
 				SupplierId = invoice.SupplierId,
-				EntryAtUtc = invoice.InvoiceDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+				EntryAtUtc = invoice.InvoiceDate.StartOfDayUtc(),
 				EntryType = LedgerEntryTypes.PurchaseBill,
 				ReferenceId = invoice.Id,
 				ReferenceNo = invoice.InvoiceNo,

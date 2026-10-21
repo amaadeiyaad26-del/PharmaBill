@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.IO;
 using System.Linq;
@@ -49,7 +50,7 @@ public static class PrescriptionArchive
 			throw new FileNotFoundException("The prescription attachment could not be found.", fullPath);
 		}
 
-		string directory = Path.Combine(root, DateTime.Now.Year.ToString(), Sanitize(folderKey));
+		string directory = Path.Combine(root, BusinessClock.Now.Year.ToString(), Sanitize(folderKey));
 		Directory.CreateDirectory(directory);
 		string destination = NextAvailablePath(directory, Sanitize(Path.GetFileName(fullPath)));
 		if (string.Equals(fullPath, Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))

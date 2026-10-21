@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using PharmaBill.Core;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -109,7 +110,7 @@ public sealed class CloudSyncServerTests : IAsyncDisposable
             1,
             $"{ms}:{counter}:{deviceId:D}",
             deviceId,
-            DateTime.UtcNow,
+            BusinessClock.UtcNow,
             JsonSerializer.SerializeToElement(new { id = Guid.NewGuid(), name = entity }),
             sharedWith);
 

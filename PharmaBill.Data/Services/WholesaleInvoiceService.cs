@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -72,8 +73,8 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		}
 		bool intraState = string.Equals(pharmacyState.Code, buyerState.Code, StringComparison.Ordinal);
 		IReadOnlyList<string> stateNotes = new WholesaleGstStateCheck(pharmacyState, buyerState).Notes;
-		DateTime invoiceAtUtc = DateTime.SpecifyKind(input.InvoiceAtUtc ?? DateTime.UtcNow, DateTimeKind.Utc);
-		DateOnly invoiceDate = DateOnly.FromDateTime(invoiceAtUtc.ToLocalTime());
+		DateTime invoiceAtUtc = DateTime.SpecifyKind(input.InvoiceAtUtc ?? BusinessClock.UtcNow, DateTimeKind.Utc);
+		DateOnly invoiceDate = invoiceAtUtc.ToBusinessDate();
 		IReadOnlyList<CustomerLicence> validLicences = await GetValidLicencesAsync(customer, profile, invoiceDate, cancellationToken);
 		Guid[] requestedBatchIds = input.Items.Select((WholesaleInvoiceLineInput line) => line.BatchId).Distinct().ToArray();
 		Guid[] requestedDrugIds = input.Items.Select((WholesaleInvoiceLineInput line) => line.DrugId).Distinct().ToArray();
@@ -440,7 +441,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			context.AuditLogs.Add(new AuditLog
 			{
 				UserId = userId,
-				ActionAtUtc = DateTime.UtcNow,
+				ActionAtUtc = BusinessClock.UtcNow,
 				Action = "GstStateCorrectedFromGstin",
 				EntityName = "Customer",
 				EntityId = customer.Id,
@@ -473,14 +474,14 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		}
 		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 		invoice.Status = "Cancelled";
-		invoice.CancelledAtUtc = DateTime.UtcNow;
+		invoice.CancelledAtUtc = BusinessClock.UtcNow;
 		invoice.CancellationReason = reason.Trim();
 		ReturnNote correction = new ReturnNote
 		{
 			ReturnNo = invoice.InvoiceNo + "-CANCEL",
 			SourceType = "WholesaleInvoice",
 			SourceId = invoice.Id,
-			ReturnAtUtc = DateTime.UtcNow,
+			ReturnAtUtc = BusinessClock.UtcNow,
 			TotalAmount = invoice.TotalAmount,
 			Reason = reason.Trim(),
 			Notes = "Cancellation correction; original invoice number retained: " + invoice.InvoiceNo
@@ -559,7 +560,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 				InvoiceId = @group.Key,
 				Amount = @group.Sum((Receipt receipt) => receipt.Amount)
 			}).ToDictionaryAsync(item => item.InvoiceId, item => item.Amount, cancellationToken);
-		return invoices.Any((WholesaleInvoice invoice) => invoice.TotalAmount - Math.Max(invoice.PaidAmount, receipts.GetValueOrDefault(invoice.Id)) > 0m && DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()).AddDays(customer.CreditDays) < invoiceDate);
+		return invoices.Any((WholesaleInvoice invoice) => invoice.TotalAmount - Math.Max(invoice.PaidAmount, receipts.GetValueOrDefault(invoice.Id)) > 0m && invoice.InvoiceAtUtc.ToBusinessDate().AddDays(customer.CreditDays) < invoiceDate);
 	}
 
 	private static string? ResolveSchedule(Drug drug, IEnumerable<CatalogInfo> infos, IEnumerable<ScheduleOverride> overrides, DateTime atUtc)

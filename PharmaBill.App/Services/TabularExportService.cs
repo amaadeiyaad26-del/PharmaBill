@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -111,7 +112,7 @@ public sealed class TabularExportService
 						}
 					}
 				});
-				page.Footer().AlignRight().Text($"Generated {DateTime.Now:dd-MMM-yyyy HH:mm}");
+				page.Footer().AlignRight().Text($"Generated {BusinessClock.Now:dd-MMM-yyyy HH:mm}");
 			});
 		}).GeneratePdf(path);
 	}

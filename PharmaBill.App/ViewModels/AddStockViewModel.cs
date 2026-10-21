@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -908,7 +909,7 @@ public sealed class AddStockViewModel : ObservableObject
 		{
 			ExpiryError = "Use month/year, for example 08/2027";
 		}
-		else if (lastDay < DateOnly.FromDateTime(DateTime.Today))
+		else if (lastDay < BusinessClock.Today)
 		{
 			ExpiryError = "This date has expired; expired stock cannot be added";
 		}
@@ -949,7 +950,7 @@ public sealed class AddStockViewModel : ObservableObject
 	public bool ConfirmWarnings()
 	{
 		TryParseExpiry(ExpiryText, out var lastDay);
-		if (lastDay > DateOnly.FromDateTime(DateTime.Today).AddYears(5) && !_confirmation.Confirm($"This expiry ({lastDay:MM/yyyy}) is more than 5 years away. Is it correct?", "Check expiry date"))
+		if (lastDay > BusinessClock.Today.AddYears(5) && !_confirmation.Confirm($"This expiry ({lastDay:MM/yyyy}) is more than 5 years away. Is it correct?", "Check expiry date"))
 		{
 			return false;
 		}

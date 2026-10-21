@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -185,7 +186,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 			unitOfWork.Context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
 			{
 				SupplierId = input.SupplierId,
-				EntryAtUtc = invoice.InvoiceDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+				EntryAtUtc = invoice.InvoiceDate.StartOfDayUtc(),
 				EntryType = LedgerEntryTypes.PurchaseBill,
 				ReferenceId = invoice.Id,
 				ReferenceNo = invoice.InvoiceNo,
@@ -270,7 +271,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					MovementType = "PurchaseInward",
 					ReferenceType = "PurchaseInvoice",
 					ReferenceId = invoice.Id,
-					MovementAtUtc = DateTime.UtcNow,
+					MovementAtUtc = BusinessClock.UtcNow,
 					Notes = input.InvoiceNo.Trim()
 				});
 				await StorageLocationService.ApplyBalanceDeltaAsync(unitOfWork.Context, receiveLocation.Id, batch.Id, inputLine.DrugId, receivedQuantity, cancellationToken);
@@ -287,7 +288,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 						BatchId = batch.Id,
 						BatchNo = batch.BatchNo,
 						Quantity = receivedQuantity,
-						EntryAtUtc = DateTime.UtcNow,
+						EntryAtUtc = BusinessClock.UtcNow,
 						Notes = "Purchase invoice " + input.InvoiceNo.Trim()
 					});
 				}
@@ -328,7 +329,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 		}
 		ArgumentException.ThrowIfNullOrWhiteSpace(returnNo, "returnNo");
 		ArgumentException.ThrowIfNullOrWhiteSpace(reason, "reason");
-		if (returnDate > DateOnly.FromDateTime(DateTime.Today))
+		if (returnDate > BusinessClock.Today)
 		{
 			throw new InvalidOperationException("Purchase return date cannot be in the future.");
 		}
@@ -413,14 +414,14 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					BatchId = batch2.Id,
 					BatchNo = batch2.BatchNo,
 					Quantity = line.Quantity,
-					EntryAtUtc = DateTime.UtcNow,
+					EntryAtUtc = BusinessClock.UtcNow,
 					Notes = "Outgoing purchase return " + purchaseReturn.ReturnNo + "; " + reason.Trim()
 				});
 			}
 			unitOfWork.Context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
 			{
 				SupplierId = supplier.Id,
-				EntryAtUtc = DateTime.UtcNow,
+				EntryAtUtc = BusinessClock.UtcNow,
 				EntryType = LedgerEntryTypes.PurchaseReturn,
 				ReferenceId = purchaseReturn.Id,
 				ReferenceNo = purchaseReturn.ReturnNo,
@@ -460,7 +461,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 	private async Task RecalculateDrugStockAsync(Dictionary<Guid, Drug> drugs, CancellationToken cancellationToken)
 	{
 		Guid[] drugIds = drugs.Keys.ToArray();
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<Batch> batches = await unitOfWork.Context.Batches.Where((Batch batch) => drugIds.Contains(batch.DrugId)).ToListAsync(cancellationToken);
 		foreach (Guid drugId in drugIds)
 		{
@@ -477,7 +478,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 			throw new InvalidOperationException("Select a supplier.");
 		}
 		ArgumentException.ThrowIfNullOrWhiteSpace(input.InvoiceNo, "input.InvoiceNo");
-		if (input.InvoiceDate > DateOnly.FromDateTime(DateTime.Today))
+		if (input.InvoiceDate > BusinessClock.Today)
 		{
 			throw new InvalidOperationException("Purchase invoice date cannot be in the future.");
 		}
@@ -501,7 +502,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 		{
 			throw new InvalidOperationException("Purchase line for '" + drug.Name + "' has invalid batch, expiry, quantity, rate, GST, MRP or discount.");
 		}
-		if (item.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today))
+		if (item.ExpiryDate.Value < BusinessClock.Today)
 		{
 			throw new InvalidOperationException("Expired batch " + item.BatchNo + " cannot be received into saleable stock.");
 		}

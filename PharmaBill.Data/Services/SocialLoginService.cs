@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Linq;
 using System.Threading;
@@ -18,7 +19,7 @@ public sealed class SocialLoginService(PharmaBillDbContext context)
 		AppUser user = await FindLinkedUserAsync(profile, cancellationToken);
 		if (user != null)
 		{
-			user.LastLoginAtUtc = DateTime.UtcNow;
+			user.LastLoginAtUtc = BusinessClock.UtcNow;
 			await context.SaveChangesAsync(cancellationToken);
 			return new SocialLoginResolution(SocialLoginResolutionKind.SignedIn, user);
 		}
@@ -57,12 +58,12 @@ public sealed class SocialLoginService(PharmaBillDbContext context)
 		{
 			admin.DisplayName = profile.Name.Trim();
 		}
-		admin.UpdatedAtUtc = DateTime.UtcNow;
-		admin.LastLoginAtUtc = DateTime.UtcNow;
+		admin.UpdatedAtUtc = BusinessClock.UtcNow;
+		admin.LastLoginAtUtc = BusinessClock.UtcNow;
 		context.AuditLogs.Add(new AuditLog
 		{
 			UserId = admin.Id,
-			ActionAtUtc = DateTime.UtcNow,
+			ActionAtUtc = BusinessClock.UtcNow,
 			Action = "SocialAccountLinked",
 			EntityName = "AppUser",
 			EntityId = admin.Id,

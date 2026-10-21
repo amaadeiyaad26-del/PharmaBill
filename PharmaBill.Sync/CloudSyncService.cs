@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -121,8 +122,8 @@ public sealed class CloudSyncService(IServiceScopeFactory scopeFactory, CloudSyn
 			{
 				Status = "Idle",
 				LastError = null,
-				LastPushAtUtc = DateTime.UtcNow,
-				LastPullAtUtc = DateTime.UtcNow,
+				LastPushAtUtc = BusinessClock.UtcNow,
+				LastPullAtUtc = BusinessClock.UtcNow,
 				LastPushedChanges = pushed,
 				LastPulledChanges = pulled
 			}, ct);

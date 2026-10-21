@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -36,7 +37,7 @@ public sealed class PhoneIncomingBill : ObservableObject
 
 	public string InvoiceNo { get; set; } = string.Empty;
 
-	public DateTime InvoiceDate { get; set; } = DateTime.Today;
+	public DateTime InvoiceDate { get; set; } = BusinessClock.Now.Date;
 
 	public string? FilePath { get; set; }
 

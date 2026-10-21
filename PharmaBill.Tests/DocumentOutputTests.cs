@@ -97,7 +97,7 @@ public sealed class DocumentOutputTests
             "B.Pharm",
             "REG-1234",
             "WIN1/2026-27/000001",
-            DateTime.UtcNow,
+            BusinessClock.UtcNow,
             "Test Patient",
             "9876500000",
             "2 High Street",

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Globalization;
 using System.Windows;
@@ -13,7 +14,7 @@ public partial class PrescriptionOpeningStockWindow : Window
 	{
 		InitializeComponent();
 		BrandBox.Text = brandName?.Trim() ?? string.Empty;
-		DateTime expiry = DateTime.Today.AddYears(1);
+		DateTime expiry = BusinessClock.Now.Date.AddYears(1);
 		ExpiryBox.Text = expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture);
 		QtyBox.Text = (quantity > 0m ? quantity : 1m).ToString("0.##", CultureInfo.CurrentCulture);
 		MrpBox.Text = "0";

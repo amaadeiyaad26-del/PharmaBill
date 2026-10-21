@@ -95,7 +95,7 @@ public sealed class QuotationTests
 			null,
 			"Walk-in customer",
 			null,
-			DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),
+			BusinessClock.Today.AddDays(-1),
 			new[] { new QuotationLineInput(drug.Id, null, drug.Name, 1m, 0m, 50m, 0m) },
 			null,
 			Guid.NewGuid(),
@@ -144,7 +144,7 @@ public sealed class QuotationTests
 		{
 			DrugId = drug.Id,
 			BatchNo = "QT-1",
-			ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(6)),
+			ExpiryDate = BusinessClock.Today.AddMonths(6),
 			Quantity = 5m,
 			Mrp = 100m,
 			SalePrice = 95m

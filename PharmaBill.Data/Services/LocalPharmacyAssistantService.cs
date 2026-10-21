@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,7 +51,7 @@ public sealed class LocalPharmacyAssistantService(PharmaBillDbContext context, A
 			where drug.IsActive && drug.CatalogMedicineId.HasValue && catalogIds.Contains(drug.CatalogMedicineId.Value)
 			select drug).ToListAsync();
 		Guid[] drugIds = drugs.Select((Drug drug) => drug.Id).ToArray();
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<Batch> batches = await (from batch in context.Batches.AsNoTracking()
 			where drugIds.Contains(batch.DrugId) && batch.Quantity > 0m && (batch.ExpiryDate == null || batch.ExpiryDate >= today)
 			select batch).ToListAsync();
@@ -109,9 +110,9 @@ public sealed class LocalPharmacyAssistantService(PharmaBillDbContext context, A
 
 	public async Task<InventoryForecastReportDto> GenerateStockAdvisoryAsync()
 	{
-		DateTime now = DateTime.UtcNow;
+		DateTime now = BusinessClock.UtcNow;
 		DateTime since = now.AddDays(-30.0);
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		DateOnly nearExpiry = today.AddDays(60);
 		Dictionary<Guid, decimal> sold = (from item in (await (from item in context.SaleItems.AsNoTracking()
 				join sale in context.Sales.AsNoTracking() on item.SaleId equals sale.Id

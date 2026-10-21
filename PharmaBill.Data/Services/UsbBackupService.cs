@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -61,7 +62,7 @@ public sealed class UsbBackupService(IServiceScopeFactory scopeFactory, UsbBacku
 		}
 		string text = Path.Combine(root, "PharmaBill_Backups");
 		Directory.CreateDirectory(text);
-		string path = $"PharmaBill-{DateTime.Now:yyyyMMdd-HHmmss}.pbbak";
+		string path = $"PharmaBill-{BusinessClock.Now:yyyyMMdd-HHmmss}.pbbak";
 		string destination = Path.Combine(text, path);
 		string password = ResolveBackupPassword();
 		using (IServiceScope scope = scopeFactory.CreateScope())
@@ -75,7 +76,7 @@ public sealed class UsbBackupService(IServiceScopeFactory scopeFactory, UsbBacku
 		UsbBackupSettings usbBackupSettings = usbSettings.Load();
 		usbSettings.Save(usbBackupSettings with
 		{
-			LastUsbBackupUtc = DateTime.UtcNow,
+			LastUsbBackupUtc = BusinessClock.UtcNow,
 			LastUsbDriveRoot = root,
 			ReminderSnoozeUntilUtc = null
 		});

@@ -31,7 +31,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 {
 	private string _billNumber = "Assigned on save";
 
-	private DateTime _billDate = DateTime.Now;
+	private DateTime _billDate = BusinessClock.Now;
 
 	private string _patientName = string.Empty;
 
@@ -1622,7 +1622,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				null,
 				PatientName,
 				PatientPhone,
-				DateOnly.FromDateTime(DateTime.Today.AddDays(QuoteValidityDays)),
+				BusinessClock.Today.AddDays(QuoteValidityDays),
 				BillItems.Select(line => new QuotationLineInput(line.Choice.DrugId, null, line.Choice.DrugName, line.Quantity, 0m, line.Quantity == 0m ? 0m : line.GrossAmount / line.Quantity, 0m)).ToList(),
 				null,
 				currentSession.User.Id,
@@ -1883,7 +1883,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 
 	private static RetailStockChoice? OldestValidBatch(IEnumerable<RetailStockChoice> results, string? typed)
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<RetailStockChoice> list = results
 			.Where(item => item.AvailableQuantity > 0m)
 			.Where(item => !item.ExpiryDate.HasValue || item.ExpiryDate.Value >= today)
@@ -2589,7 +2589,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			ErrorMessage = "Up to 10 bills can be held at a time.";
 			return;
 		}
-		HeldBills.Add(new HeldRetailBill($"{(string.IsNullOrWhiteSpace(PatientName) ? "Patient" : PatientName.Trim())} - ₹{TotalAmount:N2} ({DateTime.Now:HH:mm})", PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToSnapshot()).ToArray(), PatientMrdNumber ?? string.Empty));
+		HeldBills.Add(new HeldRetailBill($"{(string.IsNullOrWhiteSpace(PatientName) ? "Patient" : PatientName.Trim())} - ₹{TotalAmount:N2} ({BusinessClock.Now:HH:mm})", PatientName, PatientPhone, PatientAddress, DoctorName, DoctorRegistrationNumber, PrescriptionDocumentPath, BillItems.Select((RetailBillLineViewModel line) => line.ToSnapshot()).ToArray(), PatientMrdNumber ?? string.Empty));
 		NotifyHeldBillsChanged();
 		ClearBill();
 		StatusMessage = $"{HeldBills.Count} bill(s) held. Resume them from the held-bill list.";
@@ -3345,7 +3345,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		PaymentAmount = 0m;
 		CashTendered = 0m;
 		UpiPaymentReceived = false;
-		BillDate = DateTime.Now;
+		BillDate = BusinessClock.Now;
 		ErrorMessage = string.Empty;
 		ChangeDueText = string.Empty;
 		ClearFieldState();

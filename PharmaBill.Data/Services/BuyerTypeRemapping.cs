@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,7 +37,7 @@ public static class BuyerTypeRemapping
 		context.AuditLogs.Add(new AuditLog
 		{
 			UserId = userId,
-			ActionAtUtc = DateTime.UtcNow,
+			ActionAtUtc = BusinessClock.UtcNow,
 			Action = CustomerRemapAction,
 			EntityName = "Customer",
 			EntityId = customer.Id,
@@ -71,7 +72,7 @@ public static class BuyerTypeRemapping
 			{
 				context.AuditLogs.Add(new AuditLog
 				{
-					ActionAtUtc = DateTime.UtcNow,
+					ActionAtUtc = BusinessClock.UtcNow,
 					Action = RuleRemapAction,
 					EntityName = "PharmacyProfile",
 					EntityId = profile.Id,

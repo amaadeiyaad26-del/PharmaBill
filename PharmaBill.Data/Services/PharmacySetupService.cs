@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +32,7 @@ public sealed class PharmacySetupService(
 			throw new PlatformNotSupportedException("Trial state is protected with Windows DPAPI and Registry.");
 		}
 		PharmacyProfile existing = await unitOfWork.Context.PharmacyProfiles.OrderBy((PharmacyProfile item) => item.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
-		DateOnly today = DateOnly.FromDateTime(DateTime.UtcNow);
+		DateOnly today = BusinessClock.Today;
 		IEnumerable<LicenceRecord> licences2 = licenceList;
 		if (existing != null)
 		{
@@ -77,7 +78,7 @@ public sealed class PharmacySetupService(
 	[SupportedOSPlatform("windows")]
 	private async Task<AppUser> CompleteFirstRunAsync(PharmacyProfile profile, List<LicenceRecord> licenceList, AppUser owner, string ownerSecret, CancellationToken cancellationToken)
 	{
-		DateTime now = DateTime.UtcNow;
+		DateTime now = BusinessClock.UtcNow;
 		DefaultStateFromGstin(profile);
 		profile.TrialStartedAtUtc = now;
 		profile.LastEntitlementCheckAtUtc = now;
@@ -111,7 +112,7 @@ public sealed class PharmacySetupService(
 	[SupportedOSPlatform("windows")]
 	private async Task<AppUser> ReconfigureAsync(PharmacyProfile existing, PharmacyProfile profile, List<LicenceRecord> licenceList, AppUser ownerDraft, string ownerSecret, CancellationToken cancellationToken)
 	{
-		DateTime now = DateTime.UtcNow;
+		DateTime now = BusinessClock.UtcNow;
 		ApplyProfileFields(existing, profile, now);
 		string userName = ownerDraft.UserName.Trim();
 		AppUser appUser = await unitOfWork.Context.AppUsers.FirstOrDefaultAsync((AppUser user) => !user.IsDeleted && user.UserName == userName, cancellationToken);

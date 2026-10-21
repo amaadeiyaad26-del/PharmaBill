@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -1023,7 +1024,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 			OpeningBalance = result2,
 			IsActive = IsActive,
 			VerifiedBy = NullIfEmpty(VerifiedBy),
-			VerifiedOnUtc = (VerifiedOn.HasValue ? new DateTime?(DateTime.SpecifyKind(VerifiedOn.Value.ToUniversalTime(), DateTimeKind.Utc)) : ((DateTime?)null)),
+			VerifiedOnUtc = (VerifiedOn.HasValue ? new DateTime?(BusinessClock.FromLocal(VerifiedOn.Value)) : ((DateTime?)null)),
 			VerificationMethod = NullIfEmpty(VerificationMethod)
 		};
 	}
@@ -1213,7 +1214,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		OpeningBalance = customer.OpeningBalance.ToString("0.00", CultureInfo.CurrentCulture);
 		IsActive = customer.IsActive;
 		VerifiedBy = customer.VerifiedBy ?? string.Empty;
-		VerifiedOn = customer.VerifiedOnUtc?.ToLocalTime();
+		VerifiedOn = customer.VerifiedOnUtc?.ToBusinessLocal();
 		VerificationMethod = customer.VerificationMethod ?? string.Empty;
 		Licences.Clear();
 		foreach (CustomerLicence licence in value.Licences)

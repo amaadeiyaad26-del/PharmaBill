@@ -351,7 +351,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			{
 				["Typ"] = "INV",
 				["No"] = invoice.InvoiceNo,
-				["Dt"] = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+				["Dt"] = invoice.InvoiceAtUtc.ToBusinessDate().ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
 			},
 			["SellerDtls"] = new Dictionary<string, object?>
 			{
@@ -418,7 +418,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 					["subSupplyType"] = "1",
 					["docType"] = "INV",
 					["docNo"] = invoice.InvoiceNo,
-					["docDate"] = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+					["docDate"] = invoice.InvoiceAtUtc.ToBusinessDate().ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
 					["fromGstin"] = parties.SellerGstin ?? string.Empty,
 					["fromTrdName"] = parties.SellerLegalName,
 					["fromAddr1"] = parties.SellerAddress ?? string.Empty,
@@ -446,7 +446,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 					{
 						["transporterId"] = string.IsNullOrWhiteSpace(transporterId) ? null : transporterId.Trim(),
 						["docNo"] = invoice.InvoiceNo,
-						["docDate"] = DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+						["docDate"] = invoice.InvoiceAtUtc.ToBusinessDate().ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
 					},
 					["partB"] = new Dictionary<string, object?>
 					{
@@ -465,8 +465,8 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 
 	private async Task<IReadOnlyList<GstSaleDocument>> LoadSaleDocumentsAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken)
 	{
-		DateTime startUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime endUtc = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime startUtc = from.StartOfDayUtc();
+		DateTime endUtc = to.AddDays(1).StartOfDayUtc();
 		PharmacyProfile pharmacy = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
 		string pharmacyPos = IndianGstStateCodes.Resolve(pharmacy.State, pharmacy.Gstin);
 
@@ -505,7 +505,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 				.ToList();
 			documents.Add(new GstSaleDocument(
 				invoice.InvoiceNo,
-				DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()),
+				invoice.InvoiceAtUtc.ToBusinessDate(),
 				states.Recorded ? invoice.BuyerGstin : customer.Gstin,
 				states.BuyerStateCode,
 				invoice.Subtotal,
@@ -542,7 +542,7 @@ public sealed class GstService(PharmaBillDbContext context, GstReturnExportServi
 			bool recorded = RecordedGstStates.IsRecorded(sale);
 			documents.Add(new GstSaleDocument(
 				sale.InvoiceNo,
-				DateOnly.FromDateTime(sale.SaleAtUtc.ToLocalTime()),
+				sale.SaleAtUtc.ToBusinessDate(),
 				null,
 				recorded ? sale.PharmacyStateCode! : pharmacyPos,
 				Round(lines.Sum(l => l.Taxable)),

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -81,7 +82,7 @@ public partial class QuickInwardWindow : Window
 
 		if (!string.IsNullOrWhiteSpace(defaultBatchNo))
 		{
-			DateTime expiry = DateTime.Today.AddYears(1);
+			DateTime expiry = BusinessClock.Now.Date.AddYears(1);
 			ExpiryBox.Text = expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture);
 			ExpiryBox.Focus();
 			ExpiryBox.SelectAll();
@@ -176,8 +177,8 @@ public partial class QuickInwardWindow : Window
 				packSize,
 				0m,
 				supplierId,
-				"QI-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss"),
-				DateOnly.FromDateTime(DateTime.Today),
+				"QI-" + BusinessClock.UtcNow.ToString("yyyyMMddHHmmss"),
+				BusinessClock.Today,
 				null));
 			if (input == null)
 			{

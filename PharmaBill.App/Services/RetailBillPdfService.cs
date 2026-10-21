@@ -294,7 +294,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 					}
 					column.Item().PaddingTop(8f).Text(((documentType == RetailDocumentType.CashMemo) ? "Cash memo" : "Tax invoice") + ": " + bill.InvoiceNo)
 						.Bold();
-					column.Item().Text($"Date: {bill.SaleAtUtc.ToLocalTime():dd-MMM-yyyy HH:mm}");
+					column.Item().Text($"Date: {bill.SaleAtUtc.ToBusinessLocal():dd-MMM-yyyy HH:mm}");
 					string text = ((settings.PrintCustomerPhone && !string.IsNullOrWhiteSpace(bill.PatientPhone)) ? ("Patient: " + bill.PatientName + "  Phone: " + bill.PatientPhone) : ("Patient: " + bill.PatientName));
 					column.Item().Text(text);
 					AddIfPresent(column, bill.PatientAddress);

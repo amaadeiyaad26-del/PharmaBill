@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -91,7 +92,7 @@ public sealed class OperationalDataResetService(IUnitOfWork unitOfWork)
 
 		context.AuditLogs.Add(new AuditLog
 		{
-			ActionAtUtc = DateTime.UtcNow,
+			ActionAtUtc = BusinessClock.UtcNow,
 			Action = "OperationalDataCleared",
 			EntityName = "Database",
 			Details = $"Hard-cleared transactional tables ({removed} row(s)). Profile, users, licences, and catalogue retained."

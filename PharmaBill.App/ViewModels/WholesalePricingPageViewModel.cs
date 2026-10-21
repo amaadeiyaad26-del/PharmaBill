@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -39,7 +40,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 
 	private string _freeQuantity = string.Empty;
 
-	private DateTime? _effectiveFrom = DateTime.Today;
+	private DateTime? _effectiveFrom = BusinessClock.Now.Date;
 
 	private DateTime? _effectiveTo;
 

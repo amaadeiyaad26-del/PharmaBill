@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
@@ -23,17 +24,17 @@ public sealed class InventoryPurchaseTests
             new SavePurchaseInput(
                 supplier.Id,
                 "SUP-INV-1",
-                DateOnly.FromDateTime(DateTime.Today),
+                BusinessClock.Today,
                 30m,
                 0m,
                 1.5m,
                 31.5m,
                 [
                     new PurchaseLineInput(
-                        drug.Id, "B-1", DateOnly.FromDateTime(DateTime.Today.AddMonths(4)),
+                        drug.Id, "B-1", BusinessClock.Today.AddMonths(4),
                         2m, 1m, 15m, 10m, 5m, 0m, 20m, "A1"),
                     new PurchaseLineInput(
-                        drug.Id, "B-1", DateOnly.FromDateTime(DateTime.Today.AddMonths(4)),
+                        drug.Id, "B-1", BusinessClock.Today.AddMonths(4),
                         1m, 0m, 15m, 10m, 5m, 0m, 10m, "A1")
                 ]),
             Guid.NewGuid(),
@@ -66,11 +67,11 @@ public sealed class InventoryPurchaseTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.SavePurchaseAsync(
             new SavePurchaseInput(
-                supplier.Id, "SUP-INV-2", DateOnly.FromDateTime(DateTime.Today),
+                supplier.Id, "SUP-INV-2", BusinessClock.Today,
                 10m, 0m, 0m, 10m,
                 [
                     new PurchaseLineInput(
-                        drug.Id, "EXPIRED", DateOnly.FromDateTime(DateTime.Today.AddDays(-1)),
+                        drug.Id, "EXPIRED", BusinessClock.Today.AddDays(-1),
                         1m, 0m, 15m, 10m, 0m, 0m, 10m, null)
                 ]),
             Guid.NewGuid(),
@@ -108,7 +109,7 @@ public sealed class InventoryPurchaseTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.SavePurchaseReturnAsync(
             supplier.Id,
             "RET-1",
-            DateOnly.FromDateTime(DateTime.Today),
+            BusinessClock.Today,
             [new PurchaseReturnLineInput(batch.Id, 3m)],
             "Damaged",
             Guid.NewGuid(),
@@ -146,7 +147,7 @@ public sealed class InventoryPurchaseTests
         await service.SavePurchaseReturnAsync(
             supplier.Id,
             "RET-2",
-            DateOnly.FromDateTime(DateTime.Today),
+            BusinessClock.Today,
             [new PurchaseReturnLineInput(batch.Id, 2m)],
             "Damaged packaging",
             Guid.NewGuid(),

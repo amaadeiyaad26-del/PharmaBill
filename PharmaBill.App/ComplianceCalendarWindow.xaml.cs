@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +23,7 @@ public partial class ComplianceCalendarWindow : Window
 
 	private async Task LoadAsync(IServiceScopeFactory scopeFactory)
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<ComplianceEvent> events = new();
 
 		using (IServiceScope scope = scopeFactory.CreateScope())
@@ -48,7 +49,7 @@ public partial class ComplianceCalendarWindow : Window
 
 		for (int offset = 0; offset < 6; offset++)
 		{
-			DateTime month = DateTime.Today.AddMonths(offset);
+			DateTime month = BusinessClock.Now.Date.AddMonths(offset);
 			DateOnly periodStart = new DateOnly(month.Year, month.Month, 1);
 			DateOnly periodEnd = periodStart.AddMonths(1).AddDays(-1);
 			DateOnly gstr1Due = periodStart.AddMonths(1).AddDays(10);

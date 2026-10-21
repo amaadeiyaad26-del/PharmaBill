@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -336,13 +337,13 @@ public sealed class ReconciliationService(IUnitOfWork unitOfWork) : IReconciliat
 				rounded = Math.Max(0m, num2);
 			}
 		}
-		DateTime utcNow = DateTime.UtcNow;
+		DateTime utcNow = BusinessClock.UtcNow;
 		Receipt receipt = new Receipt
 		{
 			CustomerId = customerId,
 			WholesaleInvoiceId = wholesaleInvoiceId,
 			ReceiptNo = $"RCPT-{utcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}".Substring(0, 30),
-			ReceiptAtUtc = bankLine.Date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+			ReceiptAtUtc = bankLine.Date.StartOfDayUtc(),
 			Amount = rounded,
 			PaymentMethod = "BankTransfer",
 			ReferenceNumber = NullIfWhiteSpace(bankLine.ReferenceOrUtr),

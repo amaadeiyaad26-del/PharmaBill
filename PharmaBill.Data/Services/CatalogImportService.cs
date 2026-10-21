@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -382,7 +383,7 @@ public sealed class CatalogImportService(PharmaBillDbContext context)
 		CatalogImportState catalogImportState = await context.CatalogImportStates.SingleAsync((CatalogImportState item) => item.Id == state.Id, cancellationToken);
 		catalogImportState.LastProcessedRecord = processedRows;
 		catalogImportState.Status = ((catalogImportState.SkippedRows > 0) ? "CompletedWithErrors" : "Completed");
-		catalogImportState.CompletedAtUtc = DateTime.UtcNow;
+		catalogImportState.CompletedAtUtc = BusinessClock.UtcNow;
 		await context.SaveChangesAsync(cancellationToken);
 	}
 

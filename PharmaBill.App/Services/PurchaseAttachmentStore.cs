@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -25,7 +26,7 @@ public static class PurchaseAttachmentStore
 			safe = "invoice" + Path.GetExtension(sourcePath);
 		}
 
-		string destination = Path.Combine(folder, DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + safe);
+		string destination = Path.Combine(folder, BusinessClock.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + safe);
 		if (string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))
 		{
 			return destination;
@@ -52,7 +53,7 @@ public static class PurchaseAttachmentStore
 		string destination = Path.Combine(folder, Path.GetFileName(currentPath));
 		if (File.Exists(destination))
 		{
-			destination = Path.Combine(folder, DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Path.GetFileName(currentPath));
+			destination = Path.Combine(folder, BusinessClock.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Path.GetFileName(currentPath));
 		}
 
 		File.Move(currentPath, destination);

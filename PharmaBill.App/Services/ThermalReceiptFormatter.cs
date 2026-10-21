@@ -27,7 +27,7 @@ public static class ThermalReceiptFormatter
 		handler.AppendLiteral("BILL ");
 		handler.AppendFormatted(bill.InvoiceNo);
 		stringBuilder3.AppendLine(ref handler);
-		stringBuilder.AppendLine(bill.SaleAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm"));
+		stringBuilder.AppendLine(bill.SaleAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm"));
 		stringBuilder2 = stringBuilder;
 		StringBuilder stringBuilder4 = stringBuilder2;
 		handler = new StringBuilder.AppendInterpolatedStringHandler(9, 1, stringBuilder2);

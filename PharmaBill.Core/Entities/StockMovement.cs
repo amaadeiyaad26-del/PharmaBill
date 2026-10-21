@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -18,7 +19,7 @@ public sealed class StockMovement : EntityBase
 
 	public Guid? ReferenceId { get; set; }
 
-	public DateTime MovementAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime MovementAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public string? Notes { get; set; }
 }

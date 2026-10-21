@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Linq;
 using System.Security.Cryptography;
@@ -71,7 +72,7 @@ public static class ComplianceAuditWriter
 				.FirstOrDefaultAsync(cancellationToken)
 			?? string.Empty;
 
-		DateTime timestamp = DateTime.UtcNow;
+		DateTime timestamp = BusinessClock.UtcNow;
 		string hash = ComputeHash(previous, entry, timestamp);
 		context.AuditLogs.Add(new AuditLog
 		{

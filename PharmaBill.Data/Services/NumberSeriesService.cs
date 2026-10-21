@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,7 +15,7 @@ public sealed class NumberSeriesService(IUnitOfWork unitOfWork)
 	public async Task<string> PreviewNextAsync(string seriesPrefix = "WIN1", DateOnly? date = null, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(seriesPrefix, "seriesPrefix");
-		DateOnly date2 = date ?? DateOnly.FromDateTime(DateTime.Today);
+		DateOnly date2 = date ?? BusinessClock.Today;
 		string financialYear = GetFinancialYear(date2);
 		NumberSeries numberSeries = await unitOfWork.Context.NumberSeries.AsNoTracking().SingleOrDefaultAsync((NumberSeries item) => item.SeriesPrefix == seriesPrefix && item.FinancialYear == financialYear, cancellationToken);
 		long value = ((numberSeries == null) ? 1 : checked(numberSeries.LastNumber + 1));
@@ -28,7 +29,7 @@ public sealed class NumberSeriesService(IUnitOfWork unitOfWork)
 		{
 			throw new InvalidOperationException("Number allocation requires an active unit-of-work transaction.");
 		}
-		DateOnly date2 = date ?? DateOnly.FromDateTime(DateTime.Today);
+		DateOnly date2 = date ?? BusinessClock.Today;
 		string financialYear = GetFinancialYear(date2);
 		NumberSeries series = await unitOfWork.Context.NumberSeries.SingleOrDefaultAsync((NumberSeries item) => item.SeriesPrefix == seriesPrefix && item.FinancialYear == financialYear, cancellationToken);
 		checked
@@ -52,9 +53,6 @@ public sealed class NumberSeriesService(IUnitOfWork unitOfWork)
 		}
 	}
 
-	public static string GetFinancialYear(DateOnly date)
-	{
-		int num = ((date.Month >= 4) ? date.Year : (date.Year - 1));
-		return $"{num}-{(num + 1) % 100:D2}";
-	}
+	/// <summary>Indian financial year of an IST date; see <see cref="BusinessClock.FinancialYear"/>.</summary>
+	public static string GetFinancialYear(DateOnly date) => BusinessClock.FinancialYear(date);
 }

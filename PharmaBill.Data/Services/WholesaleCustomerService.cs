@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -70,7 +71,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 			where customerIds.Contains(licence.CustomerId)
 			orderby licence.ExpiresOn
 			select licence).ToListAsync(cancellationToken);
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		return customers.Select((Customer customer) =>
 		{
 			CustomerLicence[] array = licences.Where((CustomerLicence licence) => licence.CustomerId == customer.Id).ToArray();
@@ -133,7 +134,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 		context.AuditLogs.Add(new AuditLog
 		{
 			UserId = userId,
-			ActionAtUtc = DateTime.UtcNow,
+			ActionAtUtc = BusinessClock.UtcNow,
 			Action = (isNew ? "WholesaleCustomerCreated" : "WholesaleCustomerUpdated"),
 			EntityName = "Customer",
 			EntityId = customer.Id,
@@ -195,7 +196,7 @@ public sealed class WholesaleCustomerService(IUnitOfWork unitOfWork)
 			context.AuditLogs.Add(new AuditLog
 			{
 				UserId = userId,
-				ActionAtUtc = DateTime.UtcNow,
+				ActionAtUtc = BusinessClock.UtcNow,
 				Action = "WholesaleCustomersImported",
 				EntityName = "Customer",
 				Details = $"Imported {accepted.Count}; skipped duplicates {skippedDuplicates}; invalid rows {errors.Count}."

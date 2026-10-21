@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -6,9 +7,9 @@ public abstract class EntityBase
 {
 	public Guid Id { get; set; } = Guid.NewGuid();
 
-	public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime CreatedAtUtc { get; set; } = BusinessClock.UtcNow;
 
-	public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime UpdatedAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public Guid DeviceId { get; set; }
 

@@ -97,7 +97,7 @@ public static class InvoiceFlowDocumentFactory
 			FontWeight = FontWeights.SemiBold
 		});
 		paragraph2.Inlines.Add(new LineBreak());
-		paragraph2.Inlines.Add(new Run($"Date: {bill.SaleAtUtc.ToLocalTime():dd-MMM-yyyy HH:mm}"));
+		paragraph2.Inlines.Add(new Run($"Date: {bill.SaleAtUtc.ToBusinessLocal():dd-MMM-yyyy HH:mm}"));
 		paragraph2.Inlines.Add(new LineBreak());
 		paragraph2.Inlines.Add(new Run("Buyer / Patient: " + bill.PatientName));
 		if (settings.PrintCustomerPhone && !string.IsNullOrWhiteSpace(bill.PatientPhone))

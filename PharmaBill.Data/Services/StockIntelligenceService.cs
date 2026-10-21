@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -75,8 +76,8 @@ public sealed class StockIntelligenceService(PharmaBillDbContext context)
 			idleDays = 90;
 		}
 
-		DateTime cutoffUtc = DateOnly.FromDateTime(DateTime.Today).AddDays(-idleDays)
-			.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime cutoffUtc = BusinessClock.Today.AddDays(-idleDays)
+			.StartOfDayUtc();
 
 		List<Batch> batches = await context.Batches.AsNoTracking()
 			.Where(b => b.Quantity > 0m)
@@ -113,10 +114,10 @@ public sealed class StockIntelligenceService(PharmaBillDbContext context)
 			}
 
 			DateOnly? lastSaleDate = lastSale.TryGetValue(batch.Id, out DateTime at)
-				? DateOnly.FromDateTime(DateTime.SpecifyKind(at, DateTimeKind.Utc).ToLocalTime())
+				? DateOnly.FromDateTime(at.ToBusinessLocal())
 				: null;
 			int idle = lastSaleDate.HasValue
-				? Math.Max(idleDays, DateOnly.FromDateTime(DateTime.Today).DayNumber - lastSaleDate.Value.DayNumber)
+				? Math.Max(idleDays, BusinessClock.Today.DayNumber - lastSaleDate.Value.DayNumber)
 				: idleDays;
 			rows.Add(new DumpStockRow(
 				batch.Id,
@@ -263,7 +264,7 @@ public sealed class StockIntelligenceService(PharmaBillDbContext context)
 
 	public async Task<IReadOnlyList<ExpiryLifeRow>> GetExpiryLifeAsync(string band, CancellationToken cancellationToken = default)
 	{
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<Batch> batches = await context.Batches.AsNoTracking().Where(b => b.Quantity > 0m && b.ExpiryDate != null).ToListAsync(cancellationToken);
 		Dictionary<Guid, Drug> drugs = await context.Drugs.AsNoTracking().ToDictionaryAsync(d => d.Id, cancellationToken);
 		string normalized = (band ?? "All").Trim();

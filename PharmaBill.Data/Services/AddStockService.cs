@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,7 +51,7 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 		Guid? resolvedDrugId = guid;
 		if (resolvedDrugId.HasValue)
 		{
-			DateTime today = DateTime.UtcNow;
+			DateTime today = BusinessClock.UtcNow;
 			string text = await (from item in context.ScheduleOverrides.AsNoTracking()
 				where item.DrugId == resolvedDrugId && (item.EffectiveFromUtc == null || item.EffectiveFromUtc <= today) && (item.EffectiveToUtc == null || item.EffectiveToUtc >= today)
 				orderby item.UpdatedAtUtc descending

@@ -111,7 +111,7 @@ public sealed class SyncProtocolTests
 
         var serializer = new SyncPayloadSerializer();
         var applier = CreateApplier(database.Context, Guid.NewGuid(), serializer);
-        var stockPhysicalTime = new DateTimeOffset(DateTime.UtcNow.AddMinutes(5)).ToUnixTimeMilliseconds();
+        var stockPhysicalTime = new DateTimeOffset(BusinessClock.UtcNow.AddMinutes(5)).ToUnixTimeMilliseconds();
         var movementA = CreateEnvelope(serializer, new StockMovement
         {
             BatchId = batchId, DrugId = drugId, QuantityChange = -6, MovementType = "Sale"

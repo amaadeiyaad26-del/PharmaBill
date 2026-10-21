@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,8 +65,8 @@ public partial class QuickAddRetailerWindow : Window
 	private void AddLicenceBlock(string type)
 	{
 		TextBox numberBox = new TextBox { Padding = new Thickness(10, 8, 10, 8) };
-		DatePicker issuedPicker = new DatePicker { Padding = new Thickness(6), SelectedDate = DateTime.Today };
-		DatePicker expiresPicker = new DatePicker { Padding = new Thickness(6), SelectedDate = DateTime.Today.AddYears(5) };
+		DatePicker issuedPicker = new DatePicker { Padding = new Thickness(6), SelectedDate = BusinessClock.Now.Date };
+		DatePicker expiresPicker = new DatePicker { Padding = new Thickness(6), SelectedDate = BusinessClock.Now.Date.AddYears(5) };
 
 		Grid dates = new Grid();
 		dates.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });

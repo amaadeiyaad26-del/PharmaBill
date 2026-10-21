@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +30,7 @@ public sealed class SyncDeviceService(PharmaBillDbContext context, DatabaseDevic
 				AppVersion = appVersion,
 				IsCurrentDevice = true,
 				SyncState = SyncState.Synced,
-				HlcStamp = new HybridLogicalClockState().Now(localDeviceId.Value, DateTime.UtcNow)
+				HlcStamp = new HybridLogicalClockState().Now(localDeviceId.Value, BusinessClock.UtcNow)
 			};
 			context.DeviceInfos.Add(deviceInfo);
 		}
@@ -45,7 +46,7 @@ public sealed class SyncDeviceService(PharmaBillDbContext context, DatabaseDevic
 
 	public PairingCode CreatePairingCode(TimeSpan? lifetime = null)
 	{
-		DateTime dateTime = DateTime.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(10L));
+		DateTime dateTime = BusinessClock.UtcNow.Add(lifetime ?? TimeSpan.FromMinutes(10L));
 		string value = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).TrimEnd('=').Replace('+', '-')
 			.Replace('/', '_');
 		return new PairingCode($"{new DateTimeOffset(dateTime).ToUnixTimeSeconds()}.{value}", dateTime);
@@ -63,7 +64,7 @@ public sealed class SyncDeviceService(PharmaBillDbContext context, DatabaseDevic
 			throw new InvalidOperationException("Pairing code is invalid.");
 		}
 		DateTime utcDateTime = DateTimeOffset.FromUnixTimeSeconds(result).UtcDateTime;
-		if (utcDateTime <= DateTime.UtcNow || utcDateTime > DateTime.UtcNow.AddMinutes(11.0))
+		if (utcDateTime <= BusinessClock.UtcNow || utcDateTime > BusinessClock.UtcNow.AddMinutes(11.0))
 		{
 			throw new InvalidOperationException("Pairing code has expired or is not valid.");
 		}

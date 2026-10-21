@@ -14,7 +14,7 @@ public static class StatutoryRetentionPolicy
 
 	public static DateTime GetCutoffUtc(DataRetentionPeriod period, DateTime? utcNow = null)
 	{
-		DateTime dateTime = utcNow ?? DateTime.UtcNow;
+		DateTime dateTime = utcNow ?? BusinessClock.UtcNow;
 		return period switch
 		{
 			DataRetentionPeriod.FiveYears => dateTime.AddDays(-1825.0), 

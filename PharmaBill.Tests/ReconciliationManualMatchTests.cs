@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
@@ -17,7 +18,7 @@ public sealed class ReconciliationManualMatchTests
         {
             CustomerId = chemist.Id,
             InvoiceNo = "WS-1",
-            InvoiceAtUtc = DateTime.UtcNow.AddDays(-20),
+            InvoiceAtUtc = BusinessClock.UtcNow.AddDays(-20),
             TotalAmount = 300m,
             PaidAmount = 0m,
             Status = "Posted"
@@ -26,7 +27,7 @@ public sealed class ReconciliationManualMatchTests
         {
             CustomerId = chemist.Id,
             InvoiceNo = "WS-2",
-            InvoiceAtUtc = DateTime.UtcNow.AddDays(-5),
+            InvoiceAtUtc = BusinessClock.UtcNow.AddDays(-5),
             TotalAmount = 500m,
             PaidAmount = 0m,
             Status = "Posted"
@@ -35,7 +36,7 @@ public sealed class ReconciliationManualMatchTests
         await database.Context.SaveChangesAsync();
 
         var service = new ReconciliationService(new UnitOfWork(database.Context));
-        var line = new BankStatementEntry(DateOnly.FromDateTime(DateTime.Today), "UTR-1", "NEFT chemist A", 400m);
+        var line = new BankStatementEntry(BusinessClock.Today, "UTR-1", "NEFT chemist A", 400m);
 
         var match = await service.MatchToCustomerAsync(line, chemist.Id);
 
@@ -54,7 +55,7 @@ public sealed class ReconciliationManualMatchTests
         await database.Context.SaveChangesAsync();
 
         var service = new ReconciliationService(new UnitOfWork(database.Context));
-        var line = new BankStatementEntry(DateOnly.FromDateTime(DateTime.Today), null, "Cash deposit", 250m);
+        var line = new BankStatementEntry(BusinessClock.Today, null, "Cash deposit", 250m);
 
         var match = await service.MatchToCustomerAsync(line, chemist.Id);
 

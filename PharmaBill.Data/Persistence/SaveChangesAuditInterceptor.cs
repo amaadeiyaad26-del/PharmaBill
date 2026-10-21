@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,7 +56,7 @@ public sealed class SaveChangesAuditInterceptor : SaveChangesInterceptor
 		{
 			return;
 		}
-		DateTime utcNow = DateTime.UtcNow;
+		DateTime utcNow = BusinessClock.UtcNow;
 		string hlcStamp = _clock.Now(_deviceId.Value, utcNow);
 		List<ChangeLog> list = new List<ChangeLog>(array.Length);
 		EntityEntry<EntityBase>[] array2 = array;

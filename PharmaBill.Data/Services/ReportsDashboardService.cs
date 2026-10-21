@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -27,11 +28,11 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	public async Task<DashboardAnalytics> GetDashboardAnalyticsAsync(DateTime nowLocal, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		DateOnly dateOnly = DateOnly.FromDateTime(nowLocal);
-		DateTime tomorrowUtc = dateOnly.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime tomorrowUtc = dateOnly.AddDays(1).StartOfDayUtc();
 		DateOnly monthStart = new DateOnly(dateOnly.Year, dateOnly.Month, 1);
 		DateOnly trendStart = dateOnly.AddDays(-6);
 		DateOnly lookbackStart = dateOnly.AddDays(-29);
-		DateTime earliestUtc = new DateOnly[3] { monthStart, trendStart, lookbackStart }.Min().ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime earliestUtc = new DateOnly[3] { monthStart, trendStart, lookbackStart }.Min().StartOfDayUtc();
 		var retail = await (from item in context.Sales.AsNoTracking()
 			where item.SaleAtUtc >= earliestUtc && item.SaleAtUtc < tomorrowUtc
 			select new
@@ -48,7 +49,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				At = item.InvoiceAtUtc,
 				TotalAmount = item.TotalAmount
 			}).ToListAsync(cancellationToken);
-		List<(Guid Id, DateTime Local, decimal TotalAmount)> documents = retail.Select(item => (Id: item.Id, Local: DateTime.SpecifyKind(item.At, DateTimeKind.Utc).ToLocalTime(), TotalAmount: item.TotalAmount)).Concat(source.Select(item => (Id: item.Id, Local: DateTime.SpecifyKind(item.At, DateTimeKind.Utc).ToLocalTime(), TotalAmount: item.TotalAmount))).ToList();
+		List<(Guid Id, DateTime Local, decimal TotalAmount)> documents = retail.Select(item => (Id: item.Id, Local: item.At.ToBusinessLocal(), TotalAmount: item.TotalAmount)).Concat(source.Select(item => (Id: item.Id, Local: item.At.ToBusinessLocal(), TotalAmount: item.TotalAmount))).ToList();
 		List<(DateOnly, decimal)> source2 = (from offset in Enumerable.Range(0, 7)
 			select trendStart.AddDays(offset) into day
 			select (Day: day, Total: documents.Where(((Guid Id, DateTime Local, decimal TotalAmount) item) => DateOnly.FromDateTime(item.Local) == day).Sum(((Guid Id, DateTime Local, decimal TotalAmount) item) => item.TotalAmount))).ToList();
@@ -142,9 +143,9 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	public async Task<DashboardSnapshot> GetDashboardAsync(DateTime nowLocal, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		DateOnly today = DateOnly.FromDateTime(nowLocal);
-		DateTime todayStartUtc = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime tomorrowUtc = today.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime monthStartUtc = new DateOnly(today.Year, today.Month, 1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime todayStartUtc = today.StartOfDayUtc();
+		DateTime tomorrowUtc = today.AddDays(1).StartOfDayUtc();
+		DateTime monthStartUtc = new DateOnly(today.Year, today.Month, 1).StartOfDayUtc();
 		decimal sales = (await (from item in context.Sales.AsNoTracking()
 			where item.SaleAtUtc >= todayStartUtc && item.SaleAtUtc < tomorrowUtc
 			select item).SumAsync((Expression<Func<Sale, decimal?>>)((Sale item) => item.TotalAmount), cancellationToken)).GetValueOrDefault();
@@ -347,7 +348,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		}
 		List<IReadOnlyList<string>> list = ((IEnumerable<SalesLineFact>)source.OrderBy((SalesLineFact item) => item.AtUtc).ThenBy((SalesLineFact item) => item.InvoiceNo, StringComparer.Ordinal)).Select((Func<SalesLineFact, IReadOnlyList<string>>)((SalesLineFact item) => new _003C_003Ez__ReadOnlyArray<string>(new string[10]
 		{
-			item.AtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+			item.AtUtc.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm"),
 			item.InvoiceNo,
 			item.Party,
 			item.Item,
@@ -364,7 +365,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			{
 				list.Add(new _003C_003Ez__ReadOnlyArray<string>(new string[10]
 				{
-					item.GeneratedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+					item.GeneratedAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm"),
 					item.BranchCode + " summary",
 					item.BranchName,
 					$"{item.InvoiceCount} invoice(s) (network)",
@@ -428,7 +429,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				decimal value4 = Math.Max(0m, sale.TotalAmount - sale.PaidAmount);
 				return ((DateTime At, string Key, string Party, IReadOnlyList<string> Row))(At: sale.SaleAtUtc, Key: $"R|{sale.Id}", Party: text, Row: new _003C_003Ez__ReadOnlyArray<string>(new string[8]
 				{
-					sale.SaleAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+					sale.SaleAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm"),
 					sale.InvoiceNo,
 					text,
 					patient?.Phone ?? string.Empty,
@@ -444,7 +445,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				decimal value4 = Math.Max(0m, invoice.TotalAmount - invoice.PaidAmount);
 				return ((DateTime At, string Key, string Party, IReadOnlyList<string> Row))(At: invoice.InvoiceAtUtc, Key: $"W|{invoice.Id}", Party: text, Row: new _003C_003Ez__ReadOnlyArray<string>(new string[8]
 				{
-					invoice.InvoiceAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+					invoice.InvoiceAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm"),
 					invoice.InvoiceNo,
 					text,
 					valueOrDefault?.Phone ?? string.Empty,
@@ -491,7 +492,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			select item).ThenBy((SalesLineFact item) => item.BatchNo, StringComparer.OrdinalIgnoreCase).ToList();
 		List<IReadOnlyList<string>> list = ((IEnumerable<SalesLineFact>)source).Select((Func<SalesLineFact, IReadOnlyList<string>>)((SalesLineFact item) => new _003C_003Ez__ReadOnlyArray<string>(new string[8]
 		{
-			item.AtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+			item.AtUtc.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm"),
 			item.InvoiceNo,
 			item.Item,
 			item.BatchNo,
@@ -652,7 +653,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		List<IReadOnlyList<string>> list = new List<IReadOnlyList<string>>();
 		foreach (var item in orderedEnumerable)
 		{
-			string text = item.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+			string text = item.At.ToBusinessLocal().ToString("yyyy-MM-dd HH:mm");
 			string text2 = DisplayParty(item.Party);
 			List<InvoiceDetailLine> valueOrDefault = dictionary.GetValueOrDefault(item.Id);
 			if (valueOrDefault == null || valueOrDefault.Count == 0)
@@ -714,9 +715,9 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			BuyerSnapshot? recordedPatient = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(sale.BuyerSnapshotJson);
 			if (recordedPatient != null)
 			{
-				return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToLocalTime(), DisplayParty(recordedPatient.Name), recordedPatient.Phone ?? string.Empty, recordedPatient.Address ?? string.Empty, recordedPatient.PrescriberName ?? string.Empty, recordedPatient.PrescriberRegistrationNumber ?? string.Empty, recordedPatient.PrescriptionReference ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>());
+				return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToBusinessLocal(), DisplayParty(recordedPatient.Name), recordedPatient.Phone ?? string.Empty, recordedPatient.Address ?? string.Empty, recordedPatient.PrescriberName ?? string.Empty, recordedPatient.PrescriberRegistrationNumber ?? string.Empty, recordedPatient.PrescriptionReference ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>());
 			}
-			return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToLocalTime(), DisplayParty(patient2?.Name), patient2?.Phone ?? string.Empty, patient2?.Address ?? string.Empty, prescription2?.PrescriberName ?? string.Empty, prescription2?.PrescriberRegistrationNumber ?? string.Empty, prescription2?.ReferenceNumber ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>());
+			return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToBusinessLocal(), DisplayParty(patient2?.Name), patient2?.Phone ?? string.Empty, patient2?.Address ?? string.Empty, prescription2?.PrescriberName ?? string.Empty, prescription2?.PrescriberRegistrationNumber ?? string.Empty, prescription2?.ReferenceNumber ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>());
 		}
 		if (array[0] == "W")
 		{
@@ -730,9 +731,9 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			BuyerSnapshot? recordedBuyer = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(invoice.BuyerSnapshotJson);
 			if (recordedBuyer != null)
 			{
-				return new InvoiceDetail("Wholesale invoice", invoice.InvoiceNo, invoice.InvoiceAtUtc.ToLocalTime(), DisplayParty(invoice.BuyerLegalName ?? recordedBuyer.Name), recordedBuyer.Phone ?? string.Empty, invoice.BuyerAddress ?? string.Empty, string.Empty, string.Empty, string.Empty, invoice.PaymentStatus ?? string.Empty, invoice.Subtotal, invoice.TaxAmount, invoice.DiscountAmount, invoice.TotalAmount, invoice.PaidAmount, invoice.Notes ?? string.Empty, dictionary2.GetValueOrDefault(invoice.Id) ?? new List<InvoiceDetailLine>());
+				return new InvoiceDetail("Wholesale invoice", invoice.InvoiceNo, invoice.InvoiceAtUtc.ToBusinessLocal(), DisplayParty(invoice.BuyerLegalName ?? recordedBuyer.Name), recordedBuyer.Phone ?? string.Empty, invoice.BuyerAddress ?? string.Empty, string.Empty, string.Empty, string.Empty, invoice.PaymentStatus ?? string.Empty, invoice.Subtotal, invoice.TaxAmount, invoice.DiscountAmount, invoice.TotalAmount, invoice.PaidAmount, invoice.Notes ?? string.Empty, dictionary2.GetValueOrDefault(invoice.Id) ?? new List<InvoiceDetailLine>());
 			}
-			return new InvoiceDetail("Wholesale invoice", invoice.InvoiceNo, invoice.InvoiceAtUtc.ToLocalTime(), DisplayParty(customer?.Name), customer?.Phone ?? string.Empty, customer?.Address ?? string.Empty, string.Empty, string.Empty, string.Empty, invoice.PaymentStatus ?? string.Empty, invoice.Subtotal, invoice.TaxAmount, invoice.DiscountAmount, invoice.TotalAmount, invoice.PaidAmount, invoice.Notes ?? string.Empty, dictionary2.GetValueOrDefault(invoice.Id) ?? new List<InvoiceDetailLine>());
+			return new InvoiceDetail("Wholesale invoice", invoice.InvoiceNo, invoice.InvoiceAtUtc.ToBusinessLocal(), DisplayParty(customer?.Name), customer?.Phone ?? string.Empty, customer?.Address ?? string.Empty, string.Empty, string.Empty, string.Empty, invoice.PaymentStatus ?? string.Empty, invoice.Subtotal, invoice.TaxAmount, invoice.DiscountAmount, invoice.TotalAmount, invoice.PaidAmount, invoice.Notes ?? string.Empty, dictionary2.GetValueOrDefault(invoice.Id) ?? new List<InvoiceDetailLine>());
 		}
 		return null;
 	}
@@ -829,7 +830,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			{
 				list.Add(new _003C_003Ez__ReadOnlyArray<string>(new string[7]
 				{
-					item.ToDate?.ToString("yyyy-MM-dd") ?? item.GeneratedAtUtc.ToLocalTime().ToString("yyyy-MM-dd"),
+					item.ToDate?.ToString("yyyy-MM-dd") ?? item.GeneratedAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd"),
 					item.BranchCode + " network",
 					item.BranchName,
 					"—",
@@ -896,7 +897,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 
 			rows.Add(new[]
 			{
-				receipt.ReceiptAtUtc.ToLocalTime().ToString("yyyy-MM-dd"),
+				receipt.ReceiptAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd"),
 				receipt.ReceiptNo,
 				party,
 				paidOut ? "Paid out" : "Received",
@@ -915,7 +916,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	/// <summary>Who owes whom as of a date, from the customer and supplier ledgers. Customers owing us are receivable; we owe suppliers payable.</summary>
 	private async Task<ReportTable> PartyBalancesAsync(DateOnly asOf, CancellationToken token)
 	{
-		DateTime endUtc = asOf.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime endUtc = asOf.AddDays(1).StartOfDayUtc();
 		Dictionary<Guid, string> customers = await context.Customers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
 		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
 		var customerNets = await context.CustomerLedgerEntries.AsNoTracking()
@@ -971,7 +972,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		List<IReadOnlyList<string>> rows = notes
 			.Select(item => (IReadOnlyList<string>)new[]
 			{
-				item.ReturnAtUtc.ToLocalTime().ToString("yyyy-MM-dd"),
+				item.ReturnAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd"),
 				item.ReturnNo,
 				item.SourceType == "Sale" ? "Retail" : "Wholesale",
 				item.Reason,
@@ -1351,7 +1352,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		List<CustomerLedgerEntry> credits = await (from item in context.CustomerLedgerEntries.AsNoTracking()
 			where item.EntryType.Contains("CreditNote")
 			select item).ToListAsync(token);
-		return invoices.Where((WholesaleInvoice item) => DateOnly.FromDateTime(item.InvoiceAtUtc.ToLocalTime()) <= asOf).Sum((WholesaleInvoice invoice) =>
+		return invoices.Where((WholesaleInvoice item) => item.InvoiceAtUtc.ToBusinessDate() <= asOf).Sum((WholesaleInvoice invoice) =>
 		{
 			decimal num = credits.Where((CustomerLedgerEntry entry) => entry.CustomerId == invoice.CustomerId && (entry.Notes?.Contains(invoice.InvoiceNo, StringComparison.OrdinalIgnoreCase) ?? false)).Sum((CustomerLedgerEntry entry) => entry.Credit);
 			return Math.Max(0m, invoice.TotalAmount - Math.Max(invoice.PaidAmount, receipts.GetValueOrDefault(invoice.Id)) - num);
@@ -1435,7 +1436,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 
 	private static (DateTime StartUtc, DateTime EndUtc) GetUtcBounds(DateOnly from, DateOnly to)
 	{
-		return (StartUtc: from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime(), EndUtc: to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime());
+		return (StartUtc: from.StartOfDayUtc(), EndUtc: to.AddDays(1).StartOfDayUtc());
 	}
 
 	private static IReadOnlyList<string> Row(string date, string invoice, string party, string items, decimal total, decimal paid, decimal tax, string branchCode = "")

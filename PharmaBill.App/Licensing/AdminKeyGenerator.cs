@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Globalization;
 using System.IO;
@@ -34,7 +35,7 @@ public static class AdminKeyGenerator
 
 		using (rsa)
 		{
-			DateTime anchor = (asOfUtc ?? DateTime.UtcNow).ToUniversalTime();
+			DateTime anchor = (asOfUtc ?? BusinessClock.UtcNow).ToUniversalTime();
 			int grantDays = duration switch
 			{
 				LicenseManager.LicenseDuration.OneMonth => 30,

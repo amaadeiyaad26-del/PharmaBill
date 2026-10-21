@@ -120,7 +120,7 @@ public sealed class RetailBillingTests
         await using var database = await DatabaseTestContext.CreateAsync();
         var (service, drug, batch) = await CreateServiceAsync(
             database,
-            expiry: DateOnly.FromDateTime(DateTime.Today.AddDays(-1)));
+            expiry: BusinessClock.Today.AddDays(-1));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.SaveSaleAsync(NewSaleInput(drug, batch), Guid.NewGuid(), UserRole.Owner));
@@ -399,7 +399,7 @@ public sealed class RetailBillingTests
         {
             DrugId = drug.Id,
             BatchNo = "LATER",
-            ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(8)),
+            ExpiryDate = BusinessClock.Today.AddMonths(8),
             Mrp = 100m,
             Quantity = 3m
         };
@@ -490,7 +490,7 @@ public sealed class RetailBillingTests
             Guid.NewGuid(),
             UserRole.Owner);
         var returnLine = Assert.Single(await service.GetSaleReturnLinesAsync(sale.Sale.Id));
-        batch.ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-1));
+        batch.ExpiryDate = BusinessClock.Today.AddDays(-1);
         await database.Context.SaveChangesAsync();
 
         var expiredRestock = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -584,6 +584,45 @@ public sealed class RetailBillingTests
         Assert.Equal(0m, (await database.Context.SaleItems.SingleAsync()).TaxRate);
     }
 
+    [Fact]
+    public async Task SaleAt0030IstOn1April_BelongsToTheNewFinancialYear_AndTheAprilGstPeriod()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        var (service, drug, batch) = await CreateServiceAsync(database, expiry: new DateOnly(2030, 1, 31));
+        DateTime saleInstant = BusinessClock.FromLocal(new DateTime(2027, 4, 1, 0, 30, 0)); // 31 March 19:00 UTC
+
+        RetailSaleResult result;
+        using (BusinessClock.Use(new FixedClock(saleInstant)))
+        {
+            result = await service.SaveSaleAsync(
+                NewSaleInput(drug, batch) with { Payments = [new RetailPaymentInput("Cash", 100m)] },
+                Guid.NewGuid(),
+                UserRole.Owner);
+        }
+
+        Assert.Contains("/2027-28/", result.InvoiceNo);
+        Assert.Equal(saleInstant, DateTime.SpecifyKind(result.Sale.SaleAtUtc, DateTimeKind.Utc));
+        Assert.Equal(new DateOnly(2027, 4, 1), result.Sale.SaleAtUtc.ToBusinessDate());
+
+        var gst = new GstReturnExportService(database.Context);
+        Assert.Equal(0m, (await gst.GetDashboardSummaryAsync(new DateOnly(2027, 3, 1), new DateOnly(2027, 3, 31))).TotalTaxableTurnover);
+        Assert.True((await gst.GetDashboardSummaryAsync(new DateOnly(2027, 4, 1), new DateOnly(2027, 4, 30))).TotalTaxableTurnover > 0m);
+    }
+
+    [Fact]
+    public async Task SaleAt0200Ist_RefusesABatchThatExpiredYesterdayInIst()
+    {
+        await using var database = await DatabaseTestContext.CreateAsync();
+        // Clock: 02:00 IST on 21 Oct (still 20 Oct in UTC). The batch expired on 20 Oct.
+        using var _ = BusinessClock.Use(new FixedClock(BusinessClock.FromLocal(new DateTime(2026, 10, 21, 2, 0, 0))));
+        var (service, drug, batch) = await CreateServiceAsync(database, expiry: new DateOnly(2026, 10, 20));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SaveSaleAsync(
+            NewSaleInput(drug, batch) with { Payments = [new RetailPaymentInput("Cash", 100m)] },
+            Guid.NewGuid(),
+            UserRole.Owner));
+        Assert.Contains("Expired batch", error.Message);
+    }
     private static SaveRetailSaleInput NewSaleInput(Drug drug, Batch batch) =>
         new(
             "Test Patient",
@@ -616,7 +655,7 @@ public sealed class RetailBillingTests
         {
             DrugId = drug.Id,
             BatchNo = "TEST-1",
-            ExpiryDate = expiry ?? DateOnly.FromDateTime(DateTime.Today.AddMonths(6)),
+            ExpiryDate = expiry ?? BusinessClock.Today.AddMonths(6),
             Quantity = stock,
             Mrp = 100m,
             SalePrice = 95m

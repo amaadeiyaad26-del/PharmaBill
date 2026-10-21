@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -244,7 +245,7 @@ public class AuthenticationViewModel(AuthenticationService authenticationService
 			_failedAttempts++;
 			if (_failedAttempts >= 5)
 			{
-				_lockedUntilUtc = DateTime.UtcNow + LockoutDuration;
+				_lockedUntilUtc = BusinessClock.UtcNow + LockoutDuration;
 				IsLockedOut = true;
 				LockoutSecondsRemaining = (int)LockoutDuration.TotalSeconds;
 				ErrorMessage = $"Too many wrong attempts. Try again in {LockoutSecondsRemaining} seconds.";
@@ -338,7 +339,7 @@ public class AuthenticationViewModel(AuthenticationService authenticationService
 		if (lockedUntilUtc.HasValue)
 		{
 			DateTime valueOrDefault = lockedUntilUtc.GetValueOrDefault();
-			LockoutSecondsRemaining = Math.Max(0, (int)Math.Ceiling((valueOrDefault - DateTime.UtcNow).TotalSeconds));
+			LockoutSecondsRemaining = Math.Max(0, (int)Math.Ceiling((valueOrDefault - BusinessClock.UtcNow).TotalSeconds));
 			if (LockoutSecondsRemaining == 0)
 			{
 				_lockedUntilUtc = null;

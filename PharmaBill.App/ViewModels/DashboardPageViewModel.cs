@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -21,7 +22,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 
 	private string _errorMessage = string.Empty;
 
-	private DateTime _lastUpdated = DateTime.Now;
+	private DateTime _lastUpdated = BusinessClock.Now;
 
 	private IReadOnlyList<ChartBar> _dailySales = Array.Empty<ChartBar>();
 
@@ -578,7 +579,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
 			ReportsDashboardService service = scope.ServiceProvider.GetRequiredService<ReportsDashboardService>();
-			DateTime now = DateTime.Now;
+			DateTime now = BusinessClock.Now;
 			DashboardSnapshot snapshot = await service.GetDashboardAsync(now, cancellationToken);
 			DashboardAnalytics dashboardAnalytics = await service.GetDashboardAnalyticsAsync(now, cancellationToken);
 			Snapshot = snapshot;
@@ -595,7 +596,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 			DailyAxisMid = $"₹{num / 2m:N0}";
 			UpdateHighlightSlides(snapshot);
 			RefreshLicenseBadge();
-			LastUpdated = DateTime.Now;
+			LastUpdated = BusinessClock.Now;
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)

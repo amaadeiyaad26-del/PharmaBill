@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using PharmaBill.Core;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
@@ -71,7 +72,7 @@ public sealed class RetailTaxDocumentTests
         Assert.NotEqual("RENAMED-BATCH", line.BatchNo);
 
         var gst = database.CreateGstService();
-        var day = DateOnly.FromDateTime(saved.SaleAtUtc.ToLocalTime());
+        var day = saved.SaleAtUtc.ToBusinessDate();
         using var offline = JsonDocument.Parse(await gst.ExportGstr1OfflineJsonAsync(day, day));
         foreach (JsonElement row in offline.RootElement.GetProperty("b2cs").EnumerateArray())
         {
@@ -108,7 +109,7 @@ public sealed class RetailTaxDocumentTests
         Assert.False(print.DetailsRecorded);
         Assert.Equal("Current Master Name", print.PatientName);
 
-        var day = DateOnly.FromDateTime(sale.SaleAtUtc.ToLocalTime());
+        var day = sale.SaleAtUtc.ToBusinessDate();
         var tables = await database.CreateGstService().BuildGstr1TablesAsync(day, day);
         Assert.Contains(sale.InvoiceNo, tables.UnverifiedStateInvoiceNos!);
     }

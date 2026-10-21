@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -6,7 +7,7 @@ public sealed class CustomerLedgerEntry : EntityBase
 {
 	public Guid CustomerId { get; set; }
 
-	public DateTime EntryAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime EntryAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public string EntryType { get; set; } = string.Empty;
 

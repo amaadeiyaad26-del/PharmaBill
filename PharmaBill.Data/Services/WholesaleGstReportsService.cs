@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -45,7 +46,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 			where invoice.Status == "Posted"
 			select invoice).ToListAsync(cancellationToken);
 		Guid[] invoiceIds = (from invoice in invoices
-			where DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()) >= @from && DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()) <= to
+			where invoice.InvoiceAtUtc.ToBusinessDate() >= @from && invoice.InvoiceAtUtc.ToBusinessDate() <= to
 			select invoice.Id).ToArray();
 		Dictionary<Guid, Customer> customers = await context.Customers.AsNoTracking().ToDictionaryAsync((Customer customer2) => customer2.Id, cancellationToken);
 		List<WholesaleInvoiceItem> items = await (from item in context.WholesaleInvoiceItems.AsNoTracking()
@@ -75,8 +76,8 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 	public async Task<IReadOnlyList<GstRateSummary>> GetHsnSummaryAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		ValidatePeriod(from, to);
-		DateTime fromUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-		DateTime toUtcExclusive = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+		DateTime fromUtc = from.StartOfDayUtc();
+		DateTime toUtcExclusive = to.AddDays(1).StartOfDayUtc();
 		Dictionary<Guid, bool> recordedById = (await (from invoice in context.WholesaleInvoices.AsNoTracking()
 			where invoice.Status == "Posted" && invoice.InvoiceAtUtc >= fromUtc && invoice.InvoiceAtUtc < toUtcExclusive
 			select invoice).ToListAsync(cancellationToken)).ToDictionary(invoice => invoice.Id, RecordedGstStates.IsRecorded);
@@ -110,7 +111,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 			select new
 			{
 				invoiceNo = @group.Key,
-				date = DateOnly.FromDateTime(@group.First().InvoiceAtUtc.ToLocalTime()).ToString("yyyy-MM-dd"),
+				date = @group.First().InvoiceAtUtc.ToBusinessDate().ToString("yyyy-MM-dd"),
 				customer = @group.First().CustomerName,
 				gstin = @group.First().Gstin,
 				detailsVerified = @group.First().DetailsVerified,
@@ -146,7 +147,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 			string[] source = new string[11]
 			{
 				item.InvoiceNo,
-				DateOnly.FromDateTime(item.InvoiceAtUtc.ToLocalTime()).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+				item.InvoiceAtUtc.ToBusinessDate().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
 				item.CustomerName,
 				item.Gstin ?? string.Empty,
 				item.Hsn,
@@ -167,7 +168,7 @@ public sealed class WholesaleGstReportsService(PharmaBillDbContext context)
 		ValidatePeriod(from, to);
 		WholesaleInvoice[] source = (await (from invoice in context.WholesaleInvoices.AsNoTracking()
 			where invoice.Status == "Posted"
-			select invoice).ToListAsync(cancellationToken)).Where((WholesaleInvoice invoice) => DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()) >= from && DateOnly.FromDateTime(invoice.InvoiceAtUtc.ToLocalTime()) <= to).ToArray();
+			select invoice).ToListAsync(cancellationToken)).Where((WholesaleInvoice invoice) => invoice.InvoiceAtUtc.ToBusinessDate() >= from && invoice.InvoiceAtUtc.ToBusinessDate() <= to).ToArray();
 		Guid[] invoiceIds = source.Select((WholesaleInvoice invoice) => invoice.Id).ToArray();
 		Dictionary<Guid, WholesaleInvoice> invoiceById = source.ToDictionary((WholesaleInvoice invoice) => invoice.Id);
 		Dictionary<Guid, Customer> customers = await context.Customers.AsNoTracking().ToDictionaryAsync((Customer item) => item.Id, cancellationToken);

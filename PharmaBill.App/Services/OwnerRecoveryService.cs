@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,7 +44,7 @@ public sealed class OwnerRecoveryService(IServiceScopeFactory scopeFactory, Reco
 				context.AuditLogs.Add(new AuditLog
 				{
 					UserId = owner.Id,
-					ActionAtUtc = DateTime.UtcNow,
+					ActionAtUtc = BusinessClock.UtcNow,
 					Action = "OwnerPasswordResetUsingRecoveryCode",
 					EntityName = "AppUser",
 					EntityId = owner.Id

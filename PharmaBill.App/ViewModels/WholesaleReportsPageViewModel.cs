@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -220,8 +221,8 @@ public class WholesaleReportsPageViewModel : ObservableObject, ILoadablePage
 		_scopeFactory = scopeFactory;
 		_filePicker = filePicker;
 		_exports = exports;
-		FromDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-		ToDate = DateTime.Today;
+		FromDate = new DateTime(BusinessClock.Now.Date.Year, BusinessClock.Now.Date.Month, 1);
+		ToDate = BusinessClock.Now.Date;
 	}
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -274,7 +275,7 @@ public class WholesaleReportsPageViewModel : ObservableObject, ILoadablePage
 			IReadOnlyList<string>[] rows = ((IEnumerable<WholesaleSalesRegisterRow>)SalesRegister).Select((Func<WholesaleSalesRegisterRow, IReadOnlyList<string>>)((WholesaleSalesRegisterRow row) => new _003C_003Ez__ReadOnlyArray<string>(new string[10]
 			{
 				row.InvoiceNo,
-				row.InvoiceAtUtc.ToLocalTime().ToString("yyyy-MM-dd"),
+				row.InvoiceAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd"),
 				row.CustomerName,
 				row.Gstin ?? string.Empty,
 				row.Hsn,

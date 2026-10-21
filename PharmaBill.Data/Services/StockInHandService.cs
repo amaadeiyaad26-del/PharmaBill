@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +36,7 @@ public sealed class StockInHandService(PharmaBillDbContext context)
 		Dictionary<Guid, CatalogMedicine> dictionary = await (from item in context.CatalogMedicines.AsNoTracking()
 			where catalogIds.Contains(item.Id)
 			select item).ToDictionaryAsync((CatalogMedicine item) => item.Id, cancellationToken);
-		DateOnly asOfDate = DateOnly.FromDateTime(asOfUtc.ToLocalTime());
+		DateOnly asOfDate = asOfUtc.ToBusinessDate();
 		List<StockInHandRow> list = new List<StockInHandRow>();
 		foreach (Drug drug in drugs)
 		{

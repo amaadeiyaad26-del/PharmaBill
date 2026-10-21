@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.ViewModels;
 using PharmaBill.Core.Entities;
@@ -41,7 +42,7 @@ public sealed class DrugRecordsTests
     {
         var drugId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        var timestamp = DateTime.UtcNow;
+        var timestamp = BusinessClock.UtcNow;
         var events = new[]
         {
             Movement(drugId, batchId, timestamp, "Purchase", "P-1", 10m),
@@ -64,16 +65,16 @@ public sealed class DrugRecordsTests
         var now = new DateTime(2026, 1, 15, 18, 45, 0);
 
         var today = DrugRecordsPeriodRange.GetRange(DrugRecordsPeriod.Today, now, 1, 2026);
-        Assert.Equal(new DateOnly(2026, 1, 15), DateOnly.FromDateTime(today.StartUtc.ToLocalTime()));
-        Assert.Equal(new DateOnly(2026, 1, 16), DateOnly.FromDateTime(today.EndUtc.ToLocalTime()));
+        Assert.Equal(new DateOnly(2026, 1, 15), today.StartUtc.ToBusinessDate());
+        Assert.Equal(new DateOnly(2026, 1, 16), today.EndUtc.ToBusinessDate());
 
         var selectedMonth = DrugRecordsPeriodRange.GetRange(DrugRecordsPeriod.ThisMonth, now, 3, 2025);
-        Assert.Equal(new DateOnly(2025, 3, 1), DateOnly.FromDateTime(selectedMonth.StartUtc.ToLocalTime()));
-        Assert.Equal(new DateOnly(2025, 4, 1), DateOnly.FromDateTime(selectedMonth.EndUtc.ToLocalTime()));
+        Assert.Equal(new DateOnly(2025, 3, 1), selectedMonth.StartUtc.ToBusinessDate());
+        Assert.Equal(new DateOnly(2025, 4, 1), selectedMonth.EndUtc.ToBusinessDate());
 
         var lastMonth = DrugRecordsPeriodRange.GetRange(DrugRecordsPeriod.LastMonth, now, 1, 2026);
-        Assert.Equal(new DateOnly(2025, 12, 1), DateOnly.FromDateTime(lastMonth.StartUtc.ToLocalTime()));
-        Assert.Equal(new DateOnly(2026, 1, 1), DateOnly.FromDateTime(lastMonth.EndUtc.ToLocalTime()));
+        Assert.Equal(new DateOnly(2025, 12, 1), lastMonth.StartUtc.ToBusinessDate());
+        Assert.Equal(new DateOnly(2026, 1, 1), lastMonth.EndUtc.ToBusinessDate());
     }
 
     [Fact]

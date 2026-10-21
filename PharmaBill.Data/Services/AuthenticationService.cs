@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,7 +21,7 @@ public sealed class AuthenticationService(PharmaBillDbContext context)
 		{
 			return null;
 		}
-		user.LastLoginAtUtc = DateTime.UtcNow;
+		user.LastLoginAtUtc = BusinessClock.UtcNow;
 		await context.SaveChangesAsync(cancellationToken);
 		return user;
 	}

@@ -326,7 +326,7 @@ public sealed class RetailBillLineViewModel : ObservableObject
 		{
 			return $"Quantity for {DrugName} exceeds live stock ({Choice.AvailableQuantity}).";
 		}
-		if (Choice.ExpiryDate.HasValue && Choice.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today))
+		if (Choice.ExpiryDate.HasValue && Choice.ExpiryDate.Value < BusinessClock.Today)
 		{
 			return "Batch " + BatchNo + " is expired.";
 		}

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -137,7 +138,7 @@ public sealed class SyncPackageService(PharmaBillDbContext context, DatabaseDevi
 			{
 				throw new InvalidOperationException("The sync package exceeds the entry limit.");
 			}
-			SyncPackageManifest syncPackageManifest = new SyncPackageManifest(1, Guid.NewGuid(), DateTime.UtcNow, localDeviceId.Value, peerDeviceId, typeof(SyncPackageService).Assembly.GetName().Version?.ToString() ?? "unknown", changeDescriptors.Count, string.Empty, changeDescriptors, packageFiles.OrderBy((SyncPackageFile syncPackageFile) => syncPackageFile.Path, StringComparer.Ordinal).ToArray());
+			SyncPackageManifest syncPackageManifest = new SyncPackageManifest(1, Guid.NewGuid(), BusinessClock.UtcNow, localDeviceId.Value, peerDeviceId, typeof(SyncPackageService).Assembly.GetName().Version?.ToString() ?? "unknown", changeDescriptors.Count, string.Empty, changeDescriptors, packageFiles.OrderBy((SyncPackageFile syncPackageFile) => syncPackageFile.Path, StringComparer.Ordinal).ToArray());
 			string manifestSha = Sha256(JsonSerializer.SerializeToUtf8Bytes(syncPackageManifest, JsonOptions));
 			byte[] array5 = JsonSerializer.SerializeToUtf8Bytes(syncPackageManifest with
 			{
@@ -184,7 +185,7 @@ public sealed class SyncPackageService(PharmaBillDbContext context, DatabaseDevi
 			{
 				await files.SetStateAsync(item4.AttachmentId, "Complete", null, cancellationToken);
 			}
-			(await context.DeviceInfos.SingleAsync((DeviceInfo deviceInfo) => deviceInfo.Id == peerDeviceId, cancellationToken)).LastSyncAtUtc = DateTime.UtcNow;
+			(await context.DeviceInfos.SingleAsync((DeviceInfo deviceInfo) => deviceInfo.Id == peerDeviceId, cancellationToken)).LastSyncAtUtc = BusinessClock.UtcNow;
 			await context.SaveChangesAsync(cancellationToken);
 			return envelopes.Length;
 		}
@@ -369,7 +370,7 @@ public sealed class SyncPackageService(PharmaBillDbContext context, DatabaseDevi
 				DeviceInfo deviceInfo = await context.DeviceInfos.SingleOrDefaultAsync((DeviceInfo item) => item.Id == manifest.ExportingDeviceId, cancellationToken);
 				if (deviceInfo != null)
 				{
-					deviceInfo.LastSyncAtUtc = DateTime.UtcNow;
+					deviceInfo.LastSyncAtUtc = BusinessClock.UtcNow;
 					await context.SaveChangesAsync(cancellationToken);
 				}
 				foreach (SyncPackageFile file in manifest.Files)

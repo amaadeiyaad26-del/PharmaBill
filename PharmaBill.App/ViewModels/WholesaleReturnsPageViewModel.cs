@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -203,7 +204,7 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		WholesaleReturnsService requiredService2 = scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>();
 		ExpiryTracker.Clear();
-		foreach (ExpiryReturnTrackerRow item2 in await requiredService2.GetExpiryReturnTrackerAsync(DateOnly.FromDateTime(DateTime.Today.AddDays(90.0)), cancellationToken))
+		foreach (ExpiryReturnTrackerRow item2 in await requiredService2.GetExpiryReturnTrackerAsync(BusinessClock.Today.AddDays(90), cancellationToken))
 		{
 			ExpiryTracker.Add(item2);
 		}
@@ -225,7 +226,7 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 			ReturnNote returnNote = null!;
 			await RecordLockUi.RunAsync(scope.ServiceProvider, async () =>
 			{
-				returnNote = await scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>().CreateCreditNoteAsync(SelectedInvoice.Id, DocumentNo, DateOnly.FromDateTime(DateTime.Today), lines, Reason, (_session.User ?? throw new UnauthorizedAccessException("Sign in before creating credit notes.")).Id, _session.User.Role);
+				returnNote = await scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>().CreateCreditNoteAsync(SelectedInvoice.Id, DocumentNo, BusinessClock.Today, lines, Reason, (_session.User ?? throw new UnauthorizedAccessException("Sign in before creating credit notes.")).Id, _session.User.Role);
 			});
 			StatusMessage = $"Credit note {returnNote.ReturnNo} saved for {MoneyFormat.Rupees(returnNote.TotalAmount)}. Unrestocked items are quarantined.";
 			ErrorMessage = string.Empty;
@@ -288,7 +289,7 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			WholesaleInvoice wholesaleInvoice = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().WholesaleInvoices.SingleAsync((WholesaleInvoice item) => item.Id == SelectedInvoice.Id);
-			StatusMessage = "Debit note " + (await scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>().CreateDebitNoteAsync(wholesaleInvoice.CustomerId, DocumentNo, DateOnly.FromDateTime(DateTime.Today), amount, Reason, (_session.User ?? throw new UnauthorizedAccessException("Sign in before creating debit notes.")).Id, _session.User.Role)).ReturnNo + " saved.";
+			StatusMessage = "Debit note " + (await scope.ServiceProvider.GetRequiredService<WholesaleReturnsService>().CreateDebitNoteAsync(wholesaleInvoice.CustomerId, DocumentNo, BusinessClock.Today, amount, Reason, (_session.User ?? throw new UnauthorizedAccessException("Sign in before creating debit notes.")).Id, _session.User.Role)).ReturnNo + " saved.";
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException) ? true : false)

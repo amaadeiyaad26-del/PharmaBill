@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -429,7 +430,7 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 
 	private bool MatchesRegisterDate(StatutoryRegisterRow item)
 	{
-		DateTime local = item.EntryAtUtc.ToLocalTime();
+		DateTime local = item.EntryAtUtc.ToBusinessLocal();
 		if (RegisterFromDate.HasValue && local.Date < RegisterFromDate.Value.Date)
 		{
 			return false;
@@ -456,7 +457,7 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 			return;
 		}
 
-		string path = Path.Combine(Path.GetTempPath(), "PharmaBill-statutory-register-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".pdf");
+		string path = Path.Combine(Path.GetTempPath(), "PharmaBill-statutory-register-" + BusinessClock.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".pdf");
 		try
 		{
 			await ExportFileAsync(path);
@@ -530,7 +531,7 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 		};
 		IReadOnlyList<IReadOnlyList<string>> rows = ((IEnumerable<StatutoryRegisterRow>)Entries).Select((Func<StatutoryRegisterRow, IReadOnlyList<string>>)((StatutoryRegisterRow item) => new _003C_003Ez__ReadOnlyArray<string>(new string[15]
 		{
-			item.EntryAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
+			item.EntryAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
 			item.DocumentNo,
 			item.PartyName,
 			item.Address,

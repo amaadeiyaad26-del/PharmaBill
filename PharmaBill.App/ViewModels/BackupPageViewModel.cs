@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -57,7 +58,7 @@ public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScop
 		{
 			if (LastBackupAtUtc.HasValue)
 			{
-				return DateTime.UtcNow - LastBackupAtUtc.Value > TimeSpan.FromDays(7);
+				return BusinessClock.UtcNow - LastBackupAtUtc.Value > TimeSpan.FromDays(7);
 			}
 			return true;
 		}
@@ -292,7 +293,7 @@ public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScop
 		try
 		{
 			EncryptedBackupService.ValidatePassword(BackupPassword);
-			string target = filePicker.PickExportDestination("pbbak", $"PharmaBill-backup-{DateTime.Now:yyyyMMdd-HHmm}");
+			string target = filePicker.PickExportDestination("pbbak", $"PharmaBill-backup-{BusinessClock.Now:yyyyMMdd-HHmm}");
 			if (target == null)
 			{
 				return;
@@ -308,7 +309,7 @@ public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScop
 				await source.CopyToAsync(secondCopy);
 				await secondCopy.FlushAsync();
 			}
-			LastBackupAtUtc = DateTime.UtcNow;
+			LastBackupAtUtc = BusinessClock.UtcNow;
 			settingsStore.Save(settings with
 			{
 				LastBackupAtUtc = LastBackupAtUtc

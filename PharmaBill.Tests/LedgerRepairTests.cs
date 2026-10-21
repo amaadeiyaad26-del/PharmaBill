@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
@@ -20,7 +21,7 @@ public sealed class LedgerRepairTests
 		{
 			SupplierId = supplier.Id,
 			InvoiceNo = "GS-31815",
-			InvoiceDate = DateOnly.FromDateTime(DateTime.Today),
+			InvoiceDate = BusinessClock.Today,
 			Subtotal = 30000m,
 			TaxAmount = 1815m,
 			TotalAmount = 31815m,
@@ -30,7 +31,7 @@ public sealed class LedgerRepairTests
 		database.Context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
 		{
 			SupplierId = supplier.Id,
-			EntryAtUtc = DateTime.UtcNow,
+			EntryAtUtc = BusinessClock.UtcNow,
 			EntryType = LedgerEntryTypes.SupplierPayment,
 			ReferenceNo = "PAY-1",
 			Debit = 5000m,

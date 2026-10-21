@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ClosedXML.Excel;
@@ -67,7 +68,7 @@ public sealed class WholesaleCustomerTests
             State = "Karnataka",
             StateDrugControlPortalUrl = "https://state.example/portal",
             VerifiedBy = "Owner",
-            VerifiedOnUtc = DateTime.UtcNow,
+            VerifiedOnUtc = BusinessClock.UtcNow,
             VerificationMethod = "Document checked"
         };
         var licences = new[]
@@ -234,8 +235,8 @@ public sealed class WholesaleCustomerTests
             CustomerId = customer.Id,
             LicenceType = "WHOLESALE-A",
             LicenceNumber = "DL-NEAR",
-            IssuedOn = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)),
-            ExpiresOn = DateOnly.FromDateTime(DateTime.Today.AddDays(30))
+            IssuedOn = BusinessClock.Today.AddYears(-1),
+            ExpiresOn = BusinessClock.Today.AddDays(30)
         });
         await database.Context.SaveChangesAsync();
 
@@ -333,8 +334,8 @@ public sealed class WholesaleCustomerTests
             phone,
             licenceType,
             licenceNumber,
-            DateTime.Today.AddYears(-1),
-            DateTime.Today.AddYears(1),
+            BusinessClock.Now.Date.AddYears(-1),
+            BusinessClock.Now.Date.AddYears(1),
             authority
         };
         for (var column = 0; column < values.Length; column++)

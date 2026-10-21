@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -525,7 +526,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 		Directory.CreateDirectory(folder);
 		string name = string.IsNullOrWhiteSpace(file.FileName) ? "bill.jpg" : Path.GetFileName(file.FileName);
 		string safe = SanitizeFileName(name);
-		string path = Path.Combine(folder, DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + safe);
+		string path = Path.Combine(folder, BusinessClock.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + safe);
 		await using FileStream stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
 		await file.CopyToAsync(stream);
 		return path;
@@ -552,7 +553,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 		string folder = InwardScansFolder();
 		Directory.CreateDirectory(folder);
 		string safe = SanitizeFileName(string.IsNullOrWhiteSpace(fileName) ? "bill.jpg" : Path.GetFileName(fileName));
-		string path = Path.Combine(folder, DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + safe);
+		string path = Path.Combine(folder, BusinessClock.Now.ToString("yyyyMMdd-HHmmss-fff") + "-" + safe);
 		await File.WriteAllBytesAsync(path, bytes);
 		return path;
 	}

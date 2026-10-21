@@ -143,7 +143,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		List<ScheduleOverride> overrides = await (from item in context.ScheduleOverrides.AsNoTracking()
 			where drugIds.Contains(item.DrugId)
 			select item).ToListAsync(cancellationToken);
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		return (from choice in drugs.SelectMany((Drug drug) => (from batch in batches
 				where batch.DrugId == drug.Id
 				where !batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= today
@@ -212,7 +212,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 	{
 		string text = await (from profile in unitOfWork.Context.PharmacyProfiles.AsNoTracking()
 			select profile.InvoicePrefix).FirstOrDefaultAsync(cancellationToken);
-		return await numberSeriesService.PreviewNextAsync(string.IsNullOrWhiteSpace(text) ? "WIN1" : text, DateOnly.FromDateTime(DateTime.Today), cancellationToken);
+		return await numberSeriesService.PreviewNextAsync(string.IsNullOrWhiteSpace(text) ? "WIN1" : text, BusinessClock.Today, cancellationToken);
 	}
 
 	public async Task<RetailSaleResult> SaveSaleAsync(SaveRetailSaleInput input, Guid actingUserId, UserRole role, CancellationToken cancellationToken = default(CancellationToken))
@@ -243,7 +243,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		{
 			throw new InvalidOperationException("Retail billing is unavailable in Wholesaler mode.");
 		}
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		Guid[] drugIds = input.Items.Select((RetailSaleLineInput item) => item.DrugId).Distinct().ToArray();
 		Guid[] batchIds = input.Items.Select((RetailSaleLineInput item) => item.BatchId).Distinct().ToArray();
 		Dictionary<Guid, Drug> drugs = await context.Drugs.Where((Drug drug2) => drugIds.Contains(drug2.Id) && drug2.IsActive).ToDictionaryAsync((Drug drug2) => drug2.Id, cancellationToken);
@@ -412,7 +412,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					PrescriptionId = prescription?.Id,
 					PrescriptionFilePath = attachmentPath,
 					InvoiceNo = invoiceNo,
-					SaleAtUtc = DateTime.UtcNow,
+					SaleAtUtc = BusinessClock.UtcNow,
 					Subtotal = subtotal,
 					TaxAmount = taxAmount,
 					DiscountAmount = discountAmount,
@@ -650,11 +650,11 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		if (refund > 0m)
 		{
 			PharmacyProfile profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
-			string refundNo = await numberSeriesService.AllocateAsync(profile.InvoicePrefix + "-RF", DateOnly.FromDateTime(DateTime.Today), cancellationToken);
+			string refundNo = await numberSeriesService.AllocateAsync(profile.InvoicePrefix + "-RF", BusinessClock.Today, cancellationToken);
 			unitOfWork.Context.Receipts.Add(new Receipt
 			{
 				ReceiptNo = refundNo,
-				ReceiptAtUtc = DateTime.UtcNow,
+				ReceiptAtUtc = BusinessClock.UtcNow,
 				Amount = refund,
 				PaymentMethod = "Refund",
 				Notes = $"Refund for voided {sale.InvoiceNo}; credit note {creditNote.ReturnNo}; SaleId={saleIdText}"
@@ -874,7 +874,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				if (expiryDate.HasValue)
 				{
 					DateOnly valueOrDefault2 = expiryDate.GetValueOrDefault();
-					if (valueOrDefault2 <= DateOnly.FromDateTime(DateTime.Today))
+					if (valueOrDefault2 <= BusinessClock.Today)
 					{
 						throw new InvalidOperationException("Expired batch " + value2.BatchNo + " cannot be returned to saleable stock. Clear restock confirmation to issue a credit-only return.");
 					}
@@ -891,13 +891,13 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			throw new InvalidOperationException("The selected bill quantities have no remaining amount to credit.");
 		}
 		PharmacyProfile pharmacyProfile = await unitOfWork.Context.PharmacyProfiles.SingleAsync(cancellationToken);
-		string returnNo = await numberSeriesService.AllocateAsync(pharmacyProfile.InvoicePrefix + "-CN", DateOnly.FromDateTime(DateTime.Today), cancellationToken);
+		string returnNo = await numberSeriesService.AllocateAsync(pharmacyProfile.InvoicePrefix + "-CN", BusinessClock.Today, cancellationToken);
 		ReturnNote note = new ReturnNote
 		{
 			ReturnNo = returnNo,
 			SourceType = "Sale",
 			SourceId = sale.Id,
-			ReturnAtUtc = DateTime.UtcNow,
+			ReturnAtUtc = BusinessClock.UtcNow,
 			TotalAmount = creditTotal,
 			Reason = reason.Trim(),
 			Notes = $"Credit note against invoice {sale.InvoiceNo}; restocked={restock}."
@@ -1156,7 +1156,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 
 	private static string? ResolveSchedule(Drug drug, CatalogInfo? info, IReadOnlyCollection<ScheduleOverride> overrides)
 	{
-		DateTime today = DateTime.UtcNow;
+		DateTime today = BusinessClock.UtcNow;
 		return NormalizeSchedule((from item in overrides
 			where (!item.EffectiveFromUtc.HasValue || item.EffectiveFromUtc <= today) && (!item.EffectiveToUtc.HasValue || item.EffectiveToUtc >= today)
 			orderby item.EffectiveFromUtc descending

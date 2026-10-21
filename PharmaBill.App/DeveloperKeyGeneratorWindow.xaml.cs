@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Windows;
 using System.Windows.Controls;
@@ -42,7 +43,7 @@ public partial class DeveloperKeyGeneratorWindow : Window
 		try
 		{
 			LicenseManager.LicenseDuration duration = ResolveDuration();
-			DateTime asOf = DateTime.UtcNow;
+			DateTime asOf = BusinessClock.UtcNow;
 			string key = AdminKeyGenerator.GenerateKey(machineId, duration, asOf);
 			GeneratedKeyBox.Text = key;
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PharmaBill.Core;
+using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -1144,7 +1145,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			List<WholesaleStockChoice> list2 = (from batch in batches
 				join drug in drugs on batch.DrugId equals drug.Id
 				let available = stock.GetValueOrDefault(batch.Id)
-				where available > 0m && (!batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= DateOnly.FromDateTime(DateTime.Today))
+				where available > 0m && (!batch.ExpiryDate.HasValue || batch.ExpiryDate.Value >= BusinessClock.Today)
 				orderby batch.ExpiryDate ?? DateOnly.MaxValue, drug.Name
 				select BuildStockChoice(drug, batch, available, packsByDrug.GetValueOrDefault(drug.Id))).ToList();
 			StockChoices.Clear();
@@ -1262,7 +1263,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				SelectedCustomer.Id,
 				SelectedCustomer.Name,
 				SelectedCustomer.Phone,
-				DateOnly.FromDateTime(DateTime.Today.AddDays(QuoteValidityDays)),
+				BusinessClock.Today.AddDays(QuoteValidityDays),
 				Items.Select(item => new QuotationLineInput(item.StockChoice!.DrugId, item.StockChoice.BatchId, item.StockChoice.DrugName, item.InventoryQuantity, item.InventoryFreeQuantity, item.UnitPrice, item.DiscountAmount)).ToList(),
 				null,
 				_session.User.Id,
@@ -1382,7 +1383,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 
 		List<Drug> drugs = await context.Drugs.AsNoTracking()
 			.Where(d => d.IsActive && (
@@ -1756,7 +1757,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			group movement by movement.BatchId into g
 			select new { BatchId = g.Key, Quantity = g.Sum(m => m.QuantityChange) })
 			.ToDictionaryAsync(x => x.BatchId, x => x.Quantity);
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		List<WholesaleStockChoice> list = (from batch in batches
 			join drug in drugs on batch.DrugId equals drug.Id
 			let available = stock.GetValueOrDefault(batch.Id)
@@ -1962,7 +1963,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 				if (drug != null && batch != null)
 				{
 					WholesalePriceQuote quote = await scope.ServiceProvider.GetRequiredService<WholesalePricingService>()
-						.GetQuoteAsync(SelectedCustomer, drug, batch, 1m, DateOnly.FromDateTime(DateTime.Today));
+						.GetQuoteAsync(SelectedCustomer, drug, batch, 1m, BusinessClock.Today);
 					unitPrice = quote.UnitRate;
 					freeQuantity = quote.FreeQuantity;
 				}
@@ -2304,7 +2305,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		WholesaleInvoiceLineDraft[] array = Items.Where((WholesaleInvoiceLineDraft item) =>
 		{
 			DateOnly? dateOnly = item.StockChoice?.ExpiryDate;
-			return dateOnly.HasValue && dateOnly.GetValueOrDefault().DayNumber - DateOnly.FromDateTime(DateTime.Today).DayNumber <= 90;
+			return dateOnly.HasValue && dateOnly.GetValueOrDefault().DayNumber - BusinessClock.Today.DayNumber <= 90;
 		}).ToArray();
 		if (array.Length != 0 && !ConfirmNearExpiry)
 		{
@@ -2597,8 +2598,8 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			.Where((WholesaleInvoiceLineDraft item) => item.StockChoice != null)
 			.Select((WholesaleInvoiceLineDraft item) => new WholesaleDraftLine(item.StockChoice!.DrugId, item.StockChoice.BatchId, item.Quantity, item.FreeQuantity, item.UnitPrice, item.DiscountAmount))
 			.ToList();
-		_drafts.Save(new WholesaleDraft(SelectedCustomer?.Id, Notes ?? string.Empty, DateTime.UtcNow, lines));
-		DraftSavedText = $"Draft saved at {DateTime.Now:HH:mm}";
+		_drafts.Save(new WholesaleDraft(SelectedCustomer?.Id, Notes ?? string.Empty, BusinessClock.UtcNow, lines));
+		DraftSavedText = $"Draft saved at {BusinessClock.Now:HH:mm}";
 	}
 
 	// Reopens the last unsaved invoice when the page opens with nothing in progress.
@@ -2634,7 +2635,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		Notes = draft.Notes;
 		NotifyTotalsChanged();
-		StatusMessage = $"Restored your unsaved invoice from {draft.SavedAtUtc.ToLocalTime():dd-MMM HH:mm}.";
+		StatusMessage = $"Restored your unsaved invoice from {draft.SavedAtUtc.ToBusinessLocal():dd-MMM HH:mm}.";
 		if (missing > 0)
 		{
 			ErrorMessage = $"{missing} draft line(s) could not be restored because their batch is no longer in stock.";
@@ -2916,7 +2917,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		BuyerAddress = customer.Address?.Trim() ?? string.Empty;
 		BuyerCreditDays = customer.CreditDays;
 		BuyerDueDateDisplay = customer.CreditDays > 0
-			? $"Due {DateTime.Today.AddDays(customer.CreditDays):dd-MMM-yyyy} ({customer.CreditDays} days credit)"
+			? $"Due {BusinessClock.Now.Date.AddDays(customer.CreditDays):dd-MMM-yyyy} ({customer.CreditDays} days credit)"
 			: "Cash / immediate";
 
 		try

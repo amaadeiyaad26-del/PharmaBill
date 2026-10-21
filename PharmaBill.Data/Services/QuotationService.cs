@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -46,7 +47,7 @@ public sealed class QuotationService(IUnitOfWork unitOfWork, NumberSeriesService
 		}
 
 		PharmacyProfile profile = await unitOfWork.Context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
-		DateOnly today = DateOnly.FromDateTime(DateTime.Today);
+		DateOnly today = BusinessClock.Today;
 		if (validUntil.HasValue && validUntil.Value < today)
 		{
 			throw new InvalidOperationException("The validity date of a quotation cannot be in the past.");

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -6,7 +7,7 @@ public sealed class AuditLog : EntityBase
 {
 	public Guid? UserId { get; set; }
 
-	public DateTime ActionAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime ActionAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public string Action { get; set; } = string.Empty;
 

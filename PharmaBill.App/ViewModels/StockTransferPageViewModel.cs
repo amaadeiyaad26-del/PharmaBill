@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -22,7 +23,7 @@ public sealed class StockTransferPageViewModel(IServiceScopeFactory scopeFactory
 
 	private StorageLocation? _destinationLocation;
 
-	private DateTime _transferDate = DateTime.Today;
+	private DateTime _transferDate = BusinessClock.Now.Date;
 
 	private string _medicineFilter = string.Empty;
 

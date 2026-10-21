@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -14,5 +15,5 @@ public sealed class ExpiryWriteOff : EntityBase
 
 	public string Reason { get; set; } = string.Empty;
 
-	public DateTime WrittenOffAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime WrittenOffAtUtc { get; set; } = BusinessClock.UtcNow;
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using PharmaBill.Core;
+using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -27,8 +28,8 @@ public sealed class AddStockTests
 
     private static AddStockInput Input(Guid supplierId, string schedule = "H", string invoice = "INV-1", string batch = "B1", decimal qty = 10m) =>
         new(null, null, "Alprazolam 0.5", "Alprazolam", "Acme", schedule, batch,
-            DateOnly.FromDateTime(DateTime.Today.AddYears(1)), 30m, 20m, qty, 0m, 10m, 12m,
-            supplierId, invoice, DateOnly.FromDateTime(DateTime.Today), "R1", HsnCode: "30049099");
+            BusinessClock.Today.AddYears(1), 30m, 20m, qty, 0m, 10m, 12m,
+            supplierId, invoice, BusinessClock.Today, "R1", HsnCode: "30049099");
 
     [Fact]
     public async Task AddStock_creates_drug_batch_movement_and_audit_in_one_save()
@@ -100,7 +101,7 @@ public sealed class AddStockTests
         var supplier = await Create(database).AddSupplierAsync("Sup", Guid.NewGuid(), UserRole.Owner);
 
         await Assert.ThrowsAnyAsync<Exception>(() => Create(database).AddStockAsync(
-            Input(supplier.Id) with { ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-1)) },
+            Input(supplier.Id) with { ExpiryDate = BusinessClock.Today.AddDays(-1) },
             Guid.NewGuid(), UserRole.Owner));
         await Assert.ThrowsAnyAsync<Exception>(() => Create(database).AddStockAsync(
             Input(supplier.Id, schedule: ""), Guid.NewGuid(), UserRole.Owner));
@@ -113,8 +114,8 @@ public sealed class AddStockTests
         var drug = new Drug { Name = "Old medicine" };
         database.Context.Drugs.Add(drug);
         await database.Context.SaveChangesAsync();
-        var expired = new Batch { DrugId = drug.Id, BatchNo = "E1", ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddDays(-5)), Quantity = 4m };
-        var fresh = new Batch { DrugId = drug.Id, BatchNo = "F1", ExpiryDate = DateOnly.FromDateTime(DateTime.Today.AddYears(1)), Quantity = 6m };
+        var expired = new Batch { DrugId = drug.Id, BatchNo = "E1", ExpiryDate = BusinessClock.Today.AddDays(-5), Quantity = 4m };
+        var fresh = new Batch { DrugId = drug.Id, BatchNo = "F1", ExpiryDate = BusinessClock.Today.AddYears(1), Quantity = 6m };
         database.Context.Batches.AddRange(expired, fresh);
         database.Context.StockMovements.AddRange(
             new StockMovement { BatchId = expired.Id, DrugId = drug.Id, QuantityChange = 4m, MovementType = "Purchase" },

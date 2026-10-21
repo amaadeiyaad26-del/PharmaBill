@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -470,12 +471,12 @@ public sealed class DrugRecordsPageViewModel : SectionPageViewModel, ILoadablePa
 		PeriodOptions = Enum.GetValues<DrugRecordsPeriod>();
 		RecordTypeOptions = new _003C_003Ez__ReadOnlyArray<string>(new string[3] { "Both", "Sale", "Purchase" });
 		MonthOptions = Enumerable.Range(1, 12).ToArray();
-		YearOptions = Enumerable.Range(DateTime.Now.Year - 10, 11).Reverse().ToArray();
-		SelectedYear = DateTime.Now.Year;
-		SelectedMonth = DateTime.Now.Month;
+		YearOptions = Enumerable.Range(BusinessClock.Now.Year - 10, 11).Reverse().ToArray();
+		SelectedYear = BusinessClock.Now.Year;
+		SelectedMonth = BusinessClock.Now.Month;
 		Period = DrugRecordsPeriod.ThisMonth;
-		CustomStartDate = DateTime.Today;
-		CustomEndDate = DateTime.Today;
+		CustomStartDate = BusinessClock.Now.Date;
+		CustomEndDate = BusinessClock.Now.Date;
 	}
 
 	private void SetPeriod(string value)
@@ -540,7 +541,7 @@ public sealed class DrugRecordsPageViewModel : SectionPageViewModel, ILoadablePa
 		}
 		try
 		{
-			(DateTime, DateTime) range = DrugRecordsPeriodRange.GetRange(Period, DateTime.Now, SelectedMonth, SelectedYear, CustomStartDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(CustomStartDate.Value)) : ((DateOnly?)null), CustomEndDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(CustomEndDate.Value)) : ((DateOnly?)null));
+			(DateTime, DateTime) range = DrugRecordsPeriodRange.GetRange(Period, BusinessClock.Now, SelectedMonth, SelectedYear, CustomStartDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(CustomStartDate.Value)) : ((DateOnly?)null), CustomEndDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(CustomEndDate.Value)) : ((DateOnly?)null));
 			DrugRecordsReport drugRecordsReport = await _recordsService.SearchAsync(new DrugRecordsQuery(array, range.Item1, range.Item2, RecordType), _currentSession.User.Id);
 			Records.Clear();
 			foreach (DrugRecordsRow row in drugRecordsReport.Rows)
@@ -554,7 +555,7 @@ public sealed class DrugRecordsPageViewModel : SectionPageViewModel, ILoadablePa
 			CurrentStock = drugRecordsReport.Summary.CurrentStock;
 			UniquePatients = drugRecordsReport.Summary.UniquePatients;
 			StockMismatch = !drugRecordsReport.Summary.ClosingMatchesCurrentStock;
-			StatusMessage = $"{drugRecordsReport.Rows.Count} record(s) from {drugRecordsReport.StartUtc.ToLocalTime():d} through {drugRecordsReport.EndUtc.ToLocalTime().AddDays(-1.0):d}.";
+			StatusMessage = $"{drugRecordsReport.Rows.Count} record(s) from {drugRecordsReport.StartUtc.ToBusinessLocal():d} through {drugRecordsReport.EndUtc.ToBusinessLocal().AddDays(-1.0):d}.";
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
@@ -702,7 +703,7 @@ public sealed class DrugRecordsPageViewModel : SectionPageViewModel, ILoadablePa
 			};
 			IEnumerable<IReadOnlyList<string>> second = ((IEnumerable<DrugRecordsRow>)Records).Select((Func<DrugRecordsRow, IReadOnlyList<string>>)((DrugRecordsRow row) => new _003C_003Ez__ReadOnlyArray<string>(new string[11]
 			{
-				row.AtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
+				row.AtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
 				row.RecordType,
 				row.DocumentNo,
 				row.PatientName,

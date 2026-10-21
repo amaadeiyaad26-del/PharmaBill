@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -83,7 +84,7 @@ public sealed class ShortageIndentService(PharmaBillDbContext context)
 		}
 		List<string> list = new List<string>
 		{
-			$"Purchase indent — {DateTime.Now:dd-MMM-yyyy HH:mm}",
+			$"Purchase indent — {BusinessClock.Now:dd-MMM-yyyy HH:mm}",
 			"Medicine | On hand | Reorder | Target | Order qty | Supplier"
 		};
 		foreach (PurchaseIndentItem item in items)

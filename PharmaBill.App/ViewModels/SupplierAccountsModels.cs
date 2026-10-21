@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Accounting;
@@ -25,7 +26,7 @@ public sealed class SupplierLedgerDisplayRow
 
 	public string DateText => EntryAtUtc == DateTime.MinValue
 		? "Opening"
-		: EntryAtUtc.ToLocalTime().ToString("dd-MMM-yyyy HH:mm");
+		: EntryAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm");
 
 	public string DebitText => Debit > 0m ? MoneyFormat.Rupees(Debit) : "—";
 

@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -127,7 +128,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 				IEnumerable<string> appliedMigrations = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
 				(Dictionary<string, long>, Dictionary<string, string>) tuple = await ReadIntegritySummaryAsync(databaseSnapshotPath, databaseKey, cancellationToken);
 				List<(string, string)> attachmentFiles = GetAttachmentFiles();
-				BackupManifest manifest = new BackupManifest("PharmaBill encrypted ZIP backup", 1, typeof(EncryptedBackupService).Assembly.GetName().Version?.ToString() ?? "unknown", appliedMigrations.ToArray(), DateTime.UtcNow, new FileInfo(databaseSnapshotPath).Length, tuple.Item1, tuple.Item2, attachmentFiles.Select(((string FullPath, string RelativePath) item) => item.RelativePath).ToArray());
+				BackupManifest manifest = new BackupManifest("PharmaBill encrypted ZIP backup", 1, typeof(EncryptedBackupService).Assembly.GetName().Version?.ToString() ?? "unknown", appliedMigrations.ToArray(), BusinessClock.UtcNow, new FileInfo(databaseSnapshotPath).Length, tuple.Item1, tuple.Item2, attachmentFiles.Select(((string FullPath, string RelativePath) item) => item.RelativePath).ToArray());
 				await CreateZipAsync(archivePath, databaseSnapshotPath, databaseKey, manifest, attachmentFiles, cancellationToken);
 				await EncryptArchiveAsync(archivePath, destinationPath, password, cancellationToken);
 				return manifest;
@@ -183,7 +184,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 			{
 				throw new IOException("There is not enough free space to restore this backup safely.");
 			}
-			string safetyBackup = Path.Combine(storage.RootDirectory, $"safety-before-restore-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pbbak");
+			string safetyBackup = Path.Combine(storage.RootDirectory, $"safety-before-restore-{BusinessClock.UtcNow:yyyyMMdd-HHmmss}.pbbak");
 			await CreateBackupAsync(safetyBackup, password, cancellationToken);
 			await ReplaceApplicationDataAsync(databasePath, stagedDirectory, restoredKey, cancellationToken);
 			return new BackupRestoreResult(safetyBackup, manifest);

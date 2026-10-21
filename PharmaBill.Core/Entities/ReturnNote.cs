@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -10,7 +11,7 @@ public sealed class ReturnNote : EntityBase
 
 	public Guid SourceId { get; set; }
 
-	public DateTime ReturnAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime ReturnAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public decimal TotalAmount { get; set; }
 

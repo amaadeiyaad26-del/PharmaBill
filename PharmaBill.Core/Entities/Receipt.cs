@@ -1,3 +1,4 @@
+using PharmaBill.Core;
 using System;
 
 namespace PharmaBill.Core.Entities;
@@ -12,7 +13,7 @@ public sealed class Receipt : EntityBase
 
 	public string ReceiptNo { get; set; } = string.Empty;
 
-	public DateTime ReceiptAtUtc { get; set; } = DateTime.UtcNow;
+	public DateTime ReceiptAtUtc { get; set; } = BusinessClock.UtcNow;
 
 	public decimal Amount { get; set; }
 
