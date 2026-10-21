@@ -1,3 +1,5 @@
+using System;
+
 namespace PharmaBill.Data.Services;
 
-public sealed record PeerBranchStockHint(string BranchCode, string BranchName, string MedicineName, string? CompositionKey, decimal Quantity);
+public sealed record PeerBranchStockHint(string BranchCode, string BranchName, string MedicineName, string? CompositionKey, decimal Quantity, DateTime GeneratedAtUtc);

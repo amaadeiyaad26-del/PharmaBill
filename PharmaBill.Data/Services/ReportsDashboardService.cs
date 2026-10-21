@@ -824,22 +824,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			Format(invoice.TotalAmount),
 			currentCode
 		}))).ToList();
-		if (branchScope == ReportBranchScope.ConsolidatedNetwork)
-		{
-			foreach (BranchSalesSummaryDocument item in branchService.LoadPeerSalesSummaries())
-			{
-				list.Add(new _003C_003Ez__ReadOnlyArray<string>(new string[7]
-				{
-					item.ToDate?.ToString("yyyy-MM-dd") ?? item.GeneratedAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd"),
-					item.BranchCode + " network",
-					item.BranchName,
-					"—",
-					"—",
-					Format(item.SalesTotal),
-					item.BranchCode
-				}));
-			}
-		}
+		// Other branches publish only sales summaries, never purchases, so a purchase report has no network rows.
 		return new ReportTable((branchScope == ReportBranchScope.ConsolidatedNetwork) ? "Purchases / network" : "Purchases", new _003C_003Ez__ReadOnlyArray<string>(new string[7] { "Date", "Invoice", "Supplier", "Subtotal", "GST", "Total", "Branch" }), list);
 	}
 

@@ -285,10 +285,21 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 		return list;
 	}
 
+	// Another branch's stock figure is only offered at the counter while it is recent; an old figure could
+	// make a pharmacist promise a customer stock that has since been sold.
+	public static readonly TimeSpan PeerStockFreshFor = TimeSpan.FromHours(24);
+
+	public static bool IsFresh(DateTime generatedAtUtc, DateTime utcNow)
+	{
+		TimeSpan age = utcNow - generatedAtUtc;
+		return age >= TimeSpan.FromMinutes(-10) && age <= PeerStockFreshFor;
+	}
+
 	public IReadOnlyList<PeerBranchStockHint> FindPeerAvailability(string? medicineName, string? compositionKey, Guid? drugId = null)
 	{
 		List<PeerBranchStockHint> list = new List<PeerBranchStockHint>();
-		foreach (BranchStockIndexDocument item in LoadPeerStockIndexes())
+		DateTime utcNow = BusinessClock.UtcNow;
+		foreach (BranchStockIndexDocument item in LoadPeerStockIndexes().Where((BranchStockIndexDocument document) => IsFresh(document.GeneratedAtUtc, utcNow)))
 		{
 			foreach (BranchStockIndexItem item2 in item.Items.Where((BranchStockIndexItem entry) => entry.Quantity > 0m))
 			{
@@ -297,7 +308,7 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 				bool flag2 = !string.IsNullOrWhiteSpace(medicineName) && item2.MedicineName.Contains(medicineName.Trim(), StringComparison.OrdinalIgnoreCase);
 				if (num || flag || flag2)
 				{
-					list.Add(new PeerBranchStockHint(item.BranchCode, item.BranchName, item2.MedicineName, item2.CompositionKey, item2.Quantity));
+					list.Add(new PeerBranchStockHint(item.BranchCode, item.BranchName, item2.MedicineName, item2.CompositionKey, item2.Quantity, item.GeneratedAtUtc));
 				}
 			}
 		}
@@ -310,7 +321,7 @@ public sealed class BranchService(IUnitOfWork unitOfWork, BranchSettingsStore se
 		{
 			return string.Empty;
 		}
-		return string.Join(" · ", hints.Select((PeerBranchStockHint hint) => $"{hint.BranchName} has {hint.Quantity:0.##} in stock"));
+		return string.Join(" · ", hints.Select((PeerBranchStockHint hint) => $"{hint.BranchName} had {hint.Quantity:0.##} in stock at {hint.GeneratedAtUtc.ToBusinessLocal():h:mm tt, d MMM}"));
 	}
 
 	public static string CloudBranchFolderRelativePath(string branchCode)
