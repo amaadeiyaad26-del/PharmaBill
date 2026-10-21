@@ -4,8 +4,8 @@
     <EditionConstant>STORE_EDITION</EditionConstant>
     <Product>Pharma Remit</Product>
     <AssemblyTitle>Pharma Remit</AssemblyTitle>
-    <Version>1.0.7</Version>
-    <AssemblyVersion>1.0.7.0</AssemblyVersion>
-    <FileVersion>1.0.7.0</FileVersion>
+    <Version>1.0.10</Version>
+    <AssemblyVersion>1.0.10.0</AssemblyVersion>
+    <FileVersion>1.0.10.0</FileVersion>
   </PropertyGroup>
 </Project>

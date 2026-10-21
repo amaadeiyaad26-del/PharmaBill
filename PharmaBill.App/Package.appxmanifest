@@ -11,7 +11,7 @@
   <Identity
     Name="S.A.E.R.PharmaBill"
     Publisher="CN=98F7DD11-200C-4195-8EC3-8E273AD8AF49"
-    Version="1.0.7.0"
+    Version="1.0.10.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
