@@ -152,14 +152,10 @@ public sealed class DbInitializer(
 
 	private void EnsureDatabaseDirectory()
 	{
-		string? directory = Path.GetDirectoryName(storageOptions.DatabasePath);
-		if (!string.IsNullOrWhiteSpace(directory))
-		{
-			Directory.CreateDirectory(directory);
-		}
-
 		Directory.CreateDirectory(storageOptions.DataDirectory);
 		Directory.CreateDirectory(storageOptions.BackupsPath);
+		// Active-store path may differ from data\pharmabill.db; seed/copy before SQLCipher opens it.
+		AppDataPaths.EnsureSeedDatabaseIfMissing(storageOptions.DatabasePath);
 	}
 
 	private async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken)

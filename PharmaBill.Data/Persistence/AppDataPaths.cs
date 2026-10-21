@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace PharmaBill.Data.Persistence;
@@ -59,6 +60,9 @@ public static class AppDataPaths
 		MigrateIfNeeded(Path.Combine(RootDirectory, DatabaseFileName + "-wal"), DatabasePath + "-wal");
 		MigrateIfNeeded(Path.Combine(RootDirectory, DatabaseFileName + "-shm"), DatabasePath + "-shm");
 
+		// First-run: copy packaged seed template (if present) before SQLCipher/EF open the path.
+		EnsureSeedDatabaseIfMissing(DatabasePath);
+
 		// Move legacy root logs folder files into data\logs when present.
 		try
 		{
@@ -78,6 +82,68 @@ public static class AppDataPaths
 		catch
 		{
 		}
+	}
+
+	/// <summary>
+	/// Ensures the database directory exists and, when the destination file is missing, copies a packaged
+	/// seed template from the install layout (Assets\Seed\pharmabill.db). Removes zero-byte stubs that
+	/// would otherwise cause SQLite Error 26 (file is not a database) on first open.
+	/// </summary>
+	public static void EnsureSeedDatabaseIfMissing(string databasePath)
+	{
+		if (string.IsNullOrWhiteSpace(databasePath))
+		{
+			return;
+		}
+
+		string? directory = Path.GetDirectoryName(databasePath);
+		if (!string.IsNullOrWhiteSpace(directory))
+		{
+			Directory.CreateDirectory(directory);
+		}
+
+		try
+		{
+			if (File.Exists(databasePath) && new FileInfo(databasePath).Length == 0)
+			{
+				File.Delete(databasePath);
+			}
+		}
+		catch
+		{
+			// Best-effort cleanup of corrupt stubs only.
+		}
+
+		if (File.Exists(databasePath))
+		{
+			return;
+		}
+
+		foreach (string seedPath in GetPackagedSeedCandidates())
+		{
+			if (!File.Exists(seedPath))
+			{
+				continue;
+			}
+
+			try
+			{
+				File.Copy(seedPath, databasePath, overwrite: false);
+				return;
+			}
+			catch
+			{
+				// Try the next candidate; EF migrations create a fresh encrypted DB if none copy.
+			}
+		}
+	}
+
+	private static IEnumerable<string> GetPackagedSeedCandidates()
+	{
+		string baseDir = AppContext.BaseDirectory;
+		yield return Path.Combine(baseDir, "Assets", "Seed", DatabaseFileName);
+		yield return Path.Combine(baseDir, "Seed", DatabaseFileName);
+		yield return Path.Combine(baseDir, "pharmabill.seed.db");
 	}
 
 	private static void MigrateIfNeeded(string legacyPath, string? targetPath)

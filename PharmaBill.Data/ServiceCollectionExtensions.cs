@@ -24,6 +24,8 @@ public static class ServiceCollectionExtensions
 		string text = AppDataPaths.RootDirectory;
 		Guid value = LoadOrCreateDeviceId(Path.Combine(text, "device.id"));
 		ActiveStoreContext activeStoreContext = new ActiveStoreContext(text);
+		// Before key/connection pools: ensure dirs exist and copy packaged seed when the store DB is missing.
+		AppDataPaths.EnsureSeedDatabaseIfMissing(activeStoreContext.DatabasePath);
 		DatabaseStorageOptions databaseStorageOptions = new DatabaseStorageOptions(text, activeStoreContext);
 		DatabaseEncryptionKeyProvider databaseEncryptionKeyProvider = new DatabaseEncryptionKeyProvider(databaseStorageOptions.KeyPath);
 		databaseEncryptionKeyProvider.GetOrCreateKey();
