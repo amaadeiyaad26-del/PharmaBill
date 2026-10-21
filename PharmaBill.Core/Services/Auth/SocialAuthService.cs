@@ -26,7 +26,7 @@ public sealed class SocialAuthService(ISocialOAuthSettings settings)
 		GoogleOAuthClientCredentials googleOAuthClientCredentials = await settings.ResolveGoogleAsync(cancellationToken);
 		if (string.IsNullOrWhiteSpace(googleOAuthClientCredentials.ClientId) || string.IsNullOrWhiteSpace(googleOAuthClientCredentials.ClientSecret))
 		{
-			throw new InvalidOperationException("Google Sign-In is not configured. Use Configure Keys or set PHARMABILL_GOOGLE_CLIENT_ID and PHARMABILL_GOOGLE_CLIENT_SECRET.");
+			throw new InvalidOperationException("Google Sign-In is not configured on this PC. Set PHARMABILL_GOOGLE_CLIENT_ID and PHARMABILL_GOOGLE_CLIENT_SECRET.");
 		}
 		Directory.CreateDirectory(tokenStoreDirectory);
 		UserCredential userCredential = await GoogleWebAuthorizationBroker.AuthorizeAsync(new ClientSecrets

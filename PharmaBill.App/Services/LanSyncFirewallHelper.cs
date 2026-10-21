@@ -69,7 +69,7 @@ public static class LanSyncFirewallHelper
 		}
 		catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
 		{
-			return new FirewallCheckResult(RulePresent: false, "Firewall change cancelled", "UAC elevation was declined. LAN sync will fall back to Google Drive / folder sync when available.");
+			return new FirewallCheckResult(RulePresent: false, "Firewall change cancelled", "UAC elevation was declined. LAN sync will fall back to folder sync when one is set up.");
 		}
 		catch (Exception ex2)
 		{
@@ -85,7 +85,7 @@ public static class LanSyncFirewallHelper
 				Detail = "Android can reach /api/sync/ping. Cloud Drive remains the automatic fallback if LAN is blocked."
 			};
 		}
-		return new FirewallCheckResult(RulePresent: false, "Rule may not have been created", "Elevation finished but the rule was not detected. Cloud sync fallback stays available when Google Drive is connected.");
+		return new FirewallCheckResult(RulePresent: false, "Rule may not have been created", "Elevation finished but the rule was not detected. Folder sync stays available as a fallback.");
 	}
 
 	private static string? FindHelperScript()

@@ -210,9 +210,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	private AsyncRelayCommand? cloudSyncNowCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? configureCloudOAuthKeysCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? connectGoogleDriveCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -1624,10 +1621,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IRelayCommand ConfigureCloudOAuthKeysCommand => configureCloudOAuthKeysCommand ?? (configureCloudOAuthKeysCommand = new RelayCommand(ConfigureCloudOAuthKeys));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ConnectGoogleDriveCommand => connectGoogleDriveCommand ?? (connectGoogleDriveCommand = new AsyncRelayCommand(ConnectGoogleDriveAsync));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -1941,32 +1934,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
-	private void ConfigureCloudOAuthKeys()
-	{
-		try
-		{
-			CloudKeysWindow cloudKeysWindow = new CloudKeysWindow(_oauthClients)
-			{
-				Owner = Application.Current?.MainWindow
-			};
-			if (cloudKeysWindow.ShowDialog() == true || cloudKeysWindow.KeysApplied)
-			{
-				if (IsConfigWarning(GoogleDriveWarning))
-				{
-					GoogleDriveWarning = string.Empty;
-				}
-				ErrorMessage = string.Empty;
-				PackageStatus = "Cloud OAuth keys saved. You can Link Google Drive now.";
-				_confirmation.Notify("OAuth keys saved", PackageStatus);
-			}
-		}
-		catch (Exception exception)
-		{
-			string message = (ErrorMessage = CloudOAuthClientStore.ToUserFriendlyMessage(exception));
-			_confirmation.NotifyError("Could not open key settings", message);
-		}
-	}
-
 	private static bool IsConfigWarning(string? warning)
 	{
 		if (!string.IsNullOrWhiteSpace(warning))
@@ -2003,10 +1970,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		{
 			string message = (GoogleDriveWarning = (ErrorMessage = CloudOAuthClientStore.ToUserFriendlyMessage(ex)));
 			_confirmation.NotifyError("Could not link Google Account", message);
-			if (ex is CloudOAuthNotConfiguredException || ex.InnerException is CloudOAuthNotConfiguredException)
-			{
-				ConfigureCloudOAuthKeys();
-			}
 		}
 		finally
 		{

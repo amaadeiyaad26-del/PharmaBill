@@ -105,6 +105,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<BackupSettingsStore>();
 		services.AddSingleton<UsbBackupSettingsStore>();
 		services.AddSingleton<UsbBackupService>();
+		services.AddSingleton<FolderBackupService>();
 		services.AddSingleton<DataRetentionSettingsStore>();
 		services.AddScoped<EncryptedBackupService>();
 		services.AddScoped<DataRetentionArchiveService>();

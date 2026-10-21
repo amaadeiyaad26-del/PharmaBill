@@ -661,6 +661,33 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 				await update.ExecuteNonQueryAsync(cancellationToken);
 			}
 		}
+		// A bill keeps the absolute path of its prescription scan; on another PC or data folder it must point
+		// at the restored copy, or the bill shows a missing prescription.
+		await using (SqliteCommand query = connection.CreateCommand())
+		{
+			query.Transaction = (SqliteTransaction)transaction;
+			query.CommandText = "SELECT Id, PrescriptionFilePath FROM Sales WHERE PrescriptionFilePath IS NOT NULL AND PrescriptionFilePath <> '';";
+			List<(string Id, string Path)> records = new List<(string, string)>();
+			await using (SqliteDataReader reader = await query.ExecuteReaderAsync(cancellationToken))
+			{
+				while (await reader.ReadAsync(cancellationToken))
+				{
+					if (knownFiles.TryGetValue(Path.GetFileName(reader.GetString(1)), out var value3))
+					{
+						records.Add((reader.GetString(0), value3));
+					}
+				}
+			}
+			foreach (var item3 in records)
+			{
+				await using SqliteCommand update = connection.CreateCommand();
+				update.Transaction = (SqliteTransaction)transaction;
+				update.CommandText = "UPDATE Sales SET PrescriptionFilePath = $path WHERE Id = $id;";
+				update.Parameters.AddWithValue("$path", item3.Path);
+				update.Parameters.AddWithValue("$id", item3.Id);
+				await update.ExecuteNonQueryAsync(cancellationToken);
+			}
+		}
 		await transaction.CommitAsync(cancellationToken);
 	}
 

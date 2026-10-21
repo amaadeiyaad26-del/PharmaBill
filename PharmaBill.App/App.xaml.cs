@@ -134,7 +134,6 @@ public partial class App : Application
 				services.AddTransient<AuthenticationWindow>();
 				services.AddTransient<CatalogImportWindow>();
 				services.AddTransient<DiagnosticsWindow>();
-				services.AddTransient<CloudKeysWindow>();
 				services.AddSingleton<SocialLoginCoordinator>();
 				services.AddSingleton<LoginPreferenceStore>();
 				services.AddSingleton<ActiveBillingDeskModeStore>();

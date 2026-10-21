@@ -3,8 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +51,7 @@ public sealed class UsbBackupService(IServiceScopeFactory scopeFactory, UsbBacku
 		{
 			throw new InvalidOperationException("The selected USB drive is not ready. Re-insert it and click Refresh Drives.");
 		}
+		string password = FolderBackupService.RequireSavedPassword(backupSettings.Load());
 		EnsureWritable(root);
 		string databasePath = storage.DatabasePath;
 		long num = (File.Exists(databasePath) ? Math.Max(new FileInfo(databasePath).Length * 2, 52428800L) : 104857600);
@@ -64,7 +63,6 @@ public sealed class UsbBackupService(IServiceScopeFactory scopeFactory, UsbBacku
 		Directory.CreateDirectory(text);
 		string path = $"PharmaBill-{BusinessClock.Now:yyyyMMdd-HHmmss}.pbbak";
 		string destination = Path.Combine(text, path);
-		string password = ResolveBackupPassword();
 		using (IServiceScope scope = scopeFactory.CreateScope())
 		{
 			await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().CreateBackupAsync(destination, password, cancellationToken);
@@ -107,15 +105,5 @@ public sealed class UsbBackupService(IServiceScopeFactory scopeFactory, UsbBacku
 			{
 			}
 		}
-	}
-
-	private string ResolveBackupPassword()
-	{
-		string password = backupSettings.Load().Password;
-		if (!string.IsNullOrWhiteSpace(password) && password.Length >= 12)
-		{
-			return password;
-		}
-		return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("PharmaBill.Drive." + storage.RootDirectory)));
 	}
 }

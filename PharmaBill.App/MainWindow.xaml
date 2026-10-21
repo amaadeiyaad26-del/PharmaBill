@@ -685,40 +685,58 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:BackupPageViewModel}}" DataType="{x:Type vm:BackupPageViewModel}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="20" MaxWidth="900" HorizontalAlignment="Left">
-            <TextBlock Text="Encrypted backup and move to a new PC" FontSize="24" FontWeight="SemiBold" />
-            <Border Background="#FFFFF4E5" CornerRadius="8" Padding="10" Margin="0,10">
-              <Decorator.Child>
-                <TextBlock Text="Keep your backup password separately. It is required to restore or move the encrypted data to another PC. A backup older than 7 days needs attention." TextWrapping="Wrap" Foreground="#FF93370D" />
-              </Decorator.Child>
+            <TextBlock Text="Backup" FontSize="24" FontWeight="SemiBold" />
+            <Border CornerRadius="10" Padding="16,12" Margin="0,12,0,16" BorderThickness="1">
+              <FrameworkElement.Style>
+                <Style TargetType="{x:Type Border}">
+                  <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+                  <Style.Triggers>
+                    <DataTrigger Value="True" Binding="{Binding IsBackupStale}">
+                      <Setter Property="Background" Value="#FFFFFAEB" />
+                      <Setter Property="BorderBrush" Value="#FFFEC84B" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </FrameworkElement.Style>
+              <StackPanel>
+                <TextBlock Text="Last successful backup" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <TextBlock FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" TextWrapping="Wrap" Text="{Binding LastBackupLabel}" AutomationProperties.Name="Last successful backup" />
+              </StackPanel>
             </Border>
-            <TextBlock FontWeight="Bold" Foreground="#FFB42318" Text="{Binding IsBackupOlderThanSevenDays, StringFormat=Backup older than 7 days (or none): {0}}" />
-            <TextBlock Margin="0,4,0,8" Text="{Binding LastBackupAtUtc, StringFormat=Last successful backup (UTC): {0:yyyy-MM-dd HH:mm}}" />
-            <TextBlock Text="Backup password (at least 10 characters)" />
-            <PasswordBox Padding="7" Margin="0,3,0,9" controls:PasswordBoxBinding.Password="{Binding BackupPassword, Mode=TwoWay}" />
-            <TextBlock Text="Automatic daily backup folder" />
-            <DockPanel Margin="0,3,0,8">
-              <Button DockPanel.Dock="Right" Content="Choose folder" Padding="10,6" Margin="6,0" Command="{Binding ChoosePrimaryFolderCommand}" />
-              <TextBox Padding="7" Text="{Binding Path=PrimaryFolder}" />
+            <TextBlock Text="Backup folder" FontWeight="SemiBold" />
+            <DockPanel Margin="0,4,0,2">
+              <Button DockPanel.Dock="Right" Content="Choose folder" Height="36" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding ChooseFolderCommand}" />
+              <TextBox IsReadOnly="True" Padding="7" VerticalContentAlignment="Center" Text="{Binding BackupFolder, Mode=OneWay}" AutomationProperties.Name="Backup folder" />
             </DockPanel>
-            <TextBlock Text="Optional second copy (USB drive or Google Drive sync folder)" />
-            <DockPanel Margin="0,3,0,8">
-              <Button DockPanel.Dock="Right" Content="Choose folder" Padding="10,6" Margin="6,0" Command="{Binding ChooseSecondaryFolderCommand}" />
-              <TextBox Padding="7" Text="{Binding Path=SecondaryFolder}" />
-            </DockPanel>
-            <CheckBox Content="Enable automatic daily encrypted backup while Pharma Remit is running" Margin="0,4,0,10" IsChecked="{Binding AutomaticEnabled}" />
-            <WrapPanel>
-              <Button Content="Save backup settings" Padding="12,7" Command="{Binding SaveSettingsCommand}" />
-              <Button Content="Back up now" Padding="12,7" Margin="7,0" Command="{Binding CreateBackupCommand}" />
-              <Button Content="Restore backup" Padding="12,7" Command="{Binding RestoreBackupCommand}" />
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,14" Text="Any folder works, including a OneDrive, Google Drive or Dropbox folder: the backup file is encrypted, so it is safe there, and their app copies it off this PC automatically." />
+            <TextBlock Text="Backup password" FontWeight="SemiBold" />
+            <WrapPanel Margin="0,4,0,14" Visibility="{Binding HasSavedPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock VerticalAlignment="Center" Text="Saved on this PC." Margin="0,0,10,0" />
+              <Button Content="Change" Height="32" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding ChangePasswordCommand}" />
+              <Button Content="Show" Height="32" Style="{StaticResource SecondaryButton}" ToolTip="Owner only" Command="{Binding ShowPasswordCommand}" Visibility="{Binding CanRevealPassword, Converter={StaticResource BooleanToVisibilityConverter}}" />
+              <TextBox IsReadOnly="True" BorderThickness="0" Background="Transparent" FontFamily="Consolas" FontSize="14" VerticalAlignment="Center" Margin="10,0,0,0" Text="{Binding RevealedPassword, Mode=OneWay}" />
             </WrapPanel>
-            <TextBlock Text="Move to a new PC" FontSize="18" FontWeight="SemiBold" Margin="0,18,0,5" />
-            <TextBlock Text="Export everything creates the same encrypted package, including the database and stored attachments. On the new PC, install Pharma Remit and choose Import on new PC, then enter the backup password." TextWrapping="Wrap" />
-            <WrapPanel Margin="0,8">
-              <Button Content="Export everything" Padding="12,7" Command="{Binding ExportEverythingCommand}" />
-              <Button Content="Import on new PC" Padding="12,7" Margin="7,0" Command="{Binding ImportOnNewPcCommand}" />
+            <StackPanel Margin="0,4,0,14" Visibility="{Binding ShowPasswordEditor, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="At least 10 characters. Write it down and keep it away from the PC: without it nobody can open the backups." />
+              <WrapPanel Margin="0,6,0,0">
+                <PasswordBox Width="220" Padding="7" Margin="0,0,8,0" AutomationProperties.Name="New backup password" controls:PasswordBoxBinding.Password="{Binding NewPassword, Mode=TwoWay}" />
+                <PasswordBox Width="220" Padding="7" Margin="0,0,8,0" AutomationProperties.Name="Confirm backup password" controls:PasswordBoxBinding.Password="{Binding ConfirmPassword, Mode=TwoWay}" />
+                <Button Content="Save password" Height="34" Style="{StaticResource SecondaryButton}" Command="{Binding SavePasswordCommand}" />
+              </WrapPanel>
+            </StackPanel>
+            <WrapPanel Margin="0,0,0,6">
+              <Button Content="Back up now" Height="40" MinWidth="150" Style="{StaticResource PrimaryButton}" Command="{Binding BackUpNowCommand}" />
+              <CheckBox Content="Also back up once a day while Pharma Remit is open" VerticalAlignment="Center" Margin="14,0,0,0" IsChecked="{Binding AutomaticEnabled}" />
             </WrapPanel>
-            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,8" Text="{Binding ErrorMessage}" />
+            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,6" Text="{Binding ErrorMessage}" />
             <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+            <TextBlock Text="Restore" FontSize="18" FontWeight="SemiBold" Margin="0,22,0,4" />
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Opens a backup file and replaces the data on this PC with it. This is also how you move to a new PC: install Pharma Remit there, then restore. Type the password the backup was made with; on this PC the saved one is tried automatically." />
+            <WrapPanel Margin="0,8,0,0">
+              <PasswordBox Width="220" Padding="7" Margin="0,0,8,0" AutomationProperties.Name="Password of the backup to restore" controls:PasswordBoxBinding.Password="{Binding RestorePassword, Mode=TwoWay}" />
+              <Button Content="Restore from a backup file…" Height="34" Style="{StaticResource SecondaryButton}" Command="{Binding RestoreBackupCommand}" />
+            </WrapPanel>
           </StackPanel>
         </ScrollViewer>
       </DataTemplate>
@@ -728,7 +746,7 @@
             <StackPanel DockPanel.Dock="Top">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Offline device sync" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <controls:InfoHelper Title="Sync Station (port 5055)" Margin="10,0,0,0" Body="This PC listens on TCP 5055 for the Android app on the same Wi-Fi. Scan the QR or let mDNS discover _pharmabill-sync._tcp. If Windows Firewall blocks the port, use Allow firewall rule (admin) or the allow-firewall-port5055.ps1 script. When LAN fails, encrypted change logs fall back to Google Drive PharmaBill_Sync." />
+                <controls:InfoHelper Title="Sync Station (port 5055)" Margin="10,0,0,0" Body="This PC listens on TCP 5055 for the Android app on the same Wi-Fi. Scan the QR or let mDNS discover _pharmabill-sync._tcp. If Windows Firewall blocks the port, use Allow firewall rule (admin) or the allow-firewall-port5055.ps1 script. When the Wi-Fi link fails, changes can still move through a shared folder or by USB." />
               </StackPanel>
               <TextBlock Text="Pair the Android app on this Wi-Fi with the QR code below. Signed packages can still move by USB or a folder you choose." Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,3,0,8" />
               <views:SyncView Margin="0,0,0,12" />
@@ -742,153 +760,43 @@
               <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5" Text="{Binding LastExchangeAtUtc, StringFormat=Last device exchange (UTC): {0:yyyy-MM-dd HH:mm}}" />
               <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
               <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding PackageStatus}" />
-              <GroupBox Header="Cloud backup destinations" Margin="0,8,0,16" Padding="10">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="520">
-                  <StackPanel Margin="0,0,0,8">
-                    <TextBlock Text="Link a cloud account to store encrypted backups. Use Sync on Exit / Bill Save on each card for automatic uploads." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
-                    <WrapPanel Margin="0,0,0,10">
-                      <Button Content="⚙ Configure Keys" Height="36" ToolTip="Paste Google Desktop OAuth client ID and secret" Style="{StaticResource SecondaryButton}" Command="{Binding ConfigureCloudOAuthKeysCommand}" />
-                      <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="Required before first Link Account — paste Google Desktop client credentials." />
-                    </WrapPanel>
-                    <UniformGrid Columns="2" Margin="0,0,0,8">
-                      <Border Margin="0,0,6,0" Padding="16" CornerRadius="10" HorizontalAlignment="Stretch" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
-                        <StackPanel>
-                          <DockPanel Margin="0,0,0,8">
-                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="Google Drive" />
-                            <Border DockPanel.Dock="Right" CornerRadius="10" Padding="8,3" VerticalAlignment="Center">
-                              <FrameworkElement.Style>
-                                <Style TargetType="{x:Type Border}">
-                                  <Setter Property="Background" Value="#FFFEE4E2" />
-                                  <Style.Triggers>
-                                    <DataTrigger Value="True" Binding="{Binding GoogleDriveConnected}">
-                                      <Setter Property="Background" Value="#FFD1FAE5" />
-                                    </DataTrigger>
-                                  </Style.Triggers>
-                                </Style>
-                              </FrameworkElement.Style>
-                              <TextBlock FontWeight="SemiBold" FontSize="11">
-                                <FrameworkElement.Style>
-                                  <Style TargetType="{x:Type TextBlock}">
-                                    <Setter Property="Foreground" Value="#FFB42318" />
-                                    <Setter Property="Text" Value="{Binding GoogleDriveConnectionLabel}" />
-                                    <Style.Triggers>
-                                      <DataTrigger Value="True" Binding="{Binding GoogleDriveConnected}">
-                                        <Setter Property="Foreground" Value="#FF067647" />
-                                        <Setter Property="Text" Value="{Binding GoogleDriveEmail, StringFormat=Connected: {0}}" />
-                                      </DataTrigger>
-                                    </Style.Triggers>
-                                  </Style>
-                                </FrameworkElement.Style>
-                              </TextBlock>
-                            </Border>
-                          </DockPanel>
-                          <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" Text="OAuth2 (drive.file). Encrypted backups sync to PharmaBill_Sync/ on your Google Drive." />
-                          <controls:FloatingField Label="Preferred Google email (optional)" Margin="0,0,0,8">
-                            <TextBox Text="{Binding Path=GoogleDriveEmail, UpdateSourceTrigger=PropertyChanged}" />
-                          </controls:FloatingField>
-                          <TextBlock Margin="0,0,0,6" Text="{Binding GoogleDriveSyncFolder, StringFormat=Sync folder: {0}}" />
-                          <Border Margin="0,0,0,10" CornerRadius="8" Padding="10,6" Background="#FFECFDF3" BorderBrush="#FFA7F3D0" BorderThickness="1" Visibility="{Binding ShowGoogleDriveIdleBadge, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock FontWeight="SemiBold" FontSize="12" Foreground="#FF067647" TextWrapping="Wrap" Text="{Binding GoogleDriveIdleBadge}" />
-                          </Border>
-                          <StackPanel Margin="0,0,0,10" Visibility="{Binding IsGoogleDriveUploading, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <DockPanel LastChildFill="True">
-                              <TextBlock DockPanel.Dock="Right" Margin="8,0,0,0" VerticalAlignment="Center" FontFamily="Consolas" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding GoogleDriveBytesLabel}" />
-                              <TextBlock FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" Text="{Binding GoogleDriveUploadStatus}" />
-                            </DockPanel>
-                            <ProgressBar Height="7" Margin="0,8,0,0" Minimum="0" Maximum="100" BorderThickness="0" Background="#FFFEE2E2" Foreground="#FFDC2626" Value="{Binding GoogleDriveUploadPercent}" />
-                          </StackPanel>
-                          <Border Margin="0,0,0,10" CornerRadius="8" Padding="10,8" Background="#FFFFFBEB" BorderBrush="#FFFCD34D" BorderThickness="1" Visibility="{Binding IsGoogleDriveUploadFailed, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <DockPanel LastChildFill="True">
-                              <Button DockPanel.Dock="Right" Margin="10,0,0,0" Padding="12,6" VerticalAlignment="Center" Content="Retry Now" Style="{StaticResource PrimaryButton}" Command="{Binding RetryGoogleDriveUploadCommand}" />
-                              <TextBlock TextWrapping="Wrap" VerticalAlignment="Center" Foreground="#FFB54708" Text="{Binding GoogleDriveWarning}" />
-                            </DockPanel>
-                          </Border>
-                          <WrapPanel>
-                            <Button Content="Link Google Account" Height="36" Margin="0,0,6,4" Command="{Binding ConnectGoogleDriveCommand}">
-                              <FrameworkElement.Style>
-                                <Style TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
-                                  <Setter Property="Visibility" Value="Visible" />
-                                  <Style.Triggers>
-                                    <DataTrigger Value="True" Binding="{Binding GoogleDriveConnected}">
-                                      <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                  </Style.Triggers>
-                                </Style>
-                              </FrameworkElement.Style>
-                            </Button>
-                            <Button Content="Disconnect" Height="36" Margin="0,0,6,4" Command="{Binding DisconnectGoogleDriveCommand}">
-                              <FrameworkElement.Style>
-                                <Style TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}">
-                                  <Setter Property="Visibility" Value="Collapsed" />
-                                  <Style.Triggers>
-                                    <DataTrigger Value="True" Binding="{Binding GoogleDriveConnected}">
-                                      <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                  </Style.Triggers>
-                                </Style>
-                              </FrameworkElement.Style>
-                            </Button>
-                            <Button Content="Test connection" Height="36" Margin="0,0,6,4" Style="{StaticResource SecondaryButton}" Command="{Binding TestGoogleDriveConnectionCommand}" IsEnabled="{Binding GoogleDriveConnected}" />
-                            <Button Content="Upload backup" Height="36" Margin="0,0,6,4" Style="{StaticResource SecondaryButton}" Command="{Binding UploadGoogleDriveBackupCommand}" IsEnabled="{Binding GoogleDriveConnected}" />
-                            <Button Content="Restore" Height="36" Margin="0,0,6,4" Style="{StaticResource SecondaryButton}" Command="{Binding DownloadGoogleDriveBackupCommand}" IsEnabled="{Binding GoogleDriveConnected}" />
-                          </WrapPanel>
-                          <WrapPanel Margin="0,8,0,0">
-                            <CheckBox Content="Auto-backup here" Margin="0,0,12,0" IsChecked="{Binding AutoBackupGoogleDrive}" />
-                            <CheckBox Content="Sync on Exit" Margin="0,0,12,0" IsChecked="{Binding GoogleDriveSyncOnExit}" />
-                            <CheckBox Content="Sync on Bill Save" IsChecked="{Binding GoogleDriveSyncOnBillSave}" />
-                          </WrapPanel>
-                        </StackPanel>
-                      </Border>
-                      <Border Margin="6,0,0,0" Padding="16" CornerRadius="10" HorizontalAlignment="Stretch" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
-                        <StackPanel>
-                          <DockPanel Margin="0,0,0,8">
-                            <TextBlock FontWeight="SemiBold" FontSize="15" Text="USB / Removable Drive Backup" TextWrapping="Wrap" />
-                            <Border DockPanel.Dock="Right" CornerRadius="10" Padding="8,3" VerticalAlignment="Center" Margin="8,0,0,0" Background="#FFD1FAE5">
-                              <TextBlock FontWeight="SemiBold" FontSize="11" Foreground="#FF067647" Text="Encrypted .pbbak" />
-                            </Border>
-                          </DockPanel>
-                          <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" Text="Export an encrypted snapshot to PharmaBill_Backups/ on a USB stick for monthly offline safety." />
-                          <DockPanel Margin="0,0,0,8">
-                            <Button DockPanel.Dock="Right" Width="40" Height="36" Margin="8,0,0,0" ToolTip="Refresh Drives" AutomationProperties.Name="Refresh removable drives" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshRemovableDrivesCommand}">
-                              <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="14" />
-                            </Button>
-                            <ComboBox Height="36" VerticalContentAlignment="Center" DisplayMemberPath="DisplayName" ToolTip="Detected removable USB drives" AutomationProperties.Name="Removable USB drives" ItemsSource="{Binding RemovableDrives}" SelectedItem="{Binding SelectedRemovableDrive}" />
-                          </DockPanel>
-                          <Button Content="Backup to USB" Height="40" Margin="0,0,0,8" AutomationProperties.Name="Backup to USB" Command="{Binding BackupToUsbCommand}">
-                            <FrameworkElement.Style>
-                              <Style TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
-                                <Setter Property="IsEnabled" Value="True" />
-                                <Style.Triggers>
-                                  <DataTrigger Value="True" Binding="{Binding IsUsbBackupBusy}">
-                                    <Setter Property="IsEnabled" Value="False" />
-                                  </DataTrigger>
-                                </Style.Triggers>
-                              </Style>
-                            </FrameworkElement.Style>
-                          </Button>
-                          <TextBlock FontWeight="SemiBold" Text="{Binding LastUsbBackupLabel}" />
-                          <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="{Binding UsbBackupStatus}" />
-                        </StackPanel>
-                      </Border>
-                    </UniformGrid>
-                    <WrapPanel>
-                      <Button Content="Test Cloud Sync Now" Height="40" Style="{StaticResource PrimaryButton}" Command="{Binding TestCloudSyncNowCommand}" />
-                      <TextBlock VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap" MaxWidth="640" Text="{Binding CloudTestStatus}" />
-                    </WrapPanel>
-                  </StackPanel>
-                </ScrollViewer>
-              </GroupBox>
-              <GroupBox Header="Multi-branch network" Margin="0,0,0,8" Padding="10">
+              <GroupBox Header="USB backup" Margin="0,8,0,16" Padding="10">
                 <StackPanel>
-                  <TextBlock Text="Publishes PharmaBill_Sync/Branches/{BranchCode}/snapshot.db.enc plus stock-index.json. Head office can pull peer indexes into a local read-only cache for consolidated reports without overwriting this store's transactions." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
-                  <WrapPanel>
-                    <Button Content="Publish this branch snapshot" Height="36" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}" Command="{Binding PublishBranchSnapshotCommand}" />
-                    <Button Content="Aggregate peer branches (HO)" Height="36" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding AggregatePeerBranchesCommand}" />
-                  </WrapPanel>
-                  <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Text="{Binding BranchNetworkStatus}" />
+                  <TextBlock Text="Folder backups, including to a OneDrive, Google Drive or Dropbox folder, are on the Backup page." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                  <Border Padding="16" CornerRadius="10" HorizontalAlignment="Stretch" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+                    <StackPanel>
+                      <DockPanel Margin="0,0,0,8">
+                        <TextBlock FontWeight="SemiBold" FontSize="15" Text="USB / Removable Drive Backup" TextWrapping="Wrap" />
+                        <Border DockPanel.Dock="Right" CornerRadius="10" Padding="8,3" VerticalAlignment="Center" Margin="8,0,0,0" Background="#FFD1FAE5">
+                          <TextBlock FontWeight="SemiBold" FontSize="11" Foreground="#FF067647" Text="Encrypted .pbbak" />
+                        </Border>
+                      </DockPanel>
+                      <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" Text="Saves an encrypted backup to PharmaBill_Backups on a USB stick, locked with the backup password set on the Backup page." />
+                      <DockPanel Margin="0,0,0,8">
+                        <Button DockPanel.Dock="Right" Width="40" Height="36" Margin="8,0,0,0" ToolTip="Refresh Drives" AutomationProperties.Name="Refresh removable drives" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshRemovableDrivesCommand}">
+                          <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="14" />
+                        </Button>
+                        <ComboBox Height="36" VerticalContentAlignment="Center" DisplayMemberPath="DisplayName" ToolTip="Detected removable USB drives" AutomationProperties.Name="Removable USB drives" ItemsSource="{Binding RemovableDrives}" SelectedItem="{Binding SelectedRemovableDrive}" />
+                      </DockPanel>
+                      <Button Content="Backup to USB" Height="40" Margin="0,0,0,8" AutomationProperties.Name="Backup to USB" Command="{Binding BackupToUsbCommand}">
+                        <FrameworkElement.Style>
+                          <Style TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
+                            <Setter Property="IsEnabled" Value="True" />
+                            <Style.Triggers>
+                              <DataTrigger Value="True" Binding="{Binding IsUsbBackupBusy}">
+                                <Setter Property="IsEnabled" Value="False" />
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </FrameworkElement.Style>
+                      </Button>
+                      <TextBlock FontWeight="SemiBold" Text="{Binding LastUsbBackupLabel}" />
+                      <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="{Binding UsbBackupStatus}" />
+                    </StackPanel>
+                  </Border>
                 </StackPanel>
               </GroupBox>
-              <GroupBox Header="Google Drive / Cloud Folder Sync (local synced folder)" Margin="0,0,0,8" Padding="8">
+              <GroupBox Header="Shared folder sync between this shop's PCs" Margin="0,0,0,8" Padding="8">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -5332,10 +5240,10 @@
           <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="{Binding ShowUsbBackupReminder, Converter={StaticResource BooleanToVisibilityConverter}}">
             <DockPanel>
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Button Content="Backup Now" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0" AutomationProperties.Name="Backup Now USB reminder" Command="{Binding UsbBackupReminderBackupNowCommand}" />
-                <Button Content="Remind Me Tomorrow" Style="{StaticResource SecondaryButton}" Height="32" AutomationProperties.Name="Remind Me Tomorrow USB reminder" Command="{Binding UsbBackupReminderSnoozeCommand}" />
+                <Button Content="Back up now" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0" AutomationProperties.Name="Back up now reminder" Command="{Binding UsbBackupReminderBackupNowCommand}" />
+                <Button Content="Remind Me Tomorrow" Style="{StaticResource SecondaryButton}" Height="32" AutomationProperties.Name="Remind me tomorrow backup reminder" Command="{Binding UsbBackupReminderSnoozeCommand}" />
               </StackPanel>
-              <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold" Text="⚠ Monthly Reminder: No USB backup detected in the last 30 days. Please plug in a USB drive and back up your data." />
+              <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold" Text="{Binding BackupReminderText}" />
             </DockPanel>
           </Border>
         </StackPanel>

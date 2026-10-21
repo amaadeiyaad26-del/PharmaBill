@@ -10,6 +10,8 @@ public sealed class BackupSettingsStore(DatabaseStorageOptions storage)
 {
 	private readonly string _settingsPath = Path.Combine(storage.RootDirectory, "backup-settings.dat");
 
+	public event Action<BackupSettings>? SettingsChanged;
+
 	public BackupSettings Load()
 	{
 		if (!OperatingSystem.IsWindows())
@@ -64,5 +66,6 @@ public sealed class BackupSettingsStore(DatabaseStorageOptions storage)
 				File.Delete(text);
 			}
 		}
+		SettingsChanged?.Invoke(settings);
 	}
 }

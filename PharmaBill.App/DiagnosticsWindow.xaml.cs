@@ -1,6 +1,5 @@
 using System.Windows;
 using PharmaBill.App.ViewModels;
-using PharmaBill.Sync;
 
 namespace PharmaBill.App;
 
@@ -8,12 +7,9 @@ public partial class DiagnosticsWindow : Window
 {
 	private readonly DiagnosticsViewModel _viewModel;
 
-	private readonly CloudOAuthClientStore _oauthClients;
-
-	public DiagnosticsWindow(DiagnosticsViewModel viewModel, CloudOAuthClientStore oauthClients)
+	public DiagnosticsWindow(DiagnosticsViewModel viewModel)
 	{
 		_viewModel = viewModel;
-		_oauthClients = oauthClients;
 		InitializeComponent();
 		DataContext = viewModel;
 		Loaded += OnLoaded;
@@ -22,13 +18,6 @@ public partial class DiagnosticsWindow : Window
 	private async void OnLoaded(object sender, RoutedEventArgs e)
 	{
 		await _viewModel.RefreshCommand.ExecuteAsync(null);
-	}
-
-	private void ConfigureCloudKeys_Click(object sender, RoutedEventArgs e)
-	{
-		CloudKeysWindow cloudKeysWindow = new CloudKeysWindow(_oauthClients);
-		cloudKeysWindow.Owner = this;
-		cloudKeysWindow.ShowDialog();
 	}
 
 	private void OpenKeyGenerator_Click(object sender, RoutedEventArgs e)

@@ -15,70 +15,11 @@ namespace PharmaBill.Sync;
 
 public sealed class CloudBackupOrchestrator(IEnumerable<ICloudStorageService> providers, CloudAutoBackupPreferencesStore preferences, GoogleDriveSyncService googleDrive, BranchNetworkSyncService branchNetwork, BackupSettingsStore backupSettings, DatabaseStorageOptions storage, IServiceScopeFactory scopeFactory, ILogger<CloudBackupOrchestrator> logger)
 {
-	public async Task UploadToSelectedProvidersAsync(bool triggeredByBillSave, CancellationToken cancellationToken = default(CancellationToken), bool forceWhenConnected = false)
+	// Google Drive account backups were replaced by "Back up now" to a chosen folder (FolderBackupService):
+	// a OneDrive, Google Drive or Dropbox folder gets the encrypted file off-site through its own sync app.
+	// Nothing uploads behind the shop's back any more, including for PCs that linked an account earlier.
+	public Task UploadToSelectedProvidersAsync(bool triggeredByBillSave, CancellationToken cancellationToken = default(CancellationToken), bool forceWhenConnected = false)
 	{
-		CloudAutoBackupPreferences prefs = preferences.Load();
-		GoogleDriveSyncSettings googleDriveSyncSettings = await googleDrive.GetSettingsAsync(cancellationToken);
-		bool flag = forceWhenConnected || (triggeredByBillSave ? googleDriveSyncSettings.SyncOnBillSave : googleDriveSyncSettings.SyncOnExit);
-		if (!googleDriveSyncSettings.IsConnected || !flag || (prefs.Destinations != CloudAutoBackupDestination.None && !prefs.IncludesGoogle))
-		{
-			return;
-		}
-		List<ICloudStorageService> targets = providers.Where((ICloudStorageService cloudStorageService) => cloudStorageService.ProviderId == "google-drive").DistinctBy((ICloudStorageService cloudStorageService) => cloudStorageService.ProviderId).ToList();
-		if (targets.Count == 0)
-		{
-			return;
-		}
-		string password = ResolveBackupPassword();
-		string tempBackup = Path.Combine(Path.GetTempPath(), $"PharmaBill-cloud-{Guid.NewGuid():N}.pbbak");
-		try
-		{
-			using (IServiceScope scope = scopeFactory.CreateScope())
-			{
-				await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().CreateBackupAsync(tempBackup, password, cancellationToken);
-			}
-			foreach (ICloudStorageService provider in targets)
-			{
-				try
-				{
-					await provider.UploadBackupAsync(tempBackup, "PharmaBill-cloud-latest.pbbak", cancellationToken);
-				}
-				catch (Exception exception)
-				{
-					logger.LogWarning(exception, "Cloud upload failed for {Provider}", provider.DisplayName);
-				}
-			}
-			try
-			{
-				await branchNetwork.PublishCurrentBranchAsync(cancellationToken);
-			}
-			catch (Exception exception2)
-			{
-				logger.LogWarning(exception2, "Branch snapshot publish failed.");
-			}
-		}
-		finally
-		{
-			try
-			{
-				if (File.Exists(tempBackup))
-				{
-					File.Delete(tempBackup);
-				}
-			}
-			catch
-			{
-			}
-		}
-	}
-
-	private string ResolveBackupPassword()
-	{
-		string password = backupSettings.Load().Password;
-		if (!string.IsNullOrWhiteSpace(password) && password.Length >= 12)
-		{
-			return password;
-		}
-		return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("PharmaBill.Drive." + storage.RootDirectory)));
+		return Task.CompletedTask;
 	}
 }

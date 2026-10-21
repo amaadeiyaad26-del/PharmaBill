@@ -115,6 +115,8 @@ public class MainWindowViewModel : ObservableObject
 
 	private readonly UsbBackupSettingsStore _usbBackupSettings;
 
+	private readonly BackupSettingsStore _backupSettings;
+
 	private readonly ActiveBillingDeskModeStore _activeBillingDeskModeStore;
 
 	private readonly IAppUpdateService _appUpdates;
@@ -178,6 +180,8 @@ public class MainWindowViewModel : ObservableObject
 	private string _folderSyncWarning = string.Empty;
 
 	private bool _showUsbBackupReminder;
+
+	private string _backupReminderText = string.Empty;
 
 	private bool _showUpdateBanner;
 
@@ -868,6 +872,12 @@ public class MainWindowViewModel : ObservableObject
 		}
 	}
 
+	public string BackupReminderText
+	{
+		get => _backupReminderText;
+		private set => SetProperty(ref _backupReminderText, value);
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public bool ShowUsbBackupReminder
@@ -1336,7 +1346,7 @@ public class MainWindowViewModel : ObservableObject
 
 	public event EventHandler? CalculatorRequested;
 
-	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, QuotationsPageViewModel quotationsPage, ToolsPageViewModel toolsPage, BillingDeskState billingDeskState, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
+	public MainWindowViewModel(INavigationService navigationService, ILanguageService languageService, SettingsPageViewModel settingsPage, IServiceScopeFactory scopeFactory, CurrentSession currentSession, CatalogSearchViewModel catalogSearch, StockPageViewModel stockPage, StockTransferPageViewModel stockTransferPage, PurchasePageViewModel purchasePage, WholesaleCustomerPageViewModel wholesaleCustomerPage, WholesaleBillingPageViewModel wholesaleBillingPage, WholesalePricingPageViewModel wholesalePricingPage, WholesaleAccountsPageViewModel wholesaleAccountsPage, WholesaleReconciliationPageViewModel wholesaleReconciliationPage, DunningDashboardPageViewModel dunningDashboardPage, WholesaleReturnsPageViewModel wholesaleReturnsPage, StockInHandPageViewModel stockInHandPage, WholesaleReportsPageViewModel wholesaleReportsPage, ReportsPageViewModel reportsPage, GstReturnsPageViewModel gstReturnsPage, QuotationsPageViewModel quotationsPage, ToolsPageViewModel toolsPage, BillingDeskState billingDeskState, DashboardPageViewModel dashboardPage, WholesaleDashboardPageViewModel wholesaleDashboardPage, BackupPageViewModel backupPage, SyncSettingsPageViewModel syncPage, RetailBillingViewModel retailBillingPage, IFilePickerService filePickerService, TabularExportService tabularExportService, DrugRecordsService drugRecordsService, StatutoryRegisterService statutoryRegisterService, SensitiveAccessService sensitiveAccessService, IConfirmationService confirmationService, SyncFolderExchangeService folderSync, IAccountDialogService accountDialogs, IUserManualDialogService userManualDialogs, IAppUpdateService appUpdates, CatalogueService catalogueService, GoogleDriveSyncService googleDrive, CloudBackupOrchestrator cloudBackup, ZeroConfigSyncCoordinator zeroConfigSync, UsbBackupSettingsStore usbBackupSettings, BackupSettingsStore backupSettings, ActiveBillingDeskModeStore activeBillingDeskModeStore, ILogger<MainWindowViewModel> logger)
 	{
 		_navigationService = navigationService;
 		_languageService = languageService;
@@ -1380,6 +1390,7 @@ public class MainWindowViewModel : ObservableObject
 		_cloudBackup = cloudBackup;
 		_zeroConfigSync = zeroConfigSync;
 		_usbBackupSettings = usbBackupSettings;
+		_backupSettings = backupSettings;
 		_activeBillingDeskModeStore = activeBillingDeskModeStore;
 		_appUpdates = appUpdates;
 		_logger = logger;
@@ -1414,6 +1425,7 @@ public class MainWindowViewModel : ObservableObject
 		_retailBillingPage.BillSaved += OnRetailBillSaved;
 		_purchasePage.PurchasePosted += OnPurchasePosted;
 		_usbBackupSettings.SettingsChanged += OnUsbBackupSettingsChanged;
+		_backupSettings.SettingsChanged += _ => OnUsbBackupSettingsChanged(null!);
 		RefreshUsbBackupReminder();
 	}
 
@@ -1530,12 +1542,24 @@ public class MainWindowViewModel : ObservableObject
 
 	private void RefreshUsbBackupReminder()
 	{
-		ShowUsbBackupReminder = _usbBackupSettings.IsReminderDue(BusinessClock.UtcNow);
+		// Due when the newest backup of either kind - folder or USB - is more than 7 days old, or there is none.
+		DateTime? lastFolderBackup = null;
+		try
+		{
+			lastFolderBackup = _backupSettings.Load().LastBackupAtUtc;
+		}
+		catch (InvalidOperationException)
+		{
+		}
+		UsbBackupSettings usb = _usbBackupSettings.Load();
+		BackupReminderState reminder = BackupReminder.Evaluate(lastFolderBackup, usb.LastUsbBackupUtc, usb.ReminderSnoozeUntilUtc, BusinessClock.UtcNow);
+		BackupReminderText = reminder.Message;
+		ShowUsbBackupReminder = reminder.IsDue;
 	}
 
 	private void UsbBackupReminderBackupNow()
 	{
-		Navigate("Sync");
+		Navigate("Backup");
 		RefreshUsbBackupReminder();
 	}
 
@@ -2593,7 +2617,7 @@ public class MainWindowViewModel : ObservableObject
 		string section = _navigationService.CurrentSectionKey;
 		OnPropertyChanged("CurrentSectionKey");
 		UpdateActiveNavigation();
-		if (section == "Sync")
+		if (section is "Sync" or "Backup")
 		{
 			RefreshUsbBackupReminder();
 		}

@@ -1,15 +1,13 @@
 using PharmaBill.Core;
 using System;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace PharmaBill.Data.Services;
 
-public sealed class AutomaticBackupHostedService(BackupSettingsStore settingsStore, IServiceScopeFactory scopeFactory, ILogger<AutomaticBackupHostedService> logger) : BackgroundService
+public sealed class AutomaticBackupHostedService(BackupSettingsStore settingsStore, FolderBackupService folderBackup, ILogger<AutomaticBackupHostedService> logger) : BackgroundService
 {
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
@@ -44,21 +42,7 @@ public sealed class AutomaticBackupHostedService(BackupSettingsStore settingsSto
 		{
 			return;
 		}
-		Directory.CreateDirectory(settings.PrimaryFolder);
-		string destination = Path.Combine(settings.PrimaryFolder, $"PharmaBill-{dateOnly:yyyyMMdd}.pbbak");
-		using IServiceScope scope = scopeFactory.CreateScope();
-		await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().CreateBackupAsync(destination, settings.Password, cancellationToken);
-		if (!string.IsNullOrWhiteSpace(settings.SecondaryFolder))
-		{
-			Directory.CreateDirectory(settings.SecondaryFolder);
-			await using FileStream source = new FileStream(destination, FileMode.Open, FileAccess.Read, FileShare.Read, 131072, useAsync: true);
-			await using FileStream copy = new FileStream(Path.Combine(settings.SecondaryFolder, Path.GetFileName(destination)), FileMode.Create, FileAccess.Write, FileShare.None, 131072, useAsync: true);
-			await source.CopyToAsync(copy, cancellationToken);
-			await copy.FlushAsync(cancellationToken);
-		}
-		settingsStore.Save(settings with
-		{
-			LastBackupAtUtc = BusinessClock.UtcNow
-		});
+		// Same file as "Back up now": shop name and time, never overwriting an earlier one.
+		await folderBackup.BackUpNowAsync(cancellationToken);
 	}
 }

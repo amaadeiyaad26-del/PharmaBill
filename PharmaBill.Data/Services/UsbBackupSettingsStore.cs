@@ -42,23 +42,4 @@ public sealed class UsbBackupSettingsStore(DatabaseStorageOptions storage)
 		File.Move(text, _path, overwrite: true);
 		SettingsChanged?.Invoke(settings);
 	}
-
-	public bool IsReminderDue(DateTime utcNow)
-	{
-		UsbBackupSettings usbBackupSettings = Load();
-		DateTime? reminderSnoozeUntilUtc = usbBackupSettings.ReminderSnoozeUntilUtc;
-		if (reminderSnoozeUntilUtc.HasValue)
-		{
-			DateTime valueOrDefault = reminderSnoozeUntilUtc.GetValueOrDefault();
-			if (valueOrDefault > utcNow)
-			{
-				return false;
-			}
-		}
-		if (!usbBackupSettings.LastUsbBackupUtc.HasValue)
-		{
-			return true;
-		}
-		return usbBackupSettings.LastUsbBackupUtc.Value < utcNow.AddDays(-30.0);
-	}
 }

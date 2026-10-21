@@ -632,11 +632,11 @@
               </Style>
             </FrameworkElement.Style>
             <StackPanel>
-              <TextBlock Text="Backup &amp; Cloud" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
-              <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" Text="Google Drive encrypted backups, USB export, and Sync on Exit / Bill Save." />
+              <TextBlock Text="Backup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
+              <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" Text="Back up to any folder, including a OneDrive, Google Drive or Dropbox folder, or to a USB stick." />
               <WrapPanel>
                 <Button Content="Open Backup" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" CommandParameter="Backup" Command="{Binding OpenRelatedSettingsSectionCommand}" />
-                <Button Content="Open Sync (Google Drive)" Style="{StaticResource SecondaryButton}" CommandParameter="Sync" Command="{Binding OpenRelatedSettingsSectionCommand}" />
+                <Button Content="USB backup" Style="{StaticResource SecondaryButton}" CommandParameter="Sync" Command="{Binding OpenRelatedSettingsSectionCommand}" />
               </WrapPanel>
             </StackPanel>
           </Border>

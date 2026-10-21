@@ -3701,7 +3701,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			new SettingsSearchEntry("inspector", "Inspector PIN", "Owner-only read-only inspector access PIN", "inspector pin password security owner read-only", "Users"),
 			new SettingsSearchEntry("dataBackup", "Data & Backup", "Retention, archive and local backup policy", "data backup retention archive usb export purge soft-delete encrypted zip", "Data"),
 			new SettingsSearchEntry("sync", "Sync Station", "Local Wi-Fi pairing on port 5055", "sync station port 5055 wifi wi-fi local pairing mdns listener firewall rule android", "Data", "Sync"),
-			new SettingsSearchEntry("backupNav", "Backup & Cloud", "Google Drive, USB export and auto-backup", "backup cloud google drive auto-backup exit usb export retention restore move pc sync on exit", "Data", "Backup"),
+			new SettingsSearchEntry("backupNav", "Backup", "Back up to a folder or USB, and restore", "backup folder onedrive google drive dropbox usb export restore move pc password", "Data", "Backup"),
 			new SettingsSearchEntry("userManual", "User Manual & Guides", "In-app quick guides, PDF manual and email dispatch", "user manual guide quick start tutorial help f1 pdf email shortcuts billing sync reports", "About"),
 			new SettingsSearchEntry("about", "About Pharma Remit", "Version, updates and user manual", "about version update release notes manual support email saer", "About")
 		});

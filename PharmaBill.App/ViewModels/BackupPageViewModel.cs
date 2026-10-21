@@ -1,367 +1,360 @@
 using PharmaBill.Core;
 using System;
-using System.CodeDom.Compiler;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core.Entities;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public class BackupPageViewModel(BackupSettingsStore settingsStore, IServiceScopeFactory scopeFactory, IFilePickerService filePicker, IConfirmationService confirmationService) : ObservableObject, ILoadablePage
+public class BackupPageViewModel : ObservableObject, ILoadablePage
 {
-	private string _primaryFolder = string.Empty;
+	private readonly BackupSettingsStore _settingsStore;
 
-	private string _secondaryFolder = string.Empty;
+	private readonly FolderBackupService _folderBackup;
 
-	private string _backupPassword = string.Empty;
+	private readonly UsbBackupSettingsStore _usbSettings;
+
+	private readonly IFilePickerService _filePicker;
+
+	private readonly IConfirmationService _confirmationService;
+
+	private readonly CurrentSession _session;
+
+	private string _backupFolder = string.Empty;
+
+	private string _newPassword = string.Empty;
+
+	private string _confirmPassword = string.Empty;
+
+	private string _restorePassword = string.Empty;
+
+	private bool _hasSavedPassword;
+
+	private bool _isEditingPassword;
+
+	private string _revealedPassword = string.Empty;
 
 	private bool _automaticEnabled;
 
-	private DateTime? _lastBackupAtUtc;
+	private bool _isBusy;
+
+	private BackupReminderState _reminder = BackupReminder.Evaluate(null, null, null, BusinessClock.UtcNow);
 
 	private string _statusMessage = string.Empty;
 
 	private string _errorMessage = string.Empty;
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? choosePrimaryFolderCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? chooseSecondaryFolderCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? saveSettingsCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? createBackupCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? restoreBackupCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? exportEverythingCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? importOnNewPcCommand;
-
-	public bool IsBackupOlderThanSevenDays
+	public BackupPageViewModel(BackupSettingsStore settingsStore, FolderBackupService folderBackup, UsbBackupSettingsStore usbSettings, IFilePickerService filePicker, IConfirmationService confirmationService, CurrentSession session)
 	{
-		get
-		{
-			if (LastBackupAtUtc.HasValue)
-			{
-				return BusinessClock.UtcNow - LastBackupAtUtc.Value > TimeSpan.FromDays(7);
-			}
-			return true;
-		}
+		_settingsStore = settingsStore;
+		_folderBackup = folderBackup;
+		_usbSettings = usbSettings;
+		_filePicker = filePicker;
+		_confirmationService = confirmationService;
+		_session = session;
+		ChooseFolderCommand = new RelayCommand(ChooseFolder);
+		SavePasswordCommand = new RelayCommand(SavePassword);
+		ChangePasswordCommand = new RelayCommand(() => IsEditingPassword = true);
+		ShowPasswordCommand = new RelayCommand(ShowPassword);
+		BackUpNowCommand = new AsyncRelayCommand(BackUpNowAsync, () => !IsBusy);
+		RestoreBackupCommand = new AsyncRelayCommand(RestoreBackupAsync, () => !IsBusy);
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string PrimaryFolder
+	public string BackupFolder
 	{
-		get
+		get => _backupFolder;
+		private set
 		{
-			return _primaryFolder;
-		}
-		[MemberNotNull("_primaryFolder")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_primaryFolder, value))
+			if (SetProperty(ref _backupFolder, value))
 			{
-				OnPropertyChanging(nameof(PrimaryFolder));
-				_primaryFolder = value;
-				OnPropertyChanged(nameof(PrimaryFolder));
+				OnPropertyChanged(nameof(HasBackupFolder));
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string SecondaryFolder
+	public bool HasBackupFolder => !string.IsNullOrWhiteSpace(BackupFolder);
+
+	public string NewPassword
 	{
-		get
+		get => _newPassword;
+		set => SetProperty(ref _newPassword, value);
+	}
+
+	public string ConfirmPassword
+	{
+		get => _confirmPassword;
+		set => SetProperty(ref _confirmPassword, value);
+	}
+
+	public string RestorePassword
+	{
+		get => _restorePassword;
+		set => SetProperty(ref _restorePassword, value);
+	}
+
+	public bool HasSavedPassword
+	{
+		get => _hasSavedPassword;
+		private set
 		{
-			return _secondaryFolder;
-		}
-		[MemberNotNull("_secondaryFolder")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_secondaryFolder, value))
+			if (SetProperty(ref _hasSavedPassword, value))
 			{
-				OnPropertyChanging(nameof(SecondaryFolder));
-				_secondaryFolder = value;
-				OnPropertyChanged(nameof(SecondaryFolder));
+				OnPropertyChanged(nameof(ShowPasswordEditor));
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string BackupPassword
+	public bool IsEditingPassword
 	{
-		get
+		get => _isEditingPassword;
+		private set
 		{
-			return _backupPassword;
-		}
-		[MemberNotNull("_backupPassword")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_backupPassword, value))
+			if (SetProperty(ref _isEditingPassword, value))
 			{
-				OnPropertyChanging(nameof(BackupPassword));
-				_backupPassword = value;
-				OnPropertyChanged(nameof(BackupPassword));
+				OnPropertyChanged(nameof(ShowPasswordEditor));
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
+	public bool ShowPasswordEditor => !HasSavedPassword || IsEditingPassword;
+
+	public bool CanRevealPassword => _session.User?.Role == UserRole.Owner;
+
+	public string RevealedPassword
+	{
+		get => _revealedPassword;
+		private set => SetProperty(ref _revealedPassword, value);
+	}
+
 	public bool AutomaticEnabled
 	{
-		get
-		{
-			return _automaticEnabled;
-		}
+		get => _automaticEnabled;
 		set
 		{
-			if (!EqualityComparer<bool>.Default.Equals(_automaticEnabled, value))
+			if (SetProperty(ref _automaticEnabled, value))
 			{
-				OnPropertyChanging(nameof(AutomaticEnabled));
-				_automaticEnabled = value;
-				OnPropertyChanged(nameof(AutomaticEnabled));
+				SaveAutomatic(value);
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public DateTime? LastBackupAtUtc
+	public bool IsBusy
 	{
-		get
+		get => _isBusy;
+		private set
 		{
-			return _lastBackupAtUtc;
-		}
-		set
-		{
-			if (!EqualityComparer<DateTime?>.Default.Equals(_lastBackupAtUtc, value))
+			if (SetProperty(ref _isBusy, value))
 			{
-				OnPropertyChanging(nameof(LastBackupAtUtc));
-				_lastBackupAtUtc = value;
-				OnPropertyChanged(nameof(LastBackupAtUtc));
+				BackUpNowCommand.NotifyCanExecuteChanged();
+				RestoreBackupCommand.NotifyCanExecuteChanged();
 			}
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
+	public string LastBackupLabel => _reminder.LastBackupUtc.HasValue
+		? $"{_reminder.LastBackupUtc.Value.ToBusinessLocal():d MMM yyyy, h:mm tt}  ·  {DaysAgo(_reminder.DaysSinceLastBackup ?? 0)}"
+		: "No backup yet";
+
+	public bool IsBackupStale => _reminder.DaysSinceLastBackup is null or > BackupReminder.MaxAgeDays;
+
 	public string StatusMessage
 	{
-		get
-		{
-			return _statusMessage;
-		}
-		[MemberNotNull("_statusMessage")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_statusMessage, value))
-			{
-				OnPropertyChanging(nameof(StatusMessage));
-				_statusMessage = value;
-				OnPropertyChanged(nameof(StatusMessage));
-			}
-		}
+		get => _statusMessage;
+		private set => SetProperty(ref _statusMessage, value);
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
 	public string ErrorMessage
 	{
-		get
-		{
-			return _errorMessage;
-		}
-		[MemberNotNull("_errorMessage")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_errorMessage, value))
-			{
-				OnPropertyChanging(nameof(ErrorMessage));
-				_errorMessage = value;
-				OnPropertyChanged(nameof(ErrorMessage));
-			}
-		}
+		get => _errorMessage;
+		private set => SetProperty(ref _errorMessage, value);
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IRelayCommand ChoosePrimaryFolderCommand => choosePrimaryFolderCommand ?? (choosePrimaryFolderCommand = new RelayCommand(ChoosePrimaryFolder));
+	public IRelayCommand ChooseFolderCommand { get; }
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IRelayCommand ChooseSecondaryFolderCommand => chooseSecondaryFolderCommand ?? (chooseSecondaryFolderCommand = new RelayCommand(ChooseSecondaryFolder));
+	public IRelayCommand SavePasswordCommand { get; }
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IRelayCommand SaveSettingsCommand => saveSettingsCommand ?? (saveSettingsCommand = new RelayCommand(SaveSettings));
+	public IRelayCommand ChangePasswordCommand { get; }
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand CreateBackupCommand => createBackupCommand ?? (createBackupCommand = new AsyncRelayCommand(CreateBackupAsync));
+	public IRelayCommand ShowPasswordCommand { get; }
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand RestoreBackupCommand => restoreBackupCommand ?? (restoreBackupCommand = new AsyncRelayCommand(RestoreBackupAsync));
+	public IAsyncRelayCommand BackUpNowCommand { get; }
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand ExportEverythingCommand => exportEverythingCommand ?? (exportEverythingCommand = new AsyncRelayCommand(ExportEverythingAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand ImportOnNewPcCommand => importOnNewPcCommand ?? (importOnNewPcCommand = new AsyncRelayCommand(ImportOnNewPcAsync));
+	public IAsyncRelayCommand RestoreBackupCommand { get; }
 
 	public Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		BackupSettings backupSettings = settingsStore.Load();
-		PrimaryFolder = backupSettings.PrimaryFolder ?? string.Empty;
-		SecondaryFolder = backupSettings.SecondaryFolder ?? string.Empty;
-		BackupPassword = backupSettings.Password ?? string.Empty;
-		AutomaticEnabled = backupSettings.AutomaticEnabled;
-		LastBackupAtUtc = backupSettings.LastBackupAtUtc;
-		OnPropertyChanged("IsBackupOlderThanSevenDays");
+		try
+		{
+			BackupSettings settings = _settingsStore.Load();
+			BackupFolder = settings.PrimaryFolder ?? string.Empty;
+			HasSavedPassword = !string.IsNullOrWhiteSpace(settings.Password);
+			_automaticEnabled = settings.AutomaticEnabled;
+			OnPropertyChanged(nameof(AutomaticEnabled));
+			ErrorMessage = string.Empty;
+		}
+		catch (InvalidOperationException ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+		IsEditingPassword = false;
+		RevealedPassword = string.Empty;
+		NewPassword = ConfirmPassword = string.Empty;
+		OnPropertyChanged(nameof(CanRevealPassword));
+		RefreshLastBackup();
 		return Task.CompletedTask;
 	}
 
-	private void ChoosePrimaryFolder()
+	private void RefreshLastBackup()
 	{
-		string text = filePicker.PickFolder("Choose the automatic backup folder");
-		if (text != null)
-		{
-			PrimaryFolder = text;
-		}
-	}
-
-	private void ChooseSecondaryFolder()
-	{
-		string text = filePicker.PickFolder("Choose optional second backup location (USB or synced drive)");
-		if (text != null)
-		{
-			SecondaryFolder = text;
-		}
-	}
-
-	private void SaveSettings()
-	{
+		DateTime? folder = null;
 		try
 		{
-			if (AutomaticEnabled && string.IsNullOrWhiteSpace(PrimaryFolder))
-			{
-				throw new InvalidOperationException("Choose a primary backup folder before enabling automatic backup.");
-			}
-			if (AutomaticEnabled)
-			{
-				EncryptedBackupService.ValidatePassword(BackupPassword);
-			}
-			if (!string.IsNullOrWhiteSpace(BackupPassword))
-			{
-				EncryptedBackupService.ValidatePassword(BackupPassword);
-			}
-			BackupSettings backupSettings = settingsStore.Load();
-			settingsStore.Save(new BackupSettings(NullIfEmpty(PrimaryFolder), NullIfEmpty(SecondaryFolder), NullIfEmpty(BackupPassword), AutomaticEnabled, backupSettings.LastBackupAtUtc));
-			StatusMessage = "Backup settings saved. Automatic backup runs daily while Pharma Remit is open.";
-			ErrorMessage = string.Empty;
+			folder = _settingsStore.Load().LastBackupAtUtc;
 		}
-		catch (Exception ex) when ((ex is ArgumentException || ex is InvalidOperationException) ? true : false)
+		catch (InvalidOperationException)
 		{
-			ErrorMessage = ex.Message;
 		}
+		_reminder = BackupReminder.Evaluate(folder, _usbSettings.Load().LastUsbBackupUtc, null, BusinessClock.UtcNow);
+		OnPropertyChanged(nameof(LastBackupLabel));
+		OnPropertyChanged(nameof(IsBackupStale));
 	}
 
-	private async Task CreateBackupAsync()
+	private void ChooseFolder()
 	{
-		_ = 4;
-		try
-		{
-			EncryptedBackupService.ValidatePassword(BackupPassword);
-			string target = filePicker.PickExportDestination("pbbak", $"PharmaBill-backup-{BusinessClock.Now:yyyyMMdd-HHmm}");
-			if (target == null)
-			{
-				return;
-			}
-			using IServiceScope scope = scopeFactory.CreateScope();
-			await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().CreateBackupAsync(target, BackupPassword);
-			BackupSettings settings = settingsStore.Load();
-			if (!string.IsNullOrWhiteSpace(settings.SecondaryFolder))
-			{
-				Directory.CreateDirectory(settings.SecondaryFolder);
-				await using FileStream source = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Read, 131072, useAsync: true);
-				await using FileStream secondCopy = new FileStream(Path.Combine(settings.SecondaryFolder, Path.GetFileName(target)), FileMode.Create, FileAccess.Write, FileShare.None, 131072, useAsync: true);
-				await source.CopyToAsync(secondCopy);
-				await secondCopy.FlushAsync();
-			}
-			LastBackupAtUtc = BusinessClock.UtcNow;
-			settingsStore.Save(settings with
-			{
-				LastBackupAtUtc = LastBackupAtUtc
-			});
-			OnPropertyChanged("IsBackupOlderThanSevenDays");
-			StatusMessage = "Encrypted backup created: " + target;
-			ErrorMessage = string.Empty;
-		}
-		catch (Exception ex)
-		{
-			ErrorMessage = ex.Message;
-		}
-	}
-
-	private async Task RestoreBackupAsync()
-	{
-		string text = filePicker.PickBackupFile();
-		if (text == null || !confirmationService.Confirm("Restore replaces the current database and attachments. A safety backup will be taken first. Pharma Remit must restart after restore. Continue?", "Restore encrypted backup"))
+		string? folder = _filePicker.PickFolder("Choose the folder for Pharma Remit backups");
+		if (folder == null)
 		{
 			return;
 		}
 		try
 		{
-			EncryptedBackupService.ValidatePassword(BackupPassword);
-			using IServiceScope scope = scopeFactory.CreateScope();
-			StatusMessage = "Restore validated. Safety backup: " + (await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().RestoreBackupAsync(text, BackupPassword)).SafetyBackupPath + ". Restarting Pharma Remit.";
+			_settingsStore.Save(_settingsStore.Load() with { PrimaryFolder = folder });
+			BackupFolder = folder;
 			ErrorMessage = string.Empty;
-			await Task.Delay(500);
-			Application.Current.Shutdown();
+			StatusMessage = "Backups will be saved in " + folder;
 		}
-		catch (Exception ex)
+		catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
 		{
 			ErrorMessage = ex.Message;
 		}
 	}
 
-	private async Task ExportEverythingAsync()
+	private void SavePassword()
 	{
-		await CreateBackupAsync();
-	}
-
-	private async Task ImportOnNewPcAsync()
-	{
-		await RestoreBackupAsync();
-	}
-
-	private static string? NullIfEmpty(string value)
-	{
-		if (!string.IsNullOrWhiteSpace(value))
+		try
 		{
-			return value.Trim();
+			EncryptedBackupService.ValidatePassword(NewPassword);
+			if (!string.Equals(NewPassword, ConfirmPassword, StringComparison.Ordinal))
+			{
+				throw new ArgumentException("The two passwords do not match.");
+			}
+			if (!_confirmationService.Confirm("Write this password down and keep it away from the PC.\n\nEvery backup is locked with it. If it is lost, nobody - including Pharma Remit support - can open those backups.\n\nSave this backup password?", "Backup password"))
+			{
+				return;
+			}
+			_settingsStore.Save(_settingsStore.Load() with { Password = NewPassword });
+			HasSavedPassword = true;
+			IsEditingPassword = false;
+			NewPassword = ConfirmPassword = string.Empty;
+			RevealedPassword = string.Empty;
+			ErrorMessage = string.Empty;
+			StatusMessage = "Backup password saved. Backups made from now on use it; earlier backups still need the password they were made with.";
 		}
-		return null;
+		catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+		{
+			ErrorMessage = ex.Message;
+		}
 	}
+
+	private void ShowPassword()
+	{
+		if (!CanRevealPassword)
+		{
+			return;
+		}
+		try
+		{
+			RevealedPassword = string.IsNullOrEmpty(RevealedPassword) ? _settingsStore.Load().Password ?? string.Empty : string.Empty;
+		}
+		catch (InvalidOperationException ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private void SaveAutomatic(bool enabled)
+	{
+		try
+		{
+			_settingsStore.Save(_settingsStore.Load() with { AutomaticEnabled = enabled });
+		}
+		catch (InvalidOperationException ex)
+		{
+			ErrorMessage = ex.Message;
+		}
+	}
+
+	private async Task BackUpNowAsync()
+	{
+		IsBusy = true;
+		StatusMessage = "Backing up…";
+		ErrorMessage = string.Empty;
+		try
+		{
+			string path = await Task.Run(() => _folderBackup.BackUpNowAsync());
+			StatusMessage = "Backed up to " + path;
+		}
+		catch (Exception ex)
+		{
+			StatusMessage = string.Empty;
+			ErrorMessage = "Backup failed: " + ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+			RefreshLastBackup();
+		}
+	}
+
+	private async Task RestoreBackupAsync()
+	{
+		string? path = _filePicker.PickBackupFile();
+		if (path == null || !_confirmationService.Confirm("Restore replaces every bill, stock entry and register record on this PC with the ones in the backup. A safety backup of the current data is taken first. Pharma Remit closes when the restore finishes. Continue?", "Restore backup"))
+		{
+			return;
+		}
+		IsBusy = true;
+		StatusMessage = "Checking the backup…";
+		ErrorMessage = string.Empty;
+		try
+		{
+			BackupRestoreResult result = await _folderBackup.RestoreAsync(path, RestorePassword);
+			RestorePassword = string.Empty;
+			StatusMessage = "Restored. Safety copy of the previous data: " + result.SafetyBackupPath + ". Pharma Remit will now close; open it again.";
+			_confirmationService.Notify("Restore complete", StatusMessage);
+			Application.Current.Shutdown();
+		}
+		catch (Exception ex)
+		{
+			StatusMessage = string.Empty;
+			ErrorMessage = "Restore failed, nothing was changed: " + ex.Message;
+		}
+		finally
+		{
+			IsBusy = false;
+		}
+	}
+
+	private static string DaysAgo(int days) => days switch
+	{
+		0 => "today",
+		1 => "1 day ago",
+		_ => $"{days} days ago"
+	};
 }
