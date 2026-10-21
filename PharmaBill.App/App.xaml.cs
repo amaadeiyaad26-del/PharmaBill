@@ -66,6 +66,14 @@ public partial class App : Application
 			Log.Logger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.File(Path.Combine(_logDirectory, "pharmabill-.log"), LogEventLevel.Verbose, "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}", null, 1073741824L, null, buffered: false, shared: false, null, RollingInterval.Day, rollOnFileSizeLimit: false, 31).CreateLogger();
 			Settings.License = LicenseType.Community;
 
+			// Store edition: records live in a folder the user chose, because Windows deletes the package's own folder
+			// on uninstall. Resolved before anything opens a database; a missing folder stops here, never an empty start.
+			if (AppEdition.UsesChosenDataFolder(AppEdition.Current) && !ResolveStoreDataFolder())
+			{
+				Shutdown(-1);
+				return;
+			}
+
 			// Clock tamper guard + offline trial / annual licence. After expiry keep read-only until renewal key.
 			bool clockOk = await Task.Run(static () => LicenseManager.RecordRunTimestamp()).ConfigureAwait(true);
 			if (!clockOk)
@@ -195,6 +203,10 @@ public partial class App : Application
 			})
 				.Build();
 			await _host.StartAsync();
+			if (AppEdition.UsesChosenDataFolder(AppEdition.Current))
+			{
+				PharmaBill.Data.Persistence.StoreDataLocation.MarkHasDatabase(PharmaBill.Data.Persistence.AppDataPaths.RootDirectory);
+			}
 			RegistrationNotificationService registrationNotifications = _host.Services.GetRequiredService<RegistrationNotificationService>();
 			registrationNotifications.EnsureNetworkHook();
 			Task.Run(async () =>
@@ -245,6 +257,29 @@ public partial class App : Application
 			ShowError("Pharma Remit could not start.", ex.ToString());
 			Shutdown(-1);
 		}
+	}
+
+	/// <summary>Points the data root at the chosen folder, asking for it on first run or when it cannot be found. False to exit.</summary>
+	private static bool ResolveStoreDataFolder()
+	{
+		string localRoot = PharmaBill.Data.Persistence.AppDataPaths.LocalRootDirectory;
+		PharmaBill.Data.Persistence.DataLocationCheck check = PharmaBill.Data.Persistence.StoreDataLocation.Check(localRoot);
+		string? root = check.DataRoot;
+		if (check.Status != PharmaBill.Data.Persistence.DataLocationStatus.Ready)
+		{
+			Log.Warning("Pharmacy data folder: {Status}. {Message}", check.Status, check.Message);
+			DataLocationWindow window = new DataLocationWindow(localRoot, check);
+			if (window.ShowDialog() != true || string.IsNullOrWhiteSpace(window.DataRoot))
+			{
+				return false;
+			}
+
+			root = window.DataRoot;
+		}
+
+		PharmaBill.Data.Persistence.AppDataPaths.UseDataRoot(root!);
+		Log.Information("Pharmacy data folder: {Root}", root);
+		return true;
 	}
 
 	private static T? FindInner<T>(Exception? exception) where T : Exception

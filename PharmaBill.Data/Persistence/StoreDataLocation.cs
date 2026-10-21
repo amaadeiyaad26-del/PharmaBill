@@ -1,0 +1,352 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
+using Microsoft.Data.Sqlite;
+
+namespace PharmaBill.Data.Persistence;
+
+public enum DataLocationStatus
+{
+	/// <summary>No folder chosen yet (first run of the Store edition, or the first run after it was reinstalled).</summary>
+	NotChosen,
+
+	Ready,
+
+	/// <summary>The chosen folder is gone (deleted, renamed, or on a drive that is not connected).</summary>
+	FolderMissing,
+
+	/// <summary>The folder exists but cannot be read, or is not a Pharma Remit data folder.</summary>
+	FolderUnreadable,
+
+	/// <summary>The folder held a database before and no longer does.</summary>
+	DatabaseMissing
+}
+
+public sealed record DataLocationCheck(DataLocationStatus Status, string? DataRoot, string Message);
+
+public enum DataLocationOutcome
+{
+	/// <summary>A new, empty data folder (a brand-new install).</summary>
+	NewEmpty,
+
+	/// <summary>The folder already held this pharmacy's data (for example after a reinstall); it is used as it is.</summary>
+	AttachedExisting,
+
+	/// <summary>Data from the Store package's own folder was copied there, verified, and is now used.</summary>
+	MigratedFromPackage
+}
+
+public sealed record DataLocationResult(string DataRoot, DataLocationOutcome Outcome, int FilesCopied);
+
+/// <summary>
+/// Durable storage for the Store edition. Windows deletes a Store package's app-data folder on uninstall, which
+/// would take the billing history and the Schedule H register with it, so the records live in a folder the user
+/// chooses (by default Documents\Pharma Remit). A full-trust app may write there without any restricted
+/// capability; the choice is remembered in a small pointer file in the package's own folder.
+/// A missing or unreadable folder stops startup: the app never quietly opens on an empty database.
+/// </summary>
+public static class StoreDataLocation
+{
+	public const string PointerFileName = "data-location.json";
+
+	public const string MarkerFileName = "Pharma Remit data.json";
+
+	private const string MovedNoteFileName = "DATA MOVED - see data-location.json.txt";
+
+	private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
+
+	/// <summary>Documents\Pharma Remit (Documents\Pharma Remit Debug for development builds).</summary>
+	public static string DefaultFolder(string? documents = null) => Path.Combine(
+		documents ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+		AppDataPaths.RootFolderName.EndsWith("-Debug", StringComparison.Ordinal) ? "Pharma Remit Debug" : "Pharma Remit");
+
+	/// <summary>
+	/// True when the folder is inside a OneDrive-synced folder (Documents is often redirected there). A live database
+	/// in a syncing folder can be locked mid-write, made online-only, or split into conflicting copies.
+	/// </summary>
+	public static bool IsCloudSynced(string folder, IEnumerable<string?>? syncRoots = null)
+	{
+		IEnumerable<string?> roots = syncRoots ?? new[]
+		{
+			Environment.GetEnvironmentVariable("OneDrive"),
+			Environment.GetEnvironmentVariable("OneDriveConsumer"),
+			Environment.GetEnvironmentVariable("OneDriveCommercial")
+		};
+		return roots.Any(root => !string.IsNullOrWhiteSpace(root) && IsSameOrInside(folder, root));
+	}
+	public static DataLocationCheck Check(string localRoot)
+	{
+		string pointer = Path.Combine(localRoot, PointerFileName);
+		if (!File.Exists(pointer))
+		{
+			return new DataLocationCheck(DataLocationStatus.NotChosen, null, "Choose where to keep your pharmacy data.");
+		}
+
+		string? root;
+		try
+		{
+			root = JsonSerializer.Deserialize<Pointer>(File.ReadAllText(pointer))?.DataRoot;
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+		{
+			return new DataLocationCheck(DataLocationStatus.FolderUnreadable, null, "The saved data location could not be read: " + ex.Message);
+		}
+
+		if (string.IsNullOrWhiteSpace(root))
+		{
+			return new DataLocationCheck(DataLocationStatus.FolderUnreadable, null, "The saved data location is empty.");
+		}
+
+		if (!Directory.Exists(root))
+		{
+			return new DataLocationCheck(DataLocationStatus.FolderMissing, root,
+				"Your pharmacy data folder was not found: " + root + ". If it is on a USB or network drive, connect it; if it was moved, choose its new location.");
+		}
+
+		Marker? marker;
+		try
+		{
+			string markerPath = Path.Combine(root, MarkerFileName);
+			marker = File.Exists(markerPath) ? JsonSerializer.Deserialize<Marker>(File.ReadAllText(markerPath)) : null;
+			_ = Directory.EnumerateFileSystemEntries(root).FirstOrDefault();
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+		{
+			return new DataLocationCheck(DataLocationStatus.FolderUnreadable, root, "Your pharmacy data folder could not be read (" + ex.Message + "): " + root);
+		}
+
+		if (marker == null)
+		{
+			return new DataLocationCheck(DataLocationStatus.FolderUnreadable, root,
+				"The folder " + root + " is not a Pharma Remit data folder (" + MarkerFileName + " is missing).");
+		}
+
+		if (marker.HasDatabase && !ContainsDatabase(root))
+		{
+			return new DataLocationCheck(DataLocationStatus.DatabaseMissing, root,
+				"Your pharmacy database is no longer in " + root + ". Restore the folder from a backup, or choose where it is now.");
+		}
+
+		return new DataLocationCheck(DataLocationStatus.Ready, root, "Using " + root);
+	}
+
+	/// <summary>
+	/// Records <paramref name="chosenFolder"/> as the data folder. If the package's own folder
+	/// (<paramref name="localRoot"/>) already holds data, it is copied there first and verified (every file byte-for-byte,
+	/// every database opened with its key) before the switch; the original is left in place. A folder that already holds
+	/// Pharma Remit data is attached as it is (a reinstall).
+	/// </summary>
+	public static DataLocationResult Choose(string localRoot, string chosenFolder)
+	{
+		string target = Path.GetFullPath(chosenFolder);
+		string package = Path.GetFullPath(localRoot);
+		if (IsSameOrInside(target, package) || IsSameOrInside(package, target))
+		{
+			throw new InvalidOperationException("Choose a folder outside the app's own data folder, such as Documents\\Pharma Remit.");
+		}
+
+		string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+		if (!string.IsNullOrEmpty(appData) && IsSameOrInside(target, Path.Combine(appData, "Packages")))
+		{
+			throw new InvalidOperationException("That folder belongs to an installed app and would be deleted with it. Choose a folder such as Documents\\Pharma Remit.");
+		}
+
+		Directory.CreateDirectory(target);
+		bool targetHasData = ContainsDatabase(target) || File.Exists(Path.Combine(target, MarkerFileName));
+		bool packageHasData = ContainsDatabase(package);
+		if (targetHasData && packageHasData)
+		{
+			throw new InvalidOperationException("That folder already holds Pharma Remit data, and this installation has its own. Choose an empty folder so neither is overwritten.");
+		}
+
+		if (targetHasData)
+		{
+			if (!File.Exists(Path.Combine(target, MarkerFileName)))
+			{
+				WriteMarker(target, hasDatabase: true);
+			}
+
+			WritePointer(package, target);
+			return new DataLocationResult(target, DataLocationOutcome.AttachedExisting, 0);
+		}
+
+		if (!packageHasData)
+		{
+			WriteMarker(target, hasDatabase: false);
+			WritePointer(package, target);
+			return new DataLocationResult(target, DataLocationOutcome.NewEmpty, 0);
+		}
+
+		if (Directory.EnumerateFileSystemEntries(target).Any())
+		{
+			throw new InvalidOperationException("Choose an empty folder to move your existing pharmacy data into.");
+		}
+
+		int copied = CopyAndVerify(package, target);
+		WriteMarker(target, hasDatabase: true);
+		WritePointer(package, target);
+		File.WriteAllText(Path.Combine(package, MovedNoteFileName),
+			"Pharma Remit now keeps this pharmacy's data in:" + Environment.NewLine + target + Environment.NewLine
+			+ "The files here are the copy taken before the move, left untouched." + Environment.NewLine);
+		return new DataLocationResult(target, DataLocationOutcome.MigratedFromPackage, copied);
+	}
+
+	/// <summary>Repoints to a folder that already holds this pharmacy's data (after a drive letter changed or the folder was moved).</summary>
+	public static DataLocationResult Relocate(string localRoot, string existingDataFolder)
+	{
+		string target = Path.GetFullPath(existingDataFolder);
+		if (!Directory.Exists(target) || !(ContainsDatabase(target) || File.Exists(Path.Combine(target, MarkerFileName))))
+		{
+			throw new InvalidOperationException("That folder does not contain Pharma Remit data. Choose the folder that holds your pharmacy's records.");
+		}
+
+		if (!File.Exists(Path.Combine(target, MarkerFileName)))
+		{
+			WriteMarker(target, hasDatabase: true);
+		}
+
+		WritePointer(Path.GetFullPath(localRoot), target);
+		return new DataLocationResult(target, DataLocationOutcome.AttachedExisting, 0);
+	}
+
+	/// <summary>After a successful start: from now on a missing database in this folder is an error, not a fresh start.</summary>
+	public static void MarkHasDatabase(string dataRoot)
+	{
+		string markerPath = Path.Combine(dataRoot, MarkerFileName);
+		if (ContainsDatabase(dataRoot) && File.Exists(markerPath))
+		{
+			Marker? marker = JsonSerializer.Deserialize<Marker>(File.ReadAllText(markerPath));
+			if (marker is { HasDatabase: false })
+			{
+				WriteMarker(dataRoot, hasDatabase: true);
+			}
+		}
+	}
+
+	/// <summary>True when a non-empty pharmabill.db exists in the folder's data\ or a store sub-folder.</summary>
+	public static bool ContainsDatabase(string root)
+	{
+		if (!Directory.Exists(root))
+		{
+			return false;
+		}
+
+		IEnumerable<string> candidates = new[] { Path.Combine(root, "data", AppDataPaths.DatabaseFileName) }
+			.Concat(Directory.EnumerateDirectories(root).Select(store => Path.Combine(store, AppDataPaths.DatabaseFileName)));
+		return candidates.Any(path => File.Exists(path) && new FileInfo(path).Length > 0);
+	}
+
+	private static int CopyAndVerify(string source, string target)
+	{
+		List<string> files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+			.Where(file => !IsLocalOnly(Path.GetRelativePath(source, file)))
+			.ToList();
+		try
+		{
+			SqliteConnection.ClearAllPools();
+			foreach (string file in files)
+			{
+				string destination = Path.Combine(target, Path.GetRelativePath(source, file));
+				Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+				File.Copy(file, destination, overwrite: false);
+			}
+
+			foreach (string file in files)
+			{
+				string destination = Path.Combine(target, Path.GetRelativePath(source, file));
+				if (!File.Exists(destination) || new FileInfo(destination).Length != new FileInfo(file).Length || !Hash(destination).AsSpan().SequenceEqual(Hash(file)))
+				{
+					throw new InvalidOperationException("The copy of " + Path.GetRelativePath(source, file) + " does not match the original.");
+				}
+			}
+
+			VerifyDatabasesOpen(target);
+			return files.Count;
+		}
+		catch (Exception ex)
+		{
+			// The target was empty before: remove only the partial copy. The original is never touched.
+			foreach (string entry in Directory.EnumerateFileSystemEntries(target).ToList())
+			{
+				if (Directory.Exists(entry))
+				{
+					Directory.Delete(entry, recursive: true);
+				}
+				else
+				{
+					File.Delete(entry);
+				}
+			}
+
+			throw new InvalidOperationException("Your data was not moved, and nothing was changed in its current location. " + ex.Message, ex);
+		}
+	}
+
+	/// <summary>Every copied database must open with the copied key before the app switches to it.</summary>
+	private static void VerifyDatabasesOpen(string target)
+	{
+		string keyPath = Path.Combine(target, "data", "database.key");
+		if (!File.Exists(keyPath))
+		{
+			throw new InvalidOperationException("The database key (data\\database.key) was not found in the copy.");
+		}
+
+		string password = Convert.ToHexString(new DatabaseEncryptionKeyProvider(keyPath).GetOrCreateKey());
+		foreach (string database in Directory.EnumerateFiles(target, AppDataPaths.DatabaseFileName, SearchOption.AllDirectories)
+			.Where(path => new FileInfo(path).Length > 0))
+		{
+			DatabaseFileCheck check = DatabaseFileHealth.Inspect(new SqliteConnectionStringBuilder { DataSource = database, Password = password, Pooling = false }.ToString());
+			if (check.State != DatabaseFileState.Readable)
+			{
+				throw new InvalidOperationException("The copied database " + database + " could not be opened: " + check.Detail);
+			}
+		}
+
+		SqliteConnection.ClearAllPools();
+	}
+
+	/// <summary>Stays with this PC, not with the records: the pointer itself, logs, and licence/trial state.</summary>
+	private static bool IsLocalOnly(string relativePath)
+	{
+		string path = relativePath.Replace('/', '\\');
+		return path.Equals(PointerFileName, StringComparison.OrdinalIgnoreCase)
+			|| path.Equals(MovedNoteFileName, StringComparison.OrdinalIgnoreCase)
+			|| path.StartsWith("data\\logs\\", StringComparison.OrdinalIgnoreCase)
+			|| path.StartsWith("logs\\", StringComparison.OrdinalIgnoreCase)
+			|| path.Equals("data\\license.lic", StringComparison.OrdinalIgnoreCase)
+			|| path.Equals("data\\license.state", StringComparison.OrdinalIgnoreCase)
+			|| path.Equals("data\\trial.anchor", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static byte[] Hash(string path)
+	{
+		using FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+		return SHA256.HashData(stream);
+	}
+
+	private static bool IsSameOrInside(string path, string folder)
+	{
+		string a = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)) + "\\";
+		string b = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + "\\";
+		return a.StartsWith(b, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static void WritePointer(string localRoot, string dataRoot)
+	{
+		Directory.CreateDirectory(localRoot);
+		string path = Path.Combine(localRoot, PointerFileName);
+		string temp = path + ".tmp";
+		File.WriteAllText(temp, JsonSerializer.Serialize(new Pointer(dataRoot, DateTime.UtcNow), Json));
+		File.Move(temp, path, overwrite: true);
+	}
+
+	private static void WriteMarker(string dataRoot, bool hasDatabase) =>
+		File.WriteAllText(Path.Combine(dataRoot, MarkerFileName), JsonSerializer.Serialize(new Marker(hasDatabase, Environment.MachineName, DateTime.UtcNow), Json));
+
+	private sealed record Pointer(string DataRoot, DateTime ChosenAtUtc);
+
+	private sealed record Marker(bool HasDatabase, string? Machine, DateTime UpdatedAtUtc);
+}

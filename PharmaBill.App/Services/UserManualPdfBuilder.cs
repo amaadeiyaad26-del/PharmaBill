@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,7 +21,7 @@ public static class UserManualPdfBuilder
 				return item;
 			}
 		}
-		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "docs");
+		string text = Path.Combine(AppDataPaths.RootDirectory, "docs");
 		Directory.CreateDirectory(text);
 		string text2 = Path.Combine(text, "PharmaBill_User_Manual.pdf");
 		Generate(text2);

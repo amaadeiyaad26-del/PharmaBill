@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +15,7 @@ public sealed record WholesaleDraft(Guid? CustomerId, string Notes, DateTime Sav
 /// <summary>Keeps the wholesale invoice in progress in the user's profile, so it survives closing the app.</summary>
 public sealed class WholesaleDraftStore
 {
-	private readonly string _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "wholesale-draft.json");
+	private readonly string _path = Path.Combine(AppDataPaths.RootDirectory, "wholesale-draft.json");
 
 	public void Save(WholesaleDraft draft)
 	{

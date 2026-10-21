@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System;
 using System.CodeDom.Compiler;
@@ -160,7 +161,7 @@ public class LicenceDraftViewModel : ObservableObject
 		case ".jpeg":
 		case ".bmp":
 		{
-			string text2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "licences");
+			string text2 = Path.Combine(AppDataPaths.RootDirectory, "licences");
 			Directory.CreateDirectory(text2);
 			string text3 = Path.Combine(text2, $"{Guid.NewGuid():N}{text}");
 			File.Copy(sourcePath, text3, overwrite: false);

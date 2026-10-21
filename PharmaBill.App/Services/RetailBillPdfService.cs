@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -33,7 +34,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 			await RawEscPosPrinter.PrintAsync(printerName, CreateThermalReceipt(bill, documentOutputSettings), documentOutputSettings.CashDrawerPulse, cancellationToken);
 			return printerName;
 		}
-		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "printed-bills");
+		string text = Path.Combine(AppDataPaths.RootDirectory, "printed-bills");
 		Directory.CreateDirectory(text);
 		string destination = Path.Combine(text, $"{saleId:N}-{documentType}.pdf");
 		await ExportAsync(saleId, destination, documentType, cancellationToken);
@@ -111,7 +112,7 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 			throw new InvalidOperationException("Please enter customer phone number first.");
 		}
 
-		string invoicesDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "Invoices");
+		string invoicesDir = Path.Combine(AppDataPaths.RootDirectory, "Invoices");
 		Directory.CreateDirectory(invoicesDir);
 		string billNo = SanitizeFileName(bill.InvoiceNo);
 		string destination = Path.Combine(invoicesDir, billNo + ".pdf");
@@ -391,12 +392,12 @@ public sealed class RetailBillPdfService(IServiceScopeFactory scopeFactory, Docu
 
 	public static string GetSharedPdfPath(Guid saleId, RetailDocumentType documentType)
 	{
-		return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "shared-bills", $"{saleId:N}-{documentType}.pdf");
+		return Path.Combine(AppDataPaths.RootDirectory, "shared-bills", $"{saleId:N}-{documentType}.pdf");
 	}
 
 	public static string GetInvoicePdfPath(Guid saleId, string? invoiceNo)
 	{
-		string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "Invoices");
+		string folder = Path.Combine(AppDataPaths.RootDirectory, "Invoices");
 		Directory.CreateDirectory(folder);
 		string safe = string.IsNullOrWhiteSpace(invoiceNo) ? saleId.ToString("N") : string.Join("_", invoiceNo.Trim().Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
 		if (string.IsNullOrWhiteSpace(safe))

@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -7,7 +8,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class GeminiApiKeyStore
 {
-	private readonly string _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "settings", "gemini-api-key.dpapi");
+	private readonly string _path = Path.Combine(AppDataPaths.RootDirectory, "settings", "gemini-api-key.dpapi");
 
 	public void Save(string apiKey)
 	{

@@ -103,7 +103,7 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 			.OrderBy(g => g.Hsn)
 			.ToList();
 
-		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "wholesale-documents");
+		string text = Path.Combine(AppDataPaths.RootDirectory, "wholesale-documents");
 		Directory.CreateDirectory(text);
 		string value = deliveryChallan ? "delivery-challan" : "tax-invoice";
 		string text2 = Path.Combine(text, $"{invoice.Id:N}-{value}.pdf");

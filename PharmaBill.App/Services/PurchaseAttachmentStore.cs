@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System.Globalization;
 using System.IO;
@@ -143,8 +144,7 @@ public static class PurchaseAttachmentStore
 	{
 		string supplier = supplierId == Guid.Empty ? "unassigned" : supplierId.ToString("N");
 		return Path.Combine(
-			Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-			"PharmaBill",
+			PharmaBill.Data.Persistence.AppDataPaths.RootDirectory,
 			"Attachments",
 			"Purchases",
 			year.ToString(CultureInfo.InvariantCulture),

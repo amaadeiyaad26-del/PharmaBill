@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System;
 using System.Collections.Generic;
@@ -559,7 +560,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 	}
 
 	private static string InwardScansFolder() =>
-		Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "InwardScans");
+		Path.Combine(AppDataPaths.RootDirectory, "InwardScans");
 
 	private static string SanitizeFileName(string name)
 	{

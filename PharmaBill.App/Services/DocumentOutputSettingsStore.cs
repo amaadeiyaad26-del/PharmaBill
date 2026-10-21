@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -15,7 +16,7 @@ public sealed class DocumentOutputSettingsStore
 
 	public DocumentOutputSettingsStore()
 	{
-		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill");
+		string text = Path.Combine(AppDataPaths.RootDirectory);
 		Directory.CreateDirectory(text);
 		_settingsPath = Path.Combine(text, "document-output.json");
 		_smtpPasswordPath = Path.Combine(text, "smtp-password.dat");

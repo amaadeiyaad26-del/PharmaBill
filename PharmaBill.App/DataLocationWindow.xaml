@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window x:Class="PharmaBill.App.DataLocationWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="/Assets/Icons/app.ico" Title="Pharma Remit - pharmacy data folder" Width="600" SizeToContent="Height"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Background="#FFFFFFFF" Foreground="#FF182230">
+  <StackPanel Margin="28">
+    <TextBlock Name="HeadingText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,10" />
+    <TextBlock Name="ExplanationText" FontSize="13.5" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,14" />
+
+    <TextBlock Text="Folder" FontSize="12" FontWeight="SemiBold" Foreground="#FF667085" Margin="0,0,0,4" />
+    <DockPanel Margin="0,0,0,10">
+      <Button DockPanel.Dock="Right" Name="BrowseButton" Content="Browse..." Padding="12,6" Margin="8,0,0,0" Click="Browse_Click" />
+      <TextBox Name="FolderBox" Padding="8,6" FontSize="13" TextChanged="FolderBox_TextChanged" />
+    </DockPanel>
+
+    <Border Name="MigrationNote" Background="#FFF0F9FF" BorderBrush="#FFB9E6FE" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,12" Visibility="Collapsed">
+      <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="#FF026AA2"
+                 Text="Your existing records will be copied to this folder and checked file by file, and every database opened, before Pharma Remit switches to it. The original copy is left where it is." />
+    </Border>
+
+    <Border Name="SyncWarning" Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,12" Visibility="Collapsed">
+      <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="#FFB54708"
+                 Text="This folder is synced by OneDrive. A database that OneDrive is syncing can be damaged or split into conflicting copies. Prefer a folder OneDrive does not sync (for example C:\Pharma Remit), and back it up separately." />
+    </Border>
+    <TextBlock Name="ErrorText" TextWrapping="Wrap" FontSize="12.5" Foreground="#FFB42318" Margin="0,0,0,10" />
+
+    <DockPanel LastChildFill="False">
+      <Button DockPanel.Dock="Right" Content="Exit" Padding="18,7" Margin="8,0,0,0" IsCancel="True" Click="Exit_Click" />
+      <Button DockPanel.Dock="Right" Name="PrimaryButton" Padding="16,7" IsDefault="True" Click="Primary_Click" />
+      <Button DockPanel.Dock="Right" Name="RetryButton" Content="Try again" Padding="14,7" Margin="0,0,8,0" Visibility="Collapsed" Click="Retry_Click" />
+    </DockPanel>
+  </StackPanel>
+</Window>

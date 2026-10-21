@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System;
 using System.Collections.ObjectModel;
@@ -15,7 +16,7 @@ namespace PharmaBill.App.ViewModels;
 /// <summary>Small desk tools: a calendar, a notepad that saves as you type, and standard narrations to copy into bills.</summary>
 public sealed class ToolsPageViewModel : ObservableObject, ILoadablePage
 {
-	private static readonly string ToolsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "tools");
+	private static readonly string ToolsFolder = Path.Combine(AppDataPaths.RootDirectory, "tools");
 
 	private static readonly string NotePath = Path.Combine(ToolsFolder, "notepad.txt");
 

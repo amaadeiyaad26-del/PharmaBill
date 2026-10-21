@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System.Globalization;
 using System.IO;
@@ -555,8 +556,7 @@ public static class InvoiceTextParser
 		try
 		{
 			string path = Path.Combine(
-				Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-				"PharmaBill",
+				PharmaBill.Data.Persistence.AppDataPaths.RootDirectory,
 				"ocr_debug_raw.txt");
 			Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 			File.WriteAllText(path, text);

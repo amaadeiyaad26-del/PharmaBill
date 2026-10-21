@@ -888,7 +888,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 			case ".jpeg":
 			case ".bmp":
 			{
-				string text3 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "licences");
+				string text3 = Path.Combine(AppDataPaths.RootDirectory, "licences");
 				Directory.CreateDirectory(text3);
 				licence.DocumentPath = Path.Combine(text3, $"{Guid.NewGuid():N}{text2}");
 				File.Copy(text, licence.DocumentPath, overwrite: false);

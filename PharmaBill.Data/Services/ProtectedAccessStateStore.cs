@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -18,7 +19,7 @@ public sealed class ProtectedAccessStateStore
 
 	public ProtectedAccessStateStore(string? filePath = null)
 	{
-		_filePath = filePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "access.state");
+		_filePath = filePath ?? Path.Combine(AppDataPaths.RootDirectory, "access.state");
 	}
 
 	[SupportedOSPlatform("windows")]

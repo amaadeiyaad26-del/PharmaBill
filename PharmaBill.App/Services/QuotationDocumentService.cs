@@ -32,7 +32,7 @@ public sealed class QuotationDocumentService(IServiceScopeFactory scopeFactory)
 			.Select(item => new { item.DrugName, item.Quantity, item.FreeQuantity, item.UnitPrice, item.DiscountAmount, item.LineTotal })
 			.ToListAsync(cancellationToken);
 
-		string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "quotations");
+		string folder = Path.Combine(AppDataPaths.RootDirectory, "quotations");
 		Directory.CreateDirectory(folder);
 		string path = Path.Combine(folder, $"quotation-{quotation.Id:N}.pdf");
 

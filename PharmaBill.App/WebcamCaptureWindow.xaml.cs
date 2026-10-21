@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System;
 using System.IO;
@@ -358,7 +359,7 @@ public partial class WebcamCaptureWindow : Window
 			jpegBitmapEncoder.Frames.Add(item);
 			using MemoryStream memory = new MemoryStream();
 			jpegBitmapEncoder.Save(memory);
-			string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "prescription-captures");
+			string text = Path.Combine(AppDataPaths.RootDirectory, "prescription-captures");
 			Directory.CreateDirectory(text);
 			string path = Path.Combine(text, $"rx-{BusinessClock.Now:yyyyMMdd-HHmmss}.jpg");
 			await File.WriteAllBytesAsync(path, memory.ToArray());

@@ -38,7 +38,7 @@ public sealed class PurchaseReturnDocumentService(IServiceScopeFactory scopeFact
 			select new { drug.Name, batch.BatchNo, batch.ExpiryDate, line.Quantity, line.UnitPrice, line.LineTotal })
 			.ToListAsync(cancellationToken);
 
-		string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "purchase-returns");
+		string folder = Path.Combine(AppDataPaths.RootDirectory, "purchase-returns");
 		Directory.CreateDirectory(folder);
 		string path = Path.Combine(folder, $"return-{purchaseReturn.Id:N}.pdf");
 

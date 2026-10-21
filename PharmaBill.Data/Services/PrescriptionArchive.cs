@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System;
 using System.IO;
@@ -10,8 +11,7 @@ namespace PharmaBill.Data.Services;
 public static class PrescriptionArchive
 {
 	public static string DefaultRoot => Path.Combine(
-		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-		"PharmaBill",
+		AppDataPaths.RootDirectory,
 		"Attachments",
 		"Prescriptions");
 

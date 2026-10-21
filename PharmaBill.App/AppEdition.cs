@@ -42,6 +42,12 @@ public static class AppEdition
 	/// </summary>
 	public static bool UsesReleaseFeed(Edition edition) => edition == Edition.LocalMarket;
 
+	/// <summary>
+	/// Windows deletes a Store package's app-data folder on uninstall, so the Store edition keeps its records in a folder
+	/// the user chooses. The Local Market edition's %LocalAppData%\PharmaBill already survives uninstall and is unchanged.
+	/// </summary>
+	public static bool UsesChosenDataFolder(Edition edition) => edition == Edition.Store;
+
 	/// <summary>The user-manual tip about keeping the app up to date.</summary>
 	public static string UpdateAdvice(Edition edition) => edition == Edition.Store
 		? "Keep Microsoft Store updates enabled so Pharma Remit stays current."

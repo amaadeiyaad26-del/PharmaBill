@@ -5,14 +5,27 @@ using System.IO;
 namespace PharmaBill.Data.Persistence;
 
 /// <summary>
-/// Stable Win32 application data roots under %LocalAppData%\PharmaBill.
-/// Executable updates must never wipe these folders.
+/// Where the pharmacy's data lives. <see cref="LocalRootDirectory"/> is %LocalAppData%\PharmaBill (logs, the
+/// data-location pointer, licence state). <see cref="RootDirectory"/> holds the records (databases, key, backups,
+/// attachments, documents): the same folder for the Local Market edition, which survives uninstall; for the Store
+/// edition a folder the user chose (see <see cref="StoreDataLocation"/>), because Windows deletes a Store package's
+/// app-data folder on uninstall.
 /// </summary>
 public static class AppDataPaths
 {
-	public static string RootDirectory { get; } = Path.Combine(
+	public static string LocalRootDirectory { get; } = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 		RootFolderName);
+
+	/// <summary>The data root. Defaults to <see cref="LocalRootDirectory"/>; set once at startup by <see cref="UseDataRoot"/>.</summary>
+	public static string RootDirectory { get; private set; } = LocalRootDirectory;
+
+	/// <summary>Points every data path at <paramref name="root"/>. Call before anything opens a database or file.</summary>
+	public static void UseDataRoot(string root)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(root);
+		RootDirectory = Path.GetFullPath(root);
+	}
 
 	/// <summary>
 	/// Debug builds keep their databases, key, store pointer and logs in a separate folder so a development
@@ -26,8 +39,8 @@ public static class AppDataPaths
 
 	public static string DataDirectory => Path.Combine(RootDirectory, "data");
 
-	/// <summary>Logs under the persistent data folder so reinstalls never wipe them.</summary>
-	public static string LogsDirectory => Path.Combine(DataDirectory, "logs");
+	/// <summary>Logs stay on this PC, next to the data-location pointer, whatever the data root is.</summary>
+	public static string LogsDirectory => Path.Combine(LocalRootDirectory, "data", "logs");
 
 	public static string BackupsDirectory => Path.Combine(DataDirectory, "backups");
 

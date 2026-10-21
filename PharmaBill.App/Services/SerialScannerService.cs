@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.IO;
 using System.IO.Ports;
@@ -223,7 +224,7 @@ public sealed class SerialScannerService : IScannerService, IDisposable
 	{
 		try
 		{
-			string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "settings", "scanner-com.txt");
+			string path = Path.Combine(AppDataPaths.RootDirectory, "settings", "scanner-com.txt");
 			if (!File.Exists(path))
 			{
 				return null;

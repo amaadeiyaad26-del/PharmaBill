@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -124,7 +125,7 @@ public sealed class HardwareScannerService
 
 	private static string NewTempScanPath(string extension)
 	{
-		string directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill", "Scans");
+		string directory = Path.Combine(AppDataPaths.RootDirectory, "Scans");
 		Directory.CreateDirectory(directory);
 		return Path.Combine(directory, "TempScan_" + Guid.NewGuid().ToString("N") + extension);
 	}

@@ -1,3 +1,4 @@
+using PharmaBill.Data.Persistence;
 using System;
 using System.IO;
 using System.Text.Json;
@@ -10,7 +11,7 @@ public sealed class UserManualEmailQueueStore
 
 	public UserManualEmailQueueStore()
 	{
-		string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PharmaBill");
+		string text = Path.Combine(AppDataPaths.RootDirectory);
 		Directory.CreateDirectory(text);
 		_path = Path.Combine(text, "pending-user-manual-email.json");
 	}
