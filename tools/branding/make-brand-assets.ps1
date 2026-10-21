@@ -1,13 +1,16 @@
 # Regenerates every Pharma Remit icon and logo from the 2048x2048 master artwork.
 # Usage: .\tools\branding\make-brand-assets.ps1 -Source PharmaBill.App\Resources\logo_3d.png -App (Resolve-Path PharmaBill.App)
-param([Parameter(Mandatory)] [string]$Source, [Parameter(Mandatory)] [string]$App, [string]$Preview)
+# The defaults match the current master (752x752 "pharma REMIT" shield logo on a light background). For new artwork,
+# pass the square crop of the full logo (-FullBox x,y,size), of the emblem used at small sizes (-MarkBox) and the
+# canvas colour behind the wide tile and splash screen (-Background).
+param([Parameter(Mandatory)] [string]$Source, [Parameter(Mandatory)] [string]$App, [string]$Preview, [int[]]$FullBox = @(0, 0, 752), [int[]]$MarkBox = @(155, 0, 510), [string]$Background = '#E6E5EB')
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 $src = [System.Drawing.Image]::FromFile($Source)
 
-# Crop boxes in the 2048x2048 artwork: the inner panel (full logo with wordmark) and the emblem only.
-$Full = @{ X = 250; Y = 216; W = 1548 }
-$Mark = @{ X = 500; Y = 360; W = 1040 }
+# Square crop boxes in the master: the full logo with its wordmark, and the emblem only.
+$Full = @{ X = $FullBox[0]; Y = $FullBox[1]; W = $FullBox[2] }
+$Mark = @{ X = $MarkBox[0]; Y = $MarkBox[1]; W = $MarkBox[2] }
 
 function New-RoundedPath([int]$size, [int]$r) {
 	$p = New-Object System.Drawing.Drawing2D.GraphicsPath
@@ -86,7 +89,7 @@ function Save-Ico([string]$path) {
 	Write-Output ("{0,-60} {1,8} bytes" -f $path.Replace($App + '\', ''), (Get-Item $path).Length)
 }
 
-$bg = '#0F172A'   # matches the manifest SplashScreen BackgroundColor and the logo's darkest panel tone
+$bg = $Background   # keep in step with the manifest SplashScreen BackgroundColor
 
 # Application / installer / window icons (same file at every path the project and installer reference).
 foreach ($ico in 'app.ico', 'Assets\Icons\app.ico', 'Assets\Icons\pharma_bill_3d.ico', 'Assets\PharmaBill.ico') { Save-Ico (Join-Path $App $ico) }
