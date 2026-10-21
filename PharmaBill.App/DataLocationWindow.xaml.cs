@@ -56,7 +56,7 @@ public partial class DataLocationWindow : Window
 	private string? PickFolder(string title)
 	{
 		OpenFolderDialog dialog = new OpenFolderDialog { Title = title, Multiselect = false };
-		string start = Directory.Exists(FolderBox.Text) ? FolderBox.Text : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+		string start = Directory.Exists(FolderBox.Text) ? FolderBox.Text : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 		dialog.InitialDirectory = start;
 		return dialog.ShowDialog(this) == true ? dialog.FolderName : null;
 	}
@@ -124,17 +124,20 @@ public partial class DataLocationWindow : Window
 
 	private void FolderBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
 	{
-		bool synced = false;
+		string? provider = null;
 		try
 		{
-			synced = _choosing && !string.IsNullOrWhiteSpace(FolderBox.Text) && StoreDataLocation.IsCloudSynced(FolderBox.Text.Trim());
+			provider = _choosing && !string.IsNullOrWhiteSpace(FolderBox.Text) ? StoreDataLocation.CloudSyncProvider(FolderBox.Text.Trim()) : null;
 		}
-		catch (ArgumentException)
+		catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
 		{
 			// Not a valid path yet while typing.
 		}
 
-		SyncWarning.Visibility = synced ? Visibility.Visible : Visibility.Collapsed;
+		SyncWarningText.Text = provider == null ? string.Empty
+			: $"This folder is synced by {provider}. A database that {provider} is syncing can be damaged or split into conflicting copies. "
+				+ $"Prefer a folder {provider} does not sync, such as {StoreDataLocation.DefaultFolder()}, and back it up separately.";
+		SyncWarning.Visibility = provider == null ? Visibility.Collapsed : Visibility.Visible;
 	}
 	private void Exit_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 }

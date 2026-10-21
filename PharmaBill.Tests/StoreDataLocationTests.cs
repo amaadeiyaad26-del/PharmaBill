@@ -30,8 +30,10 @@ public sealed class StoreDataLocationTests : IDisposable
     public void FirstRun_HasNoLocation_ThenTheChosenFolderIsRememberedAndUsed()
     {
         Assert.Equal(DataLocationStatus.NotChosen, StoreDataLocation.Check(PackageRoot).Status);
-        string chosen = StoreDataLocation.DefaultFolder(Documents);
-        Assert.Equal(Path.Combine(Documents, "Pharma Remit"), chosen.Replace(" Debug", string.Empty));
+        string profile = Path.Combine(_sandbox, "Users", "Shop Assistant");
+        string chosen = StoreDataLocation.DefaultFolder(profile);
+        // In the user's profile (no administrator rights needed), not in Documents, which is often synced by OneDrive.
+        Assert.Equal(Path.Combine(profile, "Pharma Remit Data"), chosen.Replace(" Debug", string.Empty));
 
         DataLocationResult result = StoreDataLocation.Choose(PackageRoot, chosen);
 
@@ -142,12 +144,23 @@ public sealed class StoreDataLocationTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Relocate(PackageRoot, Path.Combine(Documents, "empty")));
     }
 
-    [Fact]
-    public void FoldersInsideOneDrive_AreRecognisedAsSynced()
+    [Theory]
+    [InlineData("OneDrive", @"OneDrive\Documents\Pharma Remit")]
+    [InlineData("Google Drive", @"My Drive\Pharmacy\Pharma Remit Data")]
+    [InlineData("Dropbox", @"Dropbox (Personal)\Pharma Remit Data")]
+    public void FoldersInsideCloudSyncedFolders_AreRecognised_WithTheServiceNamed(string provider, string relative)
     {
-        string oneDrive = Path.Combine(_sandbox, "OneDrive");
-        Assert.True(StoreDataLocation.IsCloudSynced(Path.Combine(oneDrive, "Documents", "Pharma Remit"), [oneDrive]));
-        Assert.False(StoreDataLocation.IsCloudSynced(Path.Combine(_sandbox, "Pharma Remit"), [oneDrive, null]));
+        CloudSyncRoot[] roots =
+        [
+            new("OneDrive", Path.Combine(_sandbox, "OneDrive")),
+            new("Google Drive", Path.Combine(_sandbox, "My Drive")),
+            new("Dropbox", Path.Combine(_sandbox, "Dropbox (Personal)"))
+        ];
+
+        Assert.Equal(provider, StoreDataLocation.CloudSyncProvider(Path.Combine(_sandbox, relative), roots));
+        Assert.Null(StoreDataLocation.CloudSyncProvider(Path.Combine(_sandbox, "Users", "Shop", "Pharma Remit Data"), roots));
+        // A folder merely named like a sync root, but not inside one, is not flagged.
+        Assert.Null(StoreDataLocation.CloudSyncProvider(Path.Combine(_sandbox, "OneDrive Notes"), roots));
     }
     /// <summary>A package folder as a live Store install has it: an encrypted store database, key, backup, attachment, logs and licence state.</summary>
     private string CreatePackageData()

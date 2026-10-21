@@ -18,8 +18,7 @@
     </Border>
 
     <Border Name="SyncWarning" Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,12" Visibility="Collapsed">
-      <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="#FFB54708"
-                 Text="This folder is synced by OneDrive. A database that OneDrive is syncing can be damaged or split into conflicting copies. Prefer a folder OneDrive does not sync (for example C:\Pharma Remit), and back it up separately." />
+      <TextBlock Name="SyncWarningText" TextWrapping="Wrap" FontSize="12.5" Foreground="#FFB54708" />
     </Border>
     <TextBlock Name="ErrorText" TextWrapping="Wrap" FontSize="12.5" Foreground="#FFB42318" Margin="0,0,0,10" />
 

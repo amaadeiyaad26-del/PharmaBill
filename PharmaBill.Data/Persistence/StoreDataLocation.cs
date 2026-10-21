@@ -41,10 +41,13 @@ public enum DataLocationOutcome
 
 public sealed record DataLocationResult(string DataRoot, DataLocationOutcome Outcome, int FilesCopied);
 
+/// <summary>A folder kept in sync by a cloud service.</summary>
+public sealed record CloudSyncRoot(string Provider, string Root);
+
 /// <summary>
 /// Durable storage for the Store edition. Windows deletes a Store package's app-data folder on uninstall, which
 /// would take the billing history and the Schedule H register with it, so the records live in a folder the user
-/// chooses (by default Documents\Pharma Remit). A full-trust app may write there without any restricted
+/// chooses (by default %UserProfile%\Pharma Remit Data). A full-trust app may write there without any restricted
 /// capability; the choice is remembered in a small pointer file in the package's own folder.
 /// A missing or unreadable folder stops startup: the app never quietly opens on an empty database.
 /// </summary>
@@ -58,24 +61,100 @@ public static class StoreDataLocation
 
 	private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
-	/// <summary>Documents\Pharma Remit (Documents\Pharma Remit Debug for development builds).</summary>
-	public static string DefaultFolder(string? documents = null) => Path.Combine(
-		documents ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-		AppDataPaths.RootFolderName.EndsWith("-Debug", StringComparison.Ordinal) ? "Pharma Remit Debug" : "Pharma Remit");
+	/// <summary>
+	/// %UserProfile%\Pharma Remit Data (…Data Debug for development builds): inside the user's profile, so a shop
+	/// assistant without administrator rights can create it, and outside Documents, which Windows often redirects into
+	/// OneDrive.
+	/// </summary>
+	public static string DefaultFolder(string? userProfile = null) => Path.Combine(
+		userProfile ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+		AppDataPaths.RootFolderName.EndsWith("-Debug", StringComparison.Ordinal) ? "Pharma Remit Data Debug" : "Pharma Remit Data");
 
 	/// <summary>
-	/// True when the folder is inside a OneDrive-synced folder (Documents is often redirected there). A live database
-	/// in a syncing folder can be locked mid-write, made online-only, or split into conflicting copies.
+	/// The cloud service syncing this folder (OneDrive, Google Drive or Dropbox), or null. A live database in a syncing
+	/// folder can be locked mid-write, made online-only, or split into conflicting copies, so the user is warned.
+	/// Pass <paramref name="roots"/> to check against given sync roots only (tests).
 	/// </summary>
-	public static bool IsCloudSynced(string folder, IEnumerable<string?>? syncRoots = null)
+	public static string? CloudSyncProvider(string folder, IEnumerable<CloudSyncRoot>? roots = null)
 	{
-		IEnumerable<string?> roots = syncRoots ?? new[]
+		string full = Path.GetFullPath(folder);
+		foreach (CloudSyncRoot root in roots ?? KnownCloudSyncRoots())
 		{
-			Environment.GetEnvironmentVariable("OneDrive"),
-			Environment.GetEnvironmentVariable("OneDriveConsumer"),
-			Environment.GetEnvironmentVariable("OneDriveCommercial")
-		};
-		return roots.Any(root => !string.IsNullOrWhiteSpace(root) && IsSameOrInside(folder, root));
+			if (!string.IsNullOrWhiteSpace(root.Root) && IsSameOrInside(full, root.Root))
+			{
+				return root.Provider;
+			}
+		}
+
+		if (roots == null)
+		{
+			// Google Drive for desktop streams files through a virtual drive (usually G:) labelled "Google Drive".
+			try
+			{
+				string? drive = Path.GetPathRoot(full);
+				if (!string.IsNullOrEmpty(drive) && !drive.StartsWith(@"\\", StringComparison.Ordinal)
+					&& new DriveInfo(drive) is { IsReady: true } info
+					&& info.VolumeLabel.Equals("Google Drive", StringComparison.OrdinalIgnoreCase))
+				{
+					return "Google Drive";
+				}
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+			{
+			}
+		}
+
+		return null;
+	}
+
+	public static bool IsCloudSynced(string folder, IEnumerable<CloudSyncRoot>? roots = null) => CloudSyncProvider(folder, roots) != null;
+
+	/// <summary>Where OneDrive, Google Drive and Dropbox keep synced folders for this Windows user.</summary>
+	public static IReadOnlyList<CloudSyncRoot> KnownCloudSyncRoots()
+	{
+		List<CloudSyncRoot> roots = new List<CloudSyncRoot>();
+		foreach (string variable in new[] { "OneDrive", "OneDriveConsumer", "OneDriveCommercial" })
+		{
+			string? path = Environment.GetEnvironmentVariable(variable);
+			if (!string.IsNullOrWhiteSpace(path))
+			{
+				roots.Add(new CloudSyncRoot("OneDrive", path));
+			}
+		}
+
+		string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		if (!string.IsNullOrEmpty(profile))
+		{
+			// Drive for desktop in mirror mode, and the older Backup and Sync.
+			roots.Add(new CloudSyncRoot("Google Drive", Path.Combine(profile, "My Drive")));
+			roots.Add(new CloudSyncRoot("Google Drive", Path.Combine(profile, "Google Drive")));
+			roots.Add(new CloudSyncRoot("Dropbox", Path.Combine(profile, "Dropbox")));
+		}
+
+		// Dropbox records its real folders (personal and business), which may be anywhere, in info.json.
+		foreach (Environment.SpecialFolder appData in new[] { Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolder.ApplicationData })
+		{
+			string info = Path.Combine(Environment.GetFolderPath(appData), "Dropbox", "info.json");
+			try
+			{
+				if (File.Exists(info))
+				{
+					using JsonDocument document = JsonDocument.Parse(File.ReadAllText(info));
+					foreach (JsonProperty account in document.RootElement.EnumerateObject())
+					{
+						if (account.Value.ValueKind == JsonValueKind.Object && account.Value.TryGetProperty("path", out JsonElement path) && path.ValueKind == JsonValueKind.String)
+						{
+							roots.Add(new CloudSyncRoot("Dropbox", path.GetString()!));
+						}
+					}
+				}
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+			{
+			}
+		}
+
+		return roots;
 	}
 	public static DataLocationCheck Check(string localRoot)
 	{
@@ -145,13 +224,13 @@ public static class StoreDataLocation
 		string package = Path.GetFullPath(localRoot);
 		if (IsSameOrInside(target, package) || IsSameOrInside(package, target))
 		{
-			throw new InvalidOperationException("Choose a folder outside the app's own data folder, such as Documents\\Pharma Remit.");
+			throw new InvalidOperationException("Choose a folder outside the app's own data folder, such as " + DefaultFolder() + ".");
 		}
 
 		string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 		if (!string.IsNullOrEmpty(appData) && IsSameOrInside(target, Path.Combine(appData, "Packages")))
 		{
-			throw new InvalidOperationException("That folder belongs to an installed app and would be deleted with it. Choose a folder such as Documents\\Pharma Remit.");
+			throw new InvalidOperationException("That folder belongs to an installed app and would be deleted with it. Choose a folder such as " + DefaultFolder() + ".");
 		}
 
 		Directory.CreateDirectory(target);
