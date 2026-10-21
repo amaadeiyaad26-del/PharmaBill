@@ -4552,6 +4552,7 @@
               <DataGridTextColumn Header="Batch" Width="90" Binding="{Binding BatchNo}" />
               <DataGridTextColumn Header="Qty" Width="60" Binding="{Binding Quantity}" />
               <DataGridTextColumn Header="Balance" Width="75" Binding="{Binding Balance}" />
+              <DataGridTextColumn Header="Recorded by" Width="140" Binding="{Binding RecordedBy}" />
               <DataGridTextColumn Header="Reason / notes" Width="200" Binding="{Binding Reason}" />
             </DataGrid.Columns>
           </DataGrid>

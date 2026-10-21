@@ -303,6 +303,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				BranchId = branch.Id,
 				Details = $"Invoice {invoice.InvoiceNo}; total {invoice.TotalAmount}; branch {branch.Code}"
 			});
+			await RegisterRecordedBy.StampAsync(unitOfWork.Context, actingUserId, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			if (ownedTransaction != null)
 			{
@@ -451,6 +452,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					UserId = actingUserId
 				}, cancellationToken);
 			}
+			await RegisterRecordedBy.StampAsync(unitOfWork.Context, actingUserId, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			result = purchaseReturn;

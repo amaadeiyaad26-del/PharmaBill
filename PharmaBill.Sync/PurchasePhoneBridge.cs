@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -29,6 +30,10 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 	private readonly object _gate = new object();
 
 	private WebApplication? _app;
+
+	private IReadOnlyList<IPAddress> _boundAddresses = Array.Empty<IPAddress>();
+
+	private int _rebinding;
 
 	private string _sessionToken = Guid.NewGuid().ToString("D");
 
@@ -77,6 +82,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 		}
 
 		WebApplication? app = null;
+		IReadOnlyList<IPAddress> addresses = LanListener.Addresses();
 		try
 		{
 			WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -86,24 +92,13 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 				options.AddServerHeader = false;
 				options.Limits.MaxRequestBodySize = 32L * 1024L * 1024L;
 				options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(20);
-				// Bind every IPv4 interface (not loopback-only) so the phone can reach this PC on LAN.
-				options.Listen(IPAddress.Any, Port);
+				// The shop-network address the QR code shows, plus loopback - not every adapter.
+				LanListener.Listen(options, addresses, Port);
 			});
 			app = builder.Build();
 			app.UseWebSockets();
-			app.Use(async (HttpContext context, Func<Task> next) =>
-			{
-				context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-				context.Response.Headers.Append("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-				context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
-				if (HttpMethods.IsOptions(context.Request.Method))
-				{
-					context.Response.StatusCode = StatusCodes.Status204NoContent;
-					return;
-				}
-
-				await next();
-			});
+			// No CORS headers: only the phone app talks to this listener, and browser requests are refused.
+			app.Use((HttpContext context, Func<Task> next) => LanListener.RefuseBrowsersAsync(context, next));
 
 			app.MapGet("/api/purchases/ping", HandlePingAsync);
 			app.MapGet("/api/sync/ping", HandlePingAsync);
@@ -123,15 +118,18 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 			}
 
 			IsListening = false;
-			SetStatus("Cannot listen on port " + Port + " (all adapters). " + ex.Message);
+			SetStatus("Cannot listen on port " + Port + " (" + LanListener.Describe(addresses) + "). " + ex.Message);
 			return;
 		}
 
 		lock (_gate)
 		{
 			_app = app;
+			_boundAddresses = addresses;
 		}
 
+		NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+		NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
 		IsListening = true;
 		string firewallNote = string.Empty;
 		try
@@ -155,6 +153,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 
 	public async Task StopAsync()
 	{
+		NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
 		WebApplication? app;
 		lock (_gate)
 		{
@@ -183,6 +182,40 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 	public ValueTask DisposeAsync()
 	{
 		return new ValueTask(StopAsync());
+	}
+
+	// Follow a change of the shop network's address so the listener stays where the QR code points.
+	private void OnNetworkAddressChanged(object? sender, EventArgs e)
+	{
+		IReadOnlyList<IPAddress> bound;
+		lock (_gate)
+		{
+			if (_app == null)
+			{
+				return;
+			}
+			bound = _boundAddresses;
+		}
+		if (LanListener.SameAddresses(bound, LanListener.Addresses()) || Interlocked.Exchange(ref _rebinding, 1) == 1)
+		{
+			return;
+		}
+		_ = Task.Run(async () =>
+		{
+			try
+			{
+				await StopAsync();
+				await StartAsync();
+			}
+			catch
+			{
+				// StartAsync reports its own failure in the status text.
+			}
+			finally
+			{
+				Interlocked.Exchange(ref _rebinding, 0);
+			}
+		});
 	}
 
 	private void RefreshLocalIp()

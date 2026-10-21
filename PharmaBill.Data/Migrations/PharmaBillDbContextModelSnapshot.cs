@@ -2228,6 +2228,15 @@ namespace PharmaBill.Data.Migrations
                     b.Property<decimal?>("Quantity")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("RecordedByName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecordedBySource")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RegisterType")
                         .IsRequired()
                         .HasColumnType("TEXT");

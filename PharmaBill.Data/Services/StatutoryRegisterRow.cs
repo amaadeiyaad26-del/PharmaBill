@@ -9,4 +9,7 @@ public sealed record StatutoryRegisterRow(Guid EntryId, DateTime EntryAtUtc, str
 	public string ExpiryLabel { get; init; } = string.Empty;
 
 	public string PrescriptionFilePath { get; init; } = string.Empty;
+
+	/// <summary>Who made the entry, or "Not recorded" for entries saved before this was kept.</summary>
+	public string RecordedBy { get; init; } = "Not recorded";
 }

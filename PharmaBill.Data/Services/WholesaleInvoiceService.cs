@@ -178,6 +178,19 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 		WholesaleInvoiceResult result;
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
+			// The check above gives an early answer; this one decides (see StockOnHand).
+			Dictionary<Guid, decimal> onHand = await StockOnHand.ByBatchAsync(context, requestedBatchIds, null, cancellationToken);
+			foreach (IGrouping<Guid, PreparedLine> group in prepared.GroupBy((PreparedLine line) => line.Batch.Id))
+			{
+				decimal wanted = group.Sum((PreparedLine line) => line.Input.Quantity + line.Input.FreeQuantity);
+				decimal available = onHand[group.Key];
+				if (wanted > available)
+				{
+					PreparedLine first = group.First();
+					throw new InvalidOperationException($"Quantity exceeds stock for {first.Drug.Name}, batch {first.Batch.BatchNo} ({available:0.##} available).");
+				}
+				onHand[group.Key] = available - wanted;
+			}
 			Branch branch = await branchService.EnsureCurrentBranchAsync(cancellationToken);
 			string seriesPrefix = await branchService.ResolveWholesaleInvoiceSeriesPrefixAsync(cancellationToken);
 			string text2 = await numberSeriesService.AllocateAsync(seriesPrefix, invoiceDate, cancellationToken);
@@ -230,7 +243,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			context.WholesaleInvoices.Add(invoice);
 			foreach (PreparedLine item2 in prepared)
 			{
-				item2.Batch.Quantity = quantities[item2.Batch.Id];
+				item2.Batch.Quantity = onHand[item2.Batch.Id];
 				context.WholesaleInvoiceItems.Add(new WholesaleInvoiceItem
 				{
 					WholesaleInvoiceId = invoice.Id,
@@ -355,6 +368,7 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 					+ (buyerPlace.Defaulted ? " (buyer state defaulted to supplier's: no GSTIN or state on record)." : ".")
 					+ (stateNotes.Count == 0 ? string.Empty : " " + string.Join(" ", stateNotes))
 			});
+			await RegisterRecordedBy.StampAsync(unitOfWork.Context, userId, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			if (!licenseRuntimeGuard.OnTransactionCommitted())

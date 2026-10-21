@@ -341,6 +341,20 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			RetailSaleResult result;
 			await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 			{
+				// The check above gives an early answer; this one decides. Another bill, a phone sync or an
+				// import may have moved stock since, and only a read inside this transaction is safe from them.
+				Dictionary<Guid, decimal> onHand = await StockOnHand.ByBatchAsync(context, batchIds, retailLocation.Id, cancellationToken);
+				foreach (IGrouping<Guid, PreparedSaleLine> group in preparedLines.GroupBy((PreparedSaleLine line) => line.Batch.Id))
+				{
+					decimal wanted = group.Sum((PreparedSaleLine line) => line.Input.Quantity);
+					decimal available = onHand[group.Key];
+					if (wanted > available)
+					{
+						PreparedSaleLine first = group.First();
+						throw new InvalidOperationException($"Quantity exceeds available stock for {first.Drug.Name}, batch {first.Batch.BatchNo} ({available:0.##} available).");
+					}
+					onHand[group.Key] = available - wanted;
+				}
 				Patient patient = await context.Patients.SingleOrDefaultAsync((Patient item) => item.Phone == phone, cancellationToken);
 				if (patient == null)
 				{
@@ -430,7 +444,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				{
 					RetailSaleLineInput line = prepared.Input;
 					Batch batch2 = prepared.Batch;
-					batch2.Quantity = currentQuantities[batch2.Id];
+					batch2.Quantity = onHand[batch2.Id];
 					context.SaleItems.Add(new SaleItem
 					{
 						SaleId = sale.Id,
@@ -478,6 +492,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 						});
 					}
 				}
+				// Before the receipt numbers below: allocating one saves, and these entries go with that save.
+				await RegisterRecordedBy.StampAsync(unitOfWork.Context, actingUserId, cancellationToken);
 				foreach (RetailPaymentInput payment in input.Payments.Where((RetailPaymentInput retailPaymentInput) => retailPaymentInput.AppliedAmount > 0m && !IsLoyalty(retailPaymentInput.Method)))
 				{
 					string receiptNo = await numberSeriesService.AllocateAsync(invoicePrefix + "-R", today, cancellationToken);

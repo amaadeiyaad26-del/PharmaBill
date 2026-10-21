@@ -40,4 +40,13 @@ public sealed class ScheduleRegisterEntry : EntityBase
 	public string? PrescriberRegistrationNumber { get; set; }
 
 	public string? Notes { get; set; }
+
+	/// <summary>Who made the entry. Null on entries saved before this was recorded.</summary>
+	public Guid? RecordedByUserId { get; set; }
+
+	/// <summary>The user's name when the entry was made, kept so the register reads correctly after a rename.</summary>
+	public string? RecordedByName { get; set; }
+
+	/// <summary>How the user is known: "AtEntry", or for older entries "FromBill" / "FromAuditLog". Null means not recorded.</summary>
+	public string? RecordedBySource { get; set; }
 }

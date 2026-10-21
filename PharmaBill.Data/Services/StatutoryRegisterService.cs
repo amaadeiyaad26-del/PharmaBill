@@ -98,7 +98,8 @@ public sealed class StatutoryRegisterService(IServiceScopeFactory scopeFactory)
 			{
 				Composition = drug?.GenericName ?? string.Empty,
 				ExpiryLabel = batch?.ExpiryDate is DateOnly expiryDate ? $"{expiryDate.Month:00}/{expiryDate.Year}" : string.Empty,
-				PrescriptionFilePath = obj?.PrescriptionFilePath ?? ExtractPrescriptionPath(entry.Notes)
+				PrescriptionFilePath = obj?.PrescriptionFilePath ?? ExtractPrescriptionPath(entry.Notes),
+				RecordedBy = RegisterRecordedBy.Describe(entry)
 			}))
 			{
 				entry = enumerator.Current;
@@ -194,6 +195,7 @@ public sealed class StatutoryRegisterService(IServiceScopeFactory scopeFactory)
 			EntityId = scheduleRegisterEntry.Id,
 			Details = scheduleRegisterEntry.Notes
 		});
+		await RegisterRecordedBy.StampAsync(unitOfWork.Context, actingUserId, cancellationToken);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
 		await transaction.CommitAsync(cancellationToken);
 	}

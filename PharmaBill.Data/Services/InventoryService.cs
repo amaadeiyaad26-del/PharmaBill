@@ -100,13 +100,14 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 		}
 		Batch batch = await context.Batches.SingleAsync((Batch item) => item.Id == batchId, cancellationToken);
 		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { batch.BatchNo, batch.Quantity, batch.Mrp, batch.DrugId });
-		decimal onHand = (await context.StockMovements.Where((StockMovement movement) => movement.BatchId == batchId).SumAsync((Expression<Func<StockMovement, decimal?>>)((StockMovement movement) => movement.QuantityChange), cancellationToken)).GetValueOrDefault();
+		RecordLockGuard.Demand(batch.CreatedAtUtc, "BatchStock", batch.Id, "MODIFIED_AFTER_LOCK");
+		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+		// Read inside the transaction so a sale landing meanwhile cannot take the batch below zero (see StockOnHand).
+		decimal onHand = await StockOnHand.ForBatchAsync(context, batchId, cancellationToken);
 		if (onHand + quantityChange < 0m)
 		{
 			throw new InvalidOperationException("Adjustment cannot reduce batch stock below zero.");
 		}
-		RecordLockGuard.Demand(batch.CreatedAtUtc, "BatchStock", batch.Id, "MODIFIED_AFTER_LOCK");
-		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 		batch.Quantity = onHand + quantityChange;
 		StockAdjustment stockAdjustment = new StockAdjustment
 		{
@@ -207,11 +208,19 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 		{
 			RecordLockGuard.Demand(lockedBatch.CreatedAtUtc, "BatchStock", lockedBatch.Id, "MODIFIED_AFTER_LOCK");
 		}
-		int count;
+		int count = 0;
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
-			foreach (ExpiredBatchRow row in rows)
+			// The list above was read before the transaction; write off what is actually left now.
+			Dictionary<Guid, decimal> onHand = await StockOnHand.ByBatchAsync(context, batchIds, null, cancellationToken);
+			foreach (ExpiredBatchRow listed in rows)
 			{
+				ExpiredBatchRow row = listed with { Quantity = onHand[listed.BatchId] };
+				if (row.Quantity <= 0m)
+				{
+					continue;
+				}
+				count++;
 				Batch batch = await context.Batches.SingleAsync((Batch item) => item.Id == row.BatchId, cancellationToken);
 				string oldSnapshot = ComplianceAuditWriter.Snapshot(new { batch.BatchNo, batch.Quantity, WrittenOff = row.Quantity });
 				batch.Quantity = 0m;
@@ -263,9 +272,9 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 					UserId = userId
 				}, cancellationToken);
 			}
+			await RegisterRecordedBy.StampAsync(unitOfWork.Context, userId, cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
-			count = rows.Count;
 		}
 		return count;
 	}
@@ -292,13 +301,13 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 		{
 			throw new InvalidOperationException("Only expired batches can be written off.");
 		}
-		decimal onHand = (await context.StockMovements.Where((StockMovement movement) => movement.BatchId == batchId).SumAsync((Expression<Func<StockMovement, decimal?>>)((StockMovement movement) => movement.QuantityChange), cancellationToken)).GetValueOrDefault();
+		RecordLockGuard.Demand(batch.CreatedAtUtc, "BatchStock", batch.Id, "MODIFIED_AFTER_LOCK");
+		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+		decimal onHand = await StockOnHand.ForBatchAsync(context, batchId, cancellationToken);
 		if (quantity > onHand)
 		{
 			throw new InvalidOperationException("Write-off quantity exceeds current batch stock.");
 		}
-		RecordLockGuard.Demand(batch.CreatedAtUtc, "BatchStock", batch.Id, "MODIFIED_AFTER_LOCK");
-		await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 		batch.Quantity = onHand - quantity;
 		context.ExpiryWriteOffs.Add(new ExpiryWriteOff
 		{
@@ -347,6 +356,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 			NewSnapshotJson = ComplianceAuditWriter.Snapshot(new { batch.BatchNo, batch.Quantity, WrittenOff = quantity }),
 			UserId = userId
 		}, cancellationToken);
+		await RegisterRecordedBy.StampAsync(unitOfWork.Context, userId, cancellationToken);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
 		await transaction.CommitAsync(cancellationToken);
 	}

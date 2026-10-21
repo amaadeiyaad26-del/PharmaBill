@@ -43,6 +43,25 @@ public static class LocalNetworkInfo
 		}
 	}
 
+	// The address the phone listeners bind to: the advertised LAN address, only if it is a private one
+	// (10/8, 172.16/12, 192.168/16). A PC plugged straight into the internet gets no LAN listener.
+	public static IPAddress? GetLanIPv4Address()
+	{
+		return IPAddress.TryParse(GetLocalIPv4(), out IPAddress? address) && IsPrivate(address) ? address : null;
+	}
+
+	public static bool IsPrivate(IPAddress address)
+	{
+		byte[] bytes = address.GetAddressBytes();
+		if (address.AddressFamily != AddressFamily.InterNetwork || bytes.Length != 4)
+		{
+			return false;
+		}
+		return bytes[0] == 10
+			|| (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+			|| (bytes[0] == 192 && bytes[1] == 168);
+	}
+
 	private static bool IsCandidateNic(NetworkInterface nic)
 	{
 		if (nic.OperationalStatus != OperationalStatus.Up)

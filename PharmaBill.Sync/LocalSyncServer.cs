@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -62,6 +63,10 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 
 	private string _token = NewToken();
 
+	private IReadOnlyList<IPAddress> _boundAddresses = Array.Empty<IPAddress>();
+
+	private int _rebinding;
+
 	private LocalSyncStatus _status = new LocalSyncStatus(LocalSyncState.Stopped, "Sync station is stopped");
 
 	public int Port { get; private set; } = 5055;
@@ -99,6 +104,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 		}
 		Port = port;
 		WebApplication app = null;
+		IReadOnlyList<IPAddress> addresses = LanListener.Addresses();
 		try
 		{
 			WebApplicationBuilder webApplicationBuilder = WebApplication.CreateSlimBuilder();
@@ -108,23 +114,11 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 				options.AddServerHeader = false;
 				options.Limits.MaxRequestBodySize = 5242880L;
 				options.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10L);
-				options.Listen(IPAddress.Any, port);
+				LanListener.Listen(options, addresses, port);
 			});
 			app = webApplicationBuilder.Build();
-			app.Use(async (HttpContext context, Func<Task> next) =>
-			{
-				context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
-				context.Response.Headers.Append("Access-Control-Allow-Methods", "*");
-				context.Response.Headers.Append("Access-Control-Allow-Headers", "*");
-				if (HttpMethods.IsOptions(context.Request.Method))
-				{
-					context.Response.StatusCode = 204;
-				}
-				else
-				{
-					await next();
-				}
-			});
+			// No CORS headers: only the phone app talks to this listener, and browser requests are refused.
+			app.Use((HttpContext context, Func<Task> next) => LanListener.RefuseBrowsersAsync(context, next));
 			MapEndpoints(app);
 			await app.StartAsync(cancellationToken);
 			CaptureBoundPort(app);
@@ -142,7 +136,10 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 		lock (_gate)
 		{
 			_app = app;
+			_boundAddresses = addresses;
 		}
+		NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+		NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
 		_connectionTimer = new Timer((object? _) =>
 		{
 			RefreshConnectionState();
@@ -152,6 +149,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 
 	public async Task StopAsync()
 	{
+		NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
 		WebApplication app;
 		lock (_gate)
 		{
@@ -178,6 +176,42 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 	public ValueTask DisposeAsync()
 	{
 		return new ValueTask(StopAsync());
+	}
+
+	// The shop network's address can change (DHCP, Wi-Fi switch). Follow it, so the listener stays on the
+	// address the QR code shows instead of an old one - or every adapter.
+	private void OnNetworkAddressChanged(object? sender, EventArgs e)
+	{
+		IReadOnlyList<IPAddress> bound;
+		lock (_gate)
+		{
+			if (_app == null)
+			{
+				return;
+			}
+			bound = _boundAddresses;
+		}
+		if (LanListener.SameAddresses(bound, LanListener.Addresses()) || Interlocked.Exchange(ref _rebinding, 1) == 1)
+		{
+			return;
+		}
+		_ = Task.Run(async () =>
+		{
+			try
+			{
+				int port = Port;
+				await StopAsync();
+				await StartAsync(port);
+			}
+			catch (Exception exception)
+			{
+				logger.LogWarning(exception, "Local sync listener could not follow a network change.");
+			}
+			finally
+			{
+				Interlocked.Exchange(ref _rebinding, 0);
+			}
+		});
 	}
 
 	private static string Describe(Exception exception, int port)
@@ -209,7 +243,8 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 
 	private LocalSyncStatus ListeningStatus()
 	{
-		return new LocalSyncStatus(LocalSyncState.Listening, $"Listening on port {Port} (all adapters)", $"Phone URL: http://<this-pc-ip>:{Port}/api/sync/ping — if that fails, use Check / Allow Firewall Rule for TCP {Port} on private networks.");
+		IReadOnlyList<IPAddress> bound = _boundAddresses;
+		return new LocalSyncStatus(LocalSyncState.Listening, $"Listening on {LanListener.Describe(bound)}, port {Port}", $"Phone URL: http://<this-pc-ip>:{Port}/api/sync/ping — if that fails, use Check / Allow Firewall Rule for TCP {Port} on private networks.");
 	}
 
 	private void RefreshConnectionState()

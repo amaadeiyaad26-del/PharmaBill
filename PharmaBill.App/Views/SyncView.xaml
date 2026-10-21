@@ -46,6 +46,9 @@
           </Border>
           <StackPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Top">
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" Foreground="{DynamicResource SecondaryTextBrush}" Text="Zero-config: this PC advertises _pharmabill-sync._tcp on Wi-Fi (port 5055). Scan the QR code, or let Android discover the station. If the firewall blocks LAN, changes can move through a shared folder or by USB." />
+            <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
+              <TextBlock TextWrapping="Wrap" Foreground="#FF93370D" AutomationProperties.Name="Pairing network warning" Text="Pair and sync only on the shop's own Wi-Fi, never guest or public Wi-Fi. Until encrypted device links arrive, anyone on the same Wi-Fi could read the sync traffic and the pairing code in it." />
+            </Border>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" FontWeight="SemiBold" AutomationProperties.Name="LAN discovery status" Text="{Binding DiscoveryStatus}" />
             <WrapPanel>
               <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="This PC Wi-Fi IP:" />
