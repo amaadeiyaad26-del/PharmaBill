@@ -40,7 +40,7 @@
           <Button Content="+ New B2B Order / Challan" Style="{StaticResource FrostedMintPillButton}"
                   behaviors:HoverTickSound.Enabled="True" Command="{Binding NewB2bOrderCommand}" />
         </StackPanel>
-        <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="Wholesale dashboard"
+        <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="WHOLESALE DASHBOARD"
                                     Note="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
       </DockPanel>
 

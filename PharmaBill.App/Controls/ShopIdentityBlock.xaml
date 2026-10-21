@@ -2,33 +2,88 @@
 <UserControl x:Class="PharmaBill.App.Controls.ShopIdentityBlock"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:PharmaBill.App.Controls"
              x:Name="Root"
              Focusable="False">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    <controls:LetterSpacingConverter x:Key="Tracked" />
   </UserControl.Resources>
-  <!-- The shop's own name is the page heading; our brand stays in the sidebar. Long names wrap, never clip. -->
-  <Grid>
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="Auto" />
-      <ColumnDefinition Width="*" />
-    </Grid.ColumnDefinitions>
-    <Border Grid.Column="0" Width="64" Height="64" Margin="0,2,16,0" VerticalAlignment="Top" CornerRadius="12" ClipToBounds="True"
-            Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1"
-            Visibility="{Binding Shop.HasLogo, ElementName=Root, Converter={StaticResource BoolToVisibility}}">
-      <Image Source="{Binding Shop.Logo, ElementName=Root}" Stretch="Uniform" Margin="4" RenderOptions.BitmapScalingMode="HighQuality"
-             AutomationProperties.Name="Shop logo" />
+  <!--
+    The shop's logo lockup and the page heading: mark (uploaded logo, or a generated monogram) on the left, the name
+    and contact details in a column beside it, seated on a hairline accent rule. Our brand stays in the sidebar.
+  -->
+  <StackPanel>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Uploaded logo: a quiet tile so any artwork sits cleanly on the page. -->
+      <Border Grid.Column="0" Width="76" Height="76" VerticalAlignment="Center" CornerRadius="16" Padding="7"
+              Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1"
+              Visibility="{Binding Shop.HasLogo, ElementName=Root, Converter={StaticResource BoolToVisibility}}">
+        <Border.Effect>
+          <DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.10" Color="#FF0F172A" />
+        </Border.Effect>
+        <Image Source="{Binding Shop.Logo, ElementName=Root}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+               AutomationProperties.Name="Shop logo" />
+      </Border>
+
+      <!-- No logo: a monogram badge in the accent colour, with a top sheen, bottom shade and inner highlight. -->
+      <Grid Grid.Column="0" Width="64" Height="64" VerticalAlignment="Center"
+            Visibility="{Binding Shop.ShowMonogram, ElementName=Root, Converter={StaticResource BoolToVisibility}}"
+            AutomationProperties.Name="{Binding Shop.Name, ElementName=Root}">
+        <Grid.Effect>
+          <DropShadowEffect BlurRadius="14" ShadowDepth="3" Direction="270" Opacity="0.22" Color="#FF0F172A" />
+        </Grid.Effect>
+        <Border CornerRadius="18" Background="{DynamicResource AccentBrush}" />
+        <Border CornerRadius="18">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#3DFFFFFF" Offset="0" />
+              <GradientStop Color="#0AFFFFFF" Offset="0.48" />
+              <GradientStop Color="#00000000" Offset="0.52" />
+              <GradientStop Color="#2E000000" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+        <Border CornerRadius="18" BorderThickness="1" BorderBrush="#47FFFFFF" />
+        <TextBlock Text="{Binding Shop.Initials, ElementName=Root}" Foreground="White" FontSize="24" FontWeight="SemiBold"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,1"
+                   TextOptions.TextFormattingMode="Ideal">
+          <TextBlock.Effect>
+            <DropShadowEffect BlurRadius="3" ShadowDepth="1" Direction="270" Opacity="0.30" Color="#FF000000" />
+          </TextBlock.Effect>
+        </TextBlock>
+      </Grid>
+
+      <StackPanel Grid.Column="1" Margin="18,0,0,0" VerticalAlignment="Center">
+        <!-- Long names wrap between words; the tracking never splits a word. -->
+        <TextBlock Text="{Binding Shop.Name, ElementName=Root, Converter={StaticResource Tracked}}"
+                   AutomationProperties.Name="{Binding Shop.Name, ElementName=Root}" AutomationProperties.HeadingLevel="Level1"
+                   FontSize="{Binding Shop.NameFontSize, ElementName=Root}" FontWeight="ExtraBold"
+                   TextWrapping="Wrap" TextTrimming="None" Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock Margin="0,5,0,0" FontSize="13" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                   Visibility="{Binding Shop.HasContactLine, ElementName=Root, Converter={StaticResource BoolToVisibility}}">
+          <Run Text="{Binding Shop.Address, ElementName=Root, Mode=OneWay}" /><Run Text="{Binding Shop.ContactSeparatorText, ElementName=Root, Mode=OneWay}" Foreground="{DynamicResource AccentBrush}" FontWeight="Bold" /><Run Text="{Binding Shop.Phone, ElementName=Root, Mode=OneWay}" />
+        </TextBlock>
+        <TextBlock Margin="0,7,0,0" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}">
+          <Run Text="{Binding Label, ElementName=Root, Mode=OneWay, Converter={StaticResource Tracked}}" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" /><Run Text="{Binding NoteSeparator, ElementName=Root, Mode=OneWay}" /><Run Text="{Binding Note, ElementName=Root, Mode=OneWay}" />
+        </TextBlock>
+      </StackPanel>
+    </Grid>
+
+    <!-- Hairline accent rule that seats the lockup on the page, fading out to the right. -->
+    <Border Height="1" Margin="0,16,0,0" Background="{DynamicResource AccentBrush}">
+      <Border.OpacityMask>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+          <GradientStop Color="#99000000" Offset="0" />
+          <GradientStop Color="#33000000" Offset="0.55" />
+          <GradientStop Color="#00000000" Offset="1" />
+        </LinearGradientBrush>
+      </Border.OpacityMask>
     </Border>
-    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-      <TextBlock Text="{Binding Shop.Name, ElementName=Root}" FontSize="30" FontWeight="Bold" LineHeight="36"
-                 LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextTrimming="None"
-                 Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.HeadingLevel="Level1" />
-      <TextBlock Margin="0,4,0,0" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
-                 Text="{Binding Shop.ContactLine, ElementName=Root}"
-                 Visibility="{Binding Shop.HasContactLine, ElementName=Root, Converter={StaticResource BoolToVisibility}}" />
-      <TextBlock Margin="0,6,0,0" FontSize="11.5" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.85">
-        <Run Text="{Binding Label, ElementName=Root, Mode=OneWay}" /><Run Text="{Binding NoteSeparator, ElementName=Root, Mode=OneWay}" /><Run FontWeight="Normal" Text="{Binding Note, ElementName=Root, Mode=OneWay}" />
-      </TextBlock>
-    </StackPanel>
-  </Grid>
+  </StackPanel>
 </UserControl>

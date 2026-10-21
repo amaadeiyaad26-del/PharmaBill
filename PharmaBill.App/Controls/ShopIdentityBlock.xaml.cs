@@ -5,8 +5,8 @@ using PharmaBill.App.ViewModels;
 namespace PharmaBill.App.Controls;
 
 /// <summary>
-/// Dashboard heading: the shop's name as a wordmark, its address and phone beneath (left out when empty), its logo
-/// beside it when one is uploaded, and a small page label such as "Dashboard".
+/// Dashboard heading and logo lockup: the shop's logo or a generated monogram, its name, address and phone (empty
+/// parts left out) and a small page label such as "DASHBOARD".
 /// </summary>
 public partial class ShopIdentityBlock : UserControl
 {
@@ -14,7 +14,7 @@ public partial class ShopIdentityBlock : UserControl
 		nameof(Shop), typeof(ShopIdentityViewModel), typeof(ShopIdentityBlock), new PropertyMetadata(null));
 
 	public static readonly DependencyProperty LabelProperty = DependencyProperty.Register(
-		nameof(Label), typeof(string), typeof(ShopIdentityBlock), new PropertyMetadata("Dashboard"));
+		nameof(Label), typeof(string), typeof(ShopIdentityBlock), new PropertyMetadata("DASHBOARD"));
 
 	public static readonly DependencyProperty NoteProperty = DependencyProperty.Register(
 		nameof(Note), typeof(string), typeof(ShopIdentityBlock), new PropertyMetadata(string.Empty, OnNoteChanged));

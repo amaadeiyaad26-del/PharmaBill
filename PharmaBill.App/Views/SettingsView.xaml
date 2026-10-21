@@ -215,6 +215,43 @@
               <TextBlock Text="Firm Profile" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10" />
               <TextBlock Style="{StaticResource FieldLabel}" Text="Store name" />
               <TextBox Name="PharmacyStoreNameBox" Padding="8" Margin="0,0,0,8" Text="{Binding PharmacyStoreName, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Style="{StaticResource FieldLabel}" Text="Shop logo" />
+              <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Width="76" Height="76" CornerRadius="14" Padding="6" Background="{DynamicResource CardBackgroundBrush}"
+                        BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+                  <Grid>
+                    <Image Source="{Binding FirmLogoPreview}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
+                           AutomationProperties.Name="Shop logo preview" />
+                    <TextBlock Text="No logo" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}">
+                      <TextBlock.Style>
+                        <Style TargetType="{x:Type TextBlock}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasFirmLogo}" Value="True">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Grid>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal">
+                    <Button Content="Upload logo..." Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding UploadFirmLogoCommand}"
+                            ToolTip="PNG, JPG or SVG. Shown on the dashboard and printed on bills." />
+                    <Button Content="Remove" Padding="12,6" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding RemoveFirmLogoCommand}"
+                            Visibility="{Binding HasFirmLogo, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  </StackPanel>
+                  <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                             Text="PNG, JPG or SVG. Without a logo the dashboard shows your initials in a badge." />
+                  <TextBlock Margin="0,4,0,0" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" Text="{Binding FirmLogoStatus}" />
+                </StackPanel>
+              </Grid>
               <TextBlock Style="{StaticResource FieldLabel}" Text="Address" />
               <TextBox Padding="8" Margin="0,0,0,8" Text="{Binding PharmacyAddress, UpdateSourceTrigger=PropertyChanged}" />
               <TextBlock Style="{StaticResource FieldLabel}" Text="Address line 2" />

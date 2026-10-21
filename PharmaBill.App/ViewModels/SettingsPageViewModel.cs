@@ -13,6 +13,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using System.Windows.Media;
+using System.IO;
 using PharmaBill.App.Services;
 using PharmaBill.Core;
 using PharmaBill.Core.Entities;
@@ -2771,6 +2773,98 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand PickLogoCommand => pickLogoCommand ?? (pickLogoCommand = new RelayCommand(PickLogo));
 
+	private byte[]? _firmLogoPng;
+
+	private bool _firmLogoChanged;
+
+	private ImageSource? _firmLogoPreview;
+
+	private string _firmLogoStatus = string.Empty;
+
+	private RelayCommand? uploadFirmLogoCommand;
+
+	private RelayCommand? removeFirmLogoCommand;
+
+	/// <summary>Preview of the logo stored with Firm Profile (or the one just chosen, before Save Profile).</summary>
+	public ImageSource? FirmLogoPreview
+	{
+		get => _firmLogoPreview;
+		private set
+		{
+			if (SetProperty(ref _firmLogoPreview, value))
+			{
+				OnPropertyChanged(nameof(HasFirmLogo));
+			}
+		}
+	}
+
+	public bool HasFirmLogo => FirmLogoPreview != null;
+
+	public string FirmLogoStatus
+	{
+		get => _firmLogoStatus;
+		private set => SetProperty(ref _firmLogoStatus, value);
+	}
+
+	public IRelayCommand UploadFirmLogoCommand => uploadFirmLogoCommand ??= new RelayCommand(UploadFirmLogo);
+
+	public IRelayCommand RemoveFirmLogoCommand => removeFirmLogoCommand ??= new RelayCommand(() =>
+	{
+		_firmLogoPng = null;
+		_firmLogoChanged = true;
+		FirmLogoPreview = null;
+		FirmLogoStatus = "Logo removed. Save Profile to apply; the dashboard will show your initials instead.";
+	});
+
+	private void UploadFirmLogo()
+	{
+		OpenFileDialog dialog = new OpenFileDialog
+		{
+			Title = "Choose your shop logo",
+			Filter = ShopLogoImporter.DialogFilter,
+			CheckFileExists = true,
+			Multiselect = false
+		};
+		if (dialog.ShowDialog() != true)
+		{
+			return;
+		}
+
+		try
+		{
+			_firmLogoPng = ShopLogoImporter.ToPng(dialog.FileName);
+			_firmLogoChanged = true;
+			FirmLogoPreview = ShopLogoImporter.ToImageSource(_firmLogoPng);
+			FirmLogoStatus = "New logo ready. Save Profile to keep it.";
+		}
+		catch (InvalidOperationException ex)
+		{
+			FirmLogoStatus = ex.Message;
+		}
+	}
+
+	/// <summary>
+	/// Printed bills read the logo from a file; keep a copy of the Firm Profile logo in the data folder so bills and the
+	/// dashboard always show the same one. Returns the file path, or null when there is no logo.
+	/// </summary>
+	private static string? WritePrintLogoCopy(byte[]? png)
+	{
+		string path = Path.Combine(PharmaBill.Data.Persistence.AppDataPaths.DataDirectory, "branding", "shop-logo.png");
+		if (png is not { Length: > 0 })
+		{
+			if (File.Exists(path))
+			{
+				File.Delete(path);
+			}
+
+			return null;
+		}
+
+		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+		File.WriteAllBytes(path, png);
+		return path;
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand SaveDocumentOutputSettingsCommand => saveDocumentOutputSettingsCommand ?? (saveDocumentOutputSettingsCommand = new AsyncRelayCommand(SaveDocumentOutputSettings));
@@ -3085,6 +3179,10 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			PharmacyAddress = pharmacyProfile.Address ?? string.Empty;
 			PharmacyPhone = pharmacyProfile.Phone ?? string.Empty;
 			PharmacyEmail = pharmacyProfile.Email ?? string.Empty;
+			_firmLogoPng = pharmacyProfile.LogoPng;
+			_firmLogoChanged = false;
+			FirmLogoPreview = ShopLogoImporter.ToImageSource(_firmLogoPng);
+			FirmLogoStatus = string.Empty;
 			PharmacyGstin = pharmacyProfile.Gstin ?? string.Empty;
 			bool hasStoredState = !string.IsNullOrWhiteSpace(pharmacyProfile.State);
 			SetPharmacyState(
@@ -3471,9 +3569,23 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			pharmacyProfile.Gstin = (string.IsNullOrWhiteSpace(PharmacyGstin) ? null : PharmacyGstin.Trim());
 			pharmacyProfile.State = state;
 			pharmacyProfile.B2cLargeInvoiceThreshold = b2cLargeThreshold;
+			if (_firmLogoChanged)
+			{
+				pharmacyProfile.LogoPng = _firmLogoPng;
+			}
+
 			await unitOfWork.SaveChangesAsync();
 			PharmacyState = state ?? string.Empty;
 			_documentOutputSettings = _documentOutputSettingsStore.Load();
+			if (_firmLogoChanged)
+			{
+				string? printLogo = WritePrintLogoCopy(_firmLogoPng);
+				_documentOutputSettings.LogoPath = printLogo;
+				LogoPath = printLogo ?? string.Empty;
+				_firmLogoChanged = false;
+				FirmLogoStatus = _firmLogoPng == null ? "Logo removed." : "Logo saved. It also prints on bills when \"Print shop logo\" is on.";
+			}
+
 			_documentOutputSettings.AddressLine2 = PrintAddressLine2.Trim();
 			_documentOutputSettings.FssaiNumber = FssaiNumber.Trim();
 			_documentOutputSettings.DrugLicence20B = DrugLicence20B.Trim();

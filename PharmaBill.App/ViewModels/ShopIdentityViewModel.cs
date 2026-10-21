@@ -3,7 +3,6 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,9 +15,9 @@ using PharmaBill.Data.Services;
 namespace PharmaBill.App.ViewModels;
 
 /// <summary>
-/// The shop's name, contact line and logo, shared by both dashboards and the window header. One instance for the
-/// app; <see cref="ReloadAsync"/> runs when Firm Profile, branch details or the shop logo are saved, so every screen
-/// updates at once.
+/// The shop's name, contact details and logo (or generated monogram), shared by both dashboards and the window
+/// header. One instance for the app; <see cref="ReloadAsync"/> runs when Firm Profile, branch details or the logo
+/// are saved, so every screen updates at once.
 /// </summary>
 public sealed class ShopIdentityViewModel(IServiceScopeFactory scopeFactory, DocumentOutputSettingsStore documentSettings, ILogger<ShopIdentityViewModel> logger) : ObservableObject
 {
@@ -33,9 +32,25 @@ public sealed class ShopIdentityViewModel(IServiceScopeFactory scopeFactory, Doc
 
 	public string Name => _identity.Name;
 
-	public string ContactLine => _identity.ContactLine;
+	/// <summary>Long names step down in size before they wrap, so the heading stays a lockup rather than a poster.</summary>
+	public double NameFontSize => Name.Length <= 26 ? 32 : Name.Length <= 44 ? 27 : 23;
 
-	public bool HasContactLine => ContactLine.Length > 0;
+	public string? Address => _identity.Address;
+
+	public string? Phone => _identity.Phone;
+
+	public bool HasAddress => !string.IsNullOrWhiteSpace(Address);
+
+	public bool HasPhone => !string.IsNullOrWhiteSpace(Phone);
+
+	/// <summary>The dot between address and phone, only when both are present.</summary>
+	public bool HasContactSeparator => HasAddress && HasPhone;
+
+	public string ContactSeparatorText => HasContactSeparator ? "   ·   " : string.Empty;
+
+	public bool HasContactLine => HasAddress || HasPhone;
+
+	public string Initials => _identity.Initials;
 
 	public ImageSource? Logo
 	{
@@ -45,11 +60,15 @@ public sealed class ShopIdentityViewModel(IServiceScopeFactory scopeFactory, Doc
 			if (SetProperty(ref _logo, value))
 			{
 				OnPropertyChanged(nameof(HasLogo));
+				OnPropertyChanged(nameof(ShowMonogram));
 			}
 		}
 	}
 
 	public bool HasLogo => Logo != null;
+
+	/// <summary>No uploaded logo: the lockup shows a generated monogram badge instead.</summary>
+	public bool ShowMonogram => !HasLogo;
 
 	public async Task ReloadAsync(CancellationToken cancellationToken = default)
 	{
@@ -63,19 +82,8 @@ public sealed class ShopIdentityViewModel(IServiceScopeFactory scopeFactory, Doc
 			Branch? branch = branchId is Guid id
 				? await context.Branches.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id && item.IsActive, cancellationToken)
 				: null;
-			ShopIdentity identity = ShopIdentityResolver.Resolve(profile, branch, documentSettings.Load().LogoPath);
-
-			bool logoChanged = !string.Equals(identity.LogoPath, _identity.LogoPath, StringComparison.OrdinalIgnoreCase) || Logo == null;
-			_identity = identity;
-			OnPropertyChanged(nameof(Name));
-			OnPropertyChanged(nameof(ContactLine));
-			OnPropertyChanged(nameof(HasContactLine));
-			if (logoChanged)
-			{
-				Logo = LoadLogo(identity.LogoPath);
-			}
-
-			Changed?.Invoke(this, EventArgs.Empty);
+			ShopIdentity identity = ShopIdentityResolver.Resolve(profile, branch);
+			Apply(identity, ShopLogoImporter.ToImageSource(identity.LogoPng, 192) ?? LegacyPrintLogo());
 		}
 		catch (Exception ex) when (ex is not OperationCanceledException)
 		{
@@ -88,9 +96,28 @@ public sealed class ShopIdentityViewModel(IServiceScopeFactory scopeFactory, Doc
 		}
 	}
 
-	/// <summary>Loads the uploaded logo without locking the file, so the shop can replace it. Null when there is none.</summary>
-	private ImageSource? LoadLogo(string? path)
+	/// <summary>Shows the given identity and logo (null logo means the monogram). Also used to preview the lockup.</summary>
+	internal void Apply(ShopIdentity identity, ImageSource? logo)
 	{
+		_identity = identity;
+		OnPropertyChanged(nameof(Name));
+		OnPropertyChanged(nameof(NameFontSize));
+		OnPropertyChanged(nameof(Address));
+		OnPropertyChanged(nameof(Phone));
+		OnPropertyChanged(nameof(HasAddress));
+		OnPropertyChanged(nameof(HasPhone));
+		OnPropertyChanged(nameof(HasContactSeparator));
+		OnPropertyChanged(nameof(ContactSeparatorText));
+		OnPropertyChanged(nameof(HasContactLine));
+		OnPropertyChanged(nameof(Initials));
+		Logo = logo;
+		Changed?.Invoke(this, EventArgs.Empty);
+	}
+
+	/// <summary>A logo chosen earlier for printed bills only, before logos were stored with Firm Profile.</summary>
+	private ImageSource? LegacyPrintLogo()
+	{
+		string? path = documentSettings.Load().LogoPath;
 		if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
 		{
 			return null;
@@ -98,19 +125,11 @@ public sealed class ShopIdentityViewModel(IServiceScopeFactory scopeFactory, Doc
 
 		try
 		{
-			BitmapImage image = new BitmapImage();
-			image.BeginInit();
-			image.CacheOption = BitmapCacheOption.OnLoad;
-			image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-			image.DecodePixelHeight = 160;
-			image.UriSource = new Uri(path, UriKind.Absolute);
-			image.EndInit();
-			image.Freeze();
-			return image;
+			return ShopLogoImporter.ToImageSource(File.ReadAllBytes(path), 192);
 		}
 		catch (Exception ex)
 		{
-			logger.LogInformation(ex, "Shop logo {Path} could not be read; showing the name only.", path);
+			logger.LogInformation(ex, "Print logo {Path} could not be read; showing the monogram.", path);
 			return null;
 		}
 	}

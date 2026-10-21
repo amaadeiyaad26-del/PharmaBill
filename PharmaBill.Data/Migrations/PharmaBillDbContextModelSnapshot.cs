@@ -1293,6 +1293,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<string>("LegalName")
                         .HasColumnType("TEXT");
 
+                    b.Property<byte[]>("LogoPng")
+                        .HasColumnType("BLOB");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");

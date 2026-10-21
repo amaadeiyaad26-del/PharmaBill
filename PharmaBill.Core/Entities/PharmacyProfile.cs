@@ -14,6 +14,9 @@ public sealed class PharmacyProfile : EntityBase
 
 	public string? Phone { get; set; }
 
+	/// <summary>The shop's uploaded logo, normalised to a PNG of at most 512px on upload. Null when none was uploaded.</summary>
+	public byte[]? LogoPng { get; set; }
+
 	public string? Email { get; set; }
 
 	public string? Gstin { get; set; }

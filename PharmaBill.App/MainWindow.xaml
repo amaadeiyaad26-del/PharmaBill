@@ -68,7 +68,7 @@
                          VerticalAlignment="Center" />
             </Border>
             </StackPanel>
-            <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="Dashboard"
+            <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="DASHBOARD"
                                         Note="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
           </DockPanel>
           <TextBlock DockPanel.Dock="Top" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding ErrorMessage}" />
