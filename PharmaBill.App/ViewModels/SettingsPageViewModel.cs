@@ -2935,6 +2935,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			await scope.ServiceProvider.GetRequiredService<BranchService>().UpdateCurrentBranchAsync(BranchCode, BranchName, BranchAddress, BranchPhone, BranchGstin, BranchDrugLicense, BranchIsHeadOffice);
 			BranchStatus = "Saved successfully ✓";
+			RefreshShopIdentity();
 		}
 		catch (Exception ex)
 		{
@@ -3355,6 +3356,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			_documentOutputSettings.InspectorPinHash = _documentOutputSettingsStore.Load().InspectorPinHash;
 		}
 		_documentOutputSettingsStore.Save(_documentOutputSettings);
+		RefreshShopIdentity();
 		_documentOutputSettingsStore.SaveSmtpPassword(SmtpPassword);
 		SmtpPassword = string.Empty;
 		InspectorPinInput = string.Empty;
@@ -3478,11 +3480,19 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			_documentOutputSettings.DrugLicence21B = DrugLicence21B.Trim();
 			_documentOutputSettingsStore.Save(_documentOutputSettings);
 			FirmProfileStatus = stateNote == null ? "Saved successfully ✓" : "Saved. Note: " + stateNote;
+			RefreshShopIdentity();
 		}
 		catch (Exception ex)
 		{
 			FirmProfileStatus = ex.Message;
 		}
+	}
+
+	/// <summary>Firm name, address, phone, branch details or the shop logo changed: update the dashboards and header now.</summary>
+	private void RefreshShopIdentity()
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		_ = scope.ServiceProvider.GetService<ShopIdentityViewModel>()?.ReloadAsync();
 	}
 
 	private async Task SaveUpiSettingsAsync()

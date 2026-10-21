@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl x:Class="PharmaBill.App.Controls.ShopIdentityBlock"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Focusable="False">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+  <!-- The shop's own name is the page heading; our brand stays in the sidebar. Long names wrap, never clip. -->
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
+    <Border Grid.Column="0" Width="64" Height="64" Margin="0,2,16,0" VerticalAlignment="Top" CornerRadius="12" ClipToBounds="True"
+            Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1"
+            Visibility="{Binding Shop.HasLogo, ElementName=Root, Converter={StaticResource BoolToVisibility}}">
+      <Image Source="{Binding Shop.Logo, ElementName=Root}" Stretch="Uniform" Margin="4" RenderOptions.BitmapScalingMode="HighQuality"
+             AutomationProperties.Name="Shop logo" />
+    </Border>
+    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+      <TextBlock Text="{Binding Shop.Name, ElementName=Root}" FontSize="30" FontWeight="Bold" LineHeight="36"
+                 LineStackingStrategy="BlockLineHeight" TextWrapping="Wrap" TextTrimming="None"
+                 Foreground="{DynamicResource PrimaryTextBrush}" AutomationProperties.HeadingLevel="Level1" />
+      <TextBlock Margin="0,4,0,0" FontSize="13.5" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                 Text="{Binding Shop.ContactLine, ElementName=Root}"
+                 Visibility="{Binding Shop.HasContactLine, ElementName=Root, Converter={StaticResource BoolToVisibility}}" />
+      <TextBlock Margin="0,6,0,0" FontSize="11.5" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Opacity="0.85">
+        <Run Text="{Binding Label, ElementName=Root, Mode=OneWay}" /><Run Text="{Binding NoteSeparator, ElementName=Root, Mode=OneWay}" /><Run FontWeight="Normal" Text="{Binding Note, ElementName=Root, Mode=OneWay}" />
+      </TextBlock>
+    </StackPanel>
+  </Grid>
+</UserControl>

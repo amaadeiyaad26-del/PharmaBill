@@ -15,7 +15,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSyncServer localSync, LicenceViewModel licence) : ObservableObject, ILoadablePage
+public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSyncServer localSync, LicenceViewModel licence, ShopIdentityViewModel shop) : ObservableObject, ILoadablePage
 {
 	private DashboardSnapshot _snapshot = new DashboardSnapshot(0m, 0m, 0, 0, 0m, 0);
 
@@ -520,6 +520,9 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 
 	public LicenceViewModel Licence => licence;
 
+	/// <summary>The shop's name, contact line and logo for the page heading.</summary>
+	public ShopIdentityViewModel Shop => shop;
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IRelayCommand<string?> DrillDownCommand => drillDownCommand ?? (drillDownCommand = new RelayCommand<string>(DrillDown));
@@ -543,6 +546,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		RefreshLicenseBadge();
+		await shop.ReloadAsync(cancellationToken);
 		await RefreshAsync(cancellationToken);
 	}
 

@@ -440,9 +440,13 @@ public class MainWindowViewModel : ObservableObject
 				OnPropertyChanging(nameof(CurrentPage));
 				_currentPage = value;
 				OnPropertyChanged(nameof(CurrentPage));
+				OnPropertyChanged(nameof(ShowHeaderShopName));
 			}
 		}
 	}
+
+	/// <summary>The dashboards carry the shop's name as their heading, so the window header leaves it out there.</summary>
+	public bool ShowHeaderShopName => CurrentPage is not (DashboardPageViewModel or WholesaleDashboardPageViewModel);
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
@@ -1472,12 +1476,24 @@ public class MainWindowViewModel : ObservableObject
 		}));
 	}
 
+	private void OnShopIdentityChanged(object? sender, EventArgs e)
+	{
+		if (sender is ShopIdentityViewModel shop)
+		{
+			PharmacyName = shop.Name;
+		}
+	}
+
 	public async Task InitializeAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		FolderSyncWarning = (await _folderSync.GetSettingsAsync(cancellationToken)).LastError ?? string.Empty;
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmacyProfile pharmacyProfile = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles.SingleAsync(cancellationToken);
 		PharmacyName = pharmacyProfile.Name;
+		// Keep the header name in step when Firm Profile is saved.
+		ShopIdentityViewModel shop = scope.ServiceProvider.GetRequiredService<ShopIdentityViewModel>();
+		shop.Changed -= OnShopIdentityChanged;
+		shop.Changed += OnShopIdentityChanged;
 		_businessMode = pharmacyProfile.BusinessMode;
 		_activeBillingDeskMode = _activeBillingDeskModeStore.Load(pharmacyProfile.BusinessMode);
 		_billingDeskState.Current = _activeBillingDeskMode;
@@ -1546,7 +1562,8 @@ public class MainWindowViewModel : ObservableObject
 		ShiftStartedDisplay = _shiftStartedLocal.ToString("h:mm tt");
 		ProfileStatusSummary = $"Online / Ready{Environment.NewLine}Shift started {ShiftStartedDisplay}{Environment.NewLine}Branch {ActiveBranchCode}";
 		WelcomeHeadline = WelcomeGreeting.BuildHeadline(DateTime.Now, user);
-		WelcomeSubtitle = WelcomeGreeting.BuildRoleStoreLine(user, PharmacyName);
+		// The shop's name is the dashboard heading; the greeting does not repeat it.
+		WelcomeSubtitle = WelcomeGreeting.ResolveRoleLabel(user);
 		string trialStatus = TrialStatus;
 		EntitlementStatus entitlementStatus = ((trialStatus == "EXPIRED") ? EntitlementStatus.EXPIRED : ((!(trialStatus == "GRACE OFFLINE")) ? EntitlementStatus.SUBSCRIBED : EntitlementStatus.GRACE_OFFLINE));
 		EntitlementStatus status = entitlementStatus;

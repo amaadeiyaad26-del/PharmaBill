@@ -15,11 +15,8 @@
               <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FFB54708" FontWeight="SemiBold" Text="{Binding LicenseBannerText}" />
             </DockPanel>
           </Border>
-          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,14">
-            <StackPanel>
-              <TextBlock Text="Pharma Remit dashboard" FontSize="26" FontWeight="Bold" />
-              <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
-            </StackPanel>
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16" LastChildFill="True">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="16,0,0,0">
             <Button Content="Refresh" Padding="14,7" Margin="20,4" behaviors:HoverTickSound.Enabled="True" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload today's sales, stock alerts, and outstanding balances." />
             <Button Content="Sync Station" Height="40" Margin="4,4,0,4" ToolTip="Open Android LAN sync station (QR + listener)" behaviors:HoverTickSound.Enabled="True" CommandParameter="Sync" Style="{StaticResource PulsingButtonStyle}" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
             <Button Content="{Binding LicenseBadgeText}"
@@ -70,7 +67,10 @@
                          Foreground="#FF047857"
                          VerticalAlignment="Center" />
             </Border>
-          </StackPanel>
+            </StackPanel>
+            <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="Dashboard"
+                                        Note="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
+          </DockPanel>
           <TextBlock DockPanel.Dock="Top" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding ErrorMessage}" />
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
@@ -5103,7 +5103,7 @@
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel VerticalAlignment="Center">
-              <TextBlock FontSize="20" FontWeight="Bold" Text="{Binding PharmacyName}" />
+              <TextBlock FontSize="20" FontWeight="Bold" TextWrapping="Wrap" Text="{Binding PharmacyName}" Visibility="{Binding ShowHeaderShopName, Converter={StaticResource BooleanToVisibilityConverter}}" />
               <TextBlock Margin="0,3,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding LocalDateTime}" />
             </StackPanel>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,16,0" ZIndex="50">

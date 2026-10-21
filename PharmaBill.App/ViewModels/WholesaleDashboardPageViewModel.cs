@@ -18,6 +18,8 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 	private readonly IServiceScopeFactory _scopeFactory;
 	private readonly INavigationService _navigation;
 
+	private readonly ShopIdentityViewModel _shop;
+
 	private WholesaleDashboardSnapshot _snapshot = new(
 		0m, 0, 0m, 0m, 0m, 0m, 0m, 0m, 0, 0, 0, 0, 0m, 0m, 0m, 0m,
 		Array.Empty<WholesaleOverdueBuyerRow>(), 0, 0m, 0, 0, 0,
@@ -33,11 +35,15 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 	private RelayCommand<WholesaleOverdueBuyerRow?>? _whatsAppReminderCommand;
 	private RelayCommand<WholesaleOverdueBuyerRow?>? _openLedgerCommand;
 
-	public WholesaleDashboardPageViewModel(IServiceScopeFactory scopeFactory, INavigationService navigation)
+	public WholesaleDashboardPageViewModel(IServiceScopeFactory scopeFactory, INavigationService navigation, ShopIdentityViewModel shop)
 	{
 		_scopeFactory = scopeFactory;
 		_navigation = navigation;
+		_shop = shop;
 	}
+
+	/// <summary>The shop's name, contact line and logo for the page heading.</summary>
+	public ShopIdentityViewModel Shop => _shop;
 
 	public ObservableCollection<WholesaleOverdueBuyerRow> TopOverdueBuyers { get; } = new();
 
@@ -125,6 +131,7 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default)
 	{
+		await _shop.ReloadAsync(cancellationToken);
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();

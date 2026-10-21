@@ -47,12 +47,6 @@ public static class WelcomeGreeting
 		return GetTimeGreeting(localNow) + ", " + ResolveDisplayName(user) + "!";
 	}
 
-	public static string BuildRoleStoreLine(AppUser? user, string? pharmacyName)
-	{
-		string text = (string.IsNullOrWhiteSpace(pharmacyName) ? "Your Pharmacy" : pharmacyName.Trim());
-		return ResolveRoleLabel(user) + " • " + text;
-	}
-
 	public static string BuildStatusLine(EntitlementStatus status)
 	{
 		if (status != EntitlementStatus.EXPIRED)
