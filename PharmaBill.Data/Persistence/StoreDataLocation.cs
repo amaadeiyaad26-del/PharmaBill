@@ -342,6 +342,7 @@ public static class StoreDataLocation
 				}
 			}
 
+			RewriteStoredPaths(source, target);
 			VerifyDatabasesOpen(target);
 			return files.Count;
 		}
@@ -362,6 +363,89 @@ public static class StoreDataLocation
 
 			throw new InvalidOperationException("Your data was not moved, and nothing was changed in its current location. " + ex.Message, ex);
 		}
+	}
+
+	// Columns that hold absolute paths to files the app saved under its data root.
+	private static readonly (string Table, string Column, string Prefix)[] StoredPathColumns =
+	[
+		("Sales", "PrescriptionFilePath", ""),
+		("Prescriptions", "Notes", "DocumentPath="),
+		("CustomerLicences", "DocumentPath", ""),
+		("LicenceRecords", "DocumentPath", ""),
+		("PurchaseInvoices", "AttachedInvoicePath", "")
+	];
+
+	/// <summary>
+	/// Prescriptions, licence copies and purchase attachments are recorded by absolute path. In the copied databases
+	/// (never the originals) a path under the package folder is pointed at the same file in the new folder, and every
+	/// such file must exist there, so the records keep their documents after the package folder is deleted.
+	/// </summary>
+	private static void RewriteStoredPaths(string source, string target)
+	{
+		string password = Convert.ToHexString(new DatabaseEncryptionKeyProvider(Path.Combine(target, "data", "database.key")).GetOrCreateKey());
+		string oldPrefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(source)) + "\\";
+		string newPrefix = Path.TrimEndingDirectorySeparator(Path.GetFullPath(target)) + "\\";
+		foreach (string database in Directory.EnumerateFiles(target, AppDataPaths.DatabaseFileName, SearchOption.AllDirectories).Where(path => new FileInfo(path).Length > 0))
+		{
+			using SqliteConnection connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Password = password, Pooling = false }.ToString());
+			connection.Open();
+			using SqliteTransaction transaction = connection.BeginTransaction();
+			foreach ((string table, string column, string prefix) in StoredPathColumns)
+			{
+				if (!ColumnExists(connection, transaction, table, column))
+				{
+					continue;
+				}
+
+				List<(object Id, string Value)> rows = new List<(object, string)>();
+				using (SqliteCommand select = connection.CreateCommand())
+				{
+					select.Transaction = transaction;
+					select.CommandText = $"SELECT Id, \"{column}\" FROM \"{table}\" WHERE \"{column}\" IS NOT NULL;";
+					using SqliteDataReader reader = select.ExecuteReader();
+					while (reader.Read())
+					{
+						rows.Add((reader.GetValue(0), reader.GetString(1)));
+					}
+				}
+
+				foreach ((object id, string value) in rows)
+				{
+					if (!value.StartsWith(prefix + oldPrefix, StringComparison.OrdinalIgnoreCase))
+					{
+						continue;
+					}
+
+					string relative = value.Substring(prefix.Length + oldPrefix.Length);
+					string moved = newPrefix + relative;
+					if (File.Exists(Path.Combine(source, relative)) && !File.Exists(moved))
+					{
+						throw new InvalidOperationException("A document recorded in " + table + " was not found in the copy: " + relative);
+					}
+
+					using SqliteCommand update = connection.CreateCommand();
+					update.Transaction = transaction;
+					update.CommandText = $"UPDATE \"{table}\" SET \"{column}\" = $value WHERE Id = $id;";
+					update.Parameters.AddWithValue("$value", prefix + moved);
+					update.Parameters.AddWithValue("$id", id);
+					update.ExecuteNonQuery();
+				}
+			}
+
+			transaction.Commit();
+		}
+
+		SqliteConnection.ClearAllPools();
+	}
+
+	private static bool ColumnExists(SqliteConnection connection, SqliteTransaction transaction, string table, string column)
+	{
+		using SqliteCommand command = connection.CreateCommand();
+		command.Transaction = transaction;
+		command.CommandText = "SELECT count(*) FROM pragma_table_info($table) WHERE name = $column;";
+		command.Parameters.AddWithValue("$table", table);
+		command.Parameters.AddWithValue("$column", column);
+		return Convert.ToInt64(command.ExecuteScalar()) > 0;
 	}
 
 	/// <summary>Every copied database must open with the copied key before the app switches to it.</summary>

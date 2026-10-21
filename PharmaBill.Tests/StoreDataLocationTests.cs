@@ -162,6 +162,45 @@ public sealed class StoreDataLocationTests : IDisposable
         // A folder merely named like a sync root, but not inside one, is not flagged.
         Assert.Null(StoreDataLocation.CloudSyncProvider(Path.Combine(_sandbox, "OneDrive Notes"), roots));
     }
+    [Fact]
+    public void Upgrade_PointsStoredDocumentPathsAtTheMovedFiles_InTheCopyOnly()
+    {
+        string password = CreatePackageData();
+        string dbPath = Path.Combine(PackageRoot, @"Sameerchemists\pharmabill.db");
+        string rx = Path.Combine(PackageRoot, @"prescriptions\2026\WIN1_000004\rx-1.jpg");
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath, Password = password, Pooling = false }.ToString()))
+        {
+            connection.Open();
+            using SqliteCommand command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE Sales (Id TEXT, PrescriptionFilePath TEXT); CREATE TABLE Prescriptions (Id TEXT, Notes TEXT);"
+                + "INSERT INTO Sales VALUES ('s1', $path); INSERT INTO Prescriptions VALUES ('p1', 'DocumentPath=' || $path);";
+            command.Parameters.AddWithValue("$path", rx);
+            command.ExecuteNonQuery();
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(rx)!);
+        File.WriteAllBytes(rx, [1, 2, 3]);
+        SqliteConnection.ClearAllPools();
+        string target = Path.Combine(_sandbox, "Users", "Shop", "Pharma Remit Data");
+
+        StoreDataLocation.Choose(PackageRoot, target);
+
+        string moved = Path.Combine(target, @"prescriptions\2026\WIN1_000004\rx-1.jpg");
+        Assert.Equal(moved, Query(Path.Combine(target, @"Sameerchemists\pharmabill.db"), password, "SELECT PrescriptionFilePath FROM Sales"));
+        Assert.Equal("DocumentPath=" + moved, Query(Path.Combine(target, @"Sameerchemists\pharmabill.db"), password, "SELECT Notes FROM Prescriptions"));
+        Assert.True(File.Exists(moved));
+        // The original database still records the original location.
+        Assert.Equal(rx, Query(dbPath, password, "SELECT PrescriptionFilePath FROM Sales"));
+    }
+
+    private static string? Query(string database, string password, string sql)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Password = password, Pooling = false }.ToString());
+        connection.Open();
+        using SqliteCommand command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteScalar() as string;
+    }
     /// <summary>A package folder as a live Store install has it: an encrypted store database, key, backup, attachment, logs and licence state.</summary>
     private string CreatePackageData()
     {
