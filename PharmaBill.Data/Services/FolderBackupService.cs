@@ -40,7 +40,8 @@ public sealed class FolderBackupService(IServiceScopeFactory scopeFactory, Backu
 		return full.Equals(root, StringComparison.OrdinalIgnoreCase) || full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase);
 	}
 
-	private static string? DownloadsFolder()
+	/// <summary>The user's Downloads folder (where Windows actually keeps it), or null when it cannot be found.</summary>
+	public static string? DownloadsFolder()
 	{
 		if (OperatingSystem.IsWindows() && SHGetKnownFolderPath(new Guid("374DE290-123F-4565-9164-39C4925E467B"), 0, IntPtr.Zero, out IntPtr path) == 0)
 		{

@@ -137,6 +137,7 @@ public partial class App : Application
 				services.AddSingleton<IQuickAddMedicineDialog, QuickAddMedicineDialog>();
 				services.AddSingleton<ISmartDrugLookupService, SmartDrugLookupService>();
 				services.AddSingleton<IScannerService, SerialScannerService>();
+				services.AddSingleton<InvoiceDocumentService>();
 				services.AddSingleton<IInvoiceDetailDialogService, InvoiceDetailDialogService>();
 				services.AddTransient<AddStockViewModel>();
 				services.AddSingleton<IFilePickerService, FilePickerService>();

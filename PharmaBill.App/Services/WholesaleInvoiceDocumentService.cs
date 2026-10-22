@@ -15,7 +15,8 @@ using QuestPDF.Infrastructure;
 
 namespace PharmaBill.App.Services;
 
-public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFactory)
+// outputDirectory: where the PDFs are written; the app's data folder unless a test gives its own.
+public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFactory, string? outputDirectory = null)
 {
 	public async Task<string> ExportAsync(Guid invoiceId, bool deliveryChallan, CancellationToken cancellationToken = default(CancellationToken))
 	{
@@ -103,7 +104,7 @@ public sealed class WholesaleInvoiceDocumentService(IServiceScopeFactory scopeFa
 			.OrderBy(g => g.Hsn)
 			.ToList();
 
-		string text = Path.Combine(AppDataPaths.RootDirectory, "wholesale-documents");
+		string text = outputDirectory ?? Path.Combine(AppDataPaths.RootDirectory, "wholesale-documents");
 		Directory.CreateDirectory(text);
 		string value = deliveryChallan ? "delivery-challan" : "tax-invoice";
 		string text2 = Path.Combine(text, $"{invoice.Id:N}-{value}.pdf");
