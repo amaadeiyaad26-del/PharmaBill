@@ -140,8 +140,12 @@ public sealed class TerminalServerTests : IAsyncLifetime
         TerminalShop shop = (await client.GetFromJsonAsync<TerminalShop>("shop", Json))!;
         Assert.Equal("Terminal Test Pharmacy", shop.Name);
         Assert.EndsWith("000001", shop.NextInvoiceNo);
+        // The number shown before saving is the number the bill gets.
+        TerminalSaleResponse first = await SaveAsync(client, Paracetamol(1m), Guid.NewGuid());
+        Assert.Equal(shop.NextInvoiceNo, first.InvoiceNo);
+        Assert.Equal(first.NextInvoiceNo, (await SaveAsync(client, Paracetamol(1m), Guid.NewGuid())).InvoiceNo);
         RetailStockChoice[] stock = (await client.GetFromJsonAsync<RetailStockChoice[]>("stock?q=Paracetamol", Json))!;
-        Assert.Contains(stock, choice => choice.BatchNo == "PCM-01" && choice.AvailableQuantity == 6m);
+        Assert.Contains(stock, choice => choice.BatchNo == "PCM-01" && choice.AvailableQuantity == 4m);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("catalog?q=Para")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("patients?phone=98765")).StatusCode);
     }

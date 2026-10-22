@@ -210,9 +210,9 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 
 	public async Task<string> PreviewNextInvoiceNoAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		string text = await (from profile in unitOfWork.Context.PharmacyProfiles.AsNoTracking()
-			select profile.InvoicePrefix).FirstOrDefaultAsync(cancellationToken);
-		return await numberSeriesService.PreviewNextAsync(string.IsNullOrWhiteSpace(text) ? "WIN1" : text, BusinessClock.Today, cancellationToken);
+		// The same series SaveSaleAsync allocates from (branch prefix first), so the number shown is the number printed.
+		string prefix = await branchService.ResolveInvoiceSeriesPrefixAsync(cancellationToken);
+		return await numberSeriesService.PreviewNextAsync(prefix, BusinessClock.Today, cancellationToken);
 	}
 
 	public async Task<RetailSaleResult> SaveSaleAsync(SaveRetailSaleInput input, Guid actingUserId, UserRole role, CancellationToken cancellationToken = default(CancellationToken))

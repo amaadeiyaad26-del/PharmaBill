@@ -1,0 +1,313 @@
+<Window x:Class="PharmaBill.App.TerminalWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:PharmaBill.App.Controls"
+        Title="Pharma Remit — Billing counter" Icon="/Assets/Icons/app.ico" Width="1240" Height="820" MinWidth="980" MinHeight="640"
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource ContentBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}">
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="Visible" />
+    <controls:BusinessLocalTimeConverter x:Key="LocalTime" />
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+      <Setter Property="Margin" Value="0,8,0,2" />
+    </Style>
+    <Style x:Key="Field" TargetType="TextBox">
+      <Setter Property="Padding" Value="6" />
+    </Style>
+  </Window.Resources>
+  <DockPanel>
+    <!-- Who and where: shop, this counter, the server link, the signed-in user. -->
+    <Border DockPanel.Dock="Top" Padding="16,10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border CornerRadius="10" Padding="10,3" Margin="0,0,12,0" VerticalAlignment="Center">
+            <Border.Style>
+              <Style TargetType="Border">
+                <Setter Property="Background" Value="#FFFEE4E2" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                    <Setter Property="Background" Value="#FFD1FAE5" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+            <TextBlock FontWeight="SemiBold" FontSize="12" Text="{Binding ConnectionLabel}" AutomationProperties.Name="Server connection" />
+          </Border>
+          <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" Text="{Binding SignedInAs}" />
+          <Button Content="Sign out" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding SignOutCommand}"
+                  Visibility="{Binding IsSignedIn, Converter={StaticResource Visible}}" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding ShopName}" />
+          <TextBlock Foreground="{DynamicResource SecondaryTextBrush}">
+            <Run Text="Billing counter " /><Run Text="{Binding CounterName, Mode=OneWay}" FontWeight="SemiBold" /><Run Text=" · records are kept on the server PC" />
+          </TextBlock>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Billing stopped: said plainly, every time. -->
+    <Border DockPanel.Dock="Top" Padding="16,10" Background="#FFB42318" Visibility="{Binding ShowBlockedBanner, Converter={StaticResource Visible}}">
+      <StackPanel>
+        <TextBlock Foreground="White" FontSize="16" FontWeight="Bold" Text="Billing is stopped on this counter." />
+        <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding ConnectionMessage}" AutomationProperties.Name="Why billing is stopped" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" Padding="16,6" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+      <StackPanel>
+        <TextBlock Foreground="#FFB42318" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+        <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+      </StackPanel>
+    </Border>
+
+    <Grid>
+      <TabControl Margin="12">
+        <TabItem Header="Bill">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="370" />
+            </Grid.ColumnDefinitions>
+            <DockPanel Margin="0,0,12,0">
+              <DockPanel DockPanel.Dock="Top">
+                <Button DockPanel.Dock="Right" Content="Search" Height="34" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding SearchCommand}" />
+                <TextBox Padding="8" FontSize="15" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsBillEditable}" AutomationProperties.Name="Search medicine">
+                  <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding SearchCommand}" />
+                  </TextBox.InputBindings>
+                </TextBox>
+              </DockPanel>
+              <DockPanel DockPanel.Dock="Top" Margin="0,6,0,0">
+                <Button DockPanel.Dock="Right" Content="Add to bill" Height="34" Margin="8,0,0,0" VerticalAlignment="Top" Style="{StaticResource PrimaryButton}" Command="{Binding AddLineCommand}" />
+                <ListBox MaxHeight="170" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedResult}" AutomationProperties.Name="Stock found">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock>
+                        <Run Text="{Binding DrugName, Mode=OneWay}" FontWeight="SemiBold" />
+                        <Run Text="{Binding BatchNo, Mode=OneWay, StringFormat='  batch {0}'}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <Run Text="{Binding ExpiryDate, Mode=OneWay, StringFormat='  exp {0:MM/yy}'}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <Run Text="{Binding Mrp, Mode=OneWay, StringFormat='  MRP ₹{0:0.00}'}" />
+                        <Run Text="{Binding AvailableQuantity, Mode=OneWay, StringFormat='  · {0:0.##} in stock'}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                      </TextBlock>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                  <ListBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding AddLineCommand}" />
+                  </ListBox.InputBindings>
+                </ListBox>
+              </DockPanel>
+              <ScrollViewer Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Lines}" IsEnabled="{Binding IsBillEditable}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Margin="0,0,0,8" Padding="10" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource DividerBrush}" Background="{DynamicResource CardBackgroundBrush}">
+                        <StackPanel>
+                          <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Remove" Padding="8,2" Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                            <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0" FontWeight="SemiBold" Text="{Binding LineTotal, StringFormat='₹{0:0.00}'}" />
+                            <StackPanel>
+                              <TextBlock FontWeight="SemiBold" Text="{Binding DrugName}" />
+                              <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding BatchLabel}" />
+                            </StackPanel>
+                          </DockPanel>
+                          <WrapPanel Margin="0,6,0,0">
+                            <TextBlock VerticalAlignment="Center" Text="Qty" Margin="0,0,4,0" />
+                            <TextBox Width="60" Padding="4" Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBlock VerticalAlignment="Center" Text="Price ₹" Margin="12,0,4,0" />
+                            <TextBox Width="80" Padding="4" Text="{Binding UnitPrice, UpdateSourceTrigger=LostFocus}" />
+                            <TextBlock VerticalAlignment="Center" Text="Discount ₹" Margin="12,0,4,0" />
+                            <TextBox Width="70" Padding="4" Text="{Binding Discount, UpdateSourceTrigger=LostFocus}" />
+                          </WrapPanel>
+                          <Border Margin="0,8,0,0" Padding="8" CornerRadius="6" Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" Visibility="{Binding NeedsTax, Converter={StaticResource Visible}}">
+                            <WrapPanel>
+                              <TextBlock VerticalAlignment="Center" Foreground="#FF93370D" Text="No HSN / GST rate on record:" Margin="0,0,8,0" />
+                              <TextBlock VerticalAlignment="Center" Text="HSN" Margin="0,0,4,0" />
+                              <TextBox Width="90" Padding="4" Text="{Binding HsnCode, UpdateSourceTrigger=PropertyChanged}" />
+                              <TextBlock VerticalAlignment="Center" Text="GST %" Margin="10,0,4,0" />
+                              <TextBox Width="50" Padding="4" Text="{Binding GstRate, UpdateSourceTrigger=PropertyChanged}" />
+                              <CheckBox VerticalAlignment="Center" Margin="10,0,0,0" Content="Nil-rated" IsChecked="{Binding IsNilRated}" />
+                              <CheckBox VerticalAlignment="Center" Margin="10,0,0,0" Content="Save to product" IsChecked="{Binding SaveTaxToProduct}" />
+                            </WrapPanel>
+                          </Border>
+                          <Border Margin="0,8,0,0" Padding="8" CornerRadius="6" Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" Visibility="{Binding NeedsMrp, Converter={StaticResource Visible}}">
+                            <WrapPanel>
+                              <TextBlock VerticalAlignment="Center" Foreground="#FF93370D" Text="No MRP on this batch. Batch MRP ₹" Margin="0,0,6,0" />
+                              <TextBox Width="80" Padding="4" Text="{Binding MrpInput, UpdateSourceTrigger=PropertyChanged}" />
+                              <TextBlock VerticalAlignment="Center" Margin="8,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="(pharmacist, manager or owner)" />
+                            </WrapPanel>
+                          </Border>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </DockPanel>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+              <StackPanel IsEnabled="{Binding IsBillEditable}">
+                <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding NextInvoiceNo, StringFormat='Next bill on the server: {0}'}" />
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Patient phone" />
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Find" Padding="10,4" Margin="6,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding FindPatientCommand}" />
+                  <TextBox Style="{StaticResource Field}" Text="{Binding PatientPhone, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Patient name" />
+                <TextBox Style="{StaticResource Field}" Text="{Binding PatientName, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Address" />
+                <TextBox Style="{StaticResource Field}" Text="{Binding PatientAddress, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Doctor and registration no." />
+                <DockPanel>
+                  <TextBox DockPanel.Dock="Right" Width="130" Margin="6,0,0,0" Style="{StaticResource Field}" Text="{Binding DoctorRegistration, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBox Style="{StaticResource Field}" Text="{Binding DoctorName, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <Button DockPanel.Dock="Right" Content="Attach prescription" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding AttachPrescriptionCommand}" />
+                  <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding PrescriptionLabel}" />
+                </DockPanel>
+                <Border Margin="0,8,0,0" Padding="8" CornerRadius="6" Background="#FFEFF8FF" Visibility="{Binding NeedsPrescription, Converter={StaticResource Visible}}">
+                  <StackPanel>
+                    <TextBlock TextWrapping="Wrap" Foreground="#FF1849A9" Text="Schedule H1 / X / NDPS on this bill: address, doctor, registration no. and a prescription are required. Without the prescription, an admin can override:" />
+                    <WrapPanel Margin="0,4,0,0">
+                      <StackPanel Margin="0,0,6,0">
+                        <TextBlock Text="Admin user name" FontSize="11" Foreground="#FF1849A9" />
+                        <TextBox Width="130" Padding="4" Text="{Binding OverrideUser, UpdateSourceTrigger=PropertyChanged}" />
+                      </StackPanel>
+                      <StackPanel>
+                        <TextBlock Text="Admin PIN" FontSize="11" Foreground="#FF1849A9" />
+                        <PasswordBox Width="100" Padding="4" controls:PasswordBoxBinding.Password="{Binding OverridePin, Mode=TwoWay}" />
+                      </StackPanel>
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Payment" />
+                <DockPanel>
+                  <ComboBox DockPanel.Dock="Left" Width="90" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" />
+                  <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="10,0,4,0" Text="Cash given ₹" />
+                  <TextBox Style="{StaticResource Field}" Text="{Binding CashTendered, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+                <TextBlock Margin="0,14,0,0" FontSize="28" FontWeight="Bold" Text="{Binding TotalText}" AutomationProperties.Name="Bill total" />
+                <TextBlock FontWeight="SemiBold" Text="{Binding ChangeText}" />
+              </StackPanel>
+            </ScrollViewer>
+            <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
+              <Button Content="New bill" Height="44" Padding="16,0" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding NewBillCommand}" />
+              <Button Height="44" MinWidth="170" Style="{StaticResource PrimaryButton}" Content="{Binding SaveLabel}" Command="{Binding SaveCommand}" IsEnabled="{Binding CanBill}" AutomationProperties.Name="Save bill" />
+            </StackPanel>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="Recent bills">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="380" />
+            </Grid.ColumnDefinitions>
+            <DockPanel Margin="0,0,12,0">
+              <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <Button DockPanel.Dock="Right" Content="Show" Height="32" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding LoadRecentCommand}" />
+                <TextBox Padding="6" Text="{Binding RecentQuery, UpdateSourceTrigger=PropertyChanged}" ToolTip="Bill number, patient name or phone (blank for the latest)">
+                  <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding LoadRecentCommand}" />
+                  </TextBox.InputBindings>
+                </TextBox>
+              </DockPanel>
+              <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" SelectionMode="Single" ItemsSource="{Binding RecentBills}" SelectedItem="{Binding SelectedRecent}">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Bill" Width="170" Binding="{Binding InvoiceNo}" />
+                  <DataGridTextColumn Header="Time" Width="140" Binding="{Binding SaleAtUtc, Converter={StaticResource LocalTime}}" />
+                  <DataGridTextColumn Header="Patient" Width="*" Binding="{Binding PatientName}" />
+                  <DataGridTextColumn Header="Total" Width="90" Binding="{Binding TotalAmount, StringFormat='₹{0:0.00}'}" />
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <Button HorizontalAlignment="Left" Content="Reprint" Padding="12,4" Style="{StaticResource SecondaryButton}" Command="{Binding ReprintCommand}" />
+                <TextBlock Text="Return" FontSize="15" FontWeight="SemiBold" Margin="0,14,0,4" />
+                <ItemsControl ItemsSource="{Binding ReturnLines}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <DockPanel Margin="0,2">
+                        <TextBox DockPanel.Dock="Right" Width="60" Padding="4" Text="{Binding ReturnQuantity, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding Label}" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Reason" />
+                <TextBox Style="{StaticResource Field}" Text="{Binding ReturnReason, UpdateSourceTrigger=PropertyChanged}" />
+                <CheckBox Margin="0,6,0,0" Content="Put the returned medicine back in stock" IsChecked="{Binding Restock}" />
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="Returns need a pharmacist, manager or owner signed in. Bills older than 5 days also need an admin below." />
+                <Button HorizontalAlignment="Left" Margin="0,8,0,0" Content="Issue return" Padding="12,4" Style="{StaticResource PrimaryButton}" Command="{Binding ReturnCommand}" IsEnabled="{Binding CanBill}" />
+
+                <TextBlock Text="Void the whole bill" FontSize="15" FontWeight="SemiBold" Margin="0,18,0,4" />
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Reason" />
+                <TextBox Style="{StaticResource Field}" Text="{Binding VoidReason, UpdateSourceTrigger=PropertyChanged}" />
+                <Button HorizontalAlignment="Left" Margin="0,8,0,0" Content="Void bill" Padding="12,4" Style="{StaticResource SecondaryButton}" Command="{Binding VoidCommand}" IsEnabled="{Binding CanBill}" />
+
+                <TextBlock Text="Admin (for a void, or a return on an older bill)" FontSize="13" FontWeight="SemiBold" Margin="0,18,0,0" />
+                <WrapPanel Margin="0,4,0,0">
+                  <StackPanel Margin="0,0,6,0">
+                    <TextBlock Text="Admin user name" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBox Width="150" Padding="5" Text="{Binding AdminUser, UpdateSourceTrigger=PropertyChanged}" />
+                  </StackPanel>
+                  <StackPanel>
+                    <TextBlock Text="Admin PIN" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <PasswordBox Width="110" Padding="5" controls:PasswordBoxBinding.Password="{Binding AdminPin, Mode=TwoWay}" />
+                  </StackPanel>
+                </WrapPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </TabItem>
+
+        <TabItem Header="This counter">
+          <StackPanel Margin="12" MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock Text="Printer" FontSize="15" FontWeight="SemiBold" />
+            <WrapPanel Margin="0,6,0,0">
+              <ComboBox Width="160" Margin="0,0,8,0" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" />
+              <ComboBox Width="280" Margin="0,0,8,0" ItemsSource="{Binding Printers}" SelectedItem="{Binding SelectedPrinter}" />
+              <Button Content="Save" Padding="12,4" Style="{StaticResource SecondaryButton}" Command="{Binding SavePrinterCommand}" />
+            </WrapPanel>
+            <TextBlock Text="Server" FontSize="15" FontWeight="SemiBold" Margin="0,20,0,0" />
+            <TextBlock TextWrapping="Wrap" Text="{Binding ServerLabel, StringFormat='Paired with {0}. Bills, stock and registers are kept there; nothing is stored on this PC.'}" />
+            <Button HorizontalAlignment="Left" Margin="0,8,0,0" Content="Stop using this PC as a counter" Padding="12,4" Style="{StaticResource SecondaryButton}" Command="{Binding ForgetPairingCommand}" />
+          </StackPanel>
+        </TabItem>
+      </TabControl>
+
+      <!-- Sign in with the server's users. -->
+      <Border Background="#E6F8FAFC">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Visible" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsSignedIn}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Border Width="360" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="24" CornerRadius="12" BorderThickness="1"
+                BorderBrush="{DynamicResource DividerBrush}" Background="{DynamicResource CardBackgroundBrush}">
+          <StackPanel>
+            <TextBlock Text="Sign in to bill" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,0" Text="Use your Pharma Remit user name and PIN from the server PC." />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="User name" />
+            <TextBox Style="{StaticResource Field}" Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="User name" />
+            <TextBlock Style="{StaticResource FieldLabel}" Text="PIN or password" />
+            <PasswordBox Padding="6" controls:PasswordBoxBinding.Password="{Binding Pin, Mode=TwoWay}" AutomationProperties.Name="PIN">
+              <PasswordBox.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding SignInCommand}" />
+              </PasswordBox.InputBindings>
+            </PasswordBox>
+            <Button Margin="0,14,0,0" Height="38" Content="Sign in" Style="{StaticResource PrimaryButton}" Command="{Binding SignInCommand}" IsEnabled="{Binding IsConnected}" />
+          </StackPanel>
+        </Border>
+      </Border>
+    </Grid>
+  </DockPanel>
+</Window>

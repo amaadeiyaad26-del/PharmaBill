@@ -17,8 +17,6 @@ namespace PharmaBill.App.ViewModels;
 
 public sealed record PairedCounterRow(Guid Id, string Name, string PairedAt, string LastSeen);
 
-public sealed record DiscoveredServerRow(string Name, string Host, int Port, string Label);
-
 // Sync Station > Devices: every PC connected to this shop's data, in one place. Billing counters reach one
 // database on the server PC; phones (shown separately on this page) keep their own copy and sync later.
 public sealed class DevicesViewModel : ObservableObject
@@ -39,10 +37,6 @@ public sealed class DevicesViewModel : ObservableObject
 	private TerminalPairingCode? _openCode;
 	private string _pairingCountdown = string.Empty;
 	private string _pairedServerSummary = string.Empty;
-	private string _serverAddress = string.Empty;
-	private string _codeInput = string.Empty;
-	private string _terminalName = Environment.MachineName;
-	private DiscoveredServerRow? _selectedServer;
 	private string _statusMessage = string.Empty;
 	private string _errorMessage = string.Empty;
 
@@ -72,8 +66,11 @@ public sealed class DevicesViewModel : ObservableObject
 		CancelPairingCommand = new RelayCommand(() => _pairing.Cancel());
 		RemoveCounterCommand = new RelayCommand<PairedCounterRow>(RemoveCounter);
 		AllowFirewallCommand = new AsyncRelayCommand(AllowFirewallAsync);
-		FindServersCommand = new AsyncRelayCommand(FindServersAsync);
-		PairCommand = new AsyncRelayCommand(PairAsync);
+		Pairing = new TerminalPairingViewModel(clientSettings)
+		{
+			Blocker = () => _isServing ? "This PC serves billing counters itself, so it cannot be a counter for another server." : null
+		};
+		Pairing.Paired += OnPairedAsCounter;
 		ForgetServerCommand = new RelayCommand(ForgetServer);
 		_isServing = _serverSettings.Load().Enabled;
 		Refresh();
@@ -139,37 +136,8 @@ public sealed class DevicesViewModel : ObservableObject
 		private set => SetProperty(ref _pairedServerSummary, value);
 	}
 
-	public ObservableCollection<DiscoveredServerRow> DiscoveredServers { get; } = new ObservableCollection<DiscoveredServerRow>();
-
-	public DiscoveredServerRow? SelectedServer
-	{
-		get => _selectedServer;
-		set
-		{
-			if (SetProperty(ref _selectedServer, value) && value != null)
-			{
-				ServerAddress = value.Host;
-			}
-		}
-	}
-
-	public string ServerAddress
-	{
-		get => _serverAddress;
-		set => SetProperty(ref _serverAddress, value);
-	}
-
-	public string CodeInput
-	{
-		get => _codeInput;
-		set => SetProperty(ref _codeInput, value);
-	}
-
-	public string TerminalName
-	{
-		get => _terminalName;
-		set => SetProperty(ref _terminalName, value);
-	}
+	/// <summary>The form for making this PC a billing counter for another server.</summary>
+	public TerminalPairingViewModel Pairing { get; }
 
 	public bool IsBusy
 	{
@@ -198,10 +166,6 @@ public sealed class DevicesViewModel : ObservableObject
 	public IRelayCommand<PairedCounterRow> RemoveCounterCommand { get; }
 
 	public IAsyncRelayCommand AllowFirewallCommand { get; }
-
-	public IAsyncRelayCommand FindServersCommand { get; }
-
-	public IAsyncRelayCommand PairCommand { get; }
 
 	public IRelayCommand ForgetServerCommand { get; }
 
@@ -293,68 +257,12 @@ public sealed class DevicesViewModel : ObservableObject
 		FirewallStatus = result.Message + (string.IsNullOrWhiteSpace(result.Detail) ? string.Empty : " — " + result.Detail);
 	}
 
-	private async Task FindServersAsync()
+	// A paired PC runs as a billing counter from its next start: it no longer opens its own records at all.
+	private void OnPairedAsCounter(TerminalClientSettings paired)
 	{
-		ErrorMessage = string.Empty;
-		IsBusy = true;
-		StatusMessage = "Looking for the shop's server on this network…";
-		try
-		{
-			var found = await TerminalDiscovery.FindAsync(TimeSpan.FromSeconds(3));
-			DiscoveredServers.Clear();
-			foreach (DiscoveredTerminalServer server in found)
-			{
-				DiscoveredServers.Add(new DiscoveredServerRow(server.Name, server.Host, server.Port, $"{server.Name}  ({server.Host})"));
-			}
-			SelectedServer = DiscoveredServers.FirstOrDefault();
-			StatusMessage = found.Count == 0
-				? "No server found automatically. Type the server PC's address (shown on its Devices panel)."
-				: $"Found {found.Count} server{(found.Count == 1 ? string.Empty : "s")}.";
-		}
-		catch (Exception ex)
-		{
-			StatusMessage = "Automatic search is not available here. Type the server PC's address.";
-			ErrorMessage = ex.Message;
-		}
-		finally
-		{
-			IsBusy = false;
-		}
-	}
-
-	private async Task PairAsync()
-	{
-		ErrorMessage = string.Empty;
-		if (_isServing)
-		{
-			ErrorMessage = "This PC serves billing counters itself, so it cannot be a counter for another server.";
-			return;
-		}
-		(string host, int port) = ParseAddress(ServerAddress, SelectedServer);
-		if (string.IsNullOrWhiteSpace(host))
-		{
-			ErrorMessage = "Choose the server or type its address.";
-			return;
-		}
-		IsBusy = true;
-		StatusMessage = "Pairing…";
-		try
-		{
-			TerminalClientSettings paired = await TerminalPairingClient.PairAsync(host, port, CodeInput, TerminalName);
-			_clientSettings.Save(paired);
-			CodeInput = string.Empty;
-			StatusMessage = $"Paired with {paired.ShopName} on {paired.ServerName}.";
-		}
-		catch (TerminalPairingException ex)
-		{
-			StatusMessage = string.Empty;
-			ErrorMessage = ex.Message;
-		}
-		finally
-		{
-			IsBusy = false;
-			RefreshClient();
-		}
+		_confirmation.Notify("This PC is now a billing counter",
+			$"Paired with {paired.ShopName} on {paired.ServerName}.\n\nPharma Remit will close now. Open it again and it starts as billing counter \"{paired.TerminalName}\", billing straight into the server's records. This PC's own records are kept untouched but not used while it is a counter.");
+		Application.Current?.Shutdown();
 	}
 
 	private void ForgetServer()
@@ -424,21 +332,6 @@ public sealed class DevicesViewModel : ObservableObject
 		OnPropertyChanged(nameof(CanPairAsCounter));
 		OnPropertyChanged(nameof(CanToggleServing));
 		OnPropertyChanged(nameof(ShowServingNote));
-	}
-
-	private static (string Host, int Port) ParseAddress(string typed, DiscoveredServerRow? selected)
-	{
-		string text = (typed ?? string.Empty).Trim();
-		if (selected != null && string.Equals(text, selected.Host, StringComparison.OrdinalIgnoreCase))
-		{
-			return (selected.Host, selected.Port);
-		}
-		int colon = text.LastIndexOf(':');
-		if (colon > 0 && int.TryParse(text[(colon + 1)..], out int port))
-		{
-			return (text[..colon], port);
-		}
-		return (text, TerminalProtocol.DefaultPort);
 	}
 
 	private static void OnUi(Action action)

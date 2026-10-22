@@ -62,28 +62,30 @@
         <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
                    Text="On the server PC, switch on Serve billing counters and press Add a billing counter. Then find it here and type the code it shows." />
         <WrapPanel Margin="0,6,0,0">
-          <Button Content="Find the server" Height="32" Margin="0,0,8,4" Style="{StaticResource SecondaryButton}" Command="{Binding FindServersCommand}" />
-          <ComboBox MinWidth="220" Height="32" Margin="0,0,8,4" VerticalContentAlignment="Center" ItemsSource="{Binding DiscoveredServers}" SelectedItem="{Binding SelectedServer}"
+          <Button Content="Find the server" Height="32" Margin="0,0,8,4" Style="{StaticResource SecondaryButton}" Command="{Binding Pairing.FindServersCommand}" />
+          <ComboBox MinWidth="220" Height="32" Margin="0,0,8,4" VerticalContentAlignment="Center" ItemsSource="{Binding Pairing.DiscoveredServers}" SelectedItem="{Binding Pairing.SelectedServer}"
                     DisplayMemberPath="Label" AutomationProperties.Name="Servers found" />
         </WrapPanel>
         <WrapPanel>
           <StackPanel Margin="0,0,10,4">
             <TextBlock Text="Server address" Foreground="{DynamicResource SecondaryTextBrush}" />
-            <TextBox Width="180" Padding="6" Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Server address" />
+            <TextBox Width="180" Padding="6" Text="{Binding Pairing.ServerAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Server address" />
           </StackPanel>
           <StackPanel Margin="0,0,10,4">
             <TextBlock Text="Code from the server's screen" Foreground="{DynamicResource SecondaryTextBrush}" />
             <TextBox Width="140" Padding="6" FontFamily="Consolas" FontSize="15" CharacterCasing="Upper" MaxLength="8"
-                     Text="{Binding CodeInput, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pairing code" />
+                     Text="{Binding Pairing.CodeInput, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pairing code" />
           </StackPanel>
           <StackPanel Margin="0,0,10,4">
             <TextBlock Text="Name for this counter" Foreground="{DynamicResource SecondaryTextBrush}" />
-            <TextBox Width="180" Padding="6" Text="{Binding TerminalName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Counter name" />
+            <TextBox Width="180" Padding="6" Text="{Binding Pairing.TerminalName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Counter name" />
           </StackPanel>
-          <Button VerticalAlignment="Bottom" Margin="0,0,0,4" Content="Pair" Height="32" MinWidth="80" Style="{StaticResource PrimaryButton}" Command="{Binding PairCommand}" />
+          <Button VerticalAlignment="Bottom" Margin="0,0,0,4" Content="Pair" Height="32" MinWidth="80" Style="{StaticResource PrimaryButton}" Command="{Binding Pairing.PairCommand}" />
         </WrapPanel>
       </StackPanel>
 
+      <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,6,0,0" Text="{Binding Pairing.ErrorMessage}" />
+      <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding Pairing.StatusMessage}" />
       <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding ErrorMessage}" />
       <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
     </StackPanel>

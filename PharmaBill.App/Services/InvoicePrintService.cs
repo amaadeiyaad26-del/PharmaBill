@@ -33,10 +33,28 @@ public sealed class InvoicePrintService(IServiceScopeFactory scopeFactory, Docum
 		RetailBillPrintData bill = await LoadBillAsync(saleId, settings, cancellationToken);
 		return template switch
 		{
-			InvoiceTemplateType.Thermal80mm => await PrintThermalAsync(bill, settings, cancellationToken), 
-			InvoiceTemplateType.StandardA4 => PrintStandardInvoice(bill, settings, silent), 
-			_ => await PrintThermalAsync(bill, settings, cancellationToken), 
+			InvoiceTemplateType.Thermal80mm => await PrintThermalAsync(bill, settings, cancellationToken),
+			InvoiceTemplateType.StandardA4 => PrintStandardInvoice(bill, settings, silent),
+			_ => await PrintThermalAsync(bill, settings, cancellationToken),
 		};
+	}
+
+	/// <summary>Prints a bill a billing terminal received from its server, on this PC's own printers and layout.</summary>
+	public static async Task<string> PrintReceivedAsync(RetailBillPrintData bill, DocumentOutputSettings settings, CancellationToken cancellationToken = default)
+	{
+		InvoiceTemplateType template = settings.DefaultInvoiceTemplate;
+		if (template == InvoiceTemplateType.AlwaysAsk)
+		{
+			(InvoiceTemplateType, bool)? chosen = AskForTemplate(previewOnly: false);
+			if (!chosen.HasValue)
+			{
+				return "cancelled";
+			}
+			template = chosen.Value.Item1;
+		}
+		return template == InvoiceTemplateType.StandardA4
+			? PrintStandardInvoice(bill, settings, settings.SilentPrint)
+			: await PrintThermalAsync(bill, settings, cancellationToken);
 	}
 
 	public async Task<string> PreviewAsync(Guid saleId, InvoiceTemplateType template = InvoiceTemplateType.StandardA4, CancellationToken cancellationToken = default(CancellationToken))

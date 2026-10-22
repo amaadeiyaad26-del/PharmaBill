@@ -66,6 +66,26 @@ public partial class App : Application
 			Log.Logger = new LoggerConfiguration().MinimumLevel.Information().WriteTo.File(Path.Combine(_logDirectory, "pharmabill-.log"), LogEventLevel.Verbose, "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}", null, 1073741824L, null, buffered: false, shared: false, null, RollingInterval.Day, rollOnFileSizeLimit: false, 31).CreateLogger();
 			Settings.License = LicenseType.Community;
 
+			// A billing counter keeps no records and no licence of its own: it bills into the paired server PC's
+			// records, so it starts before anything here opens a data folder, a database or the licence.
+			var counterStore = new PharmaBill.Sync.Terminals.TerminalClientSettingsStore(Path.Combine(PharmaBill.Data.Persistence.AppDataPaths.LocalRootDirectory, "terminals"));
+			PharmaBill.Sync.Terminals.TerminalClientSettings? counter = counterStore.Load();
+			if (counter == null && IsFreshInstall())
+			{
+				WelcomeWindow welcome = new WelcomeWindow(counterStore);
+				if (welcome.ShowDialog() != true)
+				{
+					Shutdown();
+					return;
+				}
+				counter = welcome.PairedCounter;
+			}
+			if (counter != null)
+			{
+				StartAsBillingCounter(counter, counterStore);
+				return;
+			}
+
 			// Store edition: records live in a folder the user chose, because Windows deletes the package's own folder
 			// on uninstall. Resolved before anything opens a database; a missing folder stops here, never an empty start.
 			if (AppEdition.UsesChosenDataFolder(AppEdition.Current) && !ResolveStoreDataFolder())
@@ -258,6 +278,27 @@ public partial class App : Application
 			ShowError("Pharma Remit could not start.", ex.ToString());
 			Shutdown(-1);
 		}
+	}
+
+	/// <summary>No records of any kind on this PC yet: the first start, where it can still become a billing counter.</summary>
+	private static bool IsFreshInstall()
+	{
+		string localRoot = PharmaBill.Data.Persistence.AppDataPaths.LocalRootDirectory;
+		if (File.Exists(Path.Combine(localRoot, PharmaBill.Data.Persistence.StoreDataLocation.PointerFileName)))
+		{
+			return false;
+		}
+		return !Directory.Exists(localRoot) || !Directory.EnumerateFiles(localRoot, "pharmabill.db", SearchOption.AllDirectories).Any();
+	}
+
+	private void StartAsBillingCounter(PharmaBill.Sync.Terminals.TerminalClientSettings counter, PharmaBill.Sync.Terminals.TerminalClientSettingsStore store)
+	{
+		Log.Information("Starting as billing counter {Name} for server {Server} ({Host}:{Port}).", counter.TerminalName, counter.ServerName, counter.ServerHost, counter.ServerPort);
+		TerminalWindow window = new TerminalWindow(new TerminalViewModel(counter, store, new DocumentOutputSettingsStore()));
+		MainWindow = window;
+		window.Closed += (_, _) => Shutdown();
+		window.Show();
+		window.Activate();
 	}
 
 	/// <summary>Points the data root at the chosen folder, asking for it on first run or when it cannot be found. False to exit.</summary>
