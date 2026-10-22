@@ -55,7 +55,7 @@ public partial class UpgradeWindow : Window
 		catch (Exception ex)
 		{
 			StatusText.Foreground = System.Windows.Media.Brushes.Firebrick;
-			StatusText.Text = "Could not open email client: " + ex.Message;
+			StatusText.Text = "Could not open email client: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

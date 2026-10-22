@@ -194,7 +194,7 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -238,7 +238,7 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -307,7 +307,7 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{

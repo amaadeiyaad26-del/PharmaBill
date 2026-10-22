@@ -1718,7 +1718,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1790,7 +1790,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			await DispatchAsync(() => ErrorMessage = $"Medicine master could not be loaded: {ex.Message}").ConfigureAwait(false);
+			await DispatchAsync(() => ErrorMessage = $"Medicine master could not be loaded: {PharmaBill.Core.UserMessage.Of(ex)}").ConfigureAwait(false);
 		}
 	}
 
@@ -1899,7 +1899,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1985,7 +1985,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			NewItemError = ex.Message;
+			NewItemError = PharmaBill.Core.UserMessage.Of(ex);
 			return;
 		}
 
@@ -2488,7 +2488,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			NewItemError = ex.Message;
+			NewItemError = PharmaBill.Core.UserMessage.Of(ex);
 			OnPropertyChanged(nameof(ShowOnlineLookup));
 			OnPropertyChanged(nameof(ShowNewMedicineButton));
 			OnPropertyChanged(nameof(ShowCreateUnlisted));
@@ -2754,7 +2754,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2953,7 +2953,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			await DispatchAsync(() =>
 			{
 				IsExtractingPhoneBill = false;
-				string failure = "Extraction failed: " + ex.Message;
+				string failure = "Extraction failed: " + PharmaBill.Core.UserMessage.Of(ex);
 				ErrorMessage = failure;
 				bill.Status = bill.Lines.Count > 0 ? "Received" : "Needs review";
 				bill.NotifyLinesChanged();
@@ -3367,7 +3367,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3409,7 +3409,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			return null;
 		}
 	}
@@ -3431,7 +3431,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			catch (Exception ex)
 			{
 				InvoiceThumbnail = null;
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 
 			return;
@@ -3478,7 +3478,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		catch (Exception ex)
 		{
 			InvoiceOcrText = string.Empty;
-			StatusMessage = "Invoice image attached. Text recognition is unavailable: " + ex.Message;
+			StatusMessage = "Invoice image attached. Text recognition is unavailable: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -4185,7 +4185,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private static string FriendlyInvoiceReadError(Exception ex)
 	{
-		string message = ex.Message ?? string.Empty;
+		string message = PharmaBill.Core.UserMessage.Of(ex) ?? string.Empty;
 		if (message.Contains('{') || message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase) || message.Contains("models/gemini", StringComparison.OrdinalIgnoreCase) || message.Length > 220)
 		{
 			return "This invoice could not be read. Check the file and try again.";
@@ -4252,7 +4252,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			HasSpreadsheet = false;
 			_spreadsheet = null;
 			SpreadsheetPreview = null;
-			ErrorMessage = "Could not load CSV/Excel: " + ex.Message;
+			ErrorMessage = "Could not load CSV/Excel: " + PharmaBill.Core.UserMessage.Of(ex);
 			StatusMessage = string.Empty;
 			confirmationService.Notify("Load CSV / Excel failed", ErrorMessage);
 		}
@@ -4742,7 +4742,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		string message = walk.Message;
 		if (string.IsNullOrWhiteSpace(message))
 		{
-			message = ex.Message;
+			message = PharmaBill.Core.UserMessage.Of(ex);
 		}
 
 		return "Could not transfer purchase into stock: " + message;
@@ -4812,7 +4812,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}

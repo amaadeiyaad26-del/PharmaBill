@@ -890,7 +890,7 @@ public sealed class AddStockViewModel : ObservableObject
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1006,7 +1006,7 @@ public sealed class AddStockViewModel : ObservableObject
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}

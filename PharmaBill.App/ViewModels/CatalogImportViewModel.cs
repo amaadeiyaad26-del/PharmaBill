@@ -279,7 +279,7 @@ public class CatalogImportViewModel : ObservableObject
 		}
 		catch (Exception ex2)
 		{
-			ErrorMessage = ex2.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex2);
 			StatusMessage = "Import stopped. Committed batches are saved and can be resumed.";
 		}
 		finally
@@ -302,7 +302,7 @@ public class CatalogImportViewModel : ObservableObject
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -324,7 +324,7 @@ public class CatalogImportViewModel : ObservableObject
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{

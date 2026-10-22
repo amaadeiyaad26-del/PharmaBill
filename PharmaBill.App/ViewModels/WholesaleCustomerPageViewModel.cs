@@ -915,7 +915,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when ((ex is ArgumentException || ex is InvalidOperationException || ex is UnauthorizedAccessException) ? true : false)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -940,7 +940,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when ((ex is IOException || ex is InvalidDataException || ex is InvalidOperationException || ex is UnauthorizedAccessException) ? true : false)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -963,7 +963,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 			}
 			catch (Win32Exception ex)
 			{
-				ErrorMessage = "The configured portal could not be opened: " + ex.Message;
+				ErrorMessage = "The configured portal could not be opened: " + PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}
@@ -1262,7 +1262,7 @@ public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "The ledger could not be loaded: " + ex.Message;
+			ErrorMessage = "The ledger could not be loaded: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

@@ -112,7 +112,7 @@ public sealed class RegistrationNotificationService
 		{
 			_queue.Enqueue(new PendingUserManualEmail(email, pharmacyName, ownerName, BusinessClock.UtcNow, forceResend));
 			_logger.LogWarning(ex, "Welcome email failed; queued for retry.");
-			return "Could not send email yet (" + ex.Message + "). It is queued for automatic retry when online.";
+			return "Could not send email yet (" + PharmaBill.Core.UserMessage.Of(ex) + "). It is queued for automatic retry when online.";
 		}
 	}
 

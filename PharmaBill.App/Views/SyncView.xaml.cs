@@ -34,7 +34,7 @@ public partial class SyncView : UserControl
 		}
 		catch (Exception ex)
 		{
-			MessageBox.Show($"Could not open Google Play Store:{Environment.NewLine}{ex.Message}{Environment.NewLine}{Environment.NewLine}" + "https://play.google.com/store/search?q=PharmaBill%20SAER&c=apps", "Pharma Remit", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+			MessageBox.Show($"Could not open Google Play Store:{Environment.NewLine}{PharmaBill.Core.UserMessage.Of(ex)}{Environment.NewLine}{Environment.NewLine}" + "https://play.google.com/store/search?q=PharmaBill%20SAER&c=apps", "Pharma Remit", MessageBoxButton.OK, MessageBoxImage.Asterisk);
 		}
 	}
 

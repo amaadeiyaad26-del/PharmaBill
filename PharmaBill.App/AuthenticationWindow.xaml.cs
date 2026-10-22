@@ -197,7 +197,7 @@ public partial class AuthenticationWindow : Window
         }
         catch (Exception ex)
         {
-            _viewModel.ErrorMessage = ex.Message;
+            _viewModel.ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
         }
     }
 
@@ -230,7 +230,7 @@ public partial class AuthenticationWindow : Window
         }
         catch (Exception ex)
         {
-            _viewModel.ErrorMessage = ex.Message;
+            _viewModel.ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
         }
     }
 
@@ -262,7 +262,7 @@ public partial class AuthenticationWindow : Window
         }
         catch (Exception ex)
         {
-            _viewModel.ErrorMessage = ex.Message;
+            _viewModel.ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
         }
     }
 

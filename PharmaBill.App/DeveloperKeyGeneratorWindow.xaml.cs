@@ -70,7 +70,7 @@ public partial class DeveloperKeyGeneratorWindow : Window
 		catch (Exception ex)
 		{
 			StatusText.Foreground = System.Windows.Media.Brushes.Firebrick;
-			StatusText.Text = "Could not generate key: " + ex.Message;
+			StatusText.Text = "Could not generate key: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

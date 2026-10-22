@@ -546,7 +546,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -567,7 +567,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException) ? true : false)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -594,7 +594,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -621,7 +621,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -649,7 +649,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

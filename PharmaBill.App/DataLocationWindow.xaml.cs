@@ -101,7 +101,7 @@ public partial class DataLocationWindow : Window
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
 		{
-			ErrorText.Text = ex.Message;
+			ErrorText.Text = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{

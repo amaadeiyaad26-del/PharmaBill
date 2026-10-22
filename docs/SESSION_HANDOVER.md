@@ -8,6 +8,10 @@ Read this first. It replaces the 21 Oct handover and is enough to carry on with 
 
 ## Ground rules for this repo
 
+- **A feature is not done until someone has used it through the UI.** Tests that call the service directly prove the logic, not the feature.
+  - **Why this rule exists:** the folder backup passed 444 tests and had never made a single backup, because no test pressed the button. The password boxes never passed what was typed to the page, so every backup was refused.
+  - **What counts:** drive the real view-model through the real controls (type into the box, press the command, check what the screen shows), or use it in the running app.
+  - **Pattern to copy:** `BackupPageEndToEndTests`.
 - **Commit and push only when asked.**
 - **Never commit `tools/licensing/pharmabill-license-private.pem`.** It is not tracked; only the public key is.
 - **Never open, copy or read a real shop database** (`%LocalAppData%\PharmaBill`, or a Store data folder). It holds patient data. Work from test databases.

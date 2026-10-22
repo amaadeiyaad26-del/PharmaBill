@@ -686,6 +686,7 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="20" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Backup" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Copies of the shop's records: to a folder, to a USB drive, and back again." />
             <Border CornerRadius="10" Padding="16,12" Margin="0,12,0,16" BorderThickness="1">
               <FrameworkElement.Style>
                 <Style TargetType="{x:Type Border}">
@@ -702,40 +703,64 @@
               <StackPanel>
                 <TextBlock Text="Last successful backup" Foreground="{DynamicResource SecondaryTextBrush}" />
                 <TextBlock FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" TextWrapping="Wrap" Text="{Binding LastBackupLabel}" AutomationProperties.Name="Last successful backup" />
+                <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" Text="{Binding LastBackupDetail}" />
               </StackPanel>
             </Border>
-            <TextBlock Text="Backup folder" FontWeight="SemiBold" />
-            <DockPanel Margin="0,4,0,2">
-              <Button DockPanel.Dock="Right" Content="Choose folder" Height="36" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding ChooseFolderCommand}" />
-              <TextBox IsReadOnly="True" Padding="7" VerticalContentAlignment="Center" Text="{Binding BackupFolder, Mode=OneWay}" AutomationProperties.Name="Backup folder" />
-            </DockPanel>
-            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,14" Text="Any folder works, including a OneDrive, Google Drive or Dropbox folder: the backup file is encrypted, so it is safe there, and their app copies it off this PC automatically." />
-            <TextBlock Text="Backup password" FontWeight="SemiBold" />
-            <WrapPanel Margin="0,4,0,14" Visibility="{Binding HasSavedPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
+
+            <TextBlock Text="1. Backup password" FontSize="16" FontWeight="SemiBold" />
+            <WrapPanel Margin="0,6,0,14" Visibility="{Binding HasSavedPassword, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock VerticalAlignment="Center" Text="Saved on this PC." Margin="0,0,10,0" />
               <Button Content="Change" Height="32" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding ChangePasswordCommand}" />
               <Button Content="Show" Height="32" Style="{StaticResource SecondaryButton}" ToolTip="Owner only" Command="{Binding ShowPasswordCommand}" Visibility="{Binding CanRevealPassword, Converter={StaticResource BooleanToVisibilityConverter}}" />
               <TextBox IsReadOnly="True" BorderThickness="0" Background="Transparent" FontFamily="Consolas" FontSize="14" VerticalAlignment="Center" Margin="10,0,0,0" Text="{Binding RevealedPassword, Mode=OneWay}" />
             </WrapPanel>
-            <StackPanel Margin="0,4,0,14" Visibility="{Binding ShowPasswordEditor, Converter={StaticResource BooleanToVisibilityConverter}}">
-              <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="At least 10 characters. Write it down and keep it away from the PC: without it nobody can open the backups." />
+            <StackPanel Margin="0,6,0,14" Visibility="{Binding ShowPasswordEditor, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="At least 10 characters, typed twice. Write it down and keep it away from the PC: without it nobody can open the backups." />
               <WrapPanel Margin="0,6,0,0">
-                <PasswordBox Width="220" Padding="7" Margin="0,0,8,0" AutomationProperties.Name="New backup password" controls:PasswordBoxBinding.Password="{Binding NewPassword, Mode=TwoWay}" />
-                <PasswordBox Width="220" Padding="7" Margin="0,0,8,0" AutomationProperties.Name="Confirm backup password" controls:PasswordBoxBinding.Password="{Binding ConfirmPassword, Mode=TwoWay}" />
-                <Button Content="Save password" Height="34" Style="{StaticResource SecondaryButton}" Command="{Binding SavePasswordCommand}" />
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Text="Password" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <PasswordBox Width="220" Padding="7" AutomationProperties.Name="New backup password" controls:PasswordBoxBinding.Password="{Binding NewPassword, Mode=TwoWay}" />
+                </StackPanel>
+                <StackPanel Margin="0,0,8,0">
+                  <TextBlock Text="Type it again" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <PasswordBox Width="220" Padding="7" AutomationProperties.Name="Confirm backup password" controls:PasswordBoxBinding.Password="{Binding ConfirmPassword, Mode=TwoWay}" />
+                </StackPanel>
+                <Button VerticalAlignment="Bottom" Content="Save password" Height="34" Style="{StaticResource PrimaryButton}" Command="{Binding SavePasswordCommand}" />
               </WrapPanel>
             </StackPanel>
-            <WrapPanel Margin="0,0,0,6">
+
+            <TextBlock Text="2. Back up to a folder" FontSize="16" FontWeight="SemiBold" />
+            <DockPanel Margin="0,6,0,2">
+              <Button DockPanel.Dock="Right" Content="Choose folder" Height="36" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding ChooseFolderCommand}" />
+              <TextBox IsReadOnly="True" Padding="7" VerticalContentAlignment="Center" Text="{Binding BackupFolder, Mode=OneWay}" AutomationProperties.Name="Backup folder" />
+            </DockPanel>
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Suggested folder in your user profile; it is created on the first backup." Visibility="{Binding IsDefaultFolder, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <TextBlock Foreground="#FFB42318" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding FolderWarning}" Visibility="{Binding HasFolderWarning, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,2,0,8" Text="Any folder works, including a OneDrive, Google Drive or Dropbox folder: the backup file is encrypted, so it is safe there, and their app copies it off this PC automatically." />
+            <WrapPanel Margin="0,0,0,16">
               <Button Content="Back up now" Height="40" MinWidth="150" Style="{StaticResource PrimaryButton}" Command="{Binding BackUpNowCommand}" />
               <CheckBox Content="Also back up once a day while Pharma Remit is open" VerticalAlignment="Center" Margin="14,0,0,0" IsChecked="{Binding AutomaticEnabled}" />
             </WrapPanel>
-            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,6" Text="{Binding ErrorMessage}" />
+
+            <TextBlock Text="3. Back up to a USB drive" FontSize="16" FontWeight="SemiBold" />
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,2,0,6" Text="An encrypted copy in PharmaBill_Backups on the drive, locked with the same password. Keep the drive away from the PC - once a month at least." />
+            <WrapPanel Margin="0,0,0,16">
+              <ComboBox Width="320" Height="36" Margin="0,0,8,0" VerticalContentAlignment="Center" DisplayMemberPath="DisplayName" ItemsSource="{Binding RemovableDrives}" SelectedItem="{Binding SelectedDrive}" AutomationProperties.Name="USB drive" />
+              <Button Content="Refresh drives" Height="36" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshDrivesCommand}" />
+              <Button Content="Back up to USB" Height="36" Style="{StaticResource PrimaryButton}" Command="{Binding BackUpToUsbCommand}" />
+            </WrapPanel>
+
+            <TextBlock Foreground="#FFB42318" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,6" Text="{Binding ErrorMessage}" AutomationProperties.Name="Backup error" />
             <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
-            <TextBlock Text="Restore" FontSize="18" FontWeight="SemiBold" Margin="0,22,0,4" />
-            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Opens a backup file and replaces the data on this PC with it. This is also how you move to a new PC: install Pharma Remit there, then restore. Type the password the backup was made with; on this PC the saved one is tried automatically." />
+
+            <TextBlock Text="4. Restore" FontSize="16" FontWeight="SemiBold" Margin="0,18,0,4" />
+            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="Opens a backup file (from a folder or a USB drive) and replaces the data on this PC with it. This is also how you move to a new PC: install Pharma Remit there, then restore. Type the password the backup was made with; on this PC the saved one is tried automatically." />
             <WrapPanel Margin="0,8,0,0">
-              <PasswordBox Width="220" Padding="7" Margin="0,0,8,0" AutomationProperties.Name="Password of the backup to restore" controls:PasswordBoxBinding.Password="{Binding RestorePassword, Mode=TwoWay}" />
-              <Button Content="Restore from a backup file…" Height="34" Style="{StaticResource SecondaryButton}" Command="{Binding RestoreBackupCommand}" />
+              <StackPanel Margin="0,0,8,0">
+                <TextBlock Text="Password of that backup" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <PasswordBox Width="220" Padding="7" AutomationProperties.Name="Password of the backup to restore" controls:PasswordBoxBinding.Password="{Binding RestorePassword, Mode=TwoWay}" />
+              </StackPanel>
+              <Button VerticalAlignment="Bottom" Content="Restore from a backup file…" Height="34" Style="{StaticResource SecondaryButton}" Command="{Binding RestoreBackupCommand}" />
             </WrapPanel>
           </StackPanel>
         </ScrollViewer>
@@ -761,42 +786,7 @@
               <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,5" Text="{Binding LastExchangeAtUtc, StringFormat=Last device exchange (UTC): {0:yyyy-MM-dd HH:mm}}" />
               <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
               <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding PackageStatus}" />
-              <GroupBox Header="USB backup" Margin="0,8,0,16" Padding="10">
-                <StackPanel>
-                  <TextBlock Text="Folder backups, including to a OneDrive, Google Drive or Dropbox folder, are on the Backup page." Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
-                  <Border Padding="16" CornerRadius="10" HorizontalAlignment="Stretch" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
-                    <StackPanel>
-                      <DockPanel Margin="0,0,0,8">
-                        <TextBlock FontWeight="SemiBold" FontSize="15" Text="USB / Removable Drive Backup" TextWrapping="Wrap" />
-                        <Border DockPanel.Dock="Right" CornerRadius="10" Padding="8,3" VerticalAlignment="Center" Margin="8,0,0,0" Background="#FFD1FAE5">
-                          <TextBlock FontWeight="SemiBold" FontSize="11" Foreground="#FF067647" Text="Encrypted .pbbak" />
-                        </Border>
-                      </DockPanel>
-                      <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8" Text="Saves an encrypted backup to PharmaBill_Backups on a USB stick, locked with the backup password set on the Backup page." />
-                      <DockPanel Margin="0,0,0,8">
-                        <Button DockPanel.Dock="Right" Width="40" Height="36" Margin="8,0,0,0" ToolTip="Refresh Drives" AutomationProperties.Name="Refresh removable drives" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshRemovableDrivesCommand}">
-                          <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="14" />
-                        </Button>
-                        <ComboBox Height="36" VerticalContentAlignment="Center" DisplayMemberPath="DisplayName" ToolTip="Detected removable USB drives" AutomationProperties.Name="Removable USB drives" ItemsSource="{Binding RemovableDrives}" SelectedItem="{Binding SelectedRemovableDrive}" />
-                      </DockPanel>
-                      <Button Content="Backup to USB" Height="40" Margin="0,0,0,8" AutomationProperties.Name="Backup to USB" Command="{Binding BackupToUsbCommand}">
-                        <FrameworkElement.Style>
-                          <Style TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
-                            <Setter Property="IsEnabled" Value="True" />
-                            <Style.Triggers>
-                              <DataTrigger Value="True" Binding="{Binding IsUsbBackupBusy}">
-                                <Setter Property="IsEnabled" Value="False" />
-                              </DataTrigger>
-                            </Style.Triggers>
-                          </Style>
-                        </FrameworkElement.Style>
-                      </Button>
-                      <TextBlock FontWeight="SemiBold" Text="{Binding LastUsbBackupLabel}" />
-                      <TextBlock Margin="0,4,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="{Binding UsbBackupStatus}" />
-                    </StackPanel>
-                  </Border>
-                </StackPanel>
-              </GroupBox>
+              <TextBlock Margin="0,8,0,16" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="Backups (to a folder or a USB drive) and restore are on the Backup page." />
               <GroupBox Header="Shared folder sync between this shop's PCs" Margin="0,0,0,8" Padding="8">
                 <Grid>
                   <Grid.ColumnDefinitions>

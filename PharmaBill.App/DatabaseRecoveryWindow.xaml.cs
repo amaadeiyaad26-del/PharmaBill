@@ -56,7 +56,7 @@ public partial class DatabaseRecoveryWindow : Window
 		}
 		catch (Exception ex)
 		{
-			ResultText.Text = "Could not open the folder: " + ex.Message;
+			ResultText.Text = "Could not open the folder: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -72,7 +72,7 @@ public partial class DatabaseRecoveryWindow : Window
 		catch (Exception ex)
 		{
 			ResultText.Foreground = System.Windows.Media.Brushes.Firebrick;
-			ResultText.Text = "Could not rename the file (" + ex.Message + "). Close other programs using it and try again.";
+			ResultText.Text = "Could not rename the file (" + PharmaBill.Core.UserMessage.Of(ex) + "). Close other programs using it and try again.";
 		}
 	}
 

@@ -456,7 +456,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ProductTaxStatus = ex.Message;
+			ProductTaxStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -582,7 +582,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -621,7 +621,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -679,7 +679,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -779,7 +779,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -815,7 +815,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -850,7 +850,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -885,7 +885,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

@@ -561,7 +561,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -717,7 +717,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -771,7 +771,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -826,7 +826,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -879,7 +879,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -922,7 +922,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -968,7 +968,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1065,7 +1065,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1102,7 +1102,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1159,7 +1159,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1188,7 +1188,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1276,7 +1276,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		catch (Exception ex)
 		{
 			row.RememberSavedMrp(row.Batch.Mrp, row.Batch);
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

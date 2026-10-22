@@ -212,7 +212,7 @@ public sealed class DevicesViewModel : ObservableObject
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "Could not start serving billing counters: " + ex.Message;
+			ErrorMessage = "Could not start serving billing counters: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{

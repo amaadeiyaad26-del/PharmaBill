@@ -203,7 +203,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 	{
 		if (string.IsNullOrWhiteSpace(password) || password.Length < 10)
 		{
-			throw new ArgumentException("Use a backup password of at least 10 characters.", "password");
+			throw new ArgumentException("The backup password must be at least 10 characters.");
 		}
 	}
 

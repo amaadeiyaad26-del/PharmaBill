@@ -88,7 +88,7 @@ public partial class WebcamCaptureWindow : Window
 		catch (Exception ex)
 		{
 			_suppressSelection = false;
-			StatusText.Text = "No active webcam found. Please connect a USB camera or allow camera access. (" + ex.Message + ")";
+			StatusText.Text = "No active webcam found. Please connect a USB camera or allow camera access. (" + PharmaBill.Core.UserMessage.Of(ex) + ")";
 		}
 	}
 
@@ -189,7 +189,7 @@ public partial class WebcamCaptureWindow : Window
 			capture?.Dispose();
 			StatusText.Text = IsCameraBlocked(ex2)
 				? CameraBlockedMessage
-				: "The camera could not be started. It may be busy or unavailable. " + ex2.Message;
+				: "The camera could not be started. It may be busy or unavailable. " + PharmaBill.Core.UserMessage.Of(ex2);
 		}
 	}
 
@@ -369,7 +369,7 @@ public partial class WebcamCaptureWindow : Window
 		}
 		catch (Exception ex)
 		{
-			StatusText.Text = "The photo could not be captured: " + ex.Message;
+			StatusText.Text = "The photo could not be captured: " + PharmaBill.Core.UserMessage.Of(ex);
 			CaptureButton.IsEnabled = true;
 		}
 	}

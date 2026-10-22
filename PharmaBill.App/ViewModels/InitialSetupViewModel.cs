@@ -360,7 +360,7 @@ public partial class InitialSetupViewModel : ObservableObject
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or IOException or ArgumentException or CryptographicException or PlatformNotSupportedException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

@@ -73,7 +73,7 @@ public static class WiaScannerCapture
 		}
 		catch (COMException ex)
 		{
-			throw new InvalidOperationException("The scanner could not capture the page. " + ex.Message, ex);
+			throw new InvalidOperationException("The scanner could not capture the page. " + PharmaBill.Core.UserMessage.Of(ex), ex);
 		}
 		finally
 		{

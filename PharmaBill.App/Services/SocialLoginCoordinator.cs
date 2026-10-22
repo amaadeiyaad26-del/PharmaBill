@@ -28,7 +28,7 @@ public sealed class SocialLoginCoordinator(IServiceScopeFactory scopeFactory, So
 		}
 		catch (Exception ex)
 		{
-			return new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, ex.Message);
+			return new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, PharmaBill.Core.UserMessage.Of(ex));
 		}
 	}
 
@@ -49,7 +49,7 @@ public sealed class SocialLoginCoordinator(IServiceScopeFactory scopeFactory, So
 		}
 		catch (Exception ex2)
 		{
-			return new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, ex2.Message);
+			return new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, PharmaBill.Core.UserMessage.Of(ex2));
 		}
 		using IServiceScope scope = scopeFactory.CreateScope();
 		SocialLoginService requiredService = scope.ServiceProvider.GetRequiredService<SocialLoginService>();
@@ -97,7 +97,7 @@ public sealed class SocialLoginCoordinator(IServiceScopeFactory scopeFactory, So
 		}
 		catch (Exception ex3)
 		{
-			return new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, ex3.Message);
+			return new SocialLoginOutcome(SocialLoginOutcomeKind.Error, null, PharmaBill.Core.UserMessage.Of(ex3));
 		}
 	}
 

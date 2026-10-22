@@ -1272,7 +1272,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1580,7 +1580,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			}
 			catch (Exception ex)
 			{
-				missed.Add(System.IO.Path.GetFileName(path) + " (" + ex.Message + ")");
+				missed.Add(System.IO.Path.GetFileName(path) + " (" + PharmaBill.Core.UserMessage.Of(ex) + ")");
 			}
 		}
 
@@ -1831,7 +1831,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			return;
 		}
 		PaymentQrDialogResult paymentQrDialogResult = _paymentQrDialogs.Show(new PaymentQrDialogRequest(_upiId, text, num, InvoiceNoPreview, qrImage, _documentOutputSettings.Load().ShowCustomerQrWindow));
@@ -1923,7 +1923,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			return false;
 		}
 	}
@@ -2061,7 +2061,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 				return false;
 			}
 
@@ -2134,7 +2134,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2335,7 +2335,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException) ? true : false)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2358,7 +2358,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = "Invoice saved but tax invoice PDF failed: " + ex.Message;
+				ErrorMessage = "Invoice saved but tax invoice PDF failed: " + PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}
@@ -2564,7 +2564,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2681,7 +2681,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or InvalidOperationException or UnauthorizedAccessException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2740,11 +2740,11 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or UnauthorizedAccessException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "Could not save retailer: " + ex.Message;
+			ErrorMessage = "Could not save retailer: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2831,7 +2831,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			GstStateNote = "GST state check failed: " + ex.Message;
+			GstStateNote = "GST state check failed: " + PharmaBill.Core.UserMessage.Of(ex);
 			CanCorrectGstState = false;
 			LocalSaleNote = string.Empty;
 		}
@@ -2858,7 +2858,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

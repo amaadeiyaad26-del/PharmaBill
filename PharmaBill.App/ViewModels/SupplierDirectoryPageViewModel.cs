@@ -271,7 +271,7 @@ public sealed class SupplierDirectoryPageViewModel : ObservableObject, ILoadable
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "The supplier could not be saved: " + ex.Message;
+			ErrorMessage = "The supplier could not be saved: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

@@ -190,17 +190,17 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		}
 		catch (UnauthorizedAccessException exception)
 		{
-			await WriteErrorAsync(http, StatusCodes.Status403Forbidden, exception.Message);
+			await WriteErrorAsync(http, StatusCodes.Status403Forbidden, PharmaBill.Core.UserMessage.Of(exception));
 		}
 		catch (RecordLockedException exception)
 		{
 			// Older than the record-lock period: the terminal asks for an admin unlock and sends it with the retry.
-			await WriteErrorAsync(http, StatusCodes.Status423Locked, exception.Message, TerminalErrorCodes.Locked);
+			await WriteErrorAsync(http, StatusCodes.Status423Locked, PharmaBill.Core.UserMessage.Of(exception), TerminalErrorCodes.Locked);
 		}
 		catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or KeyNotFoundException or JsonException or Microsoft.AspNetCore.Http.BadHttpRequestException)
 		{
 			// Billing rules speak to the cashier in plain words (stock, MRP, prescription): pass them through.
-			await WriteErrorAsync(http, StatusCodes.Status422UnprocessableEntity, exception.Message);
+			await WriteErrorAsync(http, StatusCodes.Status422UnprocessableEntity, PharmaBill.Core.UserMessage.Of(exception));
 		}
 		catch (Exception exception) when (exception is not OperationCanceledException)
 		{

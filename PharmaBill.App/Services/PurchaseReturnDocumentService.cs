@@ -134,7 +134,7 @@ public sealed class PurchaseReturnDocumentService(IServiceScopeFactory scopeFact
 		}
 		catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
 		{
-			throw new InvalidOperationException("Windows could not print the return note. Save it as PDF and print from there. " + ex.Message, ex);
+			throw new InvalidOperationException("Windows could not print the return note. Save it as PDF and print from there. " + PharmaBill.Core.UserMessage.Of(ex), ex);
 		}
 	}
 

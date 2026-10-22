@@ -183,7 +183,7 @@ public class DunningDashboardPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -222,7 +222,7 @@ public class DunningDashboardPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

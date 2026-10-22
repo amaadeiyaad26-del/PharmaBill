@@ -76,7 +76,7 @@ public static class WindowsFirewallPortOpener
 		}
 		catch (Exception ex3)
 		{
-			return new Result(RulePresent: false, CreatedNow: false, ex3.Message);
+			return new Result(RulePresent: false, CreatedNow: false, PharmaBill.Core.UserMessage.Of(ex3));
 		}
 	}
 

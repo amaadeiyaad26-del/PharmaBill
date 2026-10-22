@@ -102,7 +102,7 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 			catch (Exception ex)
 			{
 				_logger.LogDebug(ex, "Update check failed; app continues offline.");
-				appUpdateAvailability2 = new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.None, null, "Could not check for updates (offline or unreachable). You can keep using Pharma Remit.", ex.Message);
+				appUpdateAvailability2 = new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.None, null, "Could not check for updates (offline or unreachable). You can keep using Pharma Remit.", PharmaBill.Core.UserMessage.Of(ex));
 			}
 			_preferences.Save(prefs with
 			{

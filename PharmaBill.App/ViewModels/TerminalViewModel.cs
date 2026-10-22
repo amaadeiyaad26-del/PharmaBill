@@ -496,7 +496,7 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 		{
 			NotConfirmed = true;
 			IsConnected = false;
-			ConnectionMessage = exception.Message;
+			ConnectionMessage = PharmaBill.Core.UserMessage.Of(exception);
 			ErrorMessage = "NOT CONFIRMED: the server could not be reached while saving, so it is not known whether this bill was saved. "
 				+ "Do not hand over the medicine yet. When the server is back, press \"Confirm with server\": the same bill can never be charged twice.";
 		}
@@ -546,7 +546,7 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 		}
 		catch (Exception exception)
 		{
-			ErrorMessage = $"Bill {invoiceNo} is saved, but printing failed: {exception.Message} Reprint it from Recent bills.";
+			ErrorMessage = $"Bill {invoiceNo} is saved, but printing failed: {PharmaBill.Core.UserMessage.Of(exception)} Reprint it from Recent bills.";
 		}
 	}
 
@@ -682,12 +682,12 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 		{
 			case TerminalServerUnreachableException:
 				IsConnected = false;
-				ConnectionMessage = exception.Message;
+				ConnectionMessage = PharmaBill.Core.UserMessage.Of(exception);
 				break;
 			case TerminalServerIdentityException:
 				IsConnected = false;
-				ConnectionMessage = exception.Message;
-				ErrorMessage = exception.Message;
+				ConnectionMessage = PharmaBill.Core.UserMessage.Of(exception);
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(exception);
 				break;
 			case TerminalUnpairedException:
 				IsConnected = false;
@@ -696,16 +696,16 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 				break;
 			case TerminalSignedOutException:
 				IsSignedIn = false;
-				ErrorMessage = exception.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(exception);
 				break;
 			case TerminalLockedException:
-				ErrorMessage = exception.Message + " Enter an admin's user name and PIN, then try again.";
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(exception) + " Enter an admin's user name and PIN, then try again.";
 				break;
 			case TerminalRefusedException:
-				ErrorMessage = exception.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(exception);
 				break;
 			default:
-				ErrorMessage = exception.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(exception);
 				break;
 		}
 	}

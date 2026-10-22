@@ -310,7 +310,7 @@ public sealed class PurchaseInvoiceHistoryViewModel(IServiceScopeFactory scopeFa
 		}
 		catch (Exception ex)
 		{
-			StatusMessage = ex.Message;
+			StatusMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

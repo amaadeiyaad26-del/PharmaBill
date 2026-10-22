@@ -238,7 +238,7 @@ public class StockInHandPageViewModel(IServiceScopeFactory scopeFactory, IUserSe
 		}
 		catch (Exception ex) when ((ex is ArgumentException || ex is InvalidOperationException) ? true : false)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

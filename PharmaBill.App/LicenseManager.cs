@@ -326,7 +326,7 @@ public static class LicenseManager
 		}
 		catch (Exception ex)
 		{
-			message = "Could not save the license: " + ex.Message;
+			message = "Could not save the license: " + PharmaBill.Core.UserMessage.Of(ex);
 			return false;
 		}
 
@@ -409,7 +409,7 @@ public static class LicenseManager
 		}
 		catch (Exception ex)
 		{
-			error = "Could not verify license signature: " + ex.Message;
+			error = "Could not verify license signature: " + PharmaBill.Core.UserMessage.Of(ex);
 			return false;
 		}
 

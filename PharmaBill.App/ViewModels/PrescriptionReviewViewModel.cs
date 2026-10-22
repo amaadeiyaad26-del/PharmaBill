@@ -229,7 +229,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			return false;
 		}
 	}
@@ -266,7 +266,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 				return false;
 			}
 		}

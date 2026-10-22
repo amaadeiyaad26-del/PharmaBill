@@ -20,19 +20,60 @@ public sealed class FolderBackupService(IServiceScopeFactory scopeFactory, Backu
 {
 	public const string Extension = ".pbbak";
 
+	/// <summary>Used until the shop chooses a folder: in the user's profile, never Downloads (people empty it).</summary>
+	public static string DefaultFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Pharma Remit Backups");
+
+	public const string DownloadsRefusal = "Downloads is often emptied to free space, so it is no place for the shop's backups. Choose another folder, for example a OneDrive folder or Pharma Remit Backups.";
+
+	/// <summary>The folder backups go to: the one chosen, else <see cref="DefaultFolder"/>.</summary>
+	public static string FolderFor(BackupSettings settings) => string.IsNullOrWhiteSpace(settings.PrimaryFolder) ? DefaultFolder : settings.PrimaryFolder;
+
+	public static bool IsInDownloads(string folder)
+	{
+		string? downloads = DownloadsFolder();
+		if (downloads == null || string.IsNullOrWhiteSpace(folder))
+		{
+			return false;
+		}
+		string full = Path.GetFullPath(folder).TrimEnd('\\');
+		string root = Path.GetFullPath(downloads).TrimEnd('\\');
+		return full.Equals(root, StringComparison.OrdinalIgnoreCase) || full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string? DownloadsFolder()
+	{
+		if (OperatingSystem.IsWindows() && SHGetKnownFolderPath(new Guid("374DE290-123F-4565-9164-39C4925E467B"), 0, IntPtr.Zero, out IntPtr path) == 0)
+		{
+			try
+			{
+				return System.Runtime.InteropServices.Marshal.PtrToStringUni(path);
+			}
+			finally
+			{
+				System.Runtime.InteropServices.Marshal.FreeCoTaskMem(path);
+			}
+		}
+		string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+		return string.IsNullOrEmpty(profile) ? null : Path.Combine(profile, "Downloads");
+	}
+
+	[System.Runtime.InteropServices.DllImport("shell32.dll")]
+	private static extern int SHGetKnownFolderPath([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPStruct)] Guid id, uint flags, IntPtr token, out IntPtr path);
+
 	public async Task<string> BackUpNowAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		BackupSettings settings = settingsStore.Load();
-		if (string.IsNullOrWhiteSpace(settings.PrimaryFolder))
+		string folder = FolderFor(settings);
+		if (IsInDownloads(folder))
 		{
-			throw new InvalidOperationException("Choose a backup folder first.");
+			throw new InvalidOperationException(DownloadsRefusal);
 		}
 		string password = RequireSavedPassword(settings);
-		Directory.CreateDirectory(settings.PrimaryFolder);
+		Directory.CreateDirectory(folder);
 		using IServiceScope scope = scopeFactory.CreateScope();
 		string? shopName = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles
 			.AsNoTracking().OrderBy(p => p.CreatedAtUtc).Select(p => p.Name).FirstOrDefaultAsync(cancellationToken);
-		string destination = UniquePath(settings.PrimaryFolder, BackupFileName(shopName, BusinessClock.Now));
+		string destination = UniquePath(folder, BackupFileName(shopName, BusinessClock.Now));
 		await scope.ServiceProvider.GetRequiredService<EncryptedBackupService>().CreateBackupAsync(destination, password, cancellationToken);
 		settingsStore.Save(settingsStore.Load() with
 		{
@@ -86,7 +127,7 @@ public sealed class FolderBackupService(IServiceScopeFactory scopeFactory, Backu
 	{
 		if (string.IsNullOrWhiteSpace(settings.Password))
 		{
-			throw new InvalidOperationException("Set a backup password on the Backup page first. Without it nobody can restore the backup.");
+			throw new InvalidOperationException("Set a backup password and press Save password first. Without it nobody can restore the backup.");
 		}
 		EncryptedBackupService.ValidatePassword(settings.Password);
 		return settings.Password;

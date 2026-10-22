@@ -228,7 +228,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 		{
 			return $"Windows denied access to port {port}. Run Pharma Remit once as administrator or ask IT to allow it.";
 		}
-		return "Listener failed: " + exception.Message;
+		return "Listener failed: " + PharmaBill.Core.UserMessage.Of(exception);
 	}
 
 	private static string DescribeSocket(SocketException socket, int port)
@@ -438,7 +438,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 		{
 			return Results.Json(new
 			{
-				error = ex2.Message
+				error = PharmaBill.Core.UserMessage.Of(ex2)
 			}, (JsonSerializerOptions?)null, (string?)null, (int?)400);
 		}
 		IResult result;
@@ -959,7 +959,7 @@ public sealed class LocalSyncServer(IServiceScopeFactory scopeFactory, HybridLog
 					logger.LogWarning(ex2, "Rejected mobile push.");
 					result = Results.Json(new
 					{
-						error = ex2.Message
+						error = PharmaBill.Core.UserMessage.Of(ex2)
 					}, (JsonSerializerOptions?)null, (string?)null, (int?)400);
 				}
 				catch (Exception ex3) when (!(ex3 is OperationCanceledException))

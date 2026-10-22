@@ -101,7 +101,7 @@ public class DiagnosticsViewModel(IServiceScopeFactory scopeFactory, IFilePicker
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -178,7 +178,7 @@ public class DiagnosticsViewModel(IServiceScopeFactory scopeFactory, IFilePicker
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

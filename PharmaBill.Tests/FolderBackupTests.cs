@@ -171,12 +171,12 @@ public sealed class FolderBackupTests
         Assert.False(BackupReminder.Evaluate(null, null, now.AddHours(3), now).IsDue);
     }
 
-    private sealed record Before(List<string> InvoiceNumbers, decimal SalesTotal, List<string> StockOnHand, Guid? RegisterSaleId, string RegisterEntry, int RegisterEntryCount);
+    internal sealed record Before(List<string> InvoiceNumbers, decimal SalesTotal, List<string> StockOnHand, Guid? RegisterSaleId, string RegisterEntry, int RegisterEntryCount);
 
-    private static string Describe(ScheduleRegisterEntry e) =>
+    internal static string Describe(ScheduleRegisterEntry e) =>
         $"{e.RegisterType}|{e.BatchNo}|{e.Quantity:0}|{e.PatientName}|{e.PrescriberName}|{e.PrescriberRegistrationNumber}|{e.EntryAtUtc:yyyy-MM-dd HH:mm:ss.fffffff}";
 
-    private static async Task<Before> SeedShopAsync(PharmaBillDbContext context, DatabaseStorageOptions storage)
+    internal static async Task<Before> SeedShopAsync(PharmaBillDbContext context, DatabaseStorageOptions storage)
     {
         context.PharmacyProfiles.Add(new PharmacyProfile { Name = "Srinagar Medicos", BusinessMode = BusinessMode.Retail, InvoicePrefix = "SM", State = "Jammu and Kashmir" });
         await context.SaveChangesAsync();
@@ -227,13 +227,13 @@ public sealed class FolderBackupTests
             await context.ScheduleRegisterEntries.CountAsync());
     }
 
-    private static async Task<List<string>> StockOnHandAsync(PharmaBillDbContext context)
+    internal static async Task<List<string>> StockOnHandAsync(PharmaBillDbContext context)
     {
         var rows = await context.StockMovements.Join(context.Batches, m => m.BatchId, b => b.Id, (m, b) => new { b.BatchNo, m.QuantityChange }).ToListAsync();
         return rows.GroupBy(r => r.BatchNo).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key}={g.Sum(r => r.QuantityChange):0}").ToList();
     }
 
-    private static ServiceProvider BuildServices(DatabaseStorageOptions storage)
+    internal static ServiceProvider BuildServices(DatabaseStorageOptions storage)
     {
         var services = new ServiceCollection();
         services.AddSingleton(storage);
@@ -246,7 +246,7 @@ public sealed class FolderBackupTests
     }
 
     // Opens whatever key is on disk now, as the app does at startup - after a restore that is the backup's key.
-    private static PharmaBillDbContext OpenContext(DatabaseStorageOptions storage)
+    internal static PharmaBillDbContext OpenContext(DatabaseStorageOptions storage)
     {
         SQLitePCL.Batteries_V2.Init();
         Directory.CreateDirectory(Path.GetDirectoryName(storage.DatabasePath)!);
@@ -259,7 +259,7 @@ public sealed class FolderBackupTests
         return new PharmaBillDbContext(options, deviceId);
     }
 
-    private static Task InitializeAsync(PharmaBillDbContext context, DatabaseStorageOptions storage)
+    internal static Task InitializeAsync(PharmaBillDbContext context, DatabaseStorageOptions storage)
     {
         var branches = new BranchService(new UnitOfWork(context), new BranchSettingsStore(storage), storage);
         return new DbInitializer(context, new StorageLocationService(context), branches, storage).InitializeAsync();

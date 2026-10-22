@@ -225,7 +225,7 @@ public sealed class GoogleDriveSyncService
 			GoogleDriveSyncSettings done = await _settingsStore.LoadAsync(cancellationToken)with
 			{
 				Status = "Error",
-				LastError = exception.Message
+				LastError = PharmaBill.Core.UserMessage.Of(exception)
 			};
 			await _settingsStore.SaveAsync(done, cancellationToken);
 			SettingsChanged?.Invoke(done);
@@ -355,7 +355,7 @@ public sealed class GoogleDriveSyncService
 			GoogleDriveSyncSettings settings = await _settingsStore.LoadAsync(cancellationToken)with
 			{
 				Status = "Error",
-				LastError = exception.Message
+				LastError = PharmaBill.Core.UserMessage.Of(exception)
 			};
 			await _settingsStore.SaveAsync(settings, cancellationToken);
 			SettingsChanged?.Invoke(settings);
@@ -465,7 +465,7 @@ public sealed class GoogleDriveSyncService
 			GoogleDriveSyncSettings done = await _settingsStore.LoadAsync(cancellationToken)with
 			{
 				Status = "Error",
-				LastError = exception.Message
+				LastError = PharmaBill.Core.UserMessage.Of(exception)
 			};
 			await _settingsStore.SaveAsync(done, cancellationToken);
 			SettingsChanged?.Invoke(done);
@@ -485,7 +485,7 @@ public sealed class GoogleDriveSyncService
 
 	private static string ToUploadErrorMessage(Exception exception)
 	{
-		string text = exception.Message ?? "Google Drive upload failed.";
+		string text = PharmaBill.Core.UserMessage.Of(exception) ?? "Google Drive upload failed.";
 		if (text.Contains("rateLimitExceeded", StringComparison.OrdinalIgnoreCase) || text.Contains("userRateLimitExceeded", StringComparison.OrdinalIgnoreCase) || (text.Contains("403", StringComparison.OrdinalIgnoreCase) && text.Contains("rate", StringComparison.OrdinalIgnoreCase)))
 		{
 			return "Google Drive rate limit reached. Wait a moment, then tap Retry Now.";

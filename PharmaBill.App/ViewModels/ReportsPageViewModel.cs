@@ -586,7 +586,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -740,7 +740,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

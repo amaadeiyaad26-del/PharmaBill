@@ -99,7 +99,7 @@ public static class TerminalPairingClient
 		}
 		catch (HttpRequestException exception)
 		{
-			throw new TerminalPairingException($"Could not reach a Pharma Remit server at {host}:{port}. Check the address, that both PCs are on the shop's network, and that the server is switched on. ({exception.Message})");
+			throw new TerminalPairingException($"Could not reach a Pharma Remit server at {host}:{port}. Check the address, that both PCs are on the shop's network, and that the server is switched on. ({PharmaBill.Core.UserMessage.Of(exception)})");
 		}
 		if (challenge.ProtocolVersion != TerminalProtocol.Version)
 		{

@@ -621,7 +621,7 @@ public partial class MainWindow : Window
 		{
 			MessageBox.Show(
 				this,
-				"Could not open Windows Calculator.\n\n" + ex.Message,
+				"Could not open Windows Calculator.\n\n" + PharmaBill.Core.UserMessage.Of(ex),
 				"Pharma Remit",
 				MessageBoxButton.OK,
 				MessageBoxImage.Warning);

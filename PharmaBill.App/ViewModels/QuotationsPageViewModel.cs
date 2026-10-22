@@ -123,7 +123,7 @@ public sealed class QuotationsPageViewModel(IServiceScopeFactory scopeFactory, C
 		}
 		catch (Exception ex) when (ex is InvalidOperationException || ex is ArgumentException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -146,7 +146,7 @@ public sealed class QuotationsPageViewModel(IServiceScopeFactory scopeFactory, C
 		}
 		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -167,7 +167,7 @@ public sealed class QuotationsPageViewModel(IServiceScopeFactory scopeFactory, C
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "Could not print the quotation: " + ex.Message;
+			ErrorMessage = "Could not print the quotation: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

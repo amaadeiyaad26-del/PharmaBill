@@ -314,7 +314,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 		}
 		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -340,7 +340,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -360,7 +360,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -436,7 +436,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 			return;
 		}
@@ -467,7 +467,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -494,7 +494,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 			return;
 		}
@@ -526,7 +526,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -571,7 +571,7 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}

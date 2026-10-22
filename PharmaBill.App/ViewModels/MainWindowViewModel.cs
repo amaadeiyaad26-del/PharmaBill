@@ -2089,7 +2089,7 @@ public class MainWindowViewModel : ObservableObject
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Barcode scan failed for {Barcode}", barcode);
-			ShowBarcodeToast("Barcode lookup failed: " + ex.Message);
+			ShowBarcodeToast("Barcode lookup failed: " + PharmaBill.Core.UserMessage.Of(ex));
 		}
 	}
 
@@ -2298,7 +2298,7 @@ public class MainWindowViewModel : ObservableObject
 		}
 		catch (Exception ex)
 		{
-			_confirmationService.NotifyError("Update", "Could not start the update: " + ex.Message);
+			_confirmationService.NotifyError("Update", "Could not start the update: " + PharmaBill.Core.UserMessage.Of(ex));
 		}
 	}
 

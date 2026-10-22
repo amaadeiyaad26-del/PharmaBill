@@ -101,7 +101,7 @@ public sealed class ToolsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (IOException ex)
 		{
-			StatusMessage = "Notepad could not be saved: " + ex.Message;
+			StatusMessage = "Notepad could not be saved: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -154,7 +154,7 @@ public sealed class ToolsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (IOException ex)
 		{
-			StatusMessage = "Narrations could not be saved: " + ex.Message;
+			StatusMessage = "Narrations could not be saved: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

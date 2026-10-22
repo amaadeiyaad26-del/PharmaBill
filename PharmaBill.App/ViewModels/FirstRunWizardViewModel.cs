@@ -257,7 +257,7 @@ public partial class FirstRunWizardViewModel : ObservableObject
         catch (Exception exception) when (exception is InvalidOperationException or IOException or
                                           ArgumentException or CryptographicException or PlatformNotSupportedException)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = PharmaBill.Core.UserMessage.Of(exception);
         }
     }
 

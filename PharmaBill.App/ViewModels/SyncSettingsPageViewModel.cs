@@ -1765,9 +1765,9 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			UsbBackupStatus = ex.Message;
-			ErrorMessage = ex.Message;
-			_confirmation.NotifyError("USB backup failed", ex.Message);
+			UsbBackupStatus = PharmaBill.Core.UserMessage.Of(ex);
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			_confirmation.NotifyError("USB backup failed", PharmaBill.Core.UserMessage.Of(ex));
 		}
 		finally
 		{
@@ -1807,7 +1807,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			BranchNetworkStatus = ex.Message;
+			BranchNetworkStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1824,7 +1824,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			BranchNetworkStatus = ex.Message;
+			BranchNetworkStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1852,7 +1852,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1877,7 +1877,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1891,7 +1891,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1904,7 +1904,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			AutoSyncEnabled = !enabled;
 		}
 	}
@@ -1919,7 +1919,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1935,7 +1935,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1992,7 +1992,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2020,9 +2020,9 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			IsGoogleDriveUploadFailed = true;
-			GoogleDriveWarning = ex.Message;
+			GoogleDriveWarning = PharmaBill.Core.UserMessage.Of(ex);
 			IsGoogleDriveUploading = false;
 		}
 		finally
@@ -2124,7 +2124,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -2140,7 +2140,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2203,8 +2203,8 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			CloudTestStatus = ex.Message;
-			ErrorMessage = ex.Message;
+			CloudTestStatus = PharmaBill.Core.UserMessage.Of(ex);
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -2270,7 +2270,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 				}
 				catch (Exception ex)
 				{
-					parts.Add("Google Drive failed: " + ex.Message);
+					parts.Add("Google Drive failed: " + PharmaBill.Core.UserMessage.Of(ex));
 				}
 			}
 			if (parts.Count == 0)
@@ -2478,7 +2478,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2501,7 +2501,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex) when ((ex is ArgumentException || ex is InvalidOperationException) ? true : false)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2527,7 +2527,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}
@@ -2554,7 +2554,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2575,7 +2575,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2612,7 +2612,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2625,7 +2625,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

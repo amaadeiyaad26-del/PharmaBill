@@ -112,7 +112,7 @@ public sealed class HardwareScannerService
 		}
 		catch (COMException ex)
 		{
-			throw new InvalidOperationException("The handheld / USB scanner could not capture the page. " + ex.Message, ex);
+			throw new InvalidOperationException("The handheld / USB scanner could not capture the page. " + PharmaBill.Core.UserMessage.Of(ex), ex);
 		}
 		finally
 		{

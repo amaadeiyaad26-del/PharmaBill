@@ -2839,7 +2839,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (InvalidOperationException ex)
 		{
-			FirmLogoStatus = ex.Message;
+			FirmLogoStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3018,7 +3018,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			BranchStatus = ex.Message;
+			BranchStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3033,7 +3033,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			BranchStatus = ex.Message;
+			BranchStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3057,7 +3057,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			OperatorStatus = ex.Message;
+			OperatorStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3080,7 +3080,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			OperatorStatus = ex.Message;
+			OperatorStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3099,7 +3099,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			OperatorStatus = ex.Message;
+			OperatorStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3118,7 +3118,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			OperatorStatus = ex.Message;
+			OperatorStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3137,7 +3137,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			OperatorStatus = ex.Message;
+			OperatorStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3161,7 +3161,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			OperatorStatus = ex.Message;
+			OperatorStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3214,7 +3214,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			RetentionStatus = ex.Message;
+			RetentionStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3243,7 +3243,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			}
 			catch (Exception ex)
 			{
-				RetentionStatus = ex.Message;
+				RetentionStatus = PharmaBill.Core.UserMessage.Of(ex);
 			}
 			finally
 			{
@@ -3288,7 +3288,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			RetentionStatus = ex.Message;
+			RetentionStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -3321,7 +3321,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			UpdateStatus = "Could not check for updates: " + ex.Message;
+			UpdateStatus = "Could not check for updates: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -3375,8 +3375,8 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			UpdateStatus = ex.Message;
-			ManualHubStatus = ex.Message;
+			UpdateStatus = PharmaBill.Core.UserMessage.Of(ex);
+			ManualHubStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3486,7 +3486,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			DocumentOutputStatus = "Print settings saved, but pharmacy profile update failed: " + ex.Message;
+			DocumentOutputStatus = "Print settings saved, but pharmacy profile update failed: " + PharmaBill.Core.UserMessage.Of(ex);
 			return;
 		}
 		DocumentOutputStatus = "Print & invoice layout settings saved. ✓";
@@ -3596,7 +3596,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			FirmProfileStatus = ex.Message;
+			FirmProfileStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3642,7 +3642,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			UpiSettingsStatus = ex.Message;
+			UpiSettingsStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3673,7 +3673,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 		catch (Exception ex)
 		{
-			UpiSettingsStatus = ex.Message;
+			UpiSettingsStatus = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -4010,7 +4010,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			}
 			catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException) ? true : false)
 			{
-				ModeError = ex.Message;
+				ModeError = PharmaBill.Core.UserMessage.Of(ex);
 				return;
 			}
 		}

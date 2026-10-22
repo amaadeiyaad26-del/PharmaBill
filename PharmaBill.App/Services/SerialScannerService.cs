@@ -93,7 +93,7 @@ public sealed class SerialScannerService : IScannerService, IDisposable
 				}
 				catch (Exception ex)
 				{
-					Status = "COM ports could not be listed: " + ex.Message;
+					Status = "COM ports could not be listed: " + PharmaBill.Core.UserMessage.Of(ex);
 					IsListening = false;
 					return;
 				}
@@ -126,7 +126,7 @@ public sealed class SerialScannerService : IScannerService, IDisposable
 			catch (Exception ex)
 			{
 				IsListening = false;
-				Status = "Scanner port " + name + " is unavailable: " + ex.Message;
+				Status = "Scanner port " + name + " is unavailable: " + PharmaBill.Core.UserMessage.Of(ex);
 			}
 		}
 	}

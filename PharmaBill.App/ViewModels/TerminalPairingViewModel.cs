@@ -111,7 +111,7 @@ public sealed class TerminalPairingViewModel : ObservableObject
 		catch (Exception ex)
 		{
 			StatusMessage = "Automatic search is not available here. Type the server PC's address.";
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -146,7 +146,7 @@ public sealed class TerminalPairingViewModel : ObservableObject
 		catch (TerminalPairingException ex)
 		{
 			StatusMessage = string.Empty;
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{

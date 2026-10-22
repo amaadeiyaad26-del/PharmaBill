@@ -30,7 +30,7 @@ public static class LanSyncFirewallHelper
 		}
 		catch (Exception ex)
 		{
-			return new FirewallCheckResult(RulePresent: false, "Could not query Windows Firewall", ex.Message);
+			return new FirewallCheckResult(RulePresent: false, "Could not query Windows Firewall", PharmaBill.Core.UserMessage.Of(ex));
 		}
 	}
 
@@ -58,7 +58,7 @@ public static class LanSyncFirewallHelper
 		}
 		catch (Exception ex)
 		{
-			return new FirewallCheckResult(RulePresent: false, "Could not add firewall rule", ex.Message);
+			return new FirewallCheckResult(RulePresent: false, "Could not add firewall rule", PharmaBill.Core.UserMessage.Of(ex));
 		}
 	}
 
@@ -79,7 +79,7 @@ public static class LanSyncFirewallHelper
 		}
 		catch (Exception ex)
 		{
-			return new FirewallCheckResult(RulePresent: false, "Could not query Windows Firewall", ex.Message);
+			return new FirewallCheckResult(RulePresent: false, "Could not query Windows Firewall", PharmaBill.Core.UserMessage.Of(ex));
 		}
 	}
 
@@ -120,7 +120,7 @@ public static class LanSyncFirewallHelper
 		}
 		catch (Exception ex2)
 		{
-			return new FirewallCheckResult(RulePresent: false, "Firewall change failed", ex2.Message);
+			return new FirewallCheckResult(RulePresent: false, "Firewall change failed", PharmaBill.Core.UserMessage.Of(ex2));
 		}
 		Thread.Sleep(400);
 		FirewallCheckResult firewallCheckResult = CheckRule(port);

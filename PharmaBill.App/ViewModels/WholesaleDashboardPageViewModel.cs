@@ -157,7 +157,7 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -200,7 +200,7 @@ public sealed class WholesaleDashboardPageViewModel : ObservableObject, ILoadabl
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

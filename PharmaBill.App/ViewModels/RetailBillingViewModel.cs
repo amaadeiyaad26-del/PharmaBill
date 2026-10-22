@@ -1631,7 +1631,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex) when (ex is InvalidOperationException || ex is UnauthorizedAccessException || ex is ArgumentException)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -1664,7 +1664,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex2)
 		{
-			ErrorMessage = ex2.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex2);
 		}
 		finally
 		{
@@ -1813,7 +1813,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			return false;
 		}
 	}
@@ -1952,7 +1952,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			}
 			catch (Exception ex)
 			{
-				missed.Add(System.IO.Path.GetFileName(path) + " (" + ex.Message + ")");
+				missed.Add(System.IO.Path.GetFileName(path) + " (" + PharmaBill.Core.UserMessage.Of(ex) + ")");
 			}
 		}
 
@@ -2148,7 +2148,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex2)
 		{
-			ErrorMessage = ex2.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex2);
 		}
 		finally
 		{
@@ -2266,7 +2266,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2358,7 +2358,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 				return;
 			}
 		}
@@ -2407,7 +2407,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2425,7 +2425,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -2515,7 +2515,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = "The prescription could not be read: " + ex.Message;
+			ErrorMessage = "The prescription could not be read: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{
@@ -2806,7 +2806,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 						}
 						catch (Exception ex)
 						{
-							printFailure = "Bill " + result.InvoiceNo + " was saved, but printing failed: " + ex.Message;
+							printFailure = "Bill " + result.InvoiceNo + " was saved, but printing failed: " + PharmaBill.Core.UserMessage.Of(ex);
 						}
 						ClearBill();
 						BillNumber = await service.PreviewNextInvoiceNoAsync();
@@ -2818,7 +2818,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 				}
 				catch (Exception ex2)
 				{
-					ErrorMessage = ex2.Message;
+					ErrorMessage = PharmaBill.Core.UserMessage.Of(ex2);
 					return;
 				}
 			}
@@ -2858,7 +2858,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			StatusMessage = "Could not open WhatsApp.";
 		}
 	}
@@ -2919,7 +2919,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -3023,7 +3023,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 			return;
 		}
 		decimal num = RetailTaxCalculator.RoundMoney(Math.Min((PaymentAmount > 0m) ? PaymentAmount : TotalAmount, TotalAmount));
@@ -3180,7 +3180,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 			}
 			catch (Exception ex)
 			{
-				ErrorMessage = ex.Message;
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 				return false;
 			}
 		}
@@ -3235,7 +3235,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

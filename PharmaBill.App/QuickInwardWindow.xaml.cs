@@ -208,7 +208,7 @@ public partial class QuickInwardWindow : Window
 		}
 		catch (Exception ex)
 		{
-			StatusText.Text = ex.Message;
+			StatusText.Text = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

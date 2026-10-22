@@ -201,7 +201,7 @@ public sealed class SyncFolderExchangeService(IServiceScopeFactory scopeFactory,
 			catch (Exception ex2) when (IsPackageDataError(ex2))
 			{
 				string path2 = MoveToUniqueDirectory(packagePath, errorsDirectory);
-				warning = $"A sync package was moved to errors: {Path.GetFileName(path2)} ({ex2.Message})";
+				warning = $"A sync package was moved to errors: {Path.GetFileName(path2)} ({PharmaBill.Core.UserMessage.Of(ex2)})";
 				logger.LogWarning(ex2, "Quarantined invalid incoming sync package {PackagePath}.", packagePath);
 			}
 		}
@@ -252,7 +252,7 @@ public sealed class SyncFolderExchangeService(IServiceScopeFactory scopeFactory,
 		await SaveSettingsAsync(syncFolderSettings with
 		{
 			Status = "Error",
-			LastError = exception.Message
+			LastError = PharmaBill.Core.UserMessage.Of(exception)
 		}, cancellationToken);
 	}
 

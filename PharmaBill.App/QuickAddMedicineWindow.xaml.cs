@@ -107,7 +107,7 @@ public partial class QuickAddMedicineWindow : Window
 		}
 		catch (Exception ex)
 		{
-			ShowNotice(ex.Message);
+			ShowNotice(PharmaBill.Core.UserMessage.Of(ex));
 		}
 		finally
 		{
@@ -221,7 +221,7 @@ public partial class QuickAddMedicineWindow : Window
 		}
 		catch (Exception ex)
 		{
-			StatusText.Text = ex.Message;
+			StatusText.Text = PharmaBill.Core.UserMessage.Of(ex);
 			SaveButton.IsEnabled = true;
 		}
 	}

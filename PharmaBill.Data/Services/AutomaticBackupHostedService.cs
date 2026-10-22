@@ -33,7 +33,7 @@ public sealed class AutomaticBackupHostedService(BackupSettingsStore settingsSto
 	private async Task TryBackupAsync(CancellationToken cancellationToken)
 	{
 		BackupSettings settings = settingsStore.Load();
-		if (!settings.AutomaticEnabled || string.IsNullOrWhiteSpace(settings.PrimaryFolder) || string.IsNullOrWhiteSpace(settings.Password))
+		if (!settings.AutomaticEnabled || string.IsNullOrWhiteSpace(settings.Password))
 		{
 			return;
 		}

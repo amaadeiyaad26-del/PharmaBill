@@ -146,9 +146,9 @@ public sealed class CloudOAuthClientStore
 		{
 			if (ex is CloudOAuthNotConfiguredException ex2)
 			{
-				return ex2.Message;
+				return PharmaBill.Core.UserMessage.Of(ex2);
 			}
-			string text = ex.Message ?? string.Empty;
+			string text = PharmaBill.Core.UserMessage.Of(ex) ?? string.Empty;
 			if (text.Contains("access_denied", StringComparison.OrdinalIgnoreCase) || text.Contains("authentication_canceled", StringComparison.OrdinalIgnoreCase) || text.Contains("user_cancelled", StringComparison.OrdinalIgnoreCase))
 			{
 				return "Sign-in was cancelled. Click Link again when you are ready.";
@@ -162,7 +162,7 @@ public sealed class CloudOAuthClientStore
 				return "Google did not return a refresh token. Remove PharmaBill from myaccount.google.com/permissions, then Link Google Account again.";
 			}
 		}
-		string message = exception.Message;
+		string message = PharmaBill.Core.UserMessage.Of(exception);
 		if (message.Contains("%LocalAppData%", StringComparison.OrdinalIgnoreCase) || message.Contains("google-oauth-client", StringComparison.OrdinalIgnoreCase) || message.Contains("PHARMABILL_", StringComparison.OrdinalIgnoreCase))
 		{
 			return "Cloud account linking is not configured yet. Use ⚙ Configure Keys to paste your Google client ID and secret, then try again.";

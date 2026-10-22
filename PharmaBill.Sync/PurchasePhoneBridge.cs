@@ -118,7 +118,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 			}
 
 			IsListening = false;
-			SetStatus("Cannot listen on port " + Port + " (" + LanListener.Describe(addresses) + "). " + ex.Message);
+			SetStatus("Cannot listen on port " + Port + " (" + LanListener.Describe(addresses) + "). " + PharmaBill.Core.UserMessage.Of(ex));
 			return;
 		}
 
@@ -145,7 +145,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 		}
 		catch (Exception ex)
 		{
-			firewallNote = " Firewall: " + ex.Message;
+			firewallNote = " Firewall: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 
 		// The firewall rule covers Private networks only, matching "pair only on the shop's own Wi-Fi". On a network

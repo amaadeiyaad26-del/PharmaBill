@@ -42,7 +42,7 @@ public partial class RecoveryResetWindow : Window
 		}
 		catch (Exception ex)
 		{
-			ErrorText.Text = ex.Message;
+			ErrorText.Text = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 }

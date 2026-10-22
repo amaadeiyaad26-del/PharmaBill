@@ -601,7 +601,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 		}
 		catch (Exception ex)
 		{
-			ErrorMessage = ex.Message;
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
