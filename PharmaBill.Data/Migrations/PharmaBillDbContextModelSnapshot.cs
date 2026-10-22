@@ -2787,6 +2787,49 @@ namespace PharmaBill.Data.Migrations
                     b.ToTable("SupplierLedgerEntries");
                 });
 
+            modelBuilder.Entity("PharmaBill.Core.Entities.SupplierPaymentAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HlcStamp")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("PaymentEntryId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PurchaseInvoiceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SyncState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentEntryId");
+
+                    b.HasIndex("PurchaseInvoiceId");
+
+                    b.ToTable("SupplierPaymentAllocations");
+                });
+
             modelBuilder.Entity("PharmaBill.Core.Entities.SyncConflict", b =>
                 {
                     b.Property<Guid>("Id")

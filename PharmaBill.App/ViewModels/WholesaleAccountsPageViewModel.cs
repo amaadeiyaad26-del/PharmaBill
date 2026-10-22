@@ -22,8 +22,117 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
+/// <summary>An unpaid supplier bill on the payment screen, ticked to point part of the payment at it.</summary>
+public sealed class SupplierBillChoice(OpenSupplierBill bill, Action changed) : ObservableObject
+{
+	private bool _isSelected;
+	private string _payAmount = string.Empty;
+
+	public OpenSupplierBill Bill { get; } = bill;
+
+	public string Label => $"{Bill.BillNo} · {Bill.BillDate:dd-MMM-yyyy}";
+
+	public string DueText => "Due " + Bill.Due.ToString("N2", CultureInfo.InvariantCulture);
+
+	public bool IsSelected
+	{
+		get => _isSelected;
+		set
+		{
+			if (SetProperty(ref _isSelected, value))
+			{
+				// Ticking a bill offers to pay what is left on it; the pharmacist can lower it.
+				if (value && string.IsNullOrWhiteSpace(PayAmount))
+				{
+					_payAmount = Bill.Due.ToString("0.00", CultureInfo.InvariantCulture);
+					OnPropertyChanged(nameof(PayAmount));
+				}
+				changed();
+			}
+		}
+	}
+
+	public string PayAmount
+	{
+		get => _payAmount;
+		set
+		{
+			if (SetProperty(ref _payAmount, value))
+			{
+				changed();
+			}
+		}
+	}
+
+	public decimal? Amount => decimal.TryParse(PayAmount, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amount) ? amount : null;
+}
+
 public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 {
+	private bool _payAgainstBills;
+
+	private string _billAllocationSummary = string.Empty;
+
+	private string _autoFilledAmount = string.Empty;
+
+	/// <summary>The selected supplier's unpaid bills, oldest first, for pointing a payment at particular bills.</summary>
+	public ObservableCollection<SupplierBillChoice> OpenBills { get; } = new ObservableCollection<SupplierBillChoice>();
+
+	public bool HasOpenBills => OpenBills.Count > 0;
+
+	/// <summary>Off: the payment settles the oldest bills first. On: it pays the ticked bills, and any rest goes oldest first.</summary>
+	public bool PayAgainstBills
+	{
+		get => _payAgainstBills;
+		set
+		{
+			if (SetProperty(ref _payAgainstBills, value))
+			{
+				OnBillChoicesChanged();
+			}
+		}
+	}
+
+	public string BillAllocationSummary
+	{
+		get => _billAllocationSummary;
+		private set => SetProperty(ref _billAllocationSummary, value);
+	}
+
+	private void OnBillChoicesChanged()
+	{
+		SupplierBillChoice[] ticked = OpenBills.Where(bill => bill.IsSelected).ToArray();
+		decimal total = ticked.Sum(bill => bill.Amount ?? 0m);
+		if (PayAgainstBills && ticked.Length > 0)
+		{
+			// The amount follows the ticked bills until the pharmacist types their own.
+			if (string.IsNullOrWhiteSpace(SupplierPaymentAmount) || SupplierPaymentAmount == _autoFilledAmount)
+			{
+				_autoFilledAmount = total.ToString("0.00", CultureInfo.CurrentCulture);
+				SupplierPaymentAmount = _autoFilledAmount;
+			}
+			BillAllocationSummary = $"₹{total:N2} against {ticked.Length} bill{(ticked.Length == 1 ? string.Empty : "s")}. Anything more settles the oldest bills first.";
+		}
+		else
+		{
+			BillAllocationSummary = PayAgainstBills ? "Tick the bills this payment is for." : "This payment settles the oldest unpaid bills first.";
+		}
+	}
+
+	private async Task LoadOpenBillsAsync(Guid supplierId)
+	{
+		using IServiceScope scope = _scopeFactory.CreateScope();
+		IReadOnlyList<OpenSupplierBill> bills = await new SupplierBillBalanceService(scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>()).GetOpenBillsAsync(supplierId);
+		OpenBills.Clear();
+		foreach (OpenSupplierBill bill in bills)
+		{
+			OpenBills.Add(new SupplierBillChoice(bill, OnBillChoicesChanged));
+		}
+		_autoFilledAmount = string.Empty;
+		OnPropertyChanged(nameof(HasOpenBills));
+		OnBillChoicesChanged();
+	}
+
 	private readonly IServiceScopeFactory _scopeFactory;
 
 	private readonly BillingDeskState _billingDesk;
@@ -746,8 +855,16 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			DateOnly? paymentDate = SupplierPaymentDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(SupplierPaymentDate.Value)) : (ChequeDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(ChequeDate.Value)) : null);
-			await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().RecordSupplierPaymentAsync(SelectedSupplier.Id, result, SupplierPaymentMethod, SupplierPaymentReference, ChequeNumber, paymentDate, BankName, (_session.User ?? throw new UnauthorizedAccessException("Sign in before recording supplier payments.")).Id);
+			SupplierBillChoice[] ticked = PayAgainstBills ? OpenBills.Where(bill => bill.IsSelected).ToArray() : Array.Empty<SupplierBillChoice>();
+			if (ticked.Any(bill => bill.Amount is not > 0m))
+			{
+				ErrorMessage = "Enter the amount to pay against each ticked bill.";
+				return;
+			}
+			SupplierBillPayment[] toBills = ticked.Select(bill => new SupplierBillPayment(bill.Bill.PurchaseId, bill.Amount!.Value)).ToArray();
+			await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().RecordSupplierPaymentAsync(SelectedSupplier.Id, result, SupplierPaymentMethod, SupplierPaymentReference, ChequeNumber, paymentDate, BankName, (_session.User ?? throw new UnauthorizedAccessException("Sign in before recording supplier payments.")).Id, toBills);
 			SupplierPaymentAmount = string.Empty;
+			PayAgainstBills = false;
 			ErrorMessage = string.Empty;
 			StatusMessage = "Supplier payment (outward) saved.";
 			await ReloadAsync();
@@ -851,6 +968,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 			? 0m
 			: decimal.Round(Math.Max(0m, rows[^1].Balance), 2, MidpointRounding.AwayFromZero);
 		ApplySupplierLedgerFilter();
+		await LoadOpenBillsAsync(supplierId);
 	}
 
 	private async Task ReloadAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -864,7 +982,7 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 			Ageing.Add(item);
 		}
 		CashBankBook.Clear();
-		foreach (CashBankBookRow item2 in await accounts.GetCashBankBookAsync(BusinessClock.Now.Date, BusinessClock.Now.Date.AddDays(1.0), cancellationToken))
+		foreach (CashBankBookRow item2 in await accounts.GetCashBankBookAsync(BusinessClock.Today.StartOfDayUtc(), BusinessClock.Today.AddDays(1).StartOfDayUtc(), cancellationToken))
 		{
 			CashBankBook.Add(item2);
 		}
@@ -1123,6 +1241,8 @@ public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 			_supplierLedgerSource.Clear();
 			SupplierLedger.Clear();
 			FilteredSupplierLedger.Clear();
+			OpenBills.Clear();
+			OnPropertyChanged(nameof(HasOpenBills));
 		}
 	}
 }

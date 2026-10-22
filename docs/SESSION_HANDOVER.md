@@ -16,7 +16,7 @@ Read this first. It replaces the 21 Oct handover and is enough to carry on with 
 - **Never commit `tools/licensing/pharmabill-license-private.pem`.** It is not tracked; only the public key is.
 - **Never open, copy or read a real shop database** (`%LocalAppData%\PharmaBill`, or a Store data folder). It holds patient data. Work from test databases.
 - **Debug builds use `%LocalAppData%\PharmaBill-Debug`** and must never open the real folder.
-- **Schema changes go through EF migrations.** No silent self-repair at startup. The latest migration is `IndexCustomCatalogMedicines`, and `PersistenceTests.DbInitializer_AppliesInitialMigration` asserts the newest one's name: update it when you add a migration.
+- **Schema changes go through EF migrations.** No silent self-repair at startup. The latest migration is `SupplierPaymentAllocations`. `PersistenceTests.DbInitializer_AppliesInitialMigration` asserts the newest one's name and the number of tables, and `MigrationFailureTests` expects the newest migration's own SQLite error: update all three when you add a migration.
 - **Don't change retail billing's 50/50 CGST/SGST split.**
 - **Git stash is shared** with other worktrees. Never run a bare `git stash` / `git stash pop`; use a WIP commit.
 - **Not this project's work:** `DELIVERY_SUMMARY.txt` and `LocalPharmacyInstaller/` at the repo root are untracked and belong to someone else. Leave them alone.
@@ -117,6 +117,7 @@ Also stale: `MSSTORE_SUBMISSION_GUIDE.md` lines 44 and 69 still describe and jus
 
 - **Export to Folder replaced Google Drive OAuth backup.** One "Back up now" to a chosen folder (OneDrive/Google Drive/Dropbox folders are fine). Encrypted `.pbbak`, a backup password is required, and restore also tries the old derived passwords.
 - **One licence per shop.**
+- **Supplier bill payment status:** a payment can be pointed at particular bills (Accounts > Pay specific bills); everything else settles each supplier's oldest dues first (FIFO). `SupplierBillBalanceService` is the one place this is worked out; Reports, Purchase history and the payment screen all use it.
 - **No AI or online medicine lookup.** "Search data bank" (Add Medicine, and "Not found - add manually" on billing, purchase and the global search) fills details from the shop's own medicines and the built-in data bank only, offline. Gemini/OpenRouter/OpenFDA lookup was removed on 22 Oct at the owner's request. Gemini is still offered for reading purchase invoices and prescriptions; that was not part of the request.
 - **Business dates are always Asia/Kolkata** (`PharmaBill.Core.BusinessClock`, injectable; tests pin it).
 - **Filed documents record their values at save time;** reports read those back rather than recomputing.

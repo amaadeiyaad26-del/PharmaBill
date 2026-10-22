@@ -20,9 +20,9 @@ public sealed class MigrationFailureTests
 
         Assert.Equal(latest, error.MigrationId);
         Assert.Contains("Database upgrade failed at migration '" + latest + "'", error.Message);
-        // SQLite's own reason is passed on. The latest migration (IndexCustomCatalogMedicines) creates an index; one that adds a
+        // SQLite's own reason is passed on. The latest migration (SupplierPaymentAllocations) creates a table; one that adds a
         // column reports "duplicate column name" instead.
-        Assert.Contains("index IX_CatalogMedicines_IsCustom already exists", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("table \"SupplierPaymentAllocations\" already exists", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(latest, await database.Context.Database.GetPendingMigrationsAsync());
     }
 

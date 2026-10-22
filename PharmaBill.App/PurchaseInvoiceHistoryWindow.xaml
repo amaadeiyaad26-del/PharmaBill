@@ -7,7 +7,7 @@
         MinWidth="900"
         MinHeight="520"
         WindowStartupLocation="CenterOwner"
-        Icon="/Assets/Icons/app.ico">
+        Icon="pack://application:,,,/PharmaBill.App;component/Assets/Icons/app.ico">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
     <Style x:Key="LedgerColumnHeaderStyle" TargetType="DataGridColumnHeader">
@@ -71,6 +71,7 @@
         <DataGridTextColumn Header="Items Count" Width="Auto" MinWidth="90" Binding="{Binding ItemCount}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
         <DataGridTextColumn Header="Total Amount" Width="Auto" MinWidth="110" Binding="{Binding TotalAmount, StringFormat=N2}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
         <DataGridTextColumn Header="Payment Status" Width="Auto" MinWidth="140" Binding="{Binding PaymentStatus}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
+        <DataGridTextColumn Header="Balance Due" Width="Auto" MinWidth="110" Binding="{Binding BalanceDue, StringFormat=N2}" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}" ElementStyle="{StaticResource LedgerCellTextStyle}" />
         <DataGridTemplateColumn Header="Audit" Width="Auto" MinWidth="110" HeaderStyle="{StaticResource LedgerColumnHeaderStyle}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate>

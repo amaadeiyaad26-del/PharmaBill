@@ -792,7 +792,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		Dictionary<Guid, string> branchCodes = await context.Branches.AsNoTracking().ToDictionaryAsync((Branch item) => item.Id, (Branch item) => item.Code, token);
 		string currentCode = branchService.CurrentSettings.CurrentBranchCode;
 		Guid[] supplierIds = invoices.Select(item => item.SupplierId).Distinct().ToArray();
-		Dictionary<Guid, decimal> outstanding = await PurchaseBalancesAsync(supplierIds, token);
+		Dictionary<Guid, decimal> outstanding = await new SupplierBillBalanceService(context).GetBalancesAsync(supplierIds, token);
 		List<PurchaseInvoice> ordered = invoices.OrderBy(item => item.InvoiceDate).ThenBy(item => item.CreatedAtUtc).ToList();
 		IReadOnlyList<string>[] rows = ordered.Select(invoice =>
 		{
@@ -803,7 +803,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				invoice.CreatedAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
 				invoice.InvoiceNo,
 				suppliers.GetValueOrDefault(invoice.SupplierId, string.Empty),
-				PurchasePaymentStatus(due, invoice.TotalAmount),
+				SupplierBillBalanceService.StatusOf(due, invoice.TotalAmount),
 				due.HasValue ? Format(due.Value) : string.Empty,
 				Format(invoice.Subtotal),
 				Format(invoice.TaxAmount),
@@ -817,47 +817,6 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			PurchaseColumns,
 			rows,
 			ordered.Select(invoice => "P|" + invoice.Id).ToArray());
-	}
-
-	private static string PurchasePaymentStatus(decimal? due, decimal total)
-	{
-		if (!due.HasValue)
-		{
-			return "Not in ledger";
-		}
-		if (due.Value <= 0.005m)
-		{
-			return "Paid";
-		}
-		return due.Value >= total - 0.005m ? "Unpaid" : "Partially paid";
-	}
-
-	/// <summary>
-	/// What is still owed on each purchase bill. Supplier payments are recorded on account, not against a bill, so a
-	/// supplier's payments, returns and other debits settle the oldest dues in its ledger first (first in, first out).
-	/// Bills missing from the ledger are left out.
-	/// </summary>
-	public async Task<Dictionary<Guid, decimal>> PurchaseBalancesAsync(IReadOnlyCollection<Guid> supplierIds, CancellationToken token = default)
-	{
-		List<SupplierLedgerEntry> entries = await context.SupplierLedgerEntries.AsNoTracking()
-			.Where(entry => supplierIds.Contains(entry.SupplierId))
-			.ToListAsync(token);
-		var balances = new Dictionary<Guid, decimal>();
-		foreach (IGrouping<Guid, SupplierLedgerEntry> supplier in entries.GroupBy(entry => entry.SupplierId))
-		{
-			decimal settled = supplier.Sum(entry => entry.Debit);
-			foreach (SupplierLedgerEntry due in supplier.Where(entry => entry.Credit > 0m).OrderBy(entry => entry.EntryAtUtc).ThenBy(entry => entry.CreatedAtUtc))
-			{
-				decimal applied = Math.Min(settled, due.Credit);
-				settled -= applied;
-				bool isBill = due.EntryType is LedgerEntryTypes.PurchaseBill or LedgerEntryTypes.PurchaseInvoiceLegacy;
-				if (isBill && due.ReferenceId is Guid purchaseId)
-				{
-					balances[purchaseId] = balances.GetValueOrDefault(purchaseId) + due.Credit - applied;
-				}
-			}
-		}
-		return balances;
 	}
 
 	/// <summary>The supplier bill attached to a purchase (row key "P|id" in the Purchases report).</summary>

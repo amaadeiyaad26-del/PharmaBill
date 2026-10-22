@@ -178,9 +178,13 @@ public sealed class PurchaseInvoiceHistoryViewModel(IServiceScopeFactory scopeFa
 				|| supplierNames.GetValueOrDefault(invoice.SupplierId, string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase)).ToList();
 		}
 
+		// The same balances as Reports and the supplier payment screen: bills a payment was pointed at, then oldest first.
+		Dictionary<Guid, decimal> owing = await new SupplierBillBalanceService(context).GetBalancesAsync(supplierIds);
 		Rows.Clear();
 		foreach (PurchaseInvoice invoice in invoices)
 		{
+			bool posted = invoice.Status is PurchaseInvoice.PostedStatus or PurchaseInvoice.CommittedStatus;
+			decimal? due = posted && owing.TryGetValue(invoice.Id, out decimal value) ? value : null;
 			string? path = PurchaseAttachmentPaths.For(invoice);
 			bool hasFile = !string.IsNullOrWhiteSpace(path) && File.Exists(path);
 			Rows.Add(new PurchaseInvoiceHistoryRow
@@ -192,7 +196,9 @@ public sealed class PurchaseInvoiceHistoryViewModel(IServiceScopeFactory scopeFa
 				InvoiceNo = invoice.InvoiceNo,
 				ItemCount = itemCounts.GetValueOrDefault(invoice.Id),
 				TotalAmount = invoice.TotalAmount,
-				PaymentStatus = string.Equals(invoice.Status, "Posted", StringComparison.OrdinalIgnoreCase) ? "Unpaid" : (invoice.Status ?? "Unpaid"),
+				// A bill not yet posted (a draft) has no payment status; it shows where it stands instead.
+				PaymentStatus = posted ? SupplierBillBalanceService.StatusOf(due, invoice.TotalAmount) : (invoice.Status ?? "Draft"),
+				BalanceDue = due,
 				AttachmentPath = hasFile ? path : null,
 				OriginalFileName = invoice.OriginalFileName,
 				CreatedAtUtc = invoice.CreatedAtUtc
@@ -333,7 +339,10 @@ public sealed class PurchaseInvoiceHistoryRow
 
 	public decimal TotalAmount { get; init; }
 
-	public string PaymentStatus { get; init; } = "Unpaid";
+	public string PaymentStatus { get; init; } = SupplierBillBalanceService.Unpaid;
+
+	/// <summary>Still owed on the bill; empty for drafts and bills missing from the supplier ledger.</summary>
+	public decimal? BalanceDue { get; init; }
 
 	public string? AttachmentPath { get; init; }
 

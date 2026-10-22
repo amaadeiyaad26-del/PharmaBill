@@ -26,6 +26,7 @@ public sealed class OperationalDataResetService(IUnitOfWork unitOfWork)
 		"WholesaleInvoices",
 		"Receipts",
 		"CustomerLedgerEntries",
+		"SupplierPaymentAllocations",
 		"SupplierLedgerEntries",
 		"QuotationItems",
 		"Quotations",

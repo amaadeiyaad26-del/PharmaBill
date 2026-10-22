@@ -100,6 +100,8 @@ public sealed class PharmaBillDbContext : DbContext
 
 	public DbSet<SupplierLedgerEntry> SupplierLedgerEntries => Set<SupplierLedgerEntry>();
 
+	public DbSet<SupplierPaymentAllocation> SupplierPaymentAllocations => Set<SupplierPaymentAllocation>();
+
 	public DbSet<ReturnNote> ReturnNotes => Set<ReturnNote>();
 
 	public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
@@ -152,6 +154,8 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<Drug>().HasIndex((Drug item) => item.Name);
 		modelBuilder.Entity<CatalogMedicine>().HasIndex((CatalogMedicine item) => item.SourceId).IsUnique();
 		modelBuilder.Entity<CatalogMedicine>().HasIndex((CatalogMedicine item) => item.CompositionKey);
+		modelBuilder.Entity<SupplierPaymentAllocation>().HasIndex((SupplierPaymentAllocation item) => item.PaymentEntryId);
+		modelBuilder.Entity<SupplierPaymentAllocation>().HasIndex((SupplierPaymentAllocation item) => item.PurchaseInvoiceId);
 		// Every search also looks for the shop's own medicines; without this it reads all ~250k catalogue rows to find them.
 		modelBuilder.Entity<CatalogMedicine>().HasIndex((CatalogMedicine item) => item.IsCustom).HasFilter("\"IsCustom\"");
 		modelBuilder.Entity<CatalogInfo>().HasIndex((CatalogInfo item) => item.NameKey).IsUnique();

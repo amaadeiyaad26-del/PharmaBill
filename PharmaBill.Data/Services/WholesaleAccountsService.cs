@@ -12,6 +12,9 @@ using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;
 
+/// <summary>Part of a supplier payment pointed at one purchase bill.</summary>
+public sealed record SupplierBillPayment(Guid PurchaseId, decimal Amount);
+
 public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 {
 	public async Task<Receipt> RecordReceiptAsync(Guid customerId, Guid? wholesaleInvoiceId, decimal amount, string paymentMethod, string? referenceNumber, string? chequeNumber, DateOnly? chequeDate, string? bankName, Guid userId, CancellationToken cancellationToken = default(CancellationToken))
@@ -82,7 +85,11 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 		return result;
 	}
 
-	public async Task<Receipt> RecordSupplierPaymentAsync(Guid supplierId, decimal amount, string paymentMethod, string? referenceNumber, string? chequeNumber, DateOnly? chequeDate, string? bankName, Guid userId, CancellationToken cancellationToken = default(CancellationToken))
+	/// <summary>
+	/// Records a payment to a supplier. <paramref name="toBills"/> points parts of it at particular bills; the rest (or all of
+	/// it, when none are given) settles the supplier's oldest dues first.
+	/// </summary>
+	public async Task<Receipt> RecordSupplierPaymentAsync(Guid supplierId, decimal amount, string paymentMethod, string? referenceNumber, string? chequeNumber, DateOnly? chequeDate, string? bankName, Guid userId, IReadOnlyList<SupplierBillPayment>? toBills = null, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		if (amount <= 0m || string.IsNullOrWhiteSpace(paymentMethod))
 		{
@@ -112,8 +119,9 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 				BankName = NullIfWhiteSpace(bankName),
 				Notes = "Supplier payment to " + supplier.Name
 			};
+			IReadOnlyList<SupplierBillPayment> targeted = await CheckBillPaymentsAsync(context, supplier, payment.Amount, toBills ?? Array.Empty<SupplierBillPayment>(), cancellationToken);
 			context.Receipts.Add(payment);
-			context.SupplierLedgerEntries.Add(new SupplierLedgerEntry
+			var paymentEntry = new SupplierLedgerEntry
 			{
 				SupplierId = supplier.Id,
 				EntryAtUtc = utcNow,
@@ -123,7 +131,12 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 				Debit = payment.Amount,
 				Credit = 0m,
 				Notes = payment.Notes
-			});
+			};
+			context.SupplierLedgerEntries.Add(paymentEntry);
+			foreach (SupplierBillPayment bill in targeted)
+			{
+				context.SupplierPaymentAllocations.Add(new SupplierPaymentAllocation { PaymentEntryId = paymentEntry.Id, PurchaseInvoiceId = bill.PurchaseId, Amount = bill.Amount });
+			}
 			context.AuditLogs.Add(new AuditLog
 			{
 				UserId = userId,
@@ -131,13 +144,49 @@ public sealed class WholesaleAccountsService(IUnitOfWork unitOfWork)
 				Action = "WholesaleSupplierPaymentRecorded",
 				EntityName = "Receipt",
 				EntityId = payment.Id,
-				Details = $"Supplier {supplier.Name}; amount {payment.Amount}; method {method}."
+				Details = $"Supplier {supplier.Name}; amount {payment.Amount}; method {method}; "
+					+ (targeted.Count == 0 ? "settles oldest bills first." : "against " + string.Join(", ", targeted.Select(bill => $"{bill.PurchaseId} {bill.Amount:0.00}")) + "; any rest settles oldest bills first.")
 			});
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			result = payment;
 		}
 		return result;
+	}
+
+	// A payment may only be pointed at this supplier's own bills, each no more than it still owes, all within the payment.
+	private static async Task<IReadOnlyList<SupplierBillPayment>> CheckBillPaymentsAsync(PharmaBillDbContext context, Supplier supplier, decimal paymentAmount, IReadOnlyList<SupplierBillPayment> toBills, CancellationToken cancellationToken)
+	{
+		SupplierBillPayment[] bills = toBills.Where(bill => bill.Amount != 0m).Select(bill => bill with { Amount = decimal.Round(bill.Amount, 2, MidpointRounding.AwayFromZero) }).ToArray();
+		if (bills.Length == 0)
+		{
+			return bills;
+		}
+		if (bills.Any(bill => bill.Amount < 0m))
+		{
+			throw new InvalidOperationException("An amount against a bill cannot be negative.");
+		}
+		if (bills.Select(bill => bill.PurchaseId).Distinct().Count() != bills.Length)
+		{
+			throw new InvalidOperationException("Each bill can be listed only once in a payment.");
+		}
+		if (bills.Sum(bill => bill.Amount) > paymentAmount)
+		{
+			throw new InvalidOperationException($"The amounts against bills add up to {bills.Sum(bill => bill.Amount):0.00}, more than the payment of {paymentAmount:0.00}.");
+		}
+		Dictionary<Guid, OpenSupplierBill> open = (await new SupplierBillBalanceService(context).GetOpenBillsAsync(supplier.Id, cancellationToken)).ToDictionary(bill => bill.PurchaseId);
+		foreach (SupplierBillPayment bill in bills)
+		{
+			if (!open.TryGetValue(bill.PurchaseId, out OpenSupplierBill? owing))
+			{
+				throw new InvalidOperationException($"That bill is not an unpaid bill of {supplier.Name}.");
+			}
+			if (bill.Amount > owing.Due)
+			{
+				throw new InvalidOperationException($"Bill {owing.BillNo} has {owing.Due:0.00} left to pay; {bill.Amount:0.00} is more than that.");
+			}
+		}
+		return bills;
 	}
 
 	public async Task<IReadOnlyList<LedgerRow>> GetCustomerLedgerAsync(Guid customerId, CancellationToken cancellationToken = default(CancellationToken))
