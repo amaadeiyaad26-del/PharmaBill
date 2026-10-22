@@ -34,7 +34,7 @@ public sealed class SaleBookReportTests
                 .AddSingleton(database.Context)
                 .AddScoped(_ => Reports(database))
                 .BuildServiceProvider();
-            var page = new ReportsPageViewModel(services.GetRequiredService<IServiceScopeFactory>(), null!, new TabularExportService(), dialog, new DataRetentionSettingsStore(database.Storage));
+            var page = new ReportsPageViewModel(services.GetRequiredService<IServiceScopeFactory>(), null!, new TabularExportService(), dialog, new NoBillViewer(), new DataRetentionSettingsStore(database.Storage));
 
             var mainWindow = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
             BindingSafetyTests.Retire(mainWindow);
@@ -118,6 +118,11 @@ public sealed class SaleBookReportTests
         // The wholesale invoice is billed a minute after the retail bill, so the book's order is fixed.
         await database.Context.Database.ExecuteSqlRawAsync("UPDATE WholesaleInvoices SET InvoiceAtUtc = {0} WHERE Id = {1}", sale.Sale.SaleAtUtc.AddMinutes(1), invoice.Invoice.Id);
         return new Shop(catalog, sale.Sale, invoice.Invoice);
+    }
+
+    private sealed class NoBillViewer : ISupplierBillViewer
+    {
+        public void Show(PurchaseBillAttachment bill, string path) => throw new InvalidOperationException("No supplier bill is opened from the Sale Book.");
     }
 
     private sealed class RecordingInvoiceDialog : IInvoiceDetailDialogService

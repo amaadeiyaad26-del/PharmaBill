@@ -228,7 +228,9 @@ public sealed class BackupAndReportsTests
         var dashboard = await reports.GetDashboardAsync(now);
 
         Assert.Equal(2, salesReport.Rows.Count);
-        Assert.Equal("Report supplier", Assert.Single(purchasesReport.Rows)[2]);
+        IReadOnlyList<string> purchaseRow = Assert.Single(purchasesReport.Rows);
+        Assert.Equal("Report supplier", purchaseRow[purchasesReport.Columns.ToList().IndexOf("Supplier")]);
+        Assert.Equal("PUR-REPORT-1", purchaseRow[purchasesReport.Columns.ToList().IndexOf("Bill No")]);
         // Supplier-wise is an invoice-level detail report followed by one subtotal row per supplier.
         Assert.Equal(2, supplierWise.Rows.Count);
         Assert.Equal("Report supplier", supplierWise.Rows[0][2]);

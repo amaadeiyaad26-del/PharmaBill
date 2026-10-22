@@ -139,6 +139,7 @@ public partial class App : Application
 				services.AddSingleton<IScannerService, SerialScannerService>();
 				services.AddSingleton<InvoiceDocumentService>();
 				services.AddSingleton<IInvoiceDetailDialogService, InvoiceDetailDialogService>();
+				services.AddSingleton<ISupplierBillViewer, SupplierBillViewer>();
 				services.AddTransient<AddStockViewModel>();
 				services.AddSingleton<IFilePickerService, FilePickerService>();
 				services.AddSingleton<IOcrTextRecognizer, WindowsOcrTextRecognizer>();

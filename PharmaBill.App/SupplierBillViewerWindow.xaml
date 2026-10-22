@@ -1,0 +1,47 @@
+<Window x:Class="PharmaBill.App.SupplierBillViewerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="pack://application:,,,/PharmaBill.App;component/Assets/Icons/app.ico" Title="Supplier bill" Height="820" Width="980" MinHeight="480" MinWidth="640"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource WindowBackgroundBrush}">
+  <DockPanel Margin="16">
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+        <Button x:Name="ZoomOutButton" Content="−" MinWidth="40" Padding="10,6" Margin="0,0,6,0" Style="{StaticResource SecondaryButton}" Click="ZoomOut_Click" ToolTip="Zoom out" AutomationProperties.Name="Zoom out" />
+        <Button Content="Fit width" Padding="12,6" Margin="0,0,6,0" Style="{StaticResource SecondaryButton}" Click="FitWidth_Click" AutomationProperties.Name="Fit width" />
+        <Button x:Name="ZoomInButton" Content="+" MinWidth="40" Padding="10,6" Style="{StaticResource SecondaryButton}" Click="ZoomIn_Click" ToolTip="Zoom in" AutomationProperties.Name="Zoom in" />
+      </StackPanel>
+      <StackPanel>
+        <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="SubtitleText" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+      </StackPanel>
+    </DockPanel>
+
+    <Border DockPanel.Dock="Bottom" Margin="0,12,0,0" Padding="0,12,0,0" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource DividerBrush}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="OpenExternallyButton" Content="Open in default viewer" MinWidth="170" Padding="14,8" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}" Click="OpenExternally_Click"
+                  ToolTip="Open the file in the PC's own viewer, to print or zoom further" AutomationProperties.Name="Open in default viewer" />
+          <Button Content="Close" IsCancel="True" MinWidth="100" Padding="14,8" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="Close" />
+        </StackPanel>
+        <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" Foreground="{DynamicResource SecondaryTextBrush}" AutomationProperties.Name="Viewer status" />
+      </DockPanel>
+    </Border>
+
+    <Border Background="#FFE2E8F0" CornerRadius="8">
+      <ScrollViewer x:Name="PageScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Padding="16">
+        <ItemsControl x:Name="Pages" HorizontalAlignment="Center" AutomationProperties.Name="Bill pages">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Margin="0,0,0,16" Background="White" BorderBrush="#FFCBD5E1" BorderThickness="1">
+                <Border.Effect>
+                  <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.15" Color="#FF000000" />
+                </Border.Effect>
+                <Image Source="{Binding}" Stretch="Uniform" Width="{Binding PageWidth, RelativeSource={RelativeSource AncestorType=Window}}" RenderOptions.BitmapScalingMode="HighQuality" />
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+  </DockPanel>
+</Window>

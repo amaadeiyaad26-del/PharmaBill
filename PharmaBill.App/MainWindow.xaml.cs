@@ -729,17 +729,109 @@ public partial class MainWindow : Window
 			};
 			dataGridBoundColumn.SortMemberPath = "[" + e.PropertyName + "]";
 		}
+		bool keyed = sender is DataGrid { ItemsSource: DataView { Table: { } table } } && table.Columns.Contains("__key");
 		// The invoice number links to the Invoice details popup in every report whose rows carry an invoice key.
-		if (e.PropertyName is "Invoice" or "Invoice No" && sender is DataGrid { ItemsSource: DataView { Table: { } table } } && table.Columns.Contains("__key"))
+		if (e.PropertyName is "Invoice" or "Invoice No" && keyed)
 		{
-			e.Column = new DataGridTemplateColumn
+			e.Column = TemplateColumn(e.PropertyName, InvoiceLinkTemplate(e.PropertyName));
+		}
+		else if (e.PropertyName == "Supplier Bill" && keyed)
+		{
+			e.Column = TemplateColumn(e.PropertyName, SupplierBillLinkTemplate(e.PropertyName));
+		}
+		else if (e.PropertyName == "Payment Status")
+		{
+			e.Column = TemplateColumn(e.PropertyName, PaymentStatusTemplate(e.PropertyName));
+		}
+		else if (e.Column is DataGridTextColumn text)
+		{
+			// The default cell template ignores the cell style's padding, so the text carries its own spacing.
+			bool amount = IsAmountColumn(e.PropertyName);
+			text.ElementStyle = ReportCellStyle(amount);
+			if (amount && sender is DataGrid grid && grid.TryFindResource(typeof(DataGridColumnHeader)) is Style header)
 			{
-				Header = e.PropertyName,
-				SortMemberPath = "[" + e.PropertyName + "]",
-				CellTemplate = InvoiceLinkTemplate(e.PropertyName)
-			};
+				// The heading sits over its figures.
+				text.HeaderStyle = new Style(typeof(DataGridColumnHeader), header) { Setters = { new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Right) } };
+			}
 		}
 	}
+
+	private static readonly string[] AmountWords = ["Total", "Subtotal", "GST", "Tax", "Taxable", "Amount", "Balance", "Due", "Rate", "Qty", "Paid", "Value", "Profit", "Margin", "Sales", "Cost", "MRP", "Price", "Stock"];
+
+	// Money and quantity columns line up on the right, as on a ledger; codes and numbers that are labels (HSN, invoice) do not.
+	private static bool IsAmountColumn(string header) =>
+		!header.Contains("No", StringComparison.Ordinal) && !header.Contains("HSN", StringComparison.Ordinal) && !header.Contains("Date", StringComparison.Ordinal)
+		&& AmountWords.Any(word => header.Split(' ', '/', '(', ')').Contains(word, StringComparer.OrdinalIgnoreCase));
+
+	private static Style ReportCellStyle(bool alignRight)
+	{
+		var style = new Style(typeof(TextBlock));
+		style.Setters.Add(new Setter(FrameworkElement.MarginProperty, new Thickness(10, 7, 10, 7)));
+		style.Setters.Add(new Setter(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center));
+		style.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
+		if (alignRight)
+		{
+			style.Setters.Add(new Setter(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Right));
+			style.Setters.Add(new Setter(System.Windows.Documents.Typography.NumeralAlignmentProperty, FontNumeralAlignment.Tabular));
+		}
+		return style;
+	}
+
+	private static DataGridTemplateColumn TemplateColumn(string column, DataTemplate template) => new DataGridTemplateColumn
+	{
+		Header = column,
+		SortMemberPath = "[" + column + "]",
+		CellTemplate = template
+	};
+
+	private static DataTemplate SupplierBillLinkTemplate(string column) => (DataTemplate)System.Windows.Markup.XamlReader.Parse($$$"""
+		<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+		  <Grid Margin="6,4">
+		    <TextBlock x:Name="None" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Text="—" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="4,0" />
+		    <Button x:Name="Link" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Visibility="Collapsed" Cursor="Hand" Background="#00FFFFFF" BorderThickness="0" Padding="4,2" HorizontalAlignment="Left"
+		            Foreground="{DynamicResource AccentBrush}" ToolTip="Open the supplier's bill attached to this purchase" AutomationProperties.Name="View supplier bill"
+		            Command="{Binding DataContext.OpenSupplierBillCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}">
+		      <Button.Template>
+		        <ControlTemplate TargetType="Button">
+		          <StackPanel Orientation="Horizontal" Background="Transparent">
+		            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE723;" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{TemplateBinding Foreground}" />
+		            <TextBlock Text="View bill" TextDecorations="Underline" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{TemplateBinding Foreground}" />
+		          </StackPanel>
+		        </ControlTemplate>
+		      </Button.Template>
+		    </Button>
+		  </Grid>
+		  <DataTemplate.Triggers>
+		    <DataTrigger Binding="{Binding Path=[{{{column}}}]}" Value="Attached">
+		      <Setter TargetName="Link" Property="Visibility" Value="Visible" />
+		      <Setter TargetName="None" Property="Visibility" Value="Collapsed" />
+		    </DataTrigger>
+		  </DataTemplate.Triggers>
+		</DataTemplate>
+		""");
+
+	// Paid, part paid and unpaid read at a glance: a small coloured badge rather than plain text.
+	private static DataTemplate PaymentStatusTemplate(string column) => (DataTemplate)System.Windows.Markup.XamlReader.Parse($$$"""
+		<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+		  <Border x:Name="Badge" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,4" Padding="10,2" CornerRadius="10" Background="#FFF1F5F9">
+		    <TextBlock x:Name="Label" Text="{Binding Path=[{{{column}}}]}" FontSize="12" FontWeight="SemiBold" Foreground="#FF475569" />
+		  </Border>
+		  <DataTemplate.Triggers>
+		    <DataTrigger Binding="{Binding Path=[{{{column}}}]}" Value="Paid">
+		      <Setter TargetName="Badge" Property="Background" Value="#FFDCFCE7" />
+		      <Setter TargetName="Label" Property="Foreground" Value="#FF166534" />
+		    </DataTrigger>
+		    <DataTrigger Binding="{Binding Path=[{{{column}}}]}" Value="Partially paid">
+		      <Setter TargetName="Badge" Property="Background" Value="#FFFEF3C7" />
+		      <Setter TargetName="Label" Property="Foreground" Value="#FF92400E" />
+		    </DataTrigger>
+		    <DataTrigger Binding="{Binding Path=[{{{column}}}]}" Value="Unpaid">
+		      <Setter TargetName="Badge" Property="Background" Value="#FFFEE2E2" />
+		      <Setter TargetName="Label" Property="Foreground" Value="#FFB42318" />
+		    </DataTrigger>
+		  </DataTemplate.Triggers>
+		</DataTemplate>
+		""");
 
 	private static DataTemplate InvoiceLinkTemplate(string column) => (DataTemplate)System.Windows.Markup.XamlReader.Parse($$$"""
 		<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">

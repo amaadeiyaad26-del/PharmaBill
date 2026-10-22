@@ -28,6 +28,8 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private readonly IInvoiceDetailDialogService _invoiceDialog;
 
+	private readonly ISupplierBillViewer _billViewer;
+
 	private readonly DataRetentionSettingsStore _retentionSettingsStore;
 
 	private bool _suppressReportChangeRefresh;
@@ -79,6 +81,8 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand<DataRowView?>? openInvoiceCommand;
+
+	private AsyncRelayCommand<DataRowView?>? openSupplierBillCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? exportPdfCommand;
@@ -469,6 +473,9 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand<DataRowView?> OpenInvoiceCommand => openInvoiceCommand ?? (openInvoiceCommand = new AsyncRelayCommand<DataRowView>(OpenInvoiceAsync));
 
+	/// <summary>Opens the supplier's own bill attached to a Purchases row.</summary>
+	public IAsyncRelayCommand<DataRowView?> OpenSupplierBillCommand => openSupplierBillCommand ?? (openSupplierBillCommand = new AsyncRelayCommand<DataRowView>(OpenSupplierBillAsync));
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ExportPdfCommand => exportPdfCommand ?? (exportPdfCommand = new AsyncRelayCommand(ExportPdfAsync));
@@ -477,12 +484,13 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand ExportExcelCommand => exportExcelCommand ?? (exportExcelCommand = new AsyncRelayCommand(ExportExcelAsync));
 
-	public ReportsPageViewModel(IServiceScopeFactory scopeFactory, IFilePickerService filePicker, TabularExportService exports, IInvoiceDetailDialogService invoiceDialog, DataRetentionSettingsStore retentionSettingsStore)
+	public ReportsPageViewModel(IServiceScopeFactory scopeFactory, IFilePickerService filePicker, TabularExportService exports, IInvoiceDetailDialogService invoiceDialog, ISupplierBillViewer billViewer, DataRetentionSettingsStore retentionSettingsStore)
 	{
 		_scopeFactory = scopeFactory;
 		_filePicker = filePicker;
 		_exports = exports;
 		_invoiceDialog = invoiceDialog;
+		_billViewer = billViewer;
 		_retentionSettingsStore = retentionSettingsStore;
 		RebuildYearOptions();
 		DateTime today = BusinessClock.Now.Date;
@@ -712,6 +720,41 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 			SelectedQuickPeriod = string.Empty;
 			SetMonth(new DateTime(SelectedYear, SelectedMonth, 1).AddMonths(1));
 			await RefreshWithFiltersAsync();
+		}
+	}
+
+	private async Task OpenSupplierBillAsync(DataRowView? row)
+	{
+		string key = row != null && row.Row.Table.Columns.Contains("__key") ? Convert.ToString(row["__key"]) ?? string.Empty : string.Empty;
+		if (key.Length == 0)
+		{
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			PurchaseBillAttachment? bill = await scope.ServiceProvider.GetRequiredService<ReportsDashboardService>().GetPurchaseAttachmentAsync(key);
+			if (bill == null)
+			{
+				ErrorMessage = "That purchase could not be found.";
+				return;
+			}
+			if (string.IsNullOrWhiteSpace(bill.Path))
+			{
+				ErrorMessage = $"No supplier bill is attached to {bill.BillNo}. Attach one from Purchase history.";
+				return;
+			}
+			if (!File.Exists(bill.Path))
+			{
+				ErrorMessage = $"The supplier bill for {bill.BillNo} was attached, but its file is no longer at {bill.Path}.";
+				return;
+			}
+			ErrorMessage = string.Empty;
+			_billViewer.Show(bill, bill.Path);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 

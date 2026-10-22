@@ -6,9 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using PharmaBill.Data.Services;
-using Windows.Data.Pdf;
-using Windows.Storage;
-using Windows.Storage.Streams;
 
 namespace PharmaBill.App.Services;
 
@@ -60,7 +57,7 @@ public sealed class InvoiceDocumentService(RetailBillPdfService retailPdf, Whole
 		try
 		{
 			await WritePdfAsync(detail, pdf, cancellationToken);
-			return await RenderPdfPagesAsync(pdf, PrintDpi);
+			return await PdfPageRenderer.RenderAsync(pdf, PrintDpi);
 		}
 		finally
 		{
@@ -73,32 +70,6 @@ public sealed class InvoiceDocumentService(RetailBillPdfService retailPdf, Whole
 				// Still open in the renderer; the temp folder is cleaned by Windows.
 			}
 		}
-	}
-
-	internal static async Task<IReadOnlyList<BitmapSource>> RenderPdfPagesAsync(string pdfPath, double dpi)
-	{
-		StorageFile file = await StorageFile.GetFileFromPathAsync(pdfPath);
-		PdfDocument document = await PdfDocument.LoadFromFileAsync(file);
-		var pages = new List<BitmapSource>((int)document.PageCount);
-		for (uint index = 0; index < document.PageCount; index++)
-		{
-			using PdfPage page = document.GetPage(index);
-			using var stream = new InMemoryRandomAccessStream();
-			// PdfPage.Size is in device-independent pixels (1/96 inch).
-			await page.RenderToStreamAsync(stream, new PdfPageRenderOptions { DestinationWidth = (uint)Math.Round(page.Size.Width * dpi / 96) });
-			stream.Seek(0);
-			var memory = new MemoryStream();
-			await stream.AsStreamForRead().CopyToAsync(memory);
-			memory.Position = 0;
-			var image = new BitmapImage();
-			image.BeginInit();
-			image.CacheOption = BitmapCacheOption.OnLoad;
-			image.StreamSource = memory;
-			image.EndInit();
-			image.Freeze();
-			pages.Add(image);
-		}
-		return pages;
 	}
 
 	private static string UniquePath(string folder, string fileName)

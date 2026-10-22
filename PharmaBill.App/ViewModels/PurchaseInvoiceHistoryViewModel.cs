@@ -181,9 +181,7 @@ public sealed class PurchaseInvoiceHistoryViewModel(IServiceScopeFactory scopeFa
 		Rows.Clear();
 		foreach (PurchaseInvoice invoice in invoices)
 		{
-			string? path = string.IsNullOrWhiteSpace(invoice.AttachedInvoicePath)
-				? PurchaseAttachmentStore.PathFromLegacyNotes(invoice.Notes)
-				: invoice.AttachedInvoicePath;
+			string? path = PurchaseAttachmentPaths.For(invoice);
 			bool hasFile = !string.IsNullOrWhiteSpace(path) && File.Exists(path);
 			Rows.Add(new PurchaseInvoiceHistoryRow
 			{

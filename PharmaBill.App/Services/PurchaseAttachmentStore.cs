@@ -116,30 +116,6 @@ public static class PurchaseAttachmentStore
 		}
 	}
 
-	public static string? PathFromLegacyNotes(string? notes)
-	{
-		if (string.IsNullOrWhiteSpace(notes))
-		{
-			return null;
-		}
-
-		const string marker = "Invoice image:";
-		int index = notes.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-		if (index < 0)
-		{
-			return null;
-		}
-
-		string path = notes[(index + marker.Length)..].Trim();
-		int lineBreak = path.IndexOfAny(new[] { '\r', '\n' });
-		if (lineBreak >= 0)
-		{
-			path = path[..lineBreak].Trim();
-		}
-
-		return path.Length == 0 ? null : path;
-	}
-
 	private static string FolderFor(int year, Guid supplierId)
 	{
 		string supplier = supplierId == Guid.Empty ? "unassigned" : supplierId.ToString("N");

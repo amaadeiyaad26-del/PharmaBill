@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Inventory;
 using PharmaBill.Data.Persistence;
@@ -771,6 +772,11 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		return expiry?.ToString("MM/yy") ?? string.Empty;
 	}
 
+	public static readonly IReadOnlyList<string> PurchaseColumns = new[] { "Bill Date", "Entered At", "Bill No", "Supplier", "Payment Status", "Balance Due", "Subtotal", "GST", "Total", "Branch", "Supplier Bill" };
+
+	// Each inwarded supplier bill: when it was billed and entered, whether it is paid, the amounts, its branch, and whether
+	// the supplier's own bill is attached (a row opens it). Other branches publish only sales summaries, so the network
+	// view has no other branch's purchases.
 	private async Task<ReportTable> PurchasesAsync(DateOnly from, DateOnly to, ReportBranchScope branchScope, CancellationToken token)
 	{
 		Guid? currentBranchId = branchService.CurrentBranchId;
@@ -783,19 +789,92 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		}
 		List<PurchaseInvoice> invoices = await source.ToListAsync(token);
 		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync((Supplier item) => item.Id, (Supplier item) => item.Name, token);
+		Dictionary<Guid, string> branchCodes = await context.Branches.AsNoTracking().ToDictionaryAsync((Branch item) => item.Id, (Branch item) => item.Code, token);
 		string currentCode = branchService.CurrentSettings.CurrentBranchCode;
-		List<IReadOnlyList<string>> list = ((IEnumerable<PurchaseInvoice>)invoices.OrderBy((PurchaseInvoice item) => item.InvoiceDate)).Select((Func<PurchaseInvoice, IReadOnlyList<string>>)((PurchaseInvoice invoice) => new _003C_003Ez__ReadOnlyArray<string>(new string[7]
+		Guid[] supplierIds = invoices.Select(item => item.SupplierId).Distinct().ToArray();
+		Dictionary<Guid, decimal> outstanding = await PurchaseBalancesAsync(supplierIds, token);
+		List<PurchaseInvoice> ordered = invoices.OrderBy(item => item.InvoiceDate).ThenBy(item => item.CreatedAtUtc).ToList();
+		IReadOnlyList<string>[] rows = ordered.Select(invoice =>
 		{
-			invoice.InvoiceDate.ToString("yyyy-MM-dd"),
-			invoice.InvoiceNo,
-			suppliers.GetValueOrDefault(invoice.SupplierId, string.Empty),
-			Format(invoice.Subtotal),
-			Format(invoice.TaxAmount),
-			Format(invoice.TotalAmount),
-			currentCode
-		}))).ToList();
-		// Other branches publish only sales summaries, never purchases, so a purchase report has no network rows.
-		return new ReportTable((branchScope == ReportBranchScope.ConsolidatedNetwork) ? "Purchases / network" : "Purchases", new _003C_003Ez__ReadOnlyArray<string>(new string[7] { "Date", "Invoice", "Supplier", "Subtotal", "GST", "Total", "Branch" }), list);
+			decimal? due = outstanding.TryGetValue(invoice.Id, out decimal value) ? value : null;
+			return (IReadOnlyList<string>)new[]
+			{
+				invoice.InvoiceDate.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+				invoice.CreatedAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
+				invoice.InvoiceNo,
+				suppliers.GetValueOrDefault(invoice.SupplierId, string.Empty),
+				PurchasePaymentStatus(due, invoice.TotalAmount),
+				due.HasValue ? Format(due.Value) : string.Empty,
+				Format(invoice.Subtotal),
+				Format(invoice.TaxAmount),
+				Format(invoice.TotalAmount),
+				invoice.BranchId is Guid branchId && branchCodes.TryGetValue(branchId, out string? code) ? code : currentCode,
+				string.IsNullOrWhiteSpace(PurchaseAttachmentPaths.For(invoice)) ? "—" : "Attached"
+			};
+		}).ToArray();
+		return new ReportTable(
+			(branchScope == ReportBranchScope.ConsolidatedNetwork) ? "Purchases / network" : "Purchases",
+			PurchaseColumns,
+			rows,
+			ordered.Select(invoice => "P|" + invoice.Id).ToArray());
+	}
+
+	private static string PurchasePaymentStatus(decimal? due, decimal total)
+	{
+		if (!due.HasValue)
+		{
+			return "Not in ledger";
+		}
+		if (due.Value <= 0.005m)
+		{
+			return "Paid";
+		}
+		return due.Value >= total - 0.005m ? "Unpaid" : "Partially paid";
+	}
+
+	/// <summary>
+	/// What is still owed on each purchase bill. Supplier payments are recorded on account, not against a bill, so a
+	/// supplier's payments, returns and other debits settle the oldest dues in its ledger first (first in, first out).
+	/// Bills missing from the ledger are left out.
+	/// </summary>
+	public async Task<Dictionary<Guid, decimal>> PurchaseBalancesAsync(IReadOnlyCollection<Guid> supplierIds, CancellationToken token = default)
+	{
+		List<SupplierLedgerEntry> entries = await context.SupplierLedgerEntries.AsNoTracking()
+			.Where(entry => supplierIds.Contains(entry.SupplierId))
+			.ToListAsync(token);
+		var balances = new Dictionary<Guid, decimal>();
+		foreach (IGrouping<Guid, SupplierLedgerEntry> supplier in entries.GroupBy(entry => entry.SupplierId))
+		{
+			decimal settled = supplier.Sum(entry => entry.Debit);
+			foreach (SupplierLedgerEntry due in supplier.Where(entry => entry.Credit > 0m).OrderBy(entry => entry.EntryAtUtc).ThenBy(entry => entry.CreatedAtUtc))
+			{
+				decimal applied = Math.Min(settled, due.Credit);
+				settled -= applied;
+				bool isBill = due.EntryType is LedgerEntryTypes.PurchaseBill or LedgerEntryTypes.PurchaseInvoiceLegacy;
+				if (isBill && due.ReferenceId is Guid purchaseId)
+				{
+					balances[purchaseId] = balances.GetValueOrDefault(purchaseId) + due.Credit - applied;
+				}
+			}
+		}
+		return balances;
+	}
+
+	/// <summary>The supplier bill attached to a purchase (row key "P|id" in the Purchases report).</summary>
+	public async Task<PurchaseBillAttachment?> GetPurchaseAttachmentAsync(string rowKey, CancellationToken token = default)
+	{
+		string[] parts = rowKey.Split('|');
+		if (parts.Length != 2 || parts[0] != "P" || !Guid.TryParse(parts[1], out Guid id))
+		{
+			return null;
+		}
+		PurchaseInvoice? invoice = await context.PurchaseInvoices.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, token);
+		if (invoice == null)
+		{
+			return null;
+		}
+		string supplier = await context.Suppliers.AsNoTracking().Where(item => item.Id == invoice.SupplierId).Select(item => item.Name).FirstOrDefaultAsync(token) ?? string.Empty;
+		return new PurchaseBillAttachment(invoice.Id, invoice.InvoiceNo, supplier, PurchaseAttachmentPaths.For(invoice));
 	}
 
 	/// <summary>Every purchase return posted in the period, one row per return, with the supplier and reason.</summary>
