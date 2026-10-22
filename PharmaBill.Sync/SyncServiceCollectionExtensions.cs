@@ -45,7 +45,9 @@ public static class SyncServiceCollectionExtensions
 		services.AddSingleton(new TerminalServerCertificate(terminals));
 		services.AddSingleton(new TerminalServerSettingsStore(terminals));
 		services.AddSingleton(new TerminalSessions(terminals));
+		services.AddSingleton<TerminalPairing>();
 		services.AddSingleton<TerminalServer>();
+		services.AddSingleton<TerminalClientSettingsStore>(new TerminalClientSettingsStore(terminals));
 		services.AddHostedService<TerminalServerHostedService>();
 		return services;
 	}

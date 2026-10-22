@@ -167,6 +167,7 @@ public partial class App : Application
 				services.AddTransient<DashboardPageViewModel>();
 				services.AddTransient<WholesaleDashboardPageViewModel>();
 				services.AddTransient<BackupPageViewModel>();
+				services.AddSingleton<DevicesViewModel>();
 				services.AddTransient<SyncSettingsPageViewModel>();
 				services.AddSingleton<RetailBillingViewModel>();
 				services.AddSingleton<RetailBillPdfService>();

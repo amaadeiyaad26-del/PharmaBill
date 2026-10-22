@@ -35,7 +35,7 @@ public interface ITerminalPrintBrandingProvider
 // The billing counter, served to paired terminal PCs over the shop's LAN. One database, on this PC: terminals
 // hold none. Every bill is saved by the same RetailBillingService the desktop uses, so stock and invoice numbers
 // are decided here, inside its write transaction, and the shop's licence on this PC governs every call.
-public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDeviceStore devices, TerminalSessions sessions, TerminalServerCertificate certificate, ILogger<TerminalServer> logger) : IAsyncDisposable
+public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDeviceStore devices, TerminalSessions sessions, TerminalServerCertificate certificate, TerminalPairing pairing, ILogger<TerminalServer> logger) : IAsyncDisposable
 {
 	private const string DeviceItem = "terminal.device";
 
@@ -119,6 +119,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		{
 			NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
 			NetworkChange.NetworkAddressChanged += OnNetworkAddressChanged;
+			_advertiser.Start(Port, certificate.Fingerprint);
 		}
 		logger.LogInformation("Terminal server listening on {Addresses}, port {Port}.", string.Join(", ", bind), Port);
 	}
@@ -126,6 +127,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 	public async Task StopAsync()
 	{
 		NetworkChange.NetworkAddressChanged -= OnNetworkAddressChanged;
+		_advertiser.Stop();
 		WebApplication? app;
 		lock (_gate)
 		{
@@ -219,8 +221,28 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		return http.Response.WriteAsJsonAsync(new TerminalError(message), Json);
 	}
 
+	private readonly TerminalAdvertiser _advertiser = new TerminalAdvertiser(logger);
+
 	private void MapEndpoints(WebApplication app)
 	{
+		// Pairing is the one thing a terminal does before it has a key. Both calls are gated by the code open on
+		// this server's screen; see TerminalPairing.
+		app.MapGet(TerminalProtocol.BasePath + "/pair", async (CancellationToken token) =>
+		{
+			string? nonce = pairing.ServerNonce;
+			return Results.Json(new TerminalPairingChallenge(TerminalProtocol.Version, nonce != null, nonce, TerminalPairingProof.Iterations, Environment.MachineName, await ShopNameAsync(token)), Json);
+		});
+		app.MapPost(TerminalProtocol.BasePath + "/pair", async (TerminalPairRequest request, CancellationToken token) =>
+		{
+			TerminalPairingOutcome outcome = pairing.TryPair(request.TerminalName, request.TerminalNonce, request.Proof);
+			if (outcome.Device == null)
+			{
+				return Results.Json(new TerminalError(outcome.Error ?? "Pairing was refused."), Json, statusCode: StatusCodes.Status403Forbidden);
+			}
+			logger.LogInformation("Paired billing terminal {Name} ({Id}).", outcome.Device.Name, outcome.Device.Id);
+			return Results.Json(new TerminalPairResponse(outcome.Device.Id, outcome.Secret!, outcome.ServerProof!, Environment.MachineName, await ShopNameAsync(token)), Json);
+		});
+
 		RouteGroupBuilder device = app.MapGroup(TerminalProtocol.BasePath);
 		device.AddEndpointFilter(async (EndpointFilterInvocationContext invocation, EndpointFilterDelegate next) =>
 		{
@@ -298,6 +320,12 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 			await scope.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, request.Mrp, session.Role, token);
 			return new { batchId, request.Mrp };
 		}));
+	}
+
+	private async Task<string> ShopNameAsync(CancellationToken token)
+	{
+		await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+		return await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles.AsNoTracking().Select(p => p.Name).FirstOrDefaultAsync(token) ?? string.Empty;
 	}
 
 	private async Task<IResult> HelloAsync(HttpContext http, CancellationToken token)

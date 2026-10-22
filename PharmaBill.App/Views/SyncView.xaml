@@ -4,9 +4,10 @@
     <Border CornerRadius="12" Padding="16" BorderThickness="1" Margin="0,0,0,8" BorderBrush="{DynamicResource FieldBorderBrush}" Background="{DynamicResource CardBackgroundBrush}">
       <StackPanel>
         <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-          <TextBlock Text="Android pairing station" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+          <TextBlock Text="Phones (synced copies)" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
           <controls:InfoHelper Title="LAN pairing &amp; firewall (port 5055)" Body="1) Download Pharma Remit on Android from Google Play. 2) Connect phone and PC to the same Wi-Fi. 3) Ensure Listener shows Listening. 4) Scan QR or wait for mDNS discovery. 5) If Android cannot connect: allow Pharma Remit through Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. When LAN is blocked, use a shared folder or USB instead." />
         </StackPanel>
+        <TextBlock TextWrapping="Wrap" Margin="0,-4,0,10" Foreground="{DynamicResource SecondaryTextBrush}" Text="A phone keeps its own copy of the records, can bill offline, and syncs when it next connects. It is not a billing counter: counters are paired above." />
         <Border Background="#FFF0FDF4" BorderBrush="#FF86EFAC" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,14">
           <Grid>
             <Grid.ColumnDefinitions>

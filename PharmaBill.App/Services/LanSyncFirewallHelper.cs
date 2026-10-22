@@ -15,6 +15,53 @@ public static class LanSyncFirewallHelper
 
 	public const string RuleName = "PharmaBill Sync Station (Port 5055)";
 
+	public const string TerminalRuleName = "Pharma Remit billing counters (Port 5056)";
+
+	/// <summary>Whether billing terminals can reach this PC's counter server. Private and domain networks only:
+	/// counters belong on the shop's own network, never guest or public Wi-Fi.</summary>
+	public static FirewallCheckResult CheckTerminalRule(int port)
+	{
+		try
+		{
+			bool present = OperatingSystem.IsWindows() && WindowsFirewallPortOpener.IsRulePresent(port, TerminalRuleName);
+			return present
+				? new FirewallCheckResult(RulePresent: true, $"Firewall allows billing counters on TCP {port}")
+				: new FirewallCheckResult(RulePresent: false, $"Windows Firewall may block billing counters on TCP {port}", "Press Allow through firewall (one-time Windows permission prompt).");
+		}
+		catch (Exception ex)
+		{
+			return new FirewallCheckResult(RulePresent: false, "Could not query Windows Firewall", ex.Message);
+		}
+	}
+
+	public static FirewallCheckResult AllowTerminalRuleElevated(int port)
+	{
+		if (OperatingSystem.IsWindows())
+		{
+			WindowsFirewallPortOpener.Result result = WindowsFirewallPortOpener.EnsureAllowRule(port, TerminalRuleName, includePublicProfile: false);
+			if (result.RulePresent)
+			{
+				return new FirewallCheckResult(RulePresent: true, result.Message);
+			}
+		}
+		try
+		{
+			RunNetsh($"advfirewall firewall delete rule name=\"{TerminalRuleName}\"", elevate: true);
+			(int exitCode, string stdout, string stderr) = RunNetsh($"advfirewall firewall add rule name=\"{TerminalRuleName}\" dir=in action=allow protocol=TCP localport={port} profile=private,domain description=\"Pharma Remit billing counters on the shop network\"", elevate: true);
+			return exitCode == 0
+				? new FirewallCheckResult(RulePresent: true, $"Firewall allows billing counters on TCP {port}")
+				: new FirewallCheckResult(RulePresent: false, "Could not add firewall rule", string.IsNullOrWhiteSpace(stderr) ? stdout : stderr);
+		}
+		catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+		{
+			return new FirewallCheckResult(RulePresent: false, "Firewall change cancelled", "Windows permission was declined. Billing counters may not be able to connect.");
+		}
+		catch (Exception ex)
+		{
+			return new FirewallCheckResult(RulePresent: false, "Could not add firewall rule", ex.Message);
+		}
+	}
+
 	public static FirewallCheckResult CheckRule(int port = 5055)
 	{
 		try

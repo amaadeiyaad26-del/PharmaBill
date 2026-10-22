@@ -81,4 +81,12 @@ public sealed record TerminalVoidRequest(string Reason, TerminalAdminOverride Ad
 
 public sealed record TerminalVoidResponse(Guid SaleId, string InvoiceNo, bool AlreadyVoided);
 
+/// <summary>GET /pair: whether a code is open, and the server's nonce for this pairing.</summary>
+public sealed record TerminalPairingChallenge(int ProtocolVersion, bool Open, string? ServerNonce, int Iterations, string ServerName, string ShopName);
+
+/// <summary>POST /pair. The code itself is never sent - only a proof built from it and the certificate the terminal saw.</summary>
+public sealed record TerminalPairRequest(string TerminalName, string TerminalNonce, string Proof);
+
+public sealed record TerminalPairResponse(Guid DeviceId, string Secret, string ServerProof, string ServerName, string ShopName);
+
 public sealed record TerminalError(string Error);

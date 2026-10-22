@@ -5,6 +5,10 @@ using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PharmaBill.Core;
 using PharmaBill.Core.Entities;
@@ -24,6 +28,7 @@ public sealed class TerminalServerTests : IAsyncLifetime
     private ServiceProvider _services = null!;
     private TerminalServer _server = null!;
     private TerminalDeviceStore _devices = null!;
+    private TerminalPairing Pairing { get; set; } = null!;
     private Guid _paracetamolDrug, _paracetamolBatch, _alprazolamDrug, _alprazolamBatch;
 
     public async Task InitializeAsync()
@@ -38,8 +43,10 @@ public sealed class TerminalServerTests : IAsyncLifetime
             await SeedAsync(scope.ServiceProvider);
         }
         _devices = new TerminalDeviceStore(Path.Combine(_root, "terminals"));
+        var certificate = new TerminalServerCertificate(Path.Combine(_root, "terminals"));
+        Pairing = new TerminalPairing(_devices, certificate);
         _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), _devices, new TerminalSessions(Path.Combine(_root, "terminals")),
-            new TerminalServerCertificate(Path.Combine(_root, "terminals")), NullLogger<TerminalServer>.Instance);
+            certificate, Pairing, NullLogger<TerminalServer>.Instance);
         await _server.StartAsync(0, [IPAddress.Loopback]);
     }
 
@@ -284,8 +291,10 @@ public sealed class TerminalServerTests : IAsyncLifetime
         // The server PC reboots (a Windows update): a new server process over the same saved state.
         await _server.StopAsync();
         string terminals = Path.Combine(_root, "terminals");
-        _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), new TerminalDeviceStore(terminals), new TerminalSessions(terminals),
-            new TerminalServerCertificate(terminals), NullLogger<TerminalServer>.Instance);
+        var reloadedDevices = new TerminalDeviceStore(terminals);
+        var reloadedCertificate = new TerminalServerCertificate(terminals);
+        _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), reloadedDevices, new TerminalSessions(terminals),
+            reloadedCertificate, new TerminalPairing(reloadedDevices, reloadedCertificate), NullLogger<TerminalServer>.Instance);
         await _server.StartAsync(0, [IPAddress.Loopback]);
         using HttpClient sameTerminal = new(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, c, _, _) => c != null && TerminalServerCertificate.Thumbprint(c) == _server.Fingerprint })
         {
@@ -309,6 +318,74 @@ public sealed class TerminalServerTests : IAsyncLifetime
 
         await CountAsync(db => db.Database.ExecuteSqlRawAsync("UPDATE AppUsers SET IsActive = 0 WHERE UserName = 'pharmacist'"));
         Assert.Equal(HttpStatusCode.Unauthorized, (await pharmacist.GetAsync("shop")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Pairing_WithTheCodeOnTheServerScreen_GivesThisPcItsOwnWorkingKey()
+    {
+        TerminalPairingCode code = Pairing.Open();
+        TerminalClientSettings paired = await TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, code.Code.ToLowerInvariant().Insert(3, " "), "Front counter");
+
+        Assert.Equal(_server.Fingerprint, paired.ServerFingerprint);
+        Assert.Null(Pairing.Current);
+        using HttpClient client = Client(paired.DeviceId, paired.Secret, paired.ServerFingerprint);
+        TerminalHello hello = (await client.GetFromJsonAsync<TerminalHello>("hello", Json))!;
+        Assert.Equal("Front counter", hello.DeviceName);
+        Assert.Equal("Terminal Test Pharmacy", paired.ShopName);
+
+        // The code was used once; a second PC cannot reuse it.
+        await Assert.ThrowsAsync<TerminalPairingException>(() => TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, code.Code, "Second counter"));
+        Assert.Single(_devices.List());
+    }
+
+    [Fact]
+    public async Task ThreeWrongCodes_CancelTheCode()
+    {
+        TerminalPairingCode code = Pairing.Open();
+        string wrong = code.Code[0] == 'A' ? "BBBBBB" : "AAAAAA";
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            await Assert.ThrowsAsync<TerminalPairingException>(() => TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, wrong, "Guesser"));
+        }
+        var closed = await Assert.ThrowsAsync<TerminalPairingException>(() => TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, code.Code, "Guesser"));
+        Assert.Contains("No pairing code is open", closed.Message);
+        Assert.Empty(_devices.List());
+    }
+
+    [Fact]
+    public async Task AMachineInTheMiddle_CannotPair_EvenRelayingTheRightCode()
+    {
+        // A relay on the shop network with its own certificate, forwarding every request to the real server.
+        var impostorCertificate = new TerminalServerCertificate(Path.Combine(_root, "impostor"));
+        WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(impostorCertificate.Get())));
+        await using WebApplication relay = builder.Build();
+        using var upstream = new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true }) { BaseAddress = new Uri($"https://127.0.0.1:{_server.Port}") };
+        relay.Run(async context =>
+        {
+            var forward = new HttpRequestMessage(new HttpMethod(context.Request.Method), context.Request.Path + context.Request.QueryString);
+            if (HttpMethods.IsPost(context.Request.Method))
+            {
+                using var body = new MemoryStream();
+                await context.Request.Body.CopyToAsync(body);
+                forward.Content = new ByteArrayContent(body.ToArray());
+                forward.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(context.Request.ContentType ?? "application/json");
+            }
+            HttpResponseMessage answer = await upstream.SendAsync(forward);
+            context.Response.StatusCode = (int)answer.StatusCode;
+            context.Response.ContentType = answer.Content.Headers.ContentType?.ToString();
+            await answer.Content.CopyToAsync(context.Response.Body);
+        });
+        await relay.StartAsync();
+        int relayPort = new Uri(relay.Urls.First()).Port;
+
+        TerminalPairingCode code = Pairing.Open();
+        var refused = await Assert.ThrowsAsync<TerminalPairingException>(() => TerminalPairingClient.PairAsync("127.0.0.1", relayPort, code.Code, "Front counter"));
+
+        Assert.Empty(_devices.List());
+        Assert.Equal(TerminalPairing.MaxAttempts - 1, Pairing.Current!.AttemptsLeft);
+        Assert.Contains("not right", refused.Message);
     }
 
     // ---- helpers ----

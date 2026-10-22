@@ -1,0 +1,91 @@
+<UserControl x:Class="PharmaBill.App.Views.DevicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="Visible" />
+  </UserControl.Resources>
+  <Border CornerRadius="12" Padding="16" BorderThickness="1" Margin="0,0,0,12" BorderBrush="{DynamicResource FieldBorderBrush}" Background="{DynamicResource CardBackgroundBrush}">
+    <StackPanel>
+      <TextBlock Text="Devices" FontSize="20" FontWeight="SemiBold" />
+      <TextBlock TextWrapping="Wrap" Margin="0,2,0,12" Foreground="{DynamicResource SecondaryTextBrush}"
+                 Text="Billing counters are other PCs in this shop that bill straight into this PC's records, over the shop's network. Phones are listed further down: they keep their own copy and sync later." />
+
+      <!-- This PC serves billing counters -->
+      <TextBlock Text="Billing counters served by this PC" FontSize="15" FontWeight="SemiBold" />
+      <CheckBox Margin="0,6,0,4" Content="Serve billing counters on the shop's network (this PC keeps the shop's data)"
+                IsChecked="{Binding IsServing, Mode=TwoWay}" IsEnabled="{Binding CanToggleServing}" AutomationProperties.Name="Serve billing counters" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding ServerStatus}" Margin="22,0,0,2" />
+      <WrapPanel Margin="22,2,0,8">
+        <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding FirewallStatus}" Margin="0,0,10,0" />
+        <Button Content="Allow through firewall" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding AllowFirewallCommand}"
+                IsEnabled="{Binding CanManage}" Visibility="{Binding IsServing, Converter={StaticResource Visible}}" />
+      </WrapPanel>
+      <WrapPanel Margin="22,0,0,8" Visibility="{Binding IsServing, Converter={StaticResource Visible}}">
+        <Button Content="Add a billing counter" Height="34" Style="{StaticResource PrimaryButton}" Command="{Binding AddCounterCommand}" IsEnabled="{Binding CanManage}" />
+      </WrapPanel>
+      <Border Margin="22,0,0,10" Padding="14,10" CornerRadius="10" Background="#FFEFF8FF" BorderBrush="#FF84CAFF" BorderThickness="1"
+              Visibility="{Binding IsPairingOpen, Converter={StaticResource Visible}}">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" VerticalAlignment="Center" Content="Cancel" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding CancelPairingCommand}" />
+          <StackPanel>
+            <TextBlock Text="On the new PC, open Sync Station > Devices and type this code:" Foreground="#FF1849A9" />
+            <TextBlock Text="{Binding PairingCode}" FontFamily="Consolas" FontSize="34" FontWeight="Bold" Foreground="#FF102A56" Margin="0,2" AutomationProperties.Name="Pairing code" />
+            <TextBlock Text="{Binding PairingCountdown}" Foreground="#FF1849A9" />
+          </StackPanel>
+        </DockPanel>
+      </Border>
+      <ItemsControl Margin="22,0,0,4" ItemsSource="{Binding Counters}" Visibility="{Binding HasCounters, Converter={StaticResource Visible}}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <DockPanel Margin="0,2">
+              <Button DockPanel.Dock="Right" Content="Remove" Padding="10,3" Style="{StaticResource SecondaryButton}"
+                      Command="{Binding DataContext.RemoveCounterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                      IsEnabled="{Binding DataContext.CanManage, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+              <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
+                <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                <Run Text="  · paired " Foreground="{DynamicResource SecondaryTextBrush}" /><Run Text="{Binding PairedAt, Mode=OneWay}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                <Run Text="  · " Foreground="{DynamicResource SecondaryTextBrush}" /><Run Text="{Binding LastSeen, Mode=OneWay}" Foreground="{DynamicResource SecondaryTextBrush}" />
+              </TextBlock>
+            </DockPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- This PC is a billing counter -->
+      <TextBlock Text="Use this PC as a billing counter" FontSize="15" FontWeight="SemiBold" Margin="0,14,0,4" />
+      <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="This PC serves billing counters, so it cannot also be one."
+                 Visibility="{Binding ShowServingNote, Converter={StaticResource Visible}}" />
+      <TextBlock TextWrapping="Wrap" Text="{Binding PairedServerSummary}" Visibility="{Binding IsPairedAsCounter, Converter={StaticResource Visible}}" />
+      <Button HorizontalAlignment="Left" Margin="0,6,0,0" Content="Forget this server" Padding="10,4" Style="{StaticResource SecondaryButton}"
+              Command="{Binding ForgetServerCommand}" Visibility="{Binding IsPairedAsCounter, Converter={StaticResource Visible}}" />
+      <StackPanel Visibility="{Binding CanPairAsCounter, Converter={StaticResource Visible}}">
+        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                   Text="On the server PC, switch on Serve billing counters and press Add a billing counter. Then find it here and type the code it shows." />
+        <WrapPanel Margin="0,6,0,0">
+          <Button Content="Find the server" Height="32" Margin="0,0,8,4" Style="{StaticResource SecondaryButton}" Command="{Binding FindServersCommand}" />
+          <ComboBox MinWidth="220" Height="32" Margin="0,0,8,4" VerticalContentAlignment="Center" ItemsSource="{Binding DiscoveredServers}" SelectedItem="{Binding SelectedServer}"
+                    DisplayMemberPath="Label" AutomationProperties.Name="Servers found" />
+        </WrapPanel>
+        <WrapPanel>
+          <StackPanel Margin="0,0,10,4">
+            <TextBlock Text="Server address" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <TextBox Width="180" Padding="6" Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Server address" />
+          </StackPanel>
+          <StackPanel Margin="0,0,10,4">
+            <TextBlock Text="Code from the server's screen" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <TextBox Width="140" Padding="6" FontFamily="Consolas" FontSize="15" CharacterCasing="Upper" MaxLength="8"
+                     Text="{Binding CodeInput, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pairing code" />
+          </StackPanel>
+          <StackPanel Margin="0,0,10,4">
+            <TextBlock Text="Name for this counter" Foreground="{DynamicResource SecondaryTextBrush}" />
+            <TextBox Width="180" Padding="6" Text="{Binding TerminalName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Counter name" />
+          </StackPanel>
+          <Button VerticalAlignment="Bottom" Margin="0,0,0,4" Content="Pair" Height="32" MinWidth="80" Style="{StaticResource PrimaryButton}" Command="{Binding PairCommand}" />
+        </WrapPanel>
+      </StackPanel>
+
+      <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding ErrorMessage}" />
+      <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Text="{Binding StatusMessage}" />
+    </StackPanel>
+  </Border>
+</UserControl>

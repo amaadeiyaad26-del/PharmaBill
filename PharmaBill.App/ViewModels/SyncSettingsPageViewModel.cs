@@ -1691,8 +1691,9 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand<bool> ResolveConflictCommand => resolveConflictCommand ?? (resolveConflictCommand = new AsyncRelayCommand<bool>(ResolveConflictAsync));
 
-	public SyncSettingsPageViewModel(IServiceScopeFactory scopeFactory, DatabaseDeviceId localDevice, CurrentSession session, IFilePickerService filePicker, IConfirmationService confirmation, SyncFolderExchangeService folderSync, CloudSyncService cloudSync, LocalSyncServer localSync, ZeroConfigSyncCoordinator zeroConfig, GoogleDriveSyncService googleDrive, CloudOAuthClientStore oauthClients, BranchNetworkSyncService branchNetwork, CloudAutoBackupPreferencesStore autoBackupPreferences, UsbBackupService usbBackup, UsbBackupSettingsStore usbBackupSettings)
+	public SyncSettingsPageViewModel(IServiceScopeFactory scopeFactory, DatabaseDeviceId localDevice, CurrentSession session, IFilePickerService filePicker, IConfirmationService confirmation, SyncFolderExchangeService folderSync, CloudSyncService cloudSync, LocalSyncServer localSync, ZeroConfigSyncCoordinator zeroConfig, GoogleDriveSyncService googleDrive, CloudOAuthClientStore oauthClients, BranchNetworkSyncService branchNetwork, CloudAutoBackupPreferencesStore autoBackupPreferences, UsbBackupService usbBackup, UsbBackupSettingsStore usbBackupSettings, DevicesViewModel devices)
 	{
+		DevicesPanel = devices;
 		_scopeFactory = scopeFactory;
 		_localDevice = localDevice;
 		_session = session;
@@ -1827,8 +1828,12 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	/// <summary>Billing counters (one database on the server PC) - shown above the phones, which sync their own copy.</summary>
+	public DevicesViewModel DevicesPanel { get; }
+
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
+		DevicesPanel.Refresh();
 		_ = 4;
 		try
 		{
