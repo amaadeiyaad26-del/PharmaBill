@@ -23,6 +23,15 @@ public sealed class SearchPerfTrace(string box, long requestId, string query)
 
 	public string Outcome { get; set; } = "ok";
 
+	/// <summary>How the drug bank was searched: <see cref="FullTextIndex"/>, or a plain name scan when the index failed or had no hit.</summary>
+	public string CatalogLookup { get; set; } = string.Empty;
+
+	public const string FullTextIndex = "full-text index";
+
+	public const string NameScanAfterIndexError = "name scan (full-text index failed)";
+
+	public const string NameScanAfterNoHit = "name scan (no full-text hit)";
+
 	public double DbQueryMs => Stopwatch.GetElapsedTime(0, _dbTicks).TotalMilliseconds;
 
 	public double ConvertMs => Stopwatch.GetElapsedTime(0, _convertTicks).TotalMilliseconds;

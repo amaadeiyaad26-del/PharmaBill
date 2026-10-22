@@ -36,9 +36,12 @@ public sealed class StoreDatabaseIsolationService(
 
 	public async Task PrepareFreshStoreAsync(string storeSlug, CancellationToken cancellationToken = default)
 	{
-		SqliteConnection.ClearAllPools();
-		activeStore.SetActiveStore(storeSlug);
-		DeleteDatabaseFiles(storageOptions.DatabasePath);
+		using (await DatabaseMaintenance.HoldAsync(cancellationToken).ConfigureAwait(false))
+		{
+			SqliteConnection.ClearAllPools();
+			activeStore.SetActiveStore(storeSlug);
+			DeleteDatabaseFiles(storageOptions.DatabasePath);
+		}
 
 		using IServiceScope scope = scopeFactory.CreateScope();
 		await scope.ServiceProvider.GetRequiredService<DbInitializer>()

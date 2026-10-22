@@ -12,7 +12,7 @@ public sealed class MigrationFailureTests
         await using var database = await DatabaseTestContext.CreateAsync(createSchema: false);
         await database.Context.Database.MigrateAsync();
         string latest = (await database.Context.Database.GetAppliedMigrationsAsync()).Last();
-        // Simulate a history that lost track of the latest migration while its column already exists:
+        // Simulate a history that lost track of the latest migration while what it creates already exists:
         // re-applying it must fail, and startup must refuse rather than patch around it.
         await database.Context.Database.ExecuteSqlRawAsync("DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}", latest);
 
@@ -20,7 +20,9 @@ public sealed class MigrationFailureTests
 
         Assert.Equal(latest, error.MigrationId);
         Assert.Contains("Database upgrade failed at migration '" + latest + "'", error.Message);
-        Assert.Contains("duplicate column", error.Message, StringComparison.OrdinalIgnoreCase);
+        // SQLite's own reason is passed on. The latest migration (IndexCustomCatalogMedicines) creates an index; one that adds a
+        // column reports "duplicate column name" instead.
+        Assert.Contains("index IX_CatalogMedicines_IsCustom already exists", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(latest, await database.Context.Database.GetPendingMigrationsAsync());
     }
 

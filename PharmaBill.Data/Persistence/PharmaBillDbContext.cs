@@ -152,6 +152,8 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<Drug>().HasIndex((Drug item) => item.Name);
 		modelBuilder.Entity<CatalogMedicine>().HasIndex((CatalogMedicine item) => item.SourceId).IsUnique();
 		modelBuilder.Entity<CatalogMedicine>().HasIndex((CatalogMedicine item) => item.CompositionKey);
+		// Every search also looks for the shop's own medicines; without this it reads all ~250k catalogue rows to find them.
+		modelBuilder.Entity<CatalogMedicine>().HasIndex((CatalogMedicine item) => item.IsCustom).HasFilter("\"IsCustom\"");
 		modelBuilder.Entity<CatalogInfo>().HasIndex((CatalogInfo item) => item.NameKey).IsUnique();
 		modelBuilder.Entity<CatalogImportState>().HasIndex((CatalogImportState item) => item.ImportKey).IsUnique();
 		modelBuilder.Entity<Batch>().HasIndex((Batch item) => item.BatchNo);

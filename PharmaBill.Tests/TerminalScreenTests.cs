@@ -22,6 +22,9 @@ namespace PharmaBill.Tests;
 
 // The billing-counter screens the way a cashier and an owner use them: the real windows, typed into and pressed,
 // against a real HTTPS counter server on this PC. Only what needs a second PC is left out (see SESSION_HANDOVER.md).
+// Runs alone: its server pools connections like the app, and other tests' SqliteConnection.ClearAllPools() would
+// dispose a connection mid-request.
+[Collection(RunsAlone.Name)]
 public sealed class TerminalScreenTests : IAsyncLifetime
 {
     private readonly TerminalServerTests _shop = new();

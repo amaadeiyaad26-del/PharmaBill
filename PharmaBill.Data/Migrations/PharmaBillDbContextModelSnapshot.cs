@@ -525,6 +525,9 @@ namespace PharmaBill.Data.Migrations
 
                     b.HasIndex("CompositionKey");
 
+                    b.HasIndex("IsCustom")
+                        .HasFilter("\"IsCustom\"");
+
                     b.HasIndex("SourceId")
                         .IsUnique();
 

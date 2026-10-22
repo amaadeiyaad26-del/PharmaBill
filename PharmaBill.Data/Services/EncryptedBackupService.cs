@@ -324,6 +324,8 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 	private async Task ReplaceApplicationDataAsync(string stagedDatabase, string stagedDirectory, byte[] newKey, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		// Nothing in the background may open the database while its file is moved aside and replaced.
+		using IDisposable maintenance = await DatabaseMaintenance.HoldAsync(cancellationToken);
 		byte[] oldKey = keyProvider.GetOrCreateKey();
 		string rollbackDirectory = Path.Combine(Path.GetTempPath(), $"PharmaBill.Rollback.{Guid.NewGuid():N}");
 		Directory.CreateDirectory(rollbackDirectory);

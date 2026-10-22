@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text;
+﻿using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Catalog;
 using PharmaBill.Core.Entities;
@@ -58,14 +57,22 @@ public sealed class CatalogTests
             Assert.Equal("drug a 500mg", medicine.CompositionKey);
             Assert.Null((await database.Context.CatalogMedicines.SingleAsync(item => item.SourceId == "2")).ReferencePrice);
 
-            var stopwatch = Stopwatch.StartNew();
-            var results = await database.CreateCatalogSearch().SearchAsync("Brand");
-            stopwatch.Stop();
+            var trace = new SearchPerfTrace("test", 1, "Brand");
+            var results = await database.CreateCatalogSearch().SearchAsync("Brand", CancellationToken.None, trace);
             Assert.Single(results.FromCatalog);
             Assert.Equal("Test, Brand 500", results.FromCatalog[0].Name);
             Assert.True(results.FromCatalog[0].IsHabitForming);
-            Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(200),
-                $"Prefix FTS search took {stopwatch.Elapsed.TotalMilliseconds:N0} ms.");
+
+            // Answered by the full-text index, not by scanning every medicine's name. With two rows both are fast, so
+            // this is checked directly rather than timed (speed on a full catalogue: CatalogSearchSpeedTests).
+            Assert.Equal(SearchPerfTrace.FullTextIndex, trace.CatalogLookup);
+            Assert.Contains("VIRTUAL TABLE INDEX", await QueryPlanAsync(database, "SELECT MedicineId FROM CatalogMedicineFts WHERE CatalogMedicineFts MATCH 'brand*' LIMIT 200"));
+
+            // And the check notices when the index is gone: the search still answers, by a name scan, and says so.
+            await database.Context.Database.ExecuteSqlRawAsync("DROP TABLE CatalogMedicineFts");
+            var fallback = new SearchPerfTrace("test", 2, "Brand");
+            Assert.Single((await database.CreateCatalogSearch().SearchAsync("Brand", CancellationToken.None, fallback)).FromCatalog);
+            Assert.Equal(SearchPerfTrace.NameScanAfterIndexError, fallback.CatalogLookup);
         }
         finally
         {
@@ -159,5 +166,18 @@ public sealed class CatalogTests
         Assert.Equal(1000, await database.Context.CatalogInfos.CountAsync());
         Assert.Contains(await database.Context.CatalogInfos.ToListAsync(),
             info => info.NameKey == "augmentin 625 duo tablet");
+    }
+
+    internal static async Task<string> QueryPlanAsync(DatabaseTestContext database, string sql)
+    {
+        await using var command = database.Connection.CreateCommand();
+        command.CommandText = "EXPLAIN QUERY PLAN " + sql;
+        await using var reader = await command.ExecuteReaderAsync();
+        var plan = new StringBuilder();
+        while (await reader.ReadAsync())
+        {
+            plan.AppendLine(reader.GetString(3));
+        }
+        return plan.ToString();
     }
 }

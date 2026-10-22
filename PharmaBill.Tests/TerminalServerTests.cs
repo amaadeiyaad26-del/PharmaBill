@@ -21,6 +21,9 @@ using Xunit;
 namespace PharmaBill.Tests;
 
 // A real HTTPS terminal server on loopback, over a real encrypted shop database, driven the way a terminal will.
+// Runs alone: its server pools connections like the app, and other tests' SqliteConnection.ClearAllPools() would
+// dispose a connection mid-request.
+[Collection(RunsAlone.Name)]
 public sealed class TerminalServerTests : IAsyncLifetime
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -29,6 +32,9 @@ public sealed class TerminalServerTests : IAsyncLifetime
     private TerminalServer _server = null!;
     private TerminalDeviceStore _devices = null!;
     private TerminalPairing Pairing { get; set; } = null!;
+
+    /// <summary>What the server logged as failed; an unexpected 500 shows its real cause here.</summary>
+    private RecordingLogger ServerErrors { get; } = new();
     private Guid _paracetamolDrug, _paracetamolBatch, _alprazolamDrug, _alprazolamBatch;
 
     // Also the server behind TerminalScreenTests, which drive the real counter windows against it.
@@ -56,7 +62,7 @@ public sealed class TerminalServerTests : IAsyncLifetime
         var certificate = new TerminalServerCertificate(Path.Combine(_root, "terminals"));
         Pairing = new TerminalPairing(_devices, certificate);
         _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), _devices, new TerminalSessions(Path.Combine(_root, "terminals")),
-            certificate, Pairing, NullLogger<TerminalServer>.Instance);
+            certificate, Pairing, ServerErrors);
         await _server.StartAsync(0, [IPAddress.Loopback]);
     }
 
@@ -192,7 +198,8 @@ public sealed class TerminalServerTests : IAsyncLifetime
 
         HttpResponseMessage[] saved = responses.Where(r => r.StatusCode == HttpStatusCode.OK).ToArray();
         Assert.Equal(6, saved.Length);
-        Assert.All(responses.Where(r => r.StatusCode != HttpStatusCode.OK), r => Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode));
+        Assert.True(responses.All(r => r.StatusCode is HttpStatusCode.OK or HttpStatusCode.UnprocessableEntity),
+            string.Join(" | ", responses.Select(r => (int)r.StatusCode)) + Environment.NewLine + ServerErrors);
         string[] invoices = await Task.WhenAll(saved.Select(async r => (await r.Content.ReadFromJsonAsync<TerminalSaleResponse>(Json))!.InvoiceNo));
         Assert.Equal(6, invoices.Distinct().Count());
         Assert.Equal(Enumerable.Range(1, 6).Select(n => n.ToString("D6")).ToArray(), invoices.Select(n => n[^6..]).OrderBy(n => n).ToArray());
@@ -308,7 +315,7 @@ public sealed class TerminalServerTests : IAsyncLifetime
         var reloadedDevices = new TerminalDeviceStore(terminals);
         var reloadedCertificate = new TerminalServerCertificate(terminals);
         _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), reloadedDevices, new TerminalSessions(terminals),
-            reloadedCertificate, new TerminalPairing(reloadedDevices, reloadedCertificate), NullLogger<TerminalServer>.Instance);
+            reloadedCertificate, new TerminalPairing(reloadedDevices, reloadedCertificate), ServerErrors);
         await _server.StartAsync(0, [IPAddress.Loopback]);
         using HttpClient sameTerminal = new(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, c, _, _) => c != null && TerminalServerCertificate.Thumbprint(c) == _server.Fingerprint })
         {
@@ -627,6 +634,25 @@ public sealed class TerminalServerTests : IAsyncLifetime
         return new PharmaBillDbContext(new DbContextOptionsBuilder<PharmaBillDbContext>()
             .UseSqlite(new SqliteConnectionStringBuilder { DataSource = storage.DatabasePath, Password = password, DefaultTimeout = 60 }.ToString())
             .AddInterceptors(new SaveChangesAuditInterceptor(deviceId)).Options, deviceId);
+    }
+
+    private sealed class RecordingLogger : ILogger<TerminalServer>
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<string> _errors = new();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Error;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel))
+            {
+                _errors.Enqueue(formatter(state, exception) + Environment.NewLine + exception);
+            }
+        }
+
+        public override string ToString() => string.Join(Environment.NewLine + "----" + Environment.NewLine, _errors);
     }
 
     private sealed class Allowed : IEntitlementService

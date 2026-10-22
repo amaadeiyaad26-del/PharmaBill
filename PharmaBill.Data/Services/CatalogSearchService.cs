@@ -48,6 +48,10 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		try
 		{
 			matchingIds = await Db(trace, () => FindCatalogIdsAsync(text, cancellationToken));
+			if (trace != null)
+			{
+				trace.CatalogLookup = SearchPerfTrace.FullTextIndex;
+			}
 		}
 		catch (OperationCanceledException)
 		{
@@ -57,11 +61,19 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		{
 			// The full-text index can be missing or still building (for example during a catalogue import).
 			matchingIds = new List<Guid>();
+			if (trace != null)
+			{
+				trace.CatalogLookup = SearchPerfTrace.NameScanAfterIndexError;
+			}
 		}
 		if (matchingIds.Count == 0)
 		{
 			// Fall back to a plain name search when the index is missing, still building, or has no hit,
 			// so the drug bank still answers.
+			if (trace != null && trace.CatalogLookup == SearchPerfTrace.FullTextIndex)
+			{
+				trace.CatalogLookup = SearchPerfTrace.NameScanAfterNoHit;
+			}
 			matchingIds = await Db(trace, () => FindCatalogIdsByNameAsync(query.Trim(), cancellationToken));
 		}
 

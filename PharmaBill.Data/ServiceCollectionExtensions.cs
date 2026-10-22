@@ -115,6 +115,7 @@ public static class ServiceCollectionExtensions
 		services.AddSingleton<GeminiPurchaseImportService>();
 		services.AddHostedService<DatabaseInitializationHostedService>();
 		services.AddHostedService<AutomaticBackupHostedService>();
+		services.AddHostedService<DatabaseKeepWarmService>();
 		return services;
 	}
 
