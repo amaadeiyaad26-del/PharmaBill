@@ -79,7 +79,7 @@ Read this first. It replaces the 21 Oct handover and is enough to carry on with 
   - `PharmaRemitMigrationCheck.exe` (stages `before` / `after-upgrade` / `after-reinstall`; it refuses to run in the `newth` account, against any shop not named "Migration Test Pharmacy", or with the app open);
   - `PharmaRemit_1.0.11.0_x64.msix` and the test certificate `.cer`.
 - **That package is from `edac683`, before the terminal work.** It is fine for testing the data move. The package actually published must be rebuilt from the current head.
-- **The tool's source** is not in the repo; it was in a session scratch folder that may be gone. Rewrite it if needed; the checklist describes what it checks.
+- **The tool's source** is in `tools/store-migration-check/` (see its README). `run-selftest.ps1` proves it before use: a clean upgrade must pass and five injected failures must be caught.
 - **Risk:** Windows may refuse a self-signed update over a Store-signed install (step B2). If so, that is a sideloading limit, not the customer path. Use a **private Partner Center package flight** of the next version to the test account's Microsoft account.
 - **Reinstall from the file, not the Store:** reinstalling from the Store gives back 1.0.5.0, which knows nothing of the data folder and would open an empty shop.
 - **Clean-up afterwards:**
