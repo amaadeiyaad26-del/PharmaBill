@@ -87,7 +87,6 @@ public sealed class InvoiceDocumentExtractor(GeminiPurchaseImportService gemini,
 		string text = isPdf
 			? await ReadPdfAsync(path, cancellationToken)
 			: await ocr.RecognizeAsync(imageBytes!, cancellationToken);
-		InvoiceTextParser.WriteOcrDebug(text);
 		if (!isPdf)
 		{
 			IReadOnlyList<OcrWordPosition> words = await ocr.RecognizeWordsAsync(imageBytes!, cancellationToken);
@@ -548,31 +547,8 @@ public static class InvoiceTextParser
 		}
 	}
 
-	public static void WriteOcrDebug(string? rawOcrText)
-	{
-		string text = rawOcrText ?? string.Empty;
-		System.Diagnostics.Debug.WriteLine("=== Invoice OCR raw text (" + text.Length + " chars) ===");
-		System.Diagnostics.Debug.WriteLine(text);
-		try
-		{
-			string path = Path.Combine(
-				PharmaBill.Data.Persistence.AppDataPaths.RootDirectory,
-				"ocr_debug_raw.txt");
-			Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-			File.WriteAllText(path, text);
-			// Also drop a copy next to the process for quick inspection during QA.
-			File.WriteAllText("ocr_debug_raw.txt", text);
-			System.Diagnostics.Debug.WriteLine("Invoice OCR debug written to " + path);
-		}
-		catch (Exception ex)
-		{
-			System.Diagnostics.Debug.WriteLine("Invoice OCR debug write failed: " + ex.Message);
-		}
-	}
-
 	public static ExtractedPurchaseInvoice Parse(string? text, string fallbackName)
 	{
-		WriteOcrDebug(text);
 		string[] lines = (text ?? string.Empty).Replace('\r', '\n').Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 		if (lines.Length == 0)
 		{
@@ -705,7 +681,7 @@ public static class InvoiceTextParser
 		{
 			throw new InvalidDataException(
 				"No medicine rows were found in '" + fallbackName + "'. "
-				+ "Check %LocalAppData%\\PharmaBill\\ocr_debug_raw.txt for the OCR text; try a clearer photo or enter lines manually.");
+				+ "Try a clearer, straight-on photo or a PDF of the invoice, or enter the lines manually.");
 		}
 
 		decimal computed = items.Sum(item => item.Amount > 0m ? item.Amount : decimal.Round(item.Quantity * item.Rate, 2, MidpointRounding.AwayFromZero));

@@ -24,10 +24,6 @@ public sealed class InvoiceDocumentService(RetailBillPdfService retailPdf, Whole
 
 	public async Task WritePdfAsync(InvoiceDetail detail, string destinationPath, CancellationToken cancellationToken = default)
 	{
-		if (detail.DocumentId == Guid.Empty)
-		{
-			throw new InvalidOperationException("This invoice can't be printed from here. Open it from the bill or invoice screen.");
-		}
 		Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(destinationPath))!);
 		if (detail.IsWholesale)
 		{

@@ -694,9 +694,9 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			BuyerSnapshot? recordedPatient = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(sale.BuyerSnapshotJson);
 			if (recordedPatient != null)
 			{
-				return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToBusinessLocal(), DisplayParty(recordedPatient.Name), recordedPatient.Phone ?? string.Empty, recordedPatient.Address ?? string.Empty, recordedPatient.PrescriberName ?? string.Empty, recordedPatient.PrescriberRegistrationNumber ?? string.Empty, recordedPatient.PrescriptionReference ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>(), sale.Id);
+				return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToBusinessLocal(), DisplayParty(recordedPatient.Name), recordedPatient.Phone ?? string.Empty, recordedPatient.Address ?? string.Empty, recordedPatient.PrescriberName ?? string.Empty, recordedPatient.PrescriberRegistrationNumber ?? string.Empty, recordedPatient.PrescriptionReference ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>(), sale.Id, IsWholesale: false);
 			}
-			return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToBusinessLocal(), DisplayParty(patient2?.Name), patient2?.Phone ?? string.Empty, patient2?.Address ?? string.Empty, prescription2?.PrescriberName ?? string.Empty, prescription2?.PrescriberRegistrationNumber ?? string.Empty, prescription2?.ReferenceNumber ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>(), sale.Id);
+			return new InvoiceDetail("Retail bill", sale.InvoiceNo, sale.SaleAtUtc.ToBusinessLocal(), DisplayParty(patient2?.Name), patient2?.Phone ?? string.Empty, patient2?.Address ?? string.Empty, prescription2?.PrescriberName ?? string.Empty, prescription2?.PrescriberRegistrationNumber ?? string.Empty, prescription2?.ReferenceNumber ?? string.Empty, sale.PaymentStatus ?? string.Empty, sale.Subtotal, sale.TaxAmount, sale.DiscountAmount, sale.TotalAmount, sale.PaidAmount, sale.Notes ?? string.Empty, dictionary.GetValueOrDefault(sale.Id) ?? new List<InvoiceDetailLine>(), sale.Id, IsWholesale: false);
 		}
 		if (array[0] == "W")
 		{
@@ -755,15 +755,6 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			bool recorded = recordedName != null;
 			return new InvoiceDetailLine(recorded ? recordedName! : valueOrDefault?.Name ?? "Unknown", string.IsNullOrWhiteSpace(valueOrDefault?.GenericName) ? string.Empty : valueOrDefault.GenericName, recorded ? recordedBatchNo ?? string.Empty : valueOrDefault2?.BatchNo ?? string.Empty, FormatExpiry(recorded ? recordedExpiry : valueOrDefault2?.ExpiryDate), quantity2, unitPrice, taxRate, discount, lineTotal);
 		}
-	}
-
-	private static string ItemsSummary(List<InvoiceDetailLine>? lines)
-	{
-		if (lines != null && lines.Count != 0)
-		{
-			return string.Join("; ", lines.Select((InvoiceDetailLine line) => (!string.IsNullOrEmpty(line.Composition)) ? $"{line.Item} ({line.Composition}) x{line.Quantity}" : (line.Item + " x" + line.Quantity)));
-		}
-		return string.Empty;
 	}
 
 	private static string DisplayParty(string? name)
@@ -1146,11 +1137,6 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		return new ReportTable("Low-stock report", new _003C_003Ez__ReadOnlyArray<string>(new string[4] { "Drug", "On hand", "Reorder level", "Suggested order" }), rows);
 	}
 
-	private async Task<ReportTable> SupplierWiseAsync(DateOnly from, DateOnly to, CancellationToken token)
-	{
-		return await SupplierWiseDetailAsync(from, to, null, token);
-	}
-
 	private async Task<List<SalesLineFact>> LoadSalesLineFactsAsync(DateOnly from, DateOnly to, ReportBranchScope branchScope, CancellationToken token)
 	{
 		(DateTime, DateTime) utcBounds = GetUtcBounds(from, to);
@@ -1422,21 +1408,6 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	private static (DateTime StartUtc, DateTime EndUtc) GetUtcBounds(DateOnly from, DateOnly to)
 	{
 		return (StartUtc: from.StartOfDayUtc(), EndUtc: to.AddDays(1).StartOfDayUtc());
-	}
-
-	private static IReadOnlyList<string> Row(string date, string invoice, string party, string items, decimal total, decimal paid, decimal tax, string branchCode = "")
-	{
-		return new _003C_003Ez__ReadOnlyArray<string>(new string[8]
-		{
-			date,
-			invoice,
-			DisplayParty(party),
-			items,
-			Format(total),
-			Format(paid),
-			Format(tax),
-			branchCode
-		});
 	}
 
 	private static string Format(decimal value)

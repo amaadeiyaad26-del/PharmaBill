@@ -14,8 +14,6 @@ namespace PharmaBill.Tests;
 public sealed class BindingSafetyTests
 {
     private static readonly XNamespace Wpf = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
-    private static readonly XNamespace X = "http://schemas.microsoft.com/winfx/2006/xaml";
-
     private static string AppDirectory()
     {
         var dir = AppContext.BaseDirectory;

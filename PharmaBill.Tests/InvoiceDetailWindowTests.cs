@@ -75,22 +75,22 @@ public sealed class InvoiceDetailWindowTests : IDisposable
                 Assert.True(Ui.Button(window, "Close").IsVisible);
 
                 // Print: the invoice's pages go to the print dialog.
-                await PressAndWaitAsync(window, "Print", status);
+                await PressAndWaitAsync(window, "Print");
                 Assert.Equal("Sent to the printer.", status.Text);
                 Assert.NotEmpty(printed);
                 Assert.True(printed[0].PixelWidth > 1000, "pages are rendered at print resolution");
 
                 // Save as PDF: cancelling saves nothing; choosing a file saves the invoice there.
-                await PressAndWaitAsync(window, "Save as PDF", status);
+                await PressAndWaitAsync(window, "Save as PDF");
                 Assert.Equal(string.Empty, status.Text);
                 saveTo = Path.Combine(_root, "chosen", InvoiceDocumentService.FileName(detail));
-                await PressAndWaitAsync(window, "Save as PDF", status);
+                await PressAndWaitAsync(window, "Save as PDF");
                 Assert.Equal("Saved: " + saveTo, status.Text);
                 AssertPdf(saveTo);
 
                 // Export: straight to Downloads, never over an earlier copy.
-                await PressAndWaitAsync(window, "Export", status);
-                await PressAndWaitAsync(window, "Export", status);
+                await PressAndWaitAsync(window, "Export");
+                await PressAndWaitAsync(window, "Export");
                 string stem = Path.GetFileNameWithoutExtension(InvoiceDocumentService.FileName(detail));
                 Assert.Equal("Saved to Downloads: " + stem + " (2).pdf", status.Text);
                 AssertPdf(Path.Combine(downloads, stem + ".pdf"));
@@ -101,7 +101,7 @@ public sealed class InvoiceDetailWindowTests : IDisposable
         });
     }
 
-    private static async Task PressAndWaitAsync(System.Windows.Window window, string label, TextBlock status)
+    private static async Task PressAndWaitAsync(System.Windows.Window window, string label)
     {
         Button button = Ui.Button(window, label);
         await Ui.PressAsync(button);

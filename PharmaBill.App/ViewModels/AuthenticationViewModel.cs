@@ -288,51 +288,6 @@ public class AuthenticationViewModel(AuthenticationService authenticationService
 		}
 	}
 
-	private async Task HandleSocialSignInAsync(SocialLoginOutcome outcome)
-	{
-		IsSocialBusy = true;
-		try
-		{
-			ErrorMessage = string.Empty;
-			switch (outcome.Kind)
-			{
-			case SocialLoginOutcomeKind.SignedIn:
-				Authenticated?.Invoke(this, EventArgs.Empty);
-				return;
-			case SocialLoginOutcomeKind.SetupRequired:
-				if ((object)outcome.Profile != null)
-				{
-					SocialSetupRequired?.Invoke(this, outcome.Profile);
-					return;
-				}
-				break;
-			case SocialLoginOutcomeKind.LinkAdminRequired:
-				if ((object)outcome.Profile != null)
-				{
-					Guid? linkableAdminId = outcome.LinkableAdminId;
-					if (linkableAdminId.HasValue)
-					{
-						Guid valueOrDefault = linkableAdminId.GetValueOrDefault();
-						SocialLinkAdminRequired?.Invoke(this, new SocialLinkAdminRequest(outcome.Profile, valueOrDefault, string.IsNullOrWhiteSpace(outcome.LinkableAdminDisplayName) ? "Admin" : outcome.LinkableAdminDisplayName));
-						return;
-					}
-				}
-				break;
-			case SocialLoginOutcomeKind.Offline:
-			case SocialLoginOutcomeKind.Error:
-				ErrorMessage = outcome.Message ?? "Social sign-in failed.";
-				return;
-			case SocialLoginOutcomeKind.Cancelled:
-				return;
-			}
-		}
-		finally
-		{
-			IsSocialBusy = false;
-		}
-		await Task.CompletedTask;
-	}
-
 	public void RefreshLockout()
 	{
 		DateTime? lockedUntilUtc = _lockedUntilUtc;

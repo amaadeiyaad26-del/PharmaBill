@@ -18,8 +18,6 @@ public partial class InitialSetupViewModel : ObservableObject
 {
 	private readonly PharmacySetupService _setupService;
 	private readonly RecoveryCodeStore _recoveryCodeStore;
-	private readonly SocialLoginCoordinator _socialLoginCoordinator;
-	private readonly CurrentSession _currentSession;
 	private readonly RegistrationNotificationService _registrationNotifications;
 
 	[ObservableProperty]
@@ -193,14 +191,10 @@ public partial class InitialSetupViewModel : ObservableObject
 	public InitialSetupViewModel(
 		PharmacySetupService setupService,
 		RecoveryCodeStore recoveryCodeStore,
-		SocialLoginCoordinator socialLoginCoordinator,
-		CurrentSession currentSession,
 		RegistrationNotificationService registrationNotifications)
 	{
 		_setupService = setupService;
 		_recoveryCodeStore = recoveryCodeStore;
-		_socialLoginCoordinator = socialLoginCoordinator;
-		_currentSession = currentSession;
 		_registrationNotifications = registrationNotifications;
 	}
 
@@ -221,43 +215,6 @@ public partial class InitialSetupViewModel : ObservableObject
 		// Google OAuth client is not configured for Store builds; local admin credentials only.
 		ErrorMessage = "Google sign-in is not available. Complete setup with a local Admin PIN or password.";
 		return Task.CompletedTask;
-	}
-
-	private async Task HandleSocialSignInAsync(SocialLoginOutcome outcome)
-	{
-		IsSocialBusy = true;
-		try
-		{
-			ErrorMessage = string.Empty;
-			switch (outcome.Kind)
-			{
-			case SocialLoginOutcomeKind.SignedIn:
-				if (_currentSession.User != null)
-				{
-					SetupCompleted?.Invoke(_currentSession.User, EventArgs.Empty);
-				}
-				return;
-			case SocialLoginOutcomeKind.SetupRequired:
-				if (outcome.Profile != null)
-				{
-					ApplySocialPrefill(outcome.Profile);
-				}
-				return;
-			case SocialLoginOutcomeKind.LinkAdminRequired:
-				ErrorMessage = "This Google account is not linked yet. Close setup and use Unlock → Continue with Google to link it to the primary Admin.";
-				return;
-			case SocialLoginOutcomeKind.Offline:
-			case SocialLoginOutcomeKind.Error:
-				ErrorMessage = outcome.Message ?? "Social sign-in failed.";
-				return;
-			}
-		}
-		finally
-		{
-			IsSocialBusy = false;
-		}
-
-		await Task.CompletedTask;
 	}
 
 	[RelayCommand]

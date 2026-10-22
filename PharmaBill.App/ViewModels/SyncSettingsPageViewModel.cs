@@ -51,8 +51,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	private readonly CloudAutoBackupPreferencesStore _autoBackupPreferences;
 
-	private bool _suppressAutoBackupPreferenceSave;
-
 	private DeviceInfo? _selectedDevice;
 
 	private SyncConflict? _selectedConflict;
@@ -1747,19 +1745,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
-	private static bool IsConfigWarning(string? warning)
-	{
-		if (!string.IsNullOrWhiteSpace(warning))
-		{
-			if (!warning.Contains("Configure Keys", StringComparison.OrdinalIgnoreCase) && !warning.Contains("not linked", StringComparison.OrdinalIgnoreCase) && !warning.Contains("not configured", StringComparison.OrdinalIgnoreCase) && !warning.Contains("OAuth client", StringComparison.OrdinalIgnoreCase))
-			{
-				return warning.Contains("Azure app", StringComparison.OrdinalIgnoreCase);
-			}
-			return true;
-		}
-		return false;
-	}
-
 	private async Task ConnectGoogleDriveAsync()
 	{
 		if (IsGoogleDriveBusy)
@@ -2020,20 +2005,9 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
-	private void PersistAutoBackupDestinations()
-	{
-		if (!_suppressAutoBackupPreferenceSave)
-		{
-			CloudAutoBackupDestination destinations = (AutoBackupGoogleDrive ? CloudAutoBackupDestination.GoogleDrive : CloudAutoBackupDestination.None);
-			_autoBackupPreferences.Save(new CloudAutoBackupPreferences(destinations));
-		}
-	}
-
 	private void ApplyAutoBackupPreferences(CloudAutoBackupPreferences preferences)
 	{
-		_suppressAutoBackupPreferenceSave = true;
 		AutoBackupGoogleDrive = preferences.IncludesGoogle;
-		_suppressAutoBackupPreferenceSave = false;
 	}
 
 	private static bool IsRealOAuthAccount(string? email, string? status, string? tokenOrAccountId)

@@ -210,27 +210,6 @@ public partial class MainWindow : Window
 		Dispatcher.InvokeAsync(() => _barcodeListener.SimulateScan(barcode));
 	}
 
-	private void TogglePurchaseHardware()
-	{
-		if (_scanner.IsListening)
-		{
-			_scanner.Stop();
-			if (IsPurchasePage(out PurchasePageViewModel? purchase))
-			{
-				purchase.NotifyHardwareStatus(_scanner.Status);
-			}
-
-			return;
-		}
-
-		_scanner.Start();
-		if (IsPurchasePage(out PurchasePageViewModel? purchasePage))
-		{
-			purchasePage.NotifyHardwareStatus(_scanner.Status);
-			_ = purchasePage.ScanInvoiceCommand.ExecuteAsync(null);
-		}
-	}
-
 	private bool IsPurchasePage(out PurchasePageViewModel? purchase)
 	{
 		purchase = _viewModel.CurrentPage as PurchasePageViewModel;

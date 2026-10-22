@@ -128,7 +128,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 				IEnumerable<string> appliedMigrations = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
 				(Dictionary<string, long>, Dictionary<string, string>) tuple = await ReadIntegritySummaryAsync(databaseSnapshotPath, databaseKey, cancellationToken);
 				List<(string, string)> attachmentFiles = GetAttachmentFiles();
-				BackupManifest manifest = new BackupManifest("PharmaBill encrypted ZIP backup", 1, typeof(EncryptedBackupService).Assembly.GetName().Version?.ToString() ?? "unknown", appliedMigrations.ToArray(), BusinessClock.UtcNow, new FileInfo(databaseSnapshotPath).Length, tuple.Item1, tuple.Item2, attachmentFiles.Select(((string FullPath, string RelativePath) item) => item.RelativePath).ToArray());
+				BackupManifest manifest = new BackupManifest("PharmaBill encrypted ZIP backup", BackupVersion, typeof(EncryptedBackupService).Assembly.GetName().Version?.ToString() ?? "unknown", appliedMigrations.ToArray(), BusinessClock.UtcNow, new FileInfo(databaseSnapshotPath).Length, tuple.Item1, tuple.Item2, attachmentFiles.Select(((string FullPath, string RelativePath) item) => item.RelativePath).ToArray());
 				await CreateZipAsync(archivePath, databaseSnapshotPath, databaseKey, manifest, attachmentFiles, cancellationToken);
 				await EncryptArchiveAsync(archivePath, destinationPath, password, cancellationToken);
 				return manifest;
@@ -275,7 +275,7 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 			{
 				manifest = (await JsonSerializer.DeserializeAsync<BackupManifest>(manifestStream, (JsonSerializerOptions?)null, cancellationToken)) ?? throw new InvalidDataException("Backup manifest is invalid.");
 			}
-			if (manifest.Format != "PharmaBill encrypted ZIP backup" || manifest.BackupVersion != 1 || manifest.DatabaseBytes <= 0)
+			if (manifest.Format != "PharmaBill encrypted ZIP backup" || manifest.BackupVersion != BackupVersion || manifest.DatabaseBytes <= 0)
 			{
 				throw new InvalidDataException("Backup version or format is unsupported.");
 			}
@@ -427,13 +427,13 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 		string temporaryPath = $"{fullDestination}.{Guid.NewGuid():N}.tmp";
 		byte[] salt = RandomNumberGenerator.GetBytes(16);
 		byte[] iv = RandomNumberGenerator.GetBytes(16);
-		byte[] keyMaterial = Rfc2898DeriveBytes.Pbkdf2(password, salt, 600000, HashAlgorithmName.SHA256, 64);
+		byte[] keyMaterial = Rfc2898DeriveBytes.Pbkdf2(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256, 64);
 		try
 		{
 			await using (FileStream output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 131072, useAsync: true))
 			{
 				await output.WriteAsync(Magic, cancellationToken);
-				await output.WriteAsync(BitConverter.GetBytes(600000), cancellationToken);
+				await output.WriteAsync(BitConverter.GetBytes(Pbkdf2Iterations), cancellationToken);
 				await output.WriteAsync(salt, cancellationToken);
 				await output.WriteAsync(iv, cancellationToken);
 				using Aes aes = Aes.Create();

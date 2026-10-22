@@ -671,33 +671,6 @@
     <Setter Property="Background" Value="#FFFFFFFF" />
     <Setter Property="Foreground" Value="#FF0F172A" />
   </Style>
-  <Style x:Key="PulsingButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="UIElement.RenderTransformOrigin" Value="0.5,0.5" />
-    <Setter Property="RenderTransform">
-      <Setter.Value>
-        <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
-      </Setter.Value>
-    </Setter>
-    <Style.Triggers>
-      <EventTrigger RoutedEvent="FrameworkElement.Loaded">
-        <BeginStoryboard>
-          <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.06" Duration="0:0:0.8">
-              <DoubleAnimation.EasingFunction>
-                <SineEase EasingMode="EaseInOut" />
-              </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.06" Duration="0:0:0.8">
-              <DoubleAnimation.EasingFunction>
-                <SineEase EasingMode="EaseInOut" />
-              </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-          </Storyboard>
-        </BeginStoryboard>
-      </EventTrigger>
-    </Style.Triggers>
-  </Style>
-  <Style x:Key="PulseAttentionButton" TargetType="{x:Type Button}" BasedOn="{StaticResource PulsingButtonStyle}" />
   <Style x:Key="SecondaryButton" TargetType="{x:Type Button}">
     <Setter Property="Foreground" Value="#FF1E293B" />
     <Setter Property="Background" Value="#FFF1F5F9" />

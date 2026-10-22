@@ -163,7 +163,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 				destination.CreateEntryFromFile(manifestPath, "manifest.json", CompressionLevel.Optimal);
 			}
 			await EncryptArchiveAsync(zipPath, destinationPath, password, cancellationToken);
-			long softDeleted = await SoftDeleteExportedDocumentsAsync(cutoff, export.SoftDeleteIds, cancellationToken);
+			long softDeleted = await SoftDeleteExportedDocumentsAsync(export.SoftDeleteIds, cancellationToken);
 			context.AuditLogs.Add(new AuditLog
 			{
 				ActionAtUtc = BusinessClock.UtcNow,
@@ -403,7 +403,7 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 		}
 	}
 
-	private async Task<long> SoftDeleteExportedDocumentsAsync(DateTime cutoff, Dictionary<string, List<Guid>> softDeleteIds, CancellationToken cancellationToken)
+	private async Task<long> SoftDeleteExportedDocumentsAsync(Dictionary<string, List<Guid>> softDeleteIds, CancellationToken cancellationToken)
 	{
 		long deleted = 0L;
 		DateTime now = BusinessClock.UtcNow;
@@ -451,13 +451,13 @@ public sealed class DataRetentionArchiveService(PharmaBillDbContext context, Dat
 		string temporaryPath = $"{fullDestination}.{Guid.NewGuid():N}.tmp";
 		byte[] salt = RandomNumberGenerator.GetBytes(16);
 		byte[] iv = RandomNumberGenerator.GetBytes(16);
-		byte[] keyMaterial = Rfc2898DeriveBytes.Pbkdf2(password, salt, 600000, HashAlgorithmName.SHA256, 64);
+		byte[] keyMaterial = Rfc2898DeriveBytes.Pbkdf2(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256, 64);
 		try
 		{
 			await using (FileStream output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 131072, useAsync: true))
 			{
 				await output.WriteAsync(Magic, cancellationToken);
-				await output.WriteAsync(BitConverter.GetBytes(600000), cancellationToken);
+				await output.WriteAsync(BitConverter.GetBytes(Pbkdf2Iterations), cancellationToken);
 				await output.WriteAsync(salt, cancellationToken);
 				await output.WriteAsync(iv, cancellationToken);
 				using Aes aes = Aes.Create();

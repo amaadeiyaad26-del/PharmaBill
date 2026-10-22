@@ -2450,14 +2450,6 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		return line.Schedule is "H" or "H1" or "X" or "NDPS";
 	}
 
-	private async Task AttachAndScanAsync(string path)
-	{
-		PrescriptionDocumentPath = path;
-		PrescriptionFileName = Path.GetFileName(path);
-		ErrorMessage = string.Empty;
-		await ScanPrescriptionAsync(path);
-	}
-
 	private async Task ScanPrescriptionAsync(string path)
 	{
 		if (IsScanningPrescription)
