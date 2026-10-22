@@ -313,7 +313,8 @@ internal static class Ui
             EnsureApplication();
             Dispatcher dispatcher = Dispatcher.CurrentDispatcher;
             SynchronizationContext? previous = SynchronizationContext.Current;
-            // Other UI tests share this thread; only the windows this test opens are its to close.
+            // Other UI tests share this thread; only the windows this test shows are its to close. A window built but never
+            // shown (a MainWindow used only for its page templates) is left alone: closing it runs handlers for services it lacks.
             var alreadyOpen = Application.Current.Windows.Cast<Window>().ToHashSet();
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
             try
@@ -332,7 +333,7 @@ internal static class Ui
             }
             finally
             {
-                foreach (Window window in Application.Current.Windows.Cast<Window>().Where(w => !alreadyOpen.Contains(w)).ToList())
+                foreach (Window window in Application.Current.Windows.Cast<Window>().Where(w => !alreadyOpen.Contains(w) && w.IsLoaded).ToList())
                 {
                     window.Close();
                 }
@@ -443,9 +444,11 @@ internal static class Ui
         Assert.DoesNotContain(" at ", message);
     }
 
+    // What a person reads on the button: its text, else its accessible name (an icon comes first in some), else its first line.
     private static string Label(Button button) => button.Content as string
+        ?? (AutomationProperties.GetName(button) is { Length: > 0 } name ? name : null)
         ?? Descendants(button).OfType<TextBlock>().Select(t => t.Text).FirstOrDefault()
-        ?? AutomationProperties.GetName(button);
+        ?? string.Empty;
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
     {
