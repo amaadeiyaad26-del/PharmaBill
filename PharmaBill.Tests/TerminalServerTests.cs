@@ -388,6 +388,28 @@ public sealed class TerminalServerTests : IAsyncLifetime
         Assert.Contains("not right", refused.Message);
     }
 
+    [Fact]
+    public async Task EveryRecordFromATerminal_NamesThatTerminal()
+    {
+        var (device, secret) = _devices.Register("Front counter");
+        using HttpClient counter = Client(device.Id, secret);
+        await SignInAsync(counter, "owner", "1111");
+        TerminalSaleResponse sale = (await (await PostSaleAsync(counter, Alprazolam(new TerminalAdminOverride("owner", "1111")), Guid.NewGuid())).Content.ReadFromJsonAsync<TerminalSaleResponse>(Json))!;
+
+        Sale saved = await CountAsync(db => db.Sales.AsNoTracking().SingleAsync(s => s.Id == sale.SaleId));
+        Assert.Equal(device.Id, saved.DeviceId);
+        ScheduleRegisterEntry entry = await CountAsync(db => db.ScheduleRegisterEntries.AsNoTracking().SingleAsync(e => e.SaleId == sale.SaleId));
+        Assert.Equal(device.Id, entry.DeviceId);
+        Assert.Equal("Front counter", entry.RecordedOnMachine);
+        AuditLog posted = await CountAsync(db => db.AuditLogs.AsNoTracking().SingleAsync(a => a.Action == "RetailSalePosted" && a.EntityId == sale.SaleId));
+        Assert.Equal("Front counter", posted.MachineName);
+        Assert.Equal(device.Id, posted.DeviceId);
+        Assert.Equal(new[] { "Front counter" }, await CountAsync(db => db.AuditLogs.AsNoTracking().Where(a => a.Action == "TerminalSignIn" || a.Action == "AdminOverrideGranted").Select(a => a.MachineName!).Distinct().ToListAsync()));
+
+        // Work done on the server PC itself keeps the server's own name.
+        Assert.Equal(Environment.MachineName, await CountAsync(db => db.ScheduleRegisterEntries.AsNoTracking().Where(e => e.SaleId == null).Select(e => e.RecordedOnMachine).FirstAsync()));
+    }
+
     // ---- helpers ----
 
     private static Task<HttpResponseMessage> PostReturnAsync(HttpClient client, Guid saleId, TerminalReturnRequest request, Guid requestId)

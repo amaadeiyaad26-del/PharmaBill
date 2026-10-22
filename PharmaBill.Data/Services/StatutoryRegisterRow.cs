@@ -12,4 +12,7 @@ public sealed record StatutoryRegisterRow(Guid EntryId, DateTime EntryAtUtc, str
 
 	/// <summary>Who made the entry, or "Not recorded" for entries saved before this was kept.</summary>
 	public string RecordedBy { get; init; } = "Not recorded";
+
+	/// <summary>The PC the entry was made on, or "Not recorded" for entries saved before this was kept.</summary>
+	public string Machine { get; init; } = "Not recorded";
 }

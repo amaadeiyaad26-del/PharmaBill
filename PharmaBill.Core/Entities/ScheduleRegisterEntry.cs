@@ -49,4 +49,7 @@ public sealed class ScheduleRegisterEntry : EntityBase
 
 	/// <summary>How the user is known: "AtEntry", or for older entries "FromBill" / "FromAuditLog". Null means not recorded.</summary>
 	public string? RecordedBySource { get; set; }
+
+	/// <summary>The PC the entry was made on: this PC, or the billing terminal that sent the bill. Null means not recorded.</summary>
+	public string? RecordedOnMachine { get; set; }
 }

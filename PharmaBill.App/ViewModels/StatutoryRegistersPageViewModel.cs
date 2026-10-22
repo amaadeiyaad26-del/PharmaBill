@@ -524,12 +524,12 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 
 	private async Task ExportFileAsync(string path)
 	{
-		string[] columns = new string[16]
+		string[] columns = new string[17]
 		{
 			"Date/time", "Document no.", "Patient or buyer", "Address", "Phone", "Buyer licence no.", "Doctor", "Doctor registration no.", "Drug", "Salt / composition", "Batch", "Expiry",
-			"Quantity", "Balance", "Recorded by", "Reason / notes"
+			"Quantity", "Balance", "Recorded by", "Machine", "Reason / notes"
 		};
-		IReadOnlyList<IReadOnlyList<string>> rows = ((IEnumerable<StatutoryRegisterRow>)Entries).Select((Func<StatutoryRegisterRow, IReadOnlyList<string>>)((StatutoryRegisterRow item) => new _003C_003Ez__ReadOnlyArray<string>(new string[16]
+		IReadOnlyList<IReadOnlyList<string>> rows = ((IEnumerable<StatutoryRegisterRow>)Entries).Select((Func<StatutoryRegisterRow, IReadOnlyList<string>>)((StatutoryRegisterRow item) => new _003C_003Ez__ReadOnlyArray<string>(new string[17]
 		{
 			item.EntryAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
 			item.DocumentNo,
@@ -546,6 +546,7 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 			item.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
 			item.Balance.ToString("0.##", CultureInfo.InvariantCulture),
 			item.RecordedBy,
+			item.Machine,
 			item.Reason
 		}))).ToArray();
 		await _exportService.ExportAsync(path, SelectedRegisterType + " register", columns, rows);

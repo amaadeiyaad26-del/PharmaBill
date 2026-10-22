@@ -32,4 +32,7 @@ public sealed class AuditLog : EntityBase
 	public string? NewSnapshotJson { get; set; }
 
 	public string? RecordHash { get; set; }
+
+	/// <summary>The PC the action was done on: this PC, or the billing terminal that sent it. Null on rows written before this was kept.</summary>
+	public string? MachineName { get; set; }
 }

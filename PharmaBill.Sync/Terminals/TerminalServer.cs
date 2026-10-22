@@ -259,7 +259,12 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 				return Results.Json(new TerminalError("This PC is not paired with the server, or its pairing was removed. Pair it again from the server's Devices panel."), Json, statusCode: StatusCodes.Status401Unauthorized);
 			}
 			http.Items[DeviceItem] = terminal;
-			return await next(invocation);
+			// Everything this request saves is recorded as this terminal: device ID on every row, its name on audit
+			// rows and register entries.
+			using (RequestDevice.Use(terminal.Id, terminal.Name))
+			{
+				return await next(invocation);
+			}
 		});
 		device.MapGet("/hello", HelloAsync);
 		device.MapPost("/session", SignInAsync);

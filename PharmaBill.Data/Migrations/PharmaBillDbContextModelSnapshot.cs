@@ -140,6 +140,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("MachineName")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("NewSnapshotJson")
                         .HasColumnType("TEXT");
 
@@ -2249,6 +2252,9 @@ namespace PharmaBill.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecordedOnMachine")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RegisterType")

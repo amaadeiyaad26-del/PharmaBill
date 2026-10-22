@@ -99,7 +99,8 @@ public sealed class StatutoryRegisterService(IServiceScopeFactory scopeFactory)
 				Composition = drug?.GenericName ?? string.Empty,
 				ExpiryLabel = batch?.ExpiryDate is DateOnly expiryDate ? $"{expiryDate.Month:00}/{expiryDate.Year}" : string.Empty,
 				PrescriptionFilePath = obj?.PrescriptionFilePath ?? ExtractPrescriptionPath(entry.Notes),
-				RecordedBy = RegisterRecordedBy.Describe(entry)
+				RecordedBy = RegisterRecordedBy.Describe(entry),
+				Machine = entry.RecordedOnMachine ?? "Not recorded"
 			}))
 			{
 				entry = enumerator.Current;

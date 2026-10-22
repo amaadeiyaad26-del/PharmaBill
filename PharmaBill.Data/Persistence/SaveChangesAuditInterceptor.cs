@@ -57,7 +57,10 @@ public sealed class SaveChangesAuditInterceptor : SaveChangesInterceptor
 			return;
 		}
 		DateTime utcNow = BusinessClock.UtcNow;
-		string hlcStamp = _clock.Now(_deviceId.Value, utcNow);
+		// A terminal's request is saved as that terminal (see RequestDevice); everything else as this PC.
+		Guid deviceId = RequestDevice.Current?.DeviceId ?? _deviceId.Value;
+		string machineName = RequestDevice.MachineName;
+		string hlcStamp = _clock.Now(deviceId, utcNow);
 		List<ChangeLog> list = new List<ChangeLog>(array.Length);
 		EntityEntry<EntityBase>[] array2 = array;
 		foreach (EntityEntry<EntityBase> entityEntry in array2)
@@ -72,7 +75,15 @@ public sealed class SaveChangesAuditInterceptor : SaveChangesInterceptor
 				entityEntry.State = EntityState.Modified;
 				entityEntry.Entity.IsDeleted = true;
 			}
-			entityEntry.Entity.DeviceId = _deviceId.Value;
+			entityEntry.Entity.DeviceId = deviceId;
+			if (entityEntry.State == EntityState.Added && entityEntry.Entity is AuditLog { MachineName: null } addedAudit)
+			{
+				addedAudit.MachineName = machineName;
+			}
+			if (entityEntry.State == EntityState.Added && entityEntry.Entity is ScheduleRegisterEntry { RecordedOnMachine: null } addedEntry)
+			{
+				addedEntry.RecordedOnMachine = machineName;
+			}
 			entityEntry.Entity.UpdatedAtUtc = utcNow;
 			entityEntry.Entity.HlcStamp = hlcStamp;
 			entityEntry.Entity.SyncState = SyncState.Pending;
@@ -106,7 +117,7 @@ public sealed class SaveChangesAuditInterceptor : SaveChangesInterceptor
 			}
 			list.Add(new ChangeLog
 			{
-				DeviceId = _deviceId.Value,
+				DeviceId = deviceId,
 				CreatedAtUtc = utcNow,
 				UpdatedAtUtc = utcNow,
 				ChangedAtUtc = utcNow,
