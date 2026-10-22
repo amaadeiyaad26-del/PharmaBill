@@ -18,4 +18,7 @@ public sealed class ReturnNote : EntityBase
 	public string Reason { get; set; } = string.Empty;
 
 	public string? Notes { get; set; }
+
+	/// <summary>Set when a billing terminal issued the return: its ID for that request, so a retry never credits twice. Unique when present.</summary>
+	public Guid? ClientRequestId { get; set; }
 }

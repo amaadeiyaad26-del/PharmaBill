@@ -215,7 +215,81 @@ public sealed class TerminalServerTests : IAsyncLifetime
         Assert.NotEqual(overridden.InvoiceNo, sale.InvoiceNo);
     }
 
+    [Fact]
+    public async Task Return_AtTheCounter_CreditsOnce_EvenWhenRetried()
+    {
+        using HttpClient counter = await SignedInClientAsync("pharmacist", "5555");
+        TerminalSaleResponse sale = await SaveAsync(counter, Paracetamol(3m), Guid.NewGuid());
+        var lines = (await counter.GetFromJsonAsync<RetailSaleReturnableLine[]>($"sales/{sale.SaleId}/returnable", Json))!;
+        var request = new TerminalReturnRequest([new TerminalReturnLine(lines.Single().SaleItemId, 1m)], "Customer brought one strip back", Restock: true);
+        Guid requestId = Guid.NewGuid();
+
+        TerminalReturnResponse first = await ReturnAsync(counter, sale.SaleId, request, requestId);
+        TerminalReturnResponse retry = await ReturnAsync(counter, sale.SaleId, request, requestId);
+
+        Assert.Equal(first.ReturnNo, retry.ReturnNo);
+        Assert.Equal(30m, first.CreditAmount);
+        Assert.Equal(1, await CountAsync(db => db.ReturnNotes.CountAsync()));
+        Assert.Equal(4m, await OnHandAsync(_paracetamolBatch));
+
+        // Cashiers and field sales have no return permission in the shop's roles; the server enforces it.
+        using HttpClient cashier = await SignedInClientAsync("clerk", "2222");
+        Assert.Equal(HttpStatusCode.Forbidden, (await PostReturnAsync(cashier, sale.SaleId, request, Guid.NewGuid())).StatusCode);
+        using HttpClient salesman = await SignedInClientAsync("sales", "4444");
+        Assert.Equal(HttpStatusCode.Forbidden, (await PostReturnAsync(salesman, sale.SaleId, request, Guid.NewGuid())).StatusCode);
+    }
+
+    [Fact]
+    public async Task Void_NeedsAnAdminPin_ReturnsTheStock_AndIsSafeToRetry()
+    {
+        using HttpClient clerk = await SignedInClientAsync("clerk", "2222");
+        TerminalSaleResponse sale = await SaveAsync(clerk, Paracetamol(2m), Guid.NewGuid());
+        Assert.Equal(4m, await OnHandAsync(_paracetamolBatch));
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await clerk.PostAsJsonAsync($"sales/{sale.SaleId}/void", new TerminalVoidRequest("Wrong medicine", new TerminalAdminOverride("clerk", "2222")), Json)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clerk.PostAsJsonAsync($"sales/{sale.SaleId}/void", new TerminalVoidRequest("Wrong medicine", new TerminalAdminOverride("owner", "0000")), Json)).StatusCode);
+
+        HttpResponseMessage voided = await clerk.PostAsJsonAsync($"sales/{sale.SaleId}/void", new TerminalVoidRequest("Wrong medicine", new TerminalAdminOverride("owner", "1111")), Json);
+        Assert.Equal(HttpStatusCode.OK, voided.StatusCode);
+        Assert.False((await voided.Content.ReadFromJsonAsync<TerminalVoidResponse>(Json))!.AlreadyVoided);
+        Assert.Equal(6m, await OnHandAsync(_paracetamolBatch));
+
+        TerminalVoidResponse again = (await (await clerk.PostAsJsonAsync($"sales/{sale.SaleId}/void", new TerminalVoidRequest("Wrong medicine", new TerminalAdminOverride("owner", "1111")), Json)).Content.ReadFromJsonAsync<TerminalVoidResponse>(Json))!;
+        Assert.True(again.AlreadyVoided);
+        Assert.Equal(6m, await OnHandAsync(_paracetamolBatch));
+        Assert.Equal(1, await CountAsync(db => db.AuditLogs.CountAsync(a => a.Action == "AdminOverrideGranted" && a.Details!.StartsWith("void bill"))));
+    }
+
+    [Fact]
+    public async Task ReturnOnABillPastTheLockPeriod_NeedsAnAdminUnlock()
+    {
+        using HttpClient counter = await SignedInClientAsync("pharmacist", "5555");
+        TerminalSaleResponse sale = await SaveAsync(counter, Paracetamol(2m), Guid.NewGuid());
+        await CountAsync(db => db.Database.ExecuteSqlRawAsync("UPDATE Sales SET SaleAtUtc = {0} WHERE Id = {1}", BusinessClock.UtcNow.AddDays(-10), sale.SaleId));
+        var line = (await counter.GetFromJsonAsync<RetailSaleReturnableLine[]>($"sales/{sale.SaleId}/returnable", Json))!.Single();
+        var request = new TerminalReturnRequest([new TerminalReturnLine(line.SaleItemId, 1m)], "Returned after a week", Restock: true);
+
+        Assert.Equal((HttpStatusCode)423, (await PostReturnAsync(counter, sale.SaleId, request, Guid.NewGuid())).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await PostReturnAsync(counter, sale.SaleId, request with { Unlock = new TerminalAdminOverride("owner", "0000") }, Guid.NewGuid())).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await PostReturnAsync(counter, sale.SaleId, request with { Unlock = new TerminalAdminOverride("owner", "1111") }, Guid.NewGuid())).StatusCode);
+        Assert.Equal(1, await CountAsync(db => db.ReturnNotes.CountAsync()));
+    }
+
     // ---- helpers ----
+
+    private static Task<HttpResponseMessage> PostReturnAsync(HttpClient client, Guid saleId, TerminalReturnRequest request, Guid requestId)
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, $"sales/{saleId}/return") { Content = JsonContent.Create(request, options: Json) };
+        message.Headers.Add(TerminalProtocol.RequestIdHeader, requestId.ToString());
+        return client.SendAsync(message);
+    }
+
+    private static async Task<TerminalReturnResponse> ReturnAsync(HttpClient client, Guid saleId, TerminalReturnRequest request, Guid requestId)
+    {
+        HttpResponseMessage response = await PostReturnAsync(client, saleId, request, requestId);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<TerminalReturnResponse>(Json))!;
+    }
 
     private HttpClient Client(Guid deviceId, string secret, string? fingerprint = null)
     {
@@ -285,7 +359,9 @@ public sealed class TerminalServerTests : IAsyncLifetime
         context.AppUsers.AddRange(
             new AppUser { DisplayName = "Ravi (owner)", UserName = "owner", Role = UserRole.Owner, PasswordHash = PasswordHasher.Hash("1111") },
             new AppUser { DisplayName = "Asha (cashier)", UserName = "clerk", Role = UserRole.BillingClerk, PasswordHash = PasswordHasher.Hash("2222") },
-            new AppUser { DisplayName = "Accounts", UserName = "accounts", Role = UserRole.Accountant, PasswordHash = PasswordHasher.Hash("3333") });
+            new AppUser { DisplayName = "Accounts", UserName = "accounts", Role = UserRole.Accountant, PasswordHash = PasswordHasher.Hash("3333") },
+            new AppUser { DisplayName = "Field sales", UserName = "sales", Role = UserRole.Salesman, PasswordHash = PasswordHasher.Hash("4444") },
+            new AppUser { DisplayName = "Imran (pharmacist)", UserName = "pharmacist", Role = UserRole.Pharmacist, PasswordHash = PasswordHasher.Hash("5555") });
         await context.SaveChangesAsync();
         var addStock = new AddStockService(services.GetRequiredService<IUnitOfWork>(),
             new PurchaseService(services.GetRequiredService<IUnitOfWork>(), new Allowed(), new StorageLocationService(context), services.GetRequiredService<BranchService>(), new NullLicenseRuntimeGuard()),

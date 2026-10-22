@@ -593,6 +593,25 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		return new RetailSaleResult(existing, existing.Subtotal, existing.TaxAmount, existing.DiscountAmount, existing.TotalAmount, existing.PaidAmount, RetailTaxCalculator.RoundMoney(Math.Max(0m, tendered - applied)), existing.InvoiceNo);
 	}
 
+	private async Task<RetailSaleReturnResult?> FindRetriedReturnAsync(Guid saleId, Guid? clientRequestId, CancellationToken cancellationToken)
+	{
+		if (clientRequestId is not Guid requestId)
+		{
+			return null;
+		}
+		ReturnNote? note = await unitOfWork.Context.ReturnNotes.AsNoTracking().SingleOrDefaultAsync((ReturnNote item) => item.ClientRequestId == requestId, cancellationToken);
+		if (note == null)
+		{
+			return null;
+		}
+		if (note.SourceId != saleId)
+		{
+			throw new InvalidOperationException($"This return request was already used for credit note {note.ReturnNo} on another bill. Nothing was changed.");
+		}
+		decimal restocked = await unitOfWork.Context.SaleReturnItems.AsNoTracking().Where((SaleReturnItem item) => item.ReturnNoteId == note.Id && item.Restocked).SumAsync((SaleReturnItem item) => (decimal?)item.Quantity, cancellationToken) ?? 0m;
+		return new RetailSaleReturnResult(note.ReturnNo, note.TotalAmount, restocked);
+	}
+
 	public async Task<IReadOnlyList<RecentRetailBill>> SearchRecentBillsAsync(string? query, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		IQueryable<Sale> terms = from sale in unitOfWork.Context.Sales.AsNoTracking()
@@ -861,7 +880,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		}).ToArray();
 	}
 
-	public async Task<RetailSaleReturnResult> IssueSalesReturnAsync(Guid saleId, IReadOnlyCollection<RetailSaleReturnLineInput> requestedLines, string reason, bool restock, Guid actingUserId, UserRole role, CancellationToken cancellationToken = default(CancellationToken))
+	public async Task<RetailSaleReturnResult> IssueSalesReturnAsync(Guid saleId, IReadOnlyCollection<RetailSaleReturnLineInput> requestedLines, string reason, bool restock, Guid actingUserId, UserRole role, Guid? clientRequestId = null, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		if (!PermissionMatrix.Allows(role, AppPermission.ProcessReturn))
 		{
@@ -870,6 +889,12 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		if (!(await entitlementService.CanPerformAsync(ProtectedOperation.ProcessReturn, cancellationToken)))
 		{
 			throw new InvalidOperationException("Sales returns are unavailable in read-only mode.");
+		}
+		// A terminal retrying a return whose reply was lost gets the credit note it already made.
+		RetailSaleReturnResult? retried = await FindRetriedReturnAsync(saleId, clientRequestId, cancellationToken);
+		if (retried != null)
+		{
+			return retried;
 		}
 		ArgumentException.ThrowIfNullOrWhiteSpace(reason, "reason");
 		ArgumentNullException.ThrowIfNull(requestedLines, "requestedLines");
@@ -880,14 +905,19 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		RetailSaleReturnResult result;
 		await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 		{
-			result = await IssueSalesReturnCoreAsync(saleId, requestedLines, reason, restock, actingUserId, cancellationToken);
+			RetailSaleReturnResult? retriedInside = await FindRetriedReturnAsync(saleId, clientRequestId, cancellationToken);
+			if (retriedInside != null)
+			{
+				return retriedInside;
+			}
+			result = await IssueSalesReturnCoreAsync(saleId, requestedLines, reason, restock, actingUserId, cancellationToken, clientRequestId);
 			await transaction.CommitAsync(cancellationToken);
 		}
 		return result;
 	}
 
 	/// <summary>Credit note work. Runs inside a transaction opened by the caller, so a void can share it.</summary>
-	private async Task<RetailSaleReturnResult> IssueSalesReturnCoreAsync(Guid saleId, IReadOnlyCollection<RetailSaleReturnLineInput> requestedLines, string reason, bool restock, Guid actingUserId, CancellationToken cancellationToken)
+	private async Task<RetailSaleReturnResult> IssueSalesReturnCoreAsync(Guid saleId, IReadOnlyCollection<RetailSaleReturnLineInput> requestedLines, string reason, bool restock, Guid actingUserId, CancellationToken cancellationToken, Guid? clientRequestId = null)
 	{
 		Sale sale = (await unitOfWork.Context.Sales.SingleOrDefaultAsync((Sale sale2) => sale2.Id == saleId, cancellationToken)) ?? throw new InvalidOperationException("The original bill could not be found.");
 		string oldSnapshot = ComplianceAuditWriter.Snapshot(new { sale.InvoiceNo, sale.TotalAmount, sale.PaidAmount, sale.IsDeleted });
@@ -951,7 +981,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			ReturnAtUtc = BusinessClock.UtcNow,
 			TotalAmount = creditTotal,
 			Reason = reason.Trim(),
-			Notes = $"Credit note against invoice {sale.InvoiceNo}; restocked={restock}."
+			Notes = $"Credit note against invoice {sale.InvoiceNo}; restocked={restock}.",
+			ClientRequestId = clientRequestId
 		};
 		unitOfWork.Context.ReturnNotes.Add(note);
 		decimal restockedQuantity = 0m;

@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PharmaBill.Core;
+using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Gst;
 using PharmaBill.Core.Security;
@@ -189,6 +190,11 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		{
 			await WriteErrorAsync(http, StatusCodes.Status403Forbidden, exception.Message);
 		}
+		catch (RecordLockedException exception)
+		{
+			// Older than the record-lock period: the terminal asks for an admin unlock and sends it with the retry.
+			await WriteErrorAsync(http, StatusCodes.Status423Locked, exception.Message);
+		}
 		catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or KeyNotFoundException or JsonException or Microsoft.AspNetCore.Http.BadHttpRequestException)
 		{
 			// Billing rules speak to the cashier in plain words (stock, MRP, prescription): pass them through.
@@ -268,6 +274,10 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		user.MapGet("/patients/loyalty", (HttpContext http, string? phone, CancellationToken token) => WithScope(http, AppPermission.Search, (scope, _) => scope.GetRequiredService<RetailBillingService>().GetLoyaltyPointsAsync(phone ?? string.Empty, token)));
 		user.MapGet("/patients/{id:guid}/history", (HttpContext http, Guid id, CancellationToken token) => WithScope(http, AppPermission.Search, (scope, _) => scope.GetRequiredService<RetailBillingService>().GetPatientHistoryAsync(id, token)));
 		user.MapPost("/sales", SaveSaleAsync);
+		user.MapGet("/sales", (HttpContext http, string? q, CancellationToken token) => WithScope(http, AppPermission.Search, (scope, _) => scope.GetRequiredService<RetailBillingService>().SearchRecentBillsAsync(q, token)));
+		user.MapGet("/sales/{id:guid}/returnable", (HttpContext http, Guid id, CancellationToken token) => WithScope(http, AppPermission.Search, (scope, _) => scope.GetRequiredService<RetailBillingService>().GetSaleReturnLinesAsync(id, token)));
+		user.MapPost("/sales/{id:guid}/return", ReturnAsync);
+		user.MapPost("/sales/{id:guid}/void", VoidAsync);
 		user.MapGet("/sales/{id:guid}/print", (HttpContext http, Guid id, CancellationToken token) => WithScope(http, AppPermission.Print, (scope, _) => scope.GetRequiredService<RetailBillingService>().GetPrintableBillAsync(id, token)));
 		user.MapPut("/products/{drugId:guid}/tax", (HttpContext http, Guid drugId, TerminalProductTaxRequest request, CancellationToken token) => WithScope(http, AppPermission.CreateBill, (scope, session) =>
 			scope.GetRequiredService<ProductTaxService>().SetAsync(new ProductTaxUpdate(drugId, request.HsnCode, request.IsNilRated ? null : request.GstRate, request.IsNilRated), session.UserId, "Terminal bill (" + Device(http).Name + ")", token)));
@@ -386,20 +396,103 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		}
 	}
 
-	// Same rule as the desktop's Admin Override: an active admin who may edit printed bills, verified by PIN.
 	private static async Task<bool> GrantPrescriptionOverrideAsync(PharmaBillDbContext context, TerminalAdminOverride grant, TerminalDevice terminal, CancellationToken token)
 	{
-		string name = (grant.UserName ?? string.Empty).Trim().ToLowerInvariant();
-		AppUser? admin = await context.AppUsers.AsNoTracking().FirstOrDefaultAsync(user => user.IsActive && user.UserName.ToLower() == name, token);
-		if (admin == null || !PermissionMatrix.Allows(admin.Role, AppPermission.EditPrintedBills) || string.IsNullOrEmpty(grant.Secret) || !PasswordHasher.Verify(grant.Secret, admin.PasswordHash))
-		{
-			throw new UnauthorizedAccessException("Admin override was not granted. Attach the prescription to continue.");
-		}
-		context.AuditLogs.Add(new AuditLog { UserId = admin.Id, Action = "AdminOverrideGranted", EntityName = "Terminal", EntityId = terminal.Id,
-			Details = $"save a controlled bill without a prescription attachment by {admin.UserName} ({PermissionMatrix.ToOperatorLabel(admin.Role)}) at terminal {terminal.Name}" });
-		await context.SaveChangesAsync(token);
+		await VerifyAdminAsync(context, grant, "save a controlled bill without a prescription attachment", "Admin override was not granted. Attach the prescription to continue.", terminal, token);
 		return true;
 	}
+
+	// Same rule as the desktop's Admin Override: an active admin who may edit printed bills, verified by PIN.
+	// Every grant is audited with what it was for and at which terminal.
+	private static async Task<AppUser> VerifyAdminAsync(PharmaBillDbContext context, TerminalAdminOverride? grant, string purpose, string refusal, TerminalDevice terminal, CancellationToken token)
+	{
+		string name = (grant?.UserName ?? string.Empty).Trim().ToLowerInvariant();
+		AppUser? admin = await context.AppUsers.AsNoTracking().FirstOrDefaultAsync(user => user.IsActive && user.UserName.ToLower() == name, token);
+		if (admin == null || !PermissionMatrix.Allows(admin.Role, AppPermission.EditPrintedBills) || string.IsNullOrEmpty(grant?.Secret) || !PasswordHasher.Verify(grant.Secret, admin.PasswordHash))
+		{
+			throw new UnauthorizedAccessException(refusal);
+		}
+		context.AuditLogs.Add(new AuditLog { UserId = admin.Id, Action = "AdminOverrideGranted", EntityName = "Terminal", EntityId = terminal.Id,
+			Details = $"{purpose} by {admin.UserName} ({PermissionMatrix.ToOperatorLabel(admin.Role)}) at terminal {terminal.Name}" });
+		await context.SaveChangesAsync(token);
+		return admin;
+	}
+
+	private static RecordUnlockGrant UnlockFor(AppUser admin, Guid saleId, string reason) => new RecordUnlockGrant
+	{
+		AdminUserId = admin.Id,
+		AdminUserName = admin.UserName,
+		AdminRole = admin.Role,
+		Reason = reason.Trim(),
+		EntityType = "RetailBill",
+		EntityId = saleId,
+		Action = "MODIFIED_AFTER_LOCK"
+	};
+
+	private async Task<IResult> ReturnAsync(HttpContext http, Guid id, TerminalReturnRequest request, CancellationToken token)
+	{
+		TerminalDevice terminal = Device(http);
+		TerminalSession session = Session(http);
+		if (!Guid.TryParse(http.Request.Headers[TerminalProtocol.RequestIdHeader].ToString(), out Guid requestId) || requestId == Guid.Empty)
+		{
+			return Results.Json(new TerminalError($"Missing {TerminalProtocol.RequestIdHeader}: every return needs its own request ID."), Json, statusCode: StatusCodes.Status400BadRequest);
+		}
+		await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+		IServiceProvider services = scope.ServiceProvider;
+		try
+		{
+			if (request.Unlock != null)
+			{
+				string invoice = await InvoiceNoAsync(services, id, token);
+				AppUser admin = await VerifyAdminAsync(services.GetRequiredService<PharmaBillDbContext>(), request.Unlock, $"unlock bill {invoice} for a return", "Admin unlock was not granted.", terminal, token);
+				RecordUnlockContext.Arm(UnlockFor(admin, id, request.Reason ?? string.Empty));
+			}
+			RetailSaleReturnResult result = await services.GetRequiredService<RetailBillingService>().IssueSalesReturnAsync(id,
+				(request.Lines ?? []).Select(line => new RetailSaleReturnLineInput(line.SaleItemId, line.Quantity)).ToArray(),
+				request.Reason ?? string.Empty, request.Restock, session.UserId, session.Role, requestId, token);
+			return Results.Json(new TerminalReturnResponse(result.ReturnNo, result.CreditAmount, result.RestockedQuantity), Json);
+		}
+		finally
+		{
+			RecordUnlockContext.Clear();
+		}
+	}
+
+	private async Task<IResult> VoidAsync(HttpContext http, Guid id, TerminalVoidRequest request, CancellationToken token)
+	{
+		TerminalDevice terminal = Device(http);
+		TerminalSession session = Session(http);
+		if (!PermissionMatrix.Allows(session.Role, AppPermission.CreateBill))
+		{
+			return Results.Json(new TerminalError($"{session.DisplayName} is not allowed to do this (void)."), Json, statusCode: StatusCodes.Status403Forbidden);
+		}
+		await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+		IServiceProvider services = scope.ServiceProvider;
+		PharmaBillDbContext context = services.GetRequiredService<PharmaBillDbContext>();
+		Sale sale = await context.Sales.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, token)
+			?? throw new KeyNotFoundException("That bill was not found on the server.");
+		if (sale.IsDeleted)
+		{
+			// Already voided - for example the reply to an earlier void was lost. Nothing more to do.
+			return Results.Json(new TerminalVoidResponse(sale.Id, sale.InvoiceNo, AlreadyVoided: true), Json);
+		}
+		AppUser admin = await VerifyAdminAsync(context, request.Admin, $"void bill {sale.InvoiceNo}", "Admin override was not granted. Only an admin can void a bill.", terminal, token);
+		try
+		{
+			// The admin who voids also covers the record lock on a bill older than the lock period, as on the desktop.
+			RecordUnlockContext.Arm(UnlockFor(admin, id, request.Reason ?? string.Empty));
+			await services.GetRequiredService<RetailBillingService>().VoidSaleAsync(id, admin.Id, admin.Role, request.Reason ?? string.Empty, token);
+		}
+		finally
+		{
+			RecordUnlockContext.Clear();
+		}
+		return Results.Json(new TerminalVoidResponse(sale.Id, sale.InvoiceNo, AlreadyVoided: false), Json);
+	}
+
+	private static async Task<string> InvoiceNoAsync(IServiceProvider services, Guid saleId, CancellationToken token) =>
+		await services.GetRequiredService<PharmaBillDbContext>().Sales.AsNoTracking().Where(sale => sale.Id == saleId).Select(sale => sale.InvoiceNo).FirstOrDefaultAsync(token)
+		?? throw new KeyNotFoundException("That bill was not found on the server.");
 
 	private static async Task<string> StageUploadAsync(IFormFile file, CancellationToken token)
 	{

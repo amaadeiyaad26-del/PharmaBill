@@ -208,6 +208,7 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<SupplierLedgerEntry>().HasIndex((SupplierLedgerEntry item) => item.EntryAtUtc);
 		modelBuilder.Entity<ReturnNote>().HasIndex((ReturnNote item) => item.ReturnNo);
 		modelBuilder.Entity<ReturnNote>().HasIndex((ReturnNote item) => item.ReturnAtUtc);
+		modelBuilder.Entity<ReturnNote>().HasIndex((ReturnNote item) => item.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
 		modelBuilder.Entity<SaleReturnItem>().HasIndex((SaleReturnItem item) => item.ReturnNoteId);
 		modelBuilder.Entity<SaleReturnItem>().HasIndex((SaleReturnItem item) => item.SaleItemId);
 		modelBuilder.Entity<WholesaleReturnItem>().HasIndex((WholesaleReturnItem item) => item.WholesaleInvoiceItemId);

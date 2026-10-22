@@ -69,4 +69,16 @@ public sealed record TerminalBatchMrpRequest(decimal Mrp);
 
 public sealed record TerminalFefoRequest(IReadOnlyList<Guid> DrugIds);
 
+public sealed record TerminalReturnLine(Guid SaleItemId, decimal Quantity);
+
+/// <summary>A return at the counter. A bill older than the record-lock period also needs an admin's unlock.</summary>
+public sealed record TerminalReturnRequest(IReadOnlyList<TerminalReturnLine> Lines, string Reason, bool Restock, TerminalAdminOverride? Unlock = null);
+
+public sealed record TerminalReturnResponse(string ReturnNo, decimal CreditAmount, decimal RestockedQuantity);
+
+/// <summary>Voiding a bill always needs an admin, verified by PIN on the server.</summary>
+public sealed record TerminalVoidRequest(string Reason, TerminalAdminOverride Admin);
+
+public sealed record TerminalVoidResponse(Guid SaleId, string InvoiceNo, bool AlreadyVoided);
+
 public sealed record TerminalError(string Error);
