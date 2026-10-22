@@ -89,4 +89,16 @@ public sealed record TerminalPairRequest(string TerminalName, string TerminalNon
 
 public sealed record TerminalPairResponse(Guid DeviceId, string Secret, string ServerProof, string ServerName, string ShopName);
 
-public sealed record TerminalError(string Error);
+/// <summary>An error the cashier can read, plus a code the terminal acts on (see TerminalErrorCodes).</summary>
+public sealed record TerminalError(string Error, string? Code = null);
+
+public static class TerminalErrorCodes
+{
+	public const string Unpaired = "unpaired";
+
+	public const string SignedOut = "signed-out";
+
+	public const string WrongSignIn = "wrong-sign-in";
+
+	public const string Locked = "locked";
+}

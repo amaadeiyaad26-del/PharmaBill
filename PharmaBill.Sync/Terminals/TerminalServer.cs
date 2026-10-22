@@ -195,7 +195,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		catch (RecordLockedException exception)
 		{
 			// Older than the record-lock period: the terminal asks for an admin unlock and sends it with the retry.
-			await WriteErrorAsync(http, StatusCodes.Status423Locked, exception.Message);
+			await WriteErrorAsync(http, StatusCodes.Status423Locked, exception.Message, TerminalErrorCodes.Locked);
 		}
 		catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or KeyNotFoundException or JsonException or Microsoft.AspNetCore.Http.BadHttpRequestException)
 		{
@@ -210,7 +210,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		}
 	}
 
-	private static Task WriteErrorAsync(HttpContext http, int status, string message)
+	private static Task WriteErrorAsync(HttpContext http, int status, string message, string? code = null)
 	{
 		if (http.Response.HasStarted)
 		{
@@ -218,7 +218,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		}
 		http.Response.Clear();
 		http.Response.StatusCode = status;
-		return http.Response.WriteAsJsonAsync(new TerminalError(message), Json);
+		return http.Response.WriteAsJsonAsync(new TerminalError(message, code), Json);
 	}
 
 	private readonly TerminalAdvertiser _advertiser = new TerminalAdvertiser(logger);
@@ -256,7 +256,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 				: null;
 			if (terminal == null)
 			{
-				return Results.Json(new TerminalError("This PC is not paired with the server, or its pairing was removed. Pair it again from the server's Devices panel."), Json, statusCode: StatusCodes.Status401Unauthorized);
+				return Results.Json(new TerminalError("This PC is not paired with the server, or its pairing was removed. Pair it again from the server's Devices panel.", TerminalErrorCodes.Unpaired), Json, statusCode: StatusCodes.Status401Unauthorized);
 			}
 			http.Items[DeviceItem] = terminal;
 			// Everything this request saves is recorded as this terminal: device ID on every row, its name on audit
@@ -276,7 +276,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 			TerminalSession? session = sessions.Find(http.Request.Headers[TerminalProtocol.SessionHeader].ToString(), Device(http).Id);
 			if (session == null)
 			{
-				return Results.Json(new TerminalError("Signed out. Sign in again."), Json, statusCode: StatusCodes.Status401Unauthorized);
+				return Results.Json(new TerminalError("Signed out. Sign in again.", TerminalErrorCodes.SignedOut), Json, statusCode: StatusCodes.Status401Unauthorized);
 			}
 			// The server's user record decides, on every call: a deactivated user is out, a changed role applies now.
 			await using (AsyncServiceScope scope = scopeFactory.CreateAsyncScope())
@@ -286,7 +286,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 				if (user == null || !user.IsActive)
 				{
 					sessions.End(session.TokenHash);
-					return Results.Json(new TerminalError("This user can no longer sign in. Ask the owner."), Json, statusCode: StatusCodes.Status401Unauthorized);
+					return Results.Json(new TerminalError("This user can no longer sign in. Ask the owner.", TerminalErrorCodes.SignedOut), Json, statusCode: StatusCodes.Status401Unauthorized);
 				}
 				session = sessions.Refresh(session, user.Role, string.IsNullOrWhiteSpace(user.DisplayName) ? user.UserName : user.DisplayName);
 			}
@@ -356,7 +356,7 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		if (user == null)
 		{
 			sessions.RecordFailedSignIn(terminal.Id);
-			return Results.Json(new TerminalError("Wrong user name or PIN."), Json, statusCode: StatusCodes.Status401Unauthorized);
+			return Results.Json(new TerminalError("Wrong user name or PIN.", TerminalErrorCodes.WrongSignIn), Json, statusCode: StatusCodes.Status401Unauthorized);
 		}
 		sessions.ClearFailedSignIns(terminal.Id);
 		(TerminalSession session, string sessionToken) = sessions.Start(terminal.Id, user);

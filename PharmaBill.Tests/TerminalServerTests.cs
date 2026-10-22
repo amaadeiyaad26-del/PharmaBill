@@ -410,6 +410,77 @@ public sealed class TerminalServerTests : IAsyncLifetime
         Assert.Equal(Environment.MachineName, await CountAsync(db => db.ScheduleRegisterEntries.AsNoTracking().Where(e => e.SaleId == null).Select(e => e.RecordedOnMachine).FirstAsync()));
     }
 
+    [Fact]
+    public async Task TerminalClient_BillsEndToEnd_FromPairingToPrintData()
+    {
+        TerminalPairingCode code = Pairing.Open();
+        TerminalClientSettings paired = await TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, code.Code, "Front counter");
+        using var client = new TerminalClient(paired);
+
+        Assert.True((await client.HelloAsync()).BillingAllowed);
+        await client.SignInAsync("clerk", "2222");
+        RetailStockChoice choice = (await client.SearchStockAsync("Paracetamol")).Single(c => c.BatchNo == "PCM-01");
+        TerminalSaleResponse sale = await client.SaveSaleAsync(new TerminalSaleRequest("Walk-in", "9876543210", null, null, null,
+            [new TerminalSaleLine(choice.DrugId, choice.BatchId, 2m, 0m, 30m)], [new TerminalPayment("Cash", 60m, 100m)], false), Guid.NewGuid(), null);
+
+        Assert.Equal(40m, sale.ChangeDue);
+        RetailBillPrintData print = await client.PrintDataAsync(sale.SaleId);
+        Assert.Equal(sale.InvoiceNo, print.InvoiceNo);
+        Assert.Equal("Terminal Test Pharmacy", print.PharmacyName);
+        Assert.Contains((await client.RecentBillsAsync(null)), bill => bill.SaleId == sale.SaleId);
+    }
+
+    [Fact]
+    public async Task TerminalClient_SaysPlainlyWhatWentWrong()
+    {
+        TerminalPairingCode code = Pairing.Open();
+        TerminalClientSettings paired = await TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, code.Code, "Front counter");
+
+        // Something else answering at the server's address is refused, not trusted.
+        using (var impostor = new TerminalClient(paired with { ServerFingerprint = new string('B', 64) }))
+        {
+            await Assert.ThrowsAsync<TerminalServerIdentityException>(() => impostor.HelloAsync());
+        }
+
+        using var client = new TerminalClient(paired);
+        await client.SignInAsync("pharmacist", "5555");
+        var refused = await Assert.ThrowsAsync<TerminalRefusedException>(() => client.SaveSaleAsync(Paracetamol(50m), Guid.NewGuid(), null));
+        Assert.Contains("exceeds available stock", refused.Message);
+
+        // Deactivated on the server: signed out at the next call.
+        await CountAsync(db => db.Database.ExecuteSqlRawAsync("UPDATE AppUsers SET IsActive = 0 WHERE UserName = 'pharmacist'"));
+        await Assert.ThrowsAsync<TerminalSignedOutException>(() => client.ShopAsync());
+        Assert.False(client.IsSignedIn);
+
+        // Removed from the server's Devices panel.
+        _server.Revoke(paired.DeviceId);
+        await Assert.ThrowsAsync<TerminalUnpairedException>(() => client.HelloAsync());
+
+        // The server PC is off: billing stops with a plain message, after a few quiet retries.
+        await _server.StopAsync();
+        var unreachable = await Assert.ThrowsAsync<TerminalServerUnreachableException>(() => client.SaveSaleAsync(Paracetamol(1m), Guid.NewGuid(), null));
+        Assert.Contains("can't be reached", unreachable.Message);
+        Assert.Contains("Billing is stopped", unreachable.Message);
+    }
+
+    [Fact]
+    public async Task ASaveWhoseReplyWasLost_IsConfirmedByRetryingTheSameRequest()
+    {
+        TerminalPairingCode code = Pairing.Open();
+        TerminalClientSettings paired = await TerminalPairingClient.PairAsync("127.0.0.1", _server.Port, code.Code, "Front counter");
+        using var client = new TerminalClient(paired);
+        await client.SignInAsync("clerk", "2222");
+        Guid requestId = Guid.NewGuid();
+
+        // The server saved the bill but the counter never saw the answer (network dropped).
+        TerminalSaleResponse saved = await client.SaveSaleAsync(Paracetamol(2m), requestId, null);
+        // The cashier presses Save again: same request, same bill, stock taken once.
+        TerminalSaleResponse again = await client.SaveSaleAsync(Paracetamol(2m), requestId, null);
+
+        Assert.Equal(saved.InvoiceNo, again.InvoiceNo);
+        Assert.Equal(4m, await OnHandAsync(_paracetamolBatch));
+    }
+
     // ---- helpers ----
 
     private static Task<HttpResponseMessage> PostReturnAsync(HttpClient client, Guid saleId, TerminalReturnRequest request, Guid requestId)
