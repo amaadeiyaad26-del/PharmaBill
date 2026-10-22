@@ -137,7 +137,7 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 			WindowsFirewallPortOpener.Result firewall = WindowsFirewallPortOpener.EnsureAllowRule(
 				Port,
 				"PharmaBill Purchases Phone Scan (Port 5184)",
-				includePublicProfile: true);
+				includePublicProfile: false);
 			if (!firewall.RulePresent)
 			{
 				firewallNote = " Firewall: " + firewall.Message;
@@ -148,6 +148,12 @@ public sealed class PurchasePhoneBridge : IAsyncDisposable
 			firewallNote = " Firewall: " + ex.Message;
 		}
 
+		// The firewall rule covers Private networks only, matching "pair only on the shop's own Wi-Fi". On a network
+		// Windows calls Public, phones cannot reach this PC: say so and how to fix it.
+		if (LocalNetworkInfo.IsOnPublicNetwork() == true)
+		{
+			firewallNote += " Windows has marked this network Public, so phones cannot connect. If this is the shop's own Wi-Fi, set it to Private: Settings > Network & internet > Wi-Fi (or Ethernet) > this network > Network profile type > Private.";
+		}
 		SetStatus(ListeningStatus() + firewallNote);
 	}
 

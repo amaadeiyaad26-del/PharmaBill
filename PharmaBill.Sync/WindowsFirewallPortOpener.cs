@@ -41,6 +41,11 @@ public static class WindowsFirewallPortOpener
 			dynamic val2 = val.Rules;
 			if (WindowsFirewallPortOpener.TryFindRule(val2, ruleName, port))
 			{
+				// An older version may have opened this rule to Public networks too. Narrow it where we are allowed to.
+				if (!includePublicProfile)
+				{
+					WindowsFirewallPortOpener.TryNarrowProfiles(val2, ruleName, profiles);
+				}
 				return new Result(RulePresent: true, CreatedNow: false, $"Firewall already allows TCP {port}.");
 			}
 			dynamic val3 = Activator.CreateInstance(Type.GetTypeFromProgID("HNetCfg.FWRule") ?? throw new InvalidOperationException("Windows Firewall COM (HNetCfg.FWRule) is unavailable.")) ?? throw new InvalidOperationException("Could not create FWRule.");
@@ -98,6 +103,25 @@ public static class WindowsFirewallPortOpener
 		catch
 		{
 			return false;
+		}
+	}
+
+	/// <summary>Takes the Public profile off an existing rule. Needs administrator rights; without them the rule is left as it is.</summary>
+	private static void TryNarrowProfiles(dynamic rules, string ruleName, int profiles)
+	{
+		try
+		{
+			foreach (dynamic rule in rules)
+			{
+				if (string.Equals(rule.Name as string, ruleName, StringComparison.OrdinalIgnoreCase) && ((int)rule.Profiles & 4) != 0)
+				{
+					rule.Profiles = profiles;
+				}
+			}
+		}
+		catch
+		{
+			// Not elevated: Windows refuses the change. The owner can rerun with permission.
 		}
 	}
 

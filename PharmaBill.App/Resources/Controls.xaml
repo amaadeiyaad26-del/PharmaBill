@@ -804,6 +804,7 @@
   <local:SectionActiveConverter x:Key="SectionActiveConverter" />
   <local:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
   <local:StringEqualsConverter x:Key="StringEqualsConverter" />
+  <local:BusinessLocalTimeConverter x:Key="BusinessLocalTimeConverter" />
   <local:StockTabMatchConverter x:Key="StockTabMatchConverter" />
   <Style x:Key="{x:Type Button}" TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}" />
   <Style x:Key="MenuButtonStyle" TargetType="{x:Type Button}">

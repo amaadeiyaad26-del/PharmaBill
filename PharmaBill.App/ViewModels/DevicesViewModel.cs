@@ -285,6 +285,10 @@ public sealed class DevicesViewModel : ObservableObject
 				+ $"  Server check: {fingerprint[..4]} {fingerprint[4..8]} {fingerprint[8..12]}";
 			LanSyncFirewallHelper.FirewallCheckResult firewall = LanSyncFirewallHelper.CheckTerminalRule(_server.Port);
 			FirewallStatus = firewall.Message;
+			if (LocalNetworkInfo.IsOnPublicNetwork() == true)
+			{
+				FirewallStatus += ". Windows has marked this network Public, so counters cannot connect. If this is the shop's own network, set it to Private: Settings > Network & internet > this network > Network profile type > Private.";
+			}
 		}
 		else
 		{

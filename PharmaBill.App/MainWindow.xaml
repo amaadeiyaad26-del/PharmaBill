@@ -4540,7 +4540,7 @@
               </DataTemplate>
             </DataGrid.RowDetailsTemplate>
             <DataGrid.Columns>
-              <DataGridTextColumn Header="Date/time" Width="145" Binding="{Binding EntryAtUtc, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
+              <DataGridTextColumn Header="Date/time (IST)" Width="145" Binding="{Binding EntryAtUtc, Converter={StaticResource BusinessLocalTimeConverter}}" />
               <DataGridTextColumn Header="Document no." Width="150" Binding="{Binding DocumentNo}" />
               <DataGridTextColumn Header="Register" Width="110" Binding="{Binding RegisterType}" />
               <DataGridTextColumn Header="Patient / buyer" Width="150" Binding="{Binding PartyName}" />
@@ -4782,7 +4782,7 @@
           <Border CornerRadius="10" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" Background="{DynamicResource CardBackgroundBrush}" Padding="2">
             <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" BorderThickness="0" ItemsSource="{Binding Records}">
               <DataGrid.Columns>
-                <DataGridTextColumn Header="Date/time" Width="145" Binding="{Binding AtUtc, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
+                <DataGridTextColumn Header="Date/time (IST)" Width="145" Binding="{Binding AtUtc, Converter={StaticResource BusinessLocalTimeConverter}}" />
                 <DataGridTextColumn Header="Record" Width="100" Binding="{Binding RecordType}" />
                 <DataGridTextColumn Header="Document no." Width="145" Binding="{Binding DocumentNo}" />
                 <DataGridTextColumn Header="Patient / supplier" Width="150" Binding="{Binding PatientName}" />
