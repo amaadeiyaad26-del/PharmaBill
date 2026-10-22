@@ -251,12 +251,24 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 			{
 				return Results.Json(new TerminalError("Signed out. Sign in again."), Json, statusCode: StatusCodes.Status401Unauthorized);
 			}
+			// The server's user record decides, on every call: a deactivated user is out, a changed role applies now.
+			await using (AsyncServiceScope scope = scopeFactory.CreateAsyncScope())
+			{
+				AppUser? user = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().AppUsers.AsNoTracking()
+					.FirstOrDefaultAsync(item => item.Id == session.UserId, http.RequestAborted);
+				if (user == null || !user.IsActive)
+				{
+					sessions.End(session.TokenHash);
+					return Results.Json(new TerminalError("This user can no longer sign in. Ask the owner."), Json, statusCode: StatusCodes.Status401Unauthorized);
+				}
+				session = sessions.Refresh(session, user.Role, string.IsNullOrWhiteSpace(user.DisplayName) ? user.UserName : user.DisplayName);
+			}
 			http.Items[SessionItem] = session;
 			return await next(invocation);
 		});
 		user.MapDelete("/session", (HttpContext http) =>
 		{
-			sessions.End(Session(http).Token);
+			sessions.End(Session(http).TokenHash);
 			return Results.NoContent();
 		});
 		user.MapGet("/shop", ShopAsync);
@@ -314,10 +326,10 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 			return Results.Json(new TerminalError("Wrong user name or PIN."), Json, statusCode: StatusCodes.Status401Unauthorized);
 		}
 		sessions.ClearFailedSignIns(terminal.Id);
-		TerminalSession session = sessions.Start(terminal.Id, user);
+		(TerminalSession session, string sessionToken) = sessions.Start(terminal.Id, user);
 		context.AuditLogs.Add(new AuditLog { UserId = user.Id, Action = "TerminalSignIn", EntityName = "Terminal", EntityId = terminal.Id, Details = $"{user.UserName} signed in at terminal {terminal.Name}" });
 		await context.SaveChangesAsync(token);
-		return Results.Json(new TerminalSignInResponse(session.Token, user.Id, session.DisplayName, user.Role.ToString(), session.ExpiresAtUtc), Json);
+		return Results.Json(new TerminalSignInResponse(sessionToken, user.Id, session.DisplayName, user.Role.ToString(), session.ExpiresAtUtc), Json);
 	}
 
 	private Task<IResult> ShopAsync(HttpContext http, CancellationToken token) => WithScope(http, AppPermission.View, async (scope, _) =>

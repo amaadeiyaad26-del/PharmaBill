@@ -38,7 +38,7 @@ public sealed class TerminalServerTests : IAsyncLifetime
             await SeedAsync(scope.ServiceProvider);
         }
         _devices = new TerminalDeviceStore(Path.Combine(_root, "terminals"));
-        _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), _devices, new TerminalSessions(),
+        _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), _devices, new TerminalSessions(Path.Combine(_root, "terminals")),
             new TerminalServerCertificate(Path.Combine(_root, "terminals")), NullLogger<TerminalServer>.Instance);
         await _server.StartAsync(0, [IPAddress.Loopback]);
     }
@@ -273,6 +273,42 @@ public sealed class TerminalServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, (await PostReturnAsync(counter, sale.SaleId, request with { Unlock = new TerminalAdminOverride("owner", "0000") }, Guid.NewGuid())).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await PostReturnAsync(counter, sale.SaleId, request with { Unlock = new TerminalAdminOverride("owner", "1111") }, Guid.NewGuid())).StatusCode);
         Assert.Equal(1, await CountAsync(db => db.ReturnNotes.CountAsync()));
+    }
+
+    [Fact]
+    public async Task ServerRestart_KeepsCountersSignedIn()
+    {
+        using HttpClient clerk = await SignedInClientAsync("clerk", "2222");
+        Assert.Equal(HttpStatusCode.OK, (await clerk.GetAsync("shop")).StatusCode);
+
+        // The server PC reboots (a Windows update): a new server process over the same saved state.
+        await _server.StopAsync();
+        string terminals = Path.Combine(_root, "terminals");
+        _server = new TerminalServer(_services.GetRequiredService<IServiceScopeFactory>(), new TerminalDeviceStore(terminals), new TerminalSessions(terminals),
+            new TerminalServerCertificate(terminals), NullLogger<TerminalServer>.Instance);
+        await _server.StartAsync(0, [IPAddress.Loopback]);
+        using HttpClient sameTerminal = new(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, c, _, _) => c != null && TerminalServerCertificate.Thumbprint(c) == _server.Fingerprint })
+        {
+            BaseAddress = new Uri($"https://127.0.0.1:{_server.Port}{TerminalProtocol.BasePath}/")
+        };
+        foreach (var header in clerk.DefaultRequestHeaders)
+        {
+            sameTerminal.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
+        }
+        Assert.Equal(HttpStatusCode.OK, (await sameTerminal.GetAsync("shop")).StatusCode);
+    }
+
+    [Fact]
+    public async Task DeactivatedOrDemotedUsers_TakeEffectOnTheirNextCall()
+    {
+        using HttpClient pharmacist = await SignedInClientAsync("pharmacist", "5555");
+        Assert.Equal(HttpStatusCode.OK, (await pharmacist.PutAsJsonAsync($"batches/{_paracetamolBatch}/mrp", new TerminalBatchMrpRequest(31m), Json)).StatusCode);
+
+        await CountAsync(db => db.Database.ExecuteSqlRawAsync("UPDATE AppUsers SET Role = {0} WHERE UserName = 'pharmacist'", (int)UserRole.BillingClerk));
+        Assert.Equal(HttpStatusCode.Forbidden, (await pharmacist.PutAsJsonAsync($"batches/{_paracetamolBatch}/mrp", new TerminalBatchMrpRequest(32m), Json)).StatusCode);
+
+        await CountAsync(db => db.Database.ExecuteSqlRawAsync("UPDATE AppUsers SET IsActive = 0 WHERE UserName = 'pharmacist'"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await pharmacist.GetAsync("shop")).StatusCode);
     }
 
     // ---- helpers ----
