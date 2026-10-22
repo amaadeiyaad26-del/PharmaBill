@@ -2818,7 +2818,7 @@
                   </Grid>
                 </controls:FloatingField>
               </DockPanel>
-              <Button Margin="0,0,0,6" Padding="10,6" MinWidth="0" HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Medicine not in local stock. Click to add manually or search online">
+              <Button Margin="0,0,0,6" Padding="10,6" MinWidth="0" HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Medicine not in local stock. Click to add it, filling the details from the medicine data bank">
                 <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
               </Button>
               <ListBox Name="RetailMedicineSuggestionList" MaxHeight="105" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}" Visibility="{Binding HasSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}" PreviewMouseLeftButtonUp="RetailMedicineSuggestionList_PreviewMouseLeftButtonUp">

@@ -335,7 +335,7 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 	{
 		string typed = Query.Trim();
 		SmartDrugLookupOutcome outcome = _smartLookup == null
-			? new SmartDrugLookupOutcome(null, "Online lookup is not connected.")
+			? new SmartDrugLookupOutcome(null, "The medicine data bank is not available here.")
 			: await _smartLookup.LookupAsync(typed);
 		await OpenQuickAddAsync(outcome.Suggestion?.BrandName ?? typed, outcome.Suggestion, outcome.Message);
 	}

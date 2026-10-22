@@ -16,7 +16,7 @@ Read this first. It replaces the 21 Oct handover and is enough to carry on with 
 - **Never commit `tools/licensing/pharmabill-license-private.pem`.** It is not tracked; only the public key is.
 - **Never open, copy or read a real shop database** (`%LocalAppData%\PharmaBill`, or a Store data folder). It holds patient data. Work from test databases.
 - **Debug builds use `%LocalAppData%\PharmaBill-Debug`** and must never open the real folder.
-- **Schema changes go through EF migrations.** No silent self-repair at startup. The latest migration is `RecordMachineName`, and `PersistenceTests.DbInitializer_AppliesInitialMigration` asserts the newest one's name: update it when you add a migration.
+- **Schema changes go through EF migrations.** No silent self-repair at startup. The latest migration is `IndexCustomCatalogMedicines`, and `PersistenceTests.DbInitializer_AppliesInitialMigration` asserts the newest one's name: update it when you add a migration.
 - **Don't change retail billing's 50/50 CGST/SGST split.**
 - **Git stash is shared** with other worktrees. Never run a bare `git stash` / `git stash pop`; use a WIP commit.
 - **Not this project's work:** `DELIVERY_SUMMARY.txt` and `LocalPharmacyInstaller/` at the repo root are untracked and belong to someone else. Leave them alone.
@@ -117,6 +117,7 @@ Also stale: `MSSTORE_SUBMISSION_GUIDE.md` lines 44 and 69 still describe and jus
 
 - **Export to Folder replaced Google Drive OAuth backup.** One "Back up now" to a chosen folder (OneDrive/Google Drive/Dropbox folders are fine). Encrypted `.pbbak`, a backup password is required, and restore also tries the old derived passwords.
 - **One licence per shop.**
+- **No AI or online medicine lookup.** "Search data bank" (Add Medicine, and "Not found - add manually" on billing, purchase and the global search) fills details from the shop's own medicines and the built-in data bank only, offline. Gemini/OpenRouter/OpenFDA lookup was removed on 22 Oct at the owner's request. Gemini is still offered for reading purchase invoices and prescriptions; that was not part of the request.
 - **Business dates are always Asia/Kolkata** (`PharmaBill.Core.BusinessClock`, injectable; tests pin it).
 - **Filed documents record their values at save time;** reports read those back rather than recomputing.
 - **Returns stay with pharmacists, managers and owners.** Cashiers don't get them: a registered pharmacist must be present during trading.
@@ -140,5 +141,7 @@ Also stale: `MSSTORE_SUBMISSION_GUIDE.md` lines 44 and 69 still describe and jus
 
 ## 9. Housekeeping
 
-- **Flaky test:** `CatalogTests.Importer_HandlesQuotedCommasEmptyCompositionAndCrLf_ThenFtsSearches` is timing-sensitive and fails under load. It passes when re-run alone.
+- **No known flaky test.** `CatalogTests` used to time one cold search against 200 ms and failed under load. It now checks that the search is answered by the full-text index (and notices when it isn't). Speed is measured warm on 100,032 medicines in `CatalogSearchSpeedTests`.
+- **Search speed:** every search also looked for the shop's own (custom) medicines by reading the whole catalogue, about 450 ms on 100k rows and about 1 s on the real 254k. The partial index `IX_CatalogMedicines_IsCustom` brings a warm search to about 30 ms.
+- **Pooled connections:** opening the encrypted database costs about 0.35 s (SQLCipher key derivation). Microsoft.Data.Sqlite drops connections idle through two prune cycles (140 s each), so `DatabaseKeepWarmService` touches the pool every minute. It never opens the database while `DatabaseMaintenance` is held (restore, fresh store) and never creates a missing one.
 - **`main` is far behind:** `origin/main` is **104 commits behind** `ms-store-edition`, with nothing of its own. Merging is an owner decision.

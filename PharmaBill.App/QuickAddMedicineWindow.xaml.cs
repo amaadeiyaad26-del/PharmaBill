@@ -80,18 +80,18 @@ public partial class QuickAddMedicineWindow : Window
 		FillFromSuggestion(suggestion);
 	}
 
-	private async void SearchOnline_Click(object sender, RoutedEventArgs e)
+	private async void SearchDataBank_Click(object sender, RoutedEventArgs e)
 	{
 		string brand = BrandBox.Text.Trim();
 		if (brand.Length < 2)
 		{
-			ShowNotice("Type at least 2 letters in the brand name, then search online.");
+			ShowNotice("Type at least 2 letters in the brand name, then search the data bank.");
 			BrandBox.Focus();
 			return;
 		}
 
-		SearchOnlineButton.IsEnabled = false;
-		SearchOnlineButton.Content = "Searching...";
+		SearchDataBankButton.IsEnabled = false;
+		SearchDataBankButton.Content = "Searching...";
 		StatusText.Text = string.Empty;
 		try
 		{
@@ -111,8 +111,8 @@ public partial class QuickAddMedicineWindow : Window
 		}
 		finally
 		{
-			SearchOnlineButton.IsEnabled = true;
-			SearchOnlineButton.Content = "🔍 Search Online / AI";
+			SearchDataBankButton.IsEnabled = true;
+			SearchDataBankButton.Content = SmartDrugLookupPrompt.ButtonLabel;
 		}
 	}
 
