@@ -664,19 +664,6 @@
           </StackPanel>
           <Grid>
             <DataGrid AutoGenerateColumns="True" IsReadOnly="True" CanUserAddRows="False" FrozenColumnCount="1" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding Table}" Visibility="{Binding ShowEmptyReportState, Converter={StaticResource InverseBooleanToVisibilityConverter}}" AutoGeneratingColumn="ReportsGrid_AutoGeneratingColumn">
-              <FrameworkElement.Resources>
-                <ResourceDictionary>
-                  <DataTemplate x:Key="InvoiceLinkTemplate">
-                    <Button Cursor="Hand" Background="#00FFFFFF" BorderThickness="0" Padding="6,2" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Left" ToolTip="Open full invoice details" Command="{Binding DataContext.OpenInvoiceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Content="{Binding Path=[Invoice]}">
-                      <Control.Template>
-                        <ControlTemplate TargetType="{x:Type Button}">
-                          <TextBlock Text="{TemplateBinding ContentControl.Content}" TextDecorations="Underline" Foreground="{TemplateBinding TextElement.Foreground}" FontWeight="SemiBold" />
-                        </ControlTemplate>
-                      </Control.Template>
-                    </Button>
-                  </DataTemplate>
-                </ResourceDictionary>
-              </FrameworkElement.Resources>
             </DataGrid>
             <Border Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="10" Visibility="{Binding ShowEmptyReportState, Converter={StaticResource BooleanToVisibilityConverter}}">
               <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">

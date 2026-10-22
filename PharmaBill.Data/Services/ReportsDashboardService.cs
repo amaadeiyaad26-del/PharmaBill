@@ -250,10 +250,10 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			result = await AbcAnalysisAsync(from, to, cancellationToken);
 			break;
 		case ReportKind.SaleBookDaily:
-			result = await SaleBookAsync(from, to, groupByMonth: false, cancellationToken);
+			result = await SaleBookAsync(from, to, branchScope, monthly: false, cancellationToken);
 			break;
 		case ReportKind.SaleBookMonthly:
-			result = await SaleBookAsync(from, to, groupByMonth: true, cancellationToken);
+			result = await SaleBookAsync(from, to, branchScope, monthly: true, cancellationToken);
 			break;
 		case ReportKind.PrescriberWise:
 			result = await PrescriberWiseAsync(from, to, cancellationToken);
@@ -1186,6 +1186,13 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			select item).ToListAsync(token);
 		Dictionary<Guid, Drug> drugs = await context.Drugs.AsNoTracking().ToDictionaryAsync((Drug item) => item.Id, token);
 		Dictionary<Guid, Batch> batches = await context.Batches.AsNoTracking().ToDictionaryAsync((Batch item) => item.Id, token);
+		Dictionary<Guid, string> branchCodes = await context.Branches.AsNoTracking().ToDictionaryAsync((Branch item) => item.Id, (Branch item) => item.Code, token);
+		// Each document under its own branch; documents saved before branches were recorded belong to this one.
+		string BranchOf(Guid? branchId) => branchId is Guid id && branchCodes.TryGetValue(id, out string? code) ? code : branchCode;
+		// Filed documents read back as saved (name, batch, expiry, buyer); master data only for documents saved before recording began.
+		string ItemOf(string? recorded, Drug? drug) => recorded ?? drug?.Name ?? "Unknown";
+		string BatchOf(string? recordedName, string? recordedBatch, Batch? batch) => recordedName != null ? recordedBatch ?? string.Empty : batch?.BatchNo ?? string.Empty;
+		string ExpiryOf(string? recordedName, DateOnly? recordedExpiry, Batch? batch) => FormatExpiry(recordedName != null ? recordedExpiry : batch?.ExpiryDate);
 		Guid[] catalogIds = (from item in drugs.Values
 			where item.CatalogMedicineId.HasValue
 			select item.CatalogMedicineId.Value).Distinct().ToArray();
@@ -1207,11 +1214,13 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				obj = null;
 			}
 			Patient patient = (Patient)obj;
-			string party = DisplayParty(patient?.Name);
-			List<SaleItem> list2 = saleItems.Where((SaleItem item) => item.SaleId == sale.Id).ToList();
+			BuyerSnapshot? recordedPatient = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(sale.BuyerSnapshotJson);
+			string party = DisplayParty(recordedPatient?.Name ?? patient?.Name);
+			// In billing order, as on the invoice.
+			List<SaleItem> list2 = saleItems.Where((SaleItem item) => item.SaleId == sale.Id).OrderBy((SaleItem item) => item.CreatedAtUtc).ToList();
 			if (list2.Count == 0)
 			{
-				list.Add(new SalesLineFact(sale.Id, $"R|{sale.Id}", sale.SaleAtUtc, sale.InvoiceNo, party, patient?.Phone ?? string.Empty, "—", "(no line items)", "(Unspecified)", "(Unspecified)", string.Empty, string.Empty, 0m, 0m, 0m, 0m, sale.TotalAmount, branchCode));
+				list.Add(new SalesLineFact(sale.Id, $"R|{sale.Id}", sale.SaleAtUtc, sale.InvoiceNo, party, recordedPatient?.Phone ?? patient?.Phone ?? string.Empty, "—", "(no line items)", "(Unspecified)", "(Unspecified)", string.Empty, string.Empty, 0m, 0m, 0m, 0m, sale.TotalAmount, BranchOf(sale.BranchId)));
 				continue;
 			}
 			foreach (SaleItem item in list2)
@@ -1219,17 +1228,18 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				Drug valueOrDefault2 = drugs.GetValueOrDefault(item.DrugId);
 				Batch valueOrDefault3 = batches.GetValueOrDefault(item.BatchId);
 				decimal num = ((item.TaxRate <= 0m) ? item.LineTotal : decimal.Round(item.LineTotal / (1m + item.TaxRate / 100m), 2, MidpointRounding.AwayFromZero));
-				list.Add(new SalesLineFact(sale.Id, $"R|{sale.Id}", sale.SaleAtUtc, sale.InvoiceNo, party, patient?.Phone ?? string.Empty, "—", valueOrDefault2?.Name ?? "Unknown", BrandOf(valueOrDefault2), ManufacturerOf(valueOrDefault2), valueOrDefault3?.BatchNo ?? string.Empty, FormatExpiry(valueOrDefault3?.ExpiryDate), item.Quantity, item.UnitPrice, num, item.LineTotal - num, item.LineTotal, branchCode));
+				list.Add(new SalesLineFact(sale.Id, $"R|{sale.Id}", sale.SaleAtUtc, sale.InvoiceNo, party, recordedPatient?.Phone ?? patient?.Phone ?? string.Empty, "—", ItemOf(item.ItemName, valueOrDefault2), BrandOf(valueOrDefault2), ManufacturerOf(valueOrDefault2), BatchOf(item.ItemName, item.BatchNo, valueOrDefault3), ExpiryOf(item.ItemName, item.BatchExpiry, valueOrDefault3), item.Quantity, item.UnitPrice, num, item.LineTotal - num, item.LineTotal, BranchOf(sale.BranchId)));
 			}
 		}
 		foreach (WholesaleInvoice invoice in wholesale)
 		{
 			Customer valueOrDefault4 = customers.GetValueOrDefault(invoice.CustomerId);
-			string party2 = DisplayParty(valueOrDefault4?.Name);
-			List<WholesaleInvoiceItem> list3 = invoiceItems.Where((WholesaleInvoiceItem item) => item.WholesaleInvoiceId == invoice.Id).ToList();
+			BuyerSnapshot? recordedBuyer = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(invoice.BuyerSnapshotJson);
+			string party2 = DisplayParty(recordedBuyer != null ? invoice.BuyerLegalName ?? recordedBuyer.Name : valueOrDefault4?.Name);
+			List<WholesaleInvoiceItem> list3 = invoiceItems.Where((WholesaleInvoiceItem item) => item.WholesaleInvoiceId == invoice.Id).OrderBy((WholesaleInvoiceItem item) => item.CreatedAtUtc).ToList();
 			if (list3.Count == 0)
 			{
-				list.Add(new SalesLineFact(invoice.Id, $"W|{invoice.Id}", invoice.InvoiceAtUtc, invoice.InvoiceNo, party2, valueOrDefault4?.Phone ?? string.Empty, valueOrDefault4?.Gstin ?? string.Empty, "(no line items)", "(Unspecified)", "(Unspecified)", string.Empty, string.Empty, 0m, 0m, 0m, 0m, invoice.TotalAmount, branchCode));
+				list.Add(new SalesLineFact(invoice.Id, $"W|{invoice.Id}", invoice.InvoiceAtUtc, invoice.InvoiceNo, party2, recordedBuyer?.Phone ?? valueOrDefault4?.Phone ?? string.Empty, recordedBuyer?.Gstin ?? valueOrDefault4?.Gstin ?? string.Empty, "(no line items)", "(Unspecified)", "(Unspecified)", string.Empty, string.Empty, 0m, 0m, 0m, 0m, invoice.TotalAmount, BranchOf(invoice.BranchId)));
 				continue;
 			}
 			foreach (WholesaleInvoiceItem item2 in list3)
@@ -1237,7 +1247,7 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 				Drug valueOrDefault5 = drugs.GetValueOrDefault(item2.DrugId);
 				Batch valueOrDefault6 = batches.GetValueOrDefault(item2.BatchId);
 				decimal quantity = item2.Quantity + item2.FreeQuantity;
-				list.Add(new SalesLineFact(invoice.Id, $"W|{invoice.Id}", invoice.InvoiceAtUtc, invoice.InvoiceNo, party2, valueOrDefault4?.Phone ?? string.Empty, valueOrDefault4?.Gstin ?? string.Empty, valueOrDefault5?.Name ?? "Unknown", BrandOf(valueOrDefault5), ManufacturerOf(valueOrDefault5), valueOrDefault6?.BatchNo ?? string.Empty, FormatExpiry(valueOrDefault6?.ExpiryDate), quantity, item2.UnitPrice, item2.TaxableAmount, item2.CgstAmount + item2.SgstAmount + item2.IgstAmount, item2.LineTotal, branchCode));
+				list.Add(new SalesLineFact(invoice.Id, $"W|{invoice.Id}", invoice.InvoiceAtUtc, invoice.InvoiceNo, party2, recordedBuyer?.Phone ?? valueOrDefault4?.Phone ?? string.Empty, recordedBuyer?.Gstin ?? valueOrDefault4?.Gstin ?? string.Empty, ItemOf(item2.ItemName, valueOrDefault5), BrandOf(valueOrDefault5), ManufacturerOf(valueOrDefault5), BatchOf(item2.ItemName, item2.BatchNo, valueOrDefault6), ExpiryOf(item2.ItemName, item2.BatchExpiry, valueOrDefault6), quantity, item2.UnitPrice, item2.TaxableAmount, item2.CgstAmount + item2.SgstAmount + item2.IgstAmount, item2.LineTotal, BranchOf(invoice.BranchId)));
 			}
 		}
 		return list;
@@ -1364,21 +1374,32 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			rows);
 	}
 
-	private async Task<ReportTable> SaleBookAsync(DateOnly from, DateOnly to, bool groupByMonth, CancellationToken token)
+	// Every invoice line in the selected period, oldest first; a row opens its invoice. Daily and monthly differ only in title:
+	// the period is the report's From and To dates.
+	private async Task<ReportTable> SaleBookAsync(DateOnly from, DateOnly to, ReportBranchScope branchScope, bool monthly, CancellationToken token)
 	{
-		IReadOnlyList<SaleBookRow> book = await salesAnalysis.GetSaleBookAsync(from, to, groupByMonth, token);
-		IReadOnlyList<string>[] rows = book.Select(row => (IReadOnlyList<string>)new[]
+		List<SalesLineFact> lines = (await LoadSalesLineFactsAsync(from, to, branchScope, token))
+			.OrderBy(item => item.AtUtc)
+			.ThenBy(item => item.InvoiceNo, StringComparer.Ordinal)
+			.ToList();
+		IReadOnlyList<string>[] rows = lines.Select(item => (IReadOnlyList<string>)new[]
 		{
-			row.PeriodKey,
-			row.InvoiceCount.ToString("0", CultureInfo.InvariantCulture),
-			Format(row.Taxable),
-			Format(row.Tax),
-			Format(row.GrossSales)
+			item.AtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy HH:mm", CultureInfo.InvariantCulture),
+			item.InvoiceNo,
+			item.Party,
+			item.Item,
+			item.BatchNo,
+			item.Expiry,
+			item.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
+			Format(item.UnitPrice),
+			Format(item.LineTotal),
+			item.BranchCode
 		}).ToArray();
 		return new ReportTable(
-			groupByMonth ? "Sale Book (monthly)" : "Sale Book (daily)",
-			new[] { "Period", "Invoices", "Taxable", "Tax", "Gross sales" },
-			rows);
+			monthly ? "Sale Book (monthly)" : "Sale Book (daily)",
+			new[] { "Date & Time", "Invoice No", "Patient / Customer", "Item Name", "B.No", "Expiry (MM/YY)", "Qty", "Rate", "Total Amount", "Branch" },
+			rows,
+			lines.Select(item => item.RowKey).ToArray());
 	}
 
 	private async Task<ReportTable> PrescriberWiseAsync(DateOnly from, DateOnly to, CancellationToken token)

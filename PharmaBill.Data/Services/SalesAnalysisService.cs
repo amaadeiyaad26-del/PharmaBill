@@ -28,14 +28,6 @@ public sealed record AbcAnalysisRow(
 	decimal CumulativePercent,
 	string Category);
 
-public sealed record SaleBookRow(
-	string PeriodKey,
-	DateOnly PeriodStart,
-	decimal InvoiceCount,
-	decimal Taxable,
-	decimal Tax,
-	decimal GrossSales);
-
 public sealed record BrandSaleRow(
 	string BrandOrCompany,
 	decimal Quantity,
@@ -152,45 +144,6 @@ public sealed class SalesAnalysisService(PharmaBillDbContext context)
 		}
 
 		return normalized;
-	}
-
-	public async Task<IReadOnlyList<SaleBookRow>> GetSaleBookAsync(DateOnly from, DateOnly to, bool groupByMonth, CancellationToken cancellationToken = default)
-	{
-		(DateTime startUtc, DateTime endUtc) = GetUtcBounds(from, to);
-		List<Sale> retail = await context.Sales.AsNoTracking()
-			.Where(s => s.SaleAtUtc >= startUtc && s.SaleAtUtc < endUtc)
-			.ToListAsync(cancellationToken);
-		List<WholesaleInvoice> wholesale = await context.WholesaleInvoices.AsNoTracking()
-			.Where(i => i.Status == "Posted" && i.InvoiceAtUtc >= startUtc && i.InvoiceAtUtc < endUtc)
-			.ToListAsync(cancellationToken);
-
-		var facts = retail.Select(s => new
-		{
-			Local = s.SaleAtUtc.ToBusinessLocal(),
-			Taxable = s.Subtotal,
-			Tax = s.TaxAmount,
-			Total = s.TotalAmount
-		}).Concat(wholesale.Select(i => new
-		{
-			Local = i.InvoiceAtUtc.ToBusinessLocal(),
-			Taxable = i.Subtotal,
-			Tax = i.TaxAmount,
-			Total = i.TotalAmount
-		})).ToList();
-
-		return facts
-			.GroupBy(f => groupByMonth
-				? new DateOnly(f.Local.Year, f.Local.Month, 1)
-				: DateOnly.FromDateTime(f.Local))
-			.OrderBy(g => g.Key)
-			.Select(g => new SaleBookRow(
-				groupByMonth ? g.Key.ToString("MMM yyyy", CultureInfo.InvariantCulture) : g.Key.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
-				g.Key,
-				g.Count(),
-				Round(g.Sum(x => x.Taxable)),
-				Round(g.Sum(x => x.Tax)),
-				Round(g.Sum(x => x.Total))))
-			.ToList();
 	}
 
 	public async Task<IReadOnlyList<BrandSaleRow>> GetBrandWiseSalesAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default)

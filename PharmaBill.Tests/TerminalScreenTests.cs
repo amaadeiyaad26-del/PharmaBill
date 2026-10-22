@@ -436,6 +436,13 @@ internal static class Ui
 
     public static T Single<T>(DependencyObject root) where T : FrameworkElement => Descendants(root).OfType<T>().Single(e => e.IsVisible);
 
+    public static T Single<T>(DependencyObject root, Func<T, bool> match) where T : FrameworkElement
+    {
+        List<T> found = Descendants(root).OfType<T>().Where(e => e.IsVisible && match(e)).ToList();
+        Assert.True(found.Count == 1, $"expected one matching {typeof(T).Name} on screen, found {found.Count}");
+        return found[0];
+    }
+
     /// <summary>What a shopkeeper reads: no parameter names, type names or stack text.</summary>
     public static void AssertPlain(string message)
     {

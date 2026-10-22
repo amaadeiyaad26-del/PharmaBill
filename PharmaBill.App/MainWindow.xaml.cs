@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using System;
 using System.ComponentModel;
 using System.Data;
@@ -750,16 +750,32 @@ public partial class MainWindow : Window
 			};
 			dataGridBoundColumn.SortMemberPath = "[" + e.PropertyName + "]";
 		}
-		if (e.PropertyName == "Invoice" && sender is DataGrid { ItemsSource: DataView { Table: { } table } } dataGrid && table.Columns.Contains("__key"))
+		// The invoice number links to the Invoice details popup in every report whose rows carry an invoice key.
+		if (e.PropertyName is "Invoice" or "Invoice No" && sender is DataGrid { ItemsSource: DataView { Table: { } table } } && table.Columns.Contains("__key"))
 		{
 			e.Column = new DataGridTemplateColumn
 			{
-				Header = "Invoice",
-				SortMemberPath = "Invoice",
-				CellTemplate = (DataTemplate)dataGrid.FindResource("InvoiceLinkTemplate")
+				Header = e.PropertyName,
+				SortMemberPath = "[" + e.PropertyName + "]",
+				CellTemplate = InvoiceLinkTemplate(e.PropertyName)
 			};
 		}
 	}
+
+	private static DataTemplate InvoiceLinkTemplate(string column) => (DataTemplate)System.Windows.Markup.XamlReader.Parse($$$"""
+		<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+		  <Button Cursor="Hand" Background="#00FFFFFF" BorderThickness="0" Padding="6,2" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Left"
+		          ToolTip="Open full invoice details" AutomationProperties.Name="Open invoice"
+		          Command="{Binding DataContext.OpenInvoiceCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}"
+		          Content="{Binding Path=[{{{column}}}]}">
+		    <Button.Template>
+		      <ControlTemplate TargetType="Button">
+		        <TextBlock Text="{TemplateBinding Content}" TextDecorations="Underline" Foreground="{TemplateBinding Foreground}" FontWeight="SemiBold" />
+		      </ControlTemplate>
+		    </Button.Template>
+		  </Button>
+		</DataTemplate>
+		""");
 
 	private void OpenRecentBills_Click(object sender, RoutedEventArgs e)
 	{
