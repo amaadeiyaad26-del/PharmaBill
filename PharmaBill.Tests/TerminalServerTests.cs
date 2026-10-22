@@ -31,6 +31,16 @@ public sealed class TerminalServerTests : IAsyncLifetime
     private TerminalPairing Pairing { get; set; } = null!;
     private Guid _paracetamolDrug, _paracetamolBatch, _alprazolamDrug, _alprazolamBatch;
 
+    // Also the server behind TerminalScreenTests, which drive the real counter windows against it.
+    internal TerminalServer Server => _server;
+    internal TerminalPairing ServerPairing => Pairing;
+    internal TerminalDeviceStore Devices => _devices;
+    internal string Root => _root;
+    internal Guid ParacetamolBatch => _paracetamolBatch;
+    internal Guid AlprazolamBatch => _alprazolamBatch;
+    internal Task<decimal> StockOnHandAsync(Guid batchId) => OnHandAsync(batchId);
+    internal Task<T> QueryAsync<T>(Func<PharmaBillDbContext, Task<T>> query) => CountAsync(query);
+
     public async Task InitializeAsync()
     {
         var storage = new DatabaseStorageOptions(Path.Combine(_root, "data-root"));
@@ -615,7 +625,7 @@ public sealed class TerminalServerTests : IAsyncLifetime
         string password = Convert.ToHexString(new DatabaseEncryptionKeyProvider(storage.KeyPath).GetOrCreateKey());
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
         return new PharmaBillDbContext(new DbContextOptionsBuilder<PharmaBillDbContext>()
-            .UseSqlite(new SqliteConnectionStringBuilder { DataSource = storage.DatabasePath, Password = password, Pooling = false, DefaultTimeout = 60 }.ToString())
+            .UseSqlite(new SqliteConnectionStringBuilder { DataSource = storage.DatabasePath, Password = password, DefaultTimeout = 60 }.ToString())
             .AddInterceptors(new SaveChangesAuditInterceptor(deviceId)).Options, deviceId);
     }
 

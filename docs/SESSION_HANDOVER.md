@@ -71,8 +71,15 @@ Read this first. It replaces the 21 Oct handover and is enough to carry on with 
 
 **What has been verified:**
 - the whole flow against a real HTTPS server in tests, including a relaying machine in the middle;
-- the counter window in a real window: sign in, bill, server lost mid-save, confirm, return/void;
+- **through the real windows** (`TerminalScreenTests`, typed into and pressed, against a real server on loopback):
+  - pairing: the code from the Devices panel's "Add a billing counter", typed into the Welcome window (wrong code refused, right code pairs, the panel lists the counter);
+  - sign-in with the PIN typed into the PIN box (wrong PIN refused, right PIN signs in, box cleared, sign out);
+  - a Schedule H1 bill without a prescription, billed only after the admin PIN is typed into the override box;
+  - return and void from the Recent bills tab (admin PIN box for the void; a cashier's return refused).
+  - Before 22 Oct the PIN boxes never passed what was typed (the `PasswordBoxBinding` fault), so none of this worked for a person. Putting that fault back makes these tests fail.
 - discovery on this PC's real Wi-Fi adapter (192.168.1.20): advertised and found, with the fingerprint matching.
+
+**Still not driven through the UI:** "Find the server" (mDNS; needs the real network), a save whose reply is lost then "Confirm with server" (needs the server to vanish mid-save; covered at client level), attaching a prescription file (opens a file dialog), "Stop using this PC as a counter" (message box), printing to a real printer.
 
 **Will catch people:** the server PC's network must be set to **Private** in Windows. The firewall rule for 5056 is private/domain only, by design, so on a "Public" network counters cannot connect. The Devices panel does not warn about this yet.
 

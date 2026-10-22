@@ -86,6 +86,7 @@ public sealed class FloatingFieldTests
                 TestAppResources.AddAppLevelBrushes(Application.Current.Resources);
 
                 var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
+                BindingSafetyTests.Retire(window);
                 var template = (DataTemplate)window.Resources[new DataTemplateKey(typeof(PharmaBill.App.ViewModels.RetailBillingViewModel))]!;
                 var viewModel = new PharmaBill.App.ViewModels.RetailBillingViewModel(null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!)
                 {

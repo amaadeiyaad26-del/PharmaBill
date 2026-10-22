@@ -15,8 +15,13 @@ public sealed class DocumentOutputSettingsStore
 	private readonly string _smtpPasswordPath;
 
 	public DocumentOutputSettingsStore()
+		: this(AppDataPaths.RootDirectory)
 	{
-		string text = Path.Combine(AppDataPaths.RootDirectory);
+	}
+
+	public DocumentOutputSettingsStore(string directory)
+	{
+		string text = directory;
 		Directory.CreateDirectory(text);
 		_settingsPath = Path.Combine(text, "document-output.json");
 		_smtpPasswordPath = Path.Combine(text, "smtp-password.dat");

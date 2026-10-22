@@ -331,7 +331,7 @@ public sealed class DevicesViewModel : ObservableObject
 		PairedServerSummary = paired == null
 			? string.Empty
 			: $"This PC is billing counter \"{paired.TerminalName}\" for {paired.ShopName} on {paired.ServerName} ({paired.ServerHost}), paired {paired.PairedAtUtc.ToBusinessLocal():d MMM yyyy}. "
-				+ $"Server check: {paired.ServerFingerprint[..4]} {paired.ServerFingerprint[4..8]} {paired.ServerFingerprint[8..12]} (the same as on the server's screen). Billing from here arrives with the next update.";
+				+ $"Server check: {paired.ServerFingerprint[..4]} {paired.ServerFingerprint[4..8]} {paired.ServerFingerprint[8..12]} (the same as on the server's screen).";
 		OnPropertyChanged(nameof(IsPairedAsCounter));
 		OnPropertyChanged(nameof(CanPairAsCounter));
 		OnPropertyChanged(nameof(CanToggleServing));

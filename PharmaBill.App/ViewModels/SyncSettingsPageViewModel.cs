@@ -51,10 +51,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	private readonly CloudAutoBackupPreferencesStore _autoBackupPreferences;
 
-	private readonly UsbBackupService _usbBackup;
-
-	private readonly UsbBackupSettingsStore _usbBackupSettings;
-
 	private bool _suppressAutoBackupPreferenceSave;
 
 	private DeviceInfo? _selectedDevice;
@@ -177,20 +173,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	private bool _isCloudTestBusy;
 
-	private RemovableDriveOption? _selectedRemovableDrive;
-
-	private DateTime? _lastUsbBackupAtUtc;
-
-	private string _usbBackupStatus = string.Empty;
-
-	private bool _isUsbBackupBusy;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? refreshRemovableDrivesCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? backupToUsbCommand;
-
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private AsyncRelayCommand? publishBranchSnapshotCommand;
 
@@ -269,8 +251,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	public ObservableCollection<FileTransferItem> FileTransfers { get; } = new ObservableCollection<FileTransferItem>();
 
-	public ObservableCollection<RemovableDriveOption> RemovableDrives { get; } = new ObservableCollection<RemovableDriveOption>();
-
 	public string GoogleDriveSyncFolder => "PharmaBill_Sync/";
 
 	public string GoogleDriveConnectionLabel
@@ -312,20 +292,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 				return $"Up to date • Last synced: {valueOrDefault.ToBusinessLocal():dd-MMM HH:mm}";
 			}
 			return "Connected • Waiting for first sync";
-		}
-	}
-
-	public string LastUsbBackupLabel
-	{
-		get
-		{
-			DateTime? lastUsbBackupAtUtc = LastUsbBackupAtUtc;
-			if (lastUsbBackupAtUtc.HasValue)
-			{
-				DateTime valueOrDefault = lastUsbBackupAtUtc.GetValueOrDefault();
-				return $"Last USB Backup: {valueOrDefault.ToBusinessLocal():dd-MMM-yyyy HH:mm}";
-			}
-			return "Last USB Backup: Never";
 		}
 	}
 
@@ -1509,92 +1475,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public RemovableDriveOption? SelectedRemovableDrive
-	{
-		get
-		{
-			return _selectedRemovableDrive;
-		}
-		set
-		{
-			if (!EqualityComparer<RemovableDriveOption>.Default.Equals(_selectedRemovableDrive, value))
-			{
-				OnPropertyChanging(nameof(SelectedRemovableDrive));
-				_selectedRemovableDrive = value;
-				OnPropertyChanged(nameof(SelectedRemovableDrive));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public DateTime? LastUsbBackupAtUtc
-	{
-		get
-		{
-			return _lastUsbBackupAtUtc;
-		}
-		set
-		{
-			if (!EqualityComparer<DateTime?>.Default.Equals(_lastUsbBackupAtUtc, value))
-			{
-				OnPropertyChanging(nameof(LastUsbBackupAtUtc));
-				_lastUsbBackupAtUtc = value;
-				OnLastUsbBackupAtUtcChanged(value);
-				OnPropertyChanged(nameof(LastUsbBackupAtUtc));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string UsbBackupStatus
-	{
-		get
-		{
-			return _usbBackupStatus;
-		}
-		[MemberNotNull("_usbBackupStatus")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_usbBackupStatus, value))
-			{
-				OnPropertyChanging(nameof(UsbBackupStatus));
-				_usbBackupStatus = value;
-				OnPropertyChanged(nameof(UsbBackupStatus));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public bool IsUsbBackupBusy
-	{
-		get
-		{
-			return _isUsbBackupBusy;
-		}
-		set
-		{
-			if (!EqualityComparer<bool>.Default.Equals(_isUsbBackupBusy, value))
-			{
-				OnPropertyChanging(nameof(IsUsbBackupBusy));
-				_isUsbBackupBusy = value;
-				OnPropertyChanged(nameof(IsUsbBackupBusy));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IRelayCommand RefreshRemovableDrivesCommand => refreshRemovableDrivesCommand ?? (refreshRemovableDrivesCommand = new RelayCommand(RefreshRemovableDrives));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand BackupToUsbCommand => backupToUsbCommand ?? (backupToUsbCommand = new AsyncRelayCommand(BackupToUsbAsync));
-
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand PublishBranchSnapshotCommand => publishBranchSnapshotCommand ?? (publishBranchSnapshotCommand = new AsyncRelayCommand(PublishBranchSnapshotAsync));
@@ -1691,7 +1571,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand<bool> ResolveConflictCommand => resolveConflictCommand ?? (resolveConflictCommand = new AsyncRelayCommand<bool>(ResolveConflictAsync));
 
-	public SyncSettingsPageViewModel(IServiceScopeFactory scopeFactory, DatabaseDeviceId localDevice, CurrentSession session, IFilePickerService filePicker, IConfirmationService confirmation, SyncFolderExchangeService folderSync, CloudSyncService cloudSync, LocalSyncServer localSync, ZeroConfigSyncCoordinator zeroConfig, GoogleDriveSyncService googleDrive, CloudOAuthClientStore oauthClients, BranchNetworkSyncService branchNetwork, CloudAutoBackupPreferencesStore autoBackupPreferences, UsbBackupService usbBackup, UsbBackupSettingsStore usbBackupSettings, DevicesViewModel devices)
+	public SyncSettingsPageViewModel(IServiceScopeFactory scopeFactory, DatabaseDeviceId localDevice, CurrentSession session, IFilePickerService filePicker, IConfirmationService confirmation, SyncFolderExchangeService folderSync, CloudSyncService cloudSync, LocalSyncServer localSync, ZeroConfigSyncCoordinator zeroConfig, GoogleDriveSyncService googleDrive, CloudOAuthClientStore oauthClients, BranchNetworkSyncService branchNetwork, CloudAutoBackupPreferencesStore autoBackupPreferences, DevicesViewModel devices)
 	{
 		DevicesPanel = devices;
 		_scopeFactory = scopeFactory;
@@ -1713,85 +1593,15 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		_oauthClients = oauthClients;
 		_branchNetwork = branchNetwork;
 		_autoBackupPreferences = autoBackupPreferences;
-		_usbBackup = usbBackup;
-		_usbBackupSettings = usbBackupSettings;
-		_usbBackupSettings.SettingsChanged += OnUsbBackupSettingsChanged;
 		ApplyLanStatus(_localSync.Status);
 		RefreshLanStation();
 		ApplyAutoBackupPreferences(_autoBackupPreferences.Load());
-		ApplyUsbBackupSettings(_usbBackupSettings.Load());
-		RefreshRemovableDrives();
 	}
 
 	private void NotifyGoogleDriveCardState()
 	{
 		OnPropertyChanged("ShowGoogleDriveIdleBadge");
 		OnPropertyChanged("GoogleDriveIdleBadge");
-	}
-
-	private void RefreshRemovableDrives()
-	{
-		string previousRoot = SelectedRemovableDrive?.Root;
-		RemovableDrives.Clear();
-		foreach (RemovableDriveOption item in _usbBackup.ListRemovableDrives())
-		{
-			RemovableDrives.Add(item);
-		}
-		SelectedRemovableDrive = RemovableDrives.FirstOrDefault((RemovableDriveOption drive) => string.Equals(drive.Root, previousRoot, StringComparison.OrdinalIgnoreCase)) ?? RemovableDrives.FirstOrDefault();
-		UsbBackupStatus = ((RemovableDrives.Count == 0) ? "No removable USB drives detected. Plug in a drive and click Refresh." : $"{RemovableDrives.Count} removable drive(s) ready.");
-	}
-
-	private async Task BackupToUsbAsync()
-	{
-		if (IsUsbBackupBusy)
-		{
-			return;
-		}
-		if ((object)SelectedRemovableDrive == null)
-		{
-			UsbBackupStatus = "Select a USB drive first (or click Refresh Drives).";
-			return;
-		}
-		IsUsbBackupBusy = true;
-		try
-		{
-			UsbBackupStatus = "Backing up to " + SelectedRemovableDrive.Root + "…";
-			string text = await Task.Run(async () => await _usbBackup.BackupToUsbAsync(SelectedRemovableDrive.Root));
-			ApplyUsbBackupSettings(_usbBackupSettings.Load());
-			UsbBackupStatus = "Encrypted backup saved: " + text;
-			PackageStatus = UsbBackupStatus;
-			ErrorMessage = string.Empty;
-			_confirmation.Notify("USB backup complete", Path.GetFileName(text));
-		}
-		catch (Exception ex)
-		{
-			UsbBackupStatus = PharmaBill.Core.UserMessage.Of(ex);
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
-			_confirmation.NotifyError("USB backup failed", PharmaBill.Core.UserMessage.Of(ex));
-		}
-		finally
-		{
-			IsUsbBackupBusy = false;
-		}
-	}
-
-	private void OnUsbBackupSettingsChanged(UsbBackupSettings settings)
-	{
-		Dispatcher dispatcher = Application.Current?.Dispatcher;
-		if (dispatcher == null || dispatcher.CheckAccess())
-		{
-			ApplyUsbBackupSettings(settings);
-			return;
-		}
-		dispatcher.BeginInvoke((Action)(() =>
-		{
-			ApplyUsbBackupSettings(settings);
-		}));
-	}
-
-	private void ApplyUsbBackupSettings(UsbBackupSettings settings)
-	{
-		LastUsbBackupAtUtc = settings.LastUsbBackupUtc;
 	}
 
 	private async Task PublishBranchSnapshotAsync()
@@ -1845,8 +1655,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 			ApplyCloudSettings(await _cloudSync.GetSettingsAsync(cancellationToken));
 			ApplyGoogleDriveSettings(await _googleDrive.GetSettingsAsync(cancellationToken));
 			ApplyAutoBackupPreferences(_autoBackupPreferences.Load());
-			ApplyUsbBackupSettings(_usbBackupSettings.Load());
-			RefreshRemovableDrives();
 			RefreshLanStation();
 			ErrorMessage = string.Empty;
 		}
@@ -2716,11 +2524,5 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	private void OnIsGoogleDriveUploadFailedChanged(bool value)
 	{
 		NotifyGoogleDriveCardState();
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	private void OnLastUsbBackupAtUtcChanged(DateTime? value)
-	{
-		OnPropertyChanged("LastUsbBackupLabel");
 	}
 }

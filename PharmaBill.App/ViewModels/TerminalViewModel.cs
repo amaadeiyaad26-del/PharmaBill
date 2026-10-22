@@ -167,6 +167,7 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 		_client = new TerminalClient(settings);
 		_store = store;
 		_printSettings = printSettings;
+		PrintBill = bill => InvoicePrintService.PrintReceivedAsync(bill, _printSettings.Load());
 		_shopName = settings.ShopName;
 		DocumentOutputSettings print = printSettings.Load();
 		_selectedTemplate = print.DefaultInvoiceTemplate == InvoiceTemplateType.StandardA4 ? InvoiceTemplateType.StandardA4 : InvoiceTemplateType.Thermal80mm;
@@ -330,6 +331,9 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 	public IReadOnlyList<string> Printers { get; } = InstalledPrinters();
 
 	public string? SelectedPrinter { get => _selectedPrinter; set => SetProperty(ref _selectedPrinter, value); }
+
+	/// <summary>Sends a saved bill to this counter's printer. Replaceable so a test can see what would be printed.</summary>
+	public Func<RetailBillPrintData, Task> PrintBill { get; set; }
 
 	public IAsyncRelayCommand SignInCommand { get; }
 	public IAsyncRelayCommand SignOutCommand { get; }
@@ -542,7 +546,7 @@ public sealed class TerminalViewModel : ObservableObject, IDisposable
 		try
 		{
 			RetailBillPrintData bill = await _client.PrintDataAsync(saleId);
-			await InvoicePrintService.PrintReceivedAsync(bill, _printSettings.Load());
+			await PrintBill(bill);
 		}
 		catch (Exception exception)
 		{

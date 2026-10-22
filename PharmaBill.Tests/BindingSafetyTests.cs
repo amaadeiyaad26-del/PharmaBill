@@ -146,6 +146,8 @@ public sealed class BindingSafetyTests
                         host.UpdateLayout();
                     }
                 }
+
+                Retire(window);
             }
             catch (Exception exception)
             {
@@ -159,6 +161,17 @@ public sealed class BindingSafetyTests
                         !m.Contains("RelativeSource", StringComparison.Ordinal))
             .ToList();
         Assert.True(pathErrors.Count == 0, string.Join(Environment.NewLine, pathErrors.Take(10)));
+    }
+
+    // The window, built without its services, is only a holder for the page templates. Its constructor starts an idle
+    // timer and a process-wide input hook; left running on the shared UI-test thread they fire (and throw) during later
+    // UI tests that pump messages.
+    internal static void Retire(PharmaBill.App.MainWindow window)
+    {
+        const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+        ((System.Windows.Threading.DispatcherTimer)typeof(PharmaBill.App.MainWindow).GetField("_idleTimer", Private)!.GetValue(window)!).Stop();
+        var hook = (System.Windows.Input.PreProcessInputEventHandler)Delegate.CreateDelegate(typeof(System.Windows.Input.PreProcessInputEventHandler), window, "OnPreProcessInput");
+        System.Windows.Input.InputManager.Current.PreProcessInput -= hook;
     }
 
     internal sealed class NullScannerService : IScannerService

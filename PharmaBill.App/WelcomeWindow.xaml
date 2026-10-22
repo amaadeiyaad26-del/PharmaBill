@@ -1,7 +1,7 @@
 <Window x:Class="PharmaBill.App.WelcomeWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Welcome to Pharma Remit" Icon="/Assets/Icons/app.ico" Width="680" SizeToContent="Height" ResizeMode="NoResize"
+        Title="Welcome to Pharma Remit" Icon="pack://application:,,,/PharmaBill.App;component/Assets/Icons/app.ico" Width="680" SizeToContent="Height" ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource ContentBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}">
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="Visible" />
@@ -35,15 +35,15 @@
       <WrapPanel>
         <StackPanel Margin="0,0,10,4">
           <TextBlock Text="Server address" Foreground="{DynamicResource SecondaryTextBrush}" />
-          <TextBox Width="180" Padding="6" Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBox Width="180" Padding="6" Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Server address" />
         </StackPanel>
         <StackPanel Margin="0,0,10,4">
           <TextBlock Text="Code from the main PC's screen" Foreground="{DynamicResource SecondaryTextBrush}" />
-          <TextBox Width="150" Padding="6" FontFamily="Consolas" FontSize="15" CharacterCasing="Upper" MaxLength="8" Text="{Binding CodeInput, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBox Width="150" Padding="6" FontFamily="Consolas" FontSize="15" CharacterCasing="Upper" MaxLength="8" Text="{Binding CodeInput, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pairing code" />
         </StackPanel>
         <StackPanel Margin="0,0,10,4">
           <TextBlock Text="Name for this counter" Foreground="{DynamicResource SecondaryTextBrush}" />
-          <TextBox Width="170" Padding="6" Text="{Binding TerminalName, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBox Width="170" Padding="6" Text="{Binding TerminalName, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Counter name" />
         </StackPanel>
       </WrapPanel>
       <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,6,0,0" Text="{Binding ErrorMessage}" />
