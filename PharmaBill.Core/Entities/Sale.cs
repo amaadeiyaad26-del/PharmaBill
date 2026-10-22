@@ -45,4 +45,8 @@ public sealed class Sale : EntityBase
 
 	/// <summary>JSON <see cref="BuyerSnapshot"/> (patient and prescriber) captured at save.</summary>
 	public string? BuyerSnapshotJson { get; set; }
+
+	/// <summary>Set when a billing terminal saved the bill: the terminal's ID for that save request, so a retry after a
+	/// lost reply returns this bill instead of billing twice. Unique when present.</summary>
+	public Guid? ClientRequestId { get; set; }
 }

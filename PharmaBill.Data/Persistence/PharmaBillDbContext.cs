@@ -174,6 +174,7 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<Branch>().HasIndex((Branch item) => item.Code).IsUnique();
 		modelBuilder.Entity<Sale>().HasIndex((Sale item) => item.InvoiceNo).IsUnique();
 		modelBuilder.Entity<Sale>().HasIndex((Sale item) => item.BranchId);
+		modelBuilder.Entity<Sale>().HasIndex((Sale item) => item.ClientRequestId).IsUnique().HasFilter("\"ClientRequestId\" IS NOT NULL");
 		modelBuilder.Entity<PurchaseInvoice>().HasIndex((PurchaseInvoice item) => item.BranchId);
 		modelBuilder.Entity<Batch>().HasIndex((Batch item) => item.BranchId);
 		modelBuilder.Entity<AuditLog>().HasIndex((AuditLog item) => item.BranchId);

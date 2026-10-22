@@ -1914,6 +1914,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<string>("BuyerSnapshotJson")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ClientRequestId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -1986,6 +1989,10 @@ namespace PharmaBill.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BranchId");
+
+                    b.HasIndex("ClientRequestId")
+                        .IsUnique()
+                        .HasFilter("\"ClientRequestId\" IS NOT NULL");
 
                     b.HasIndex("InvoiceNo")
                         .IsUnique();

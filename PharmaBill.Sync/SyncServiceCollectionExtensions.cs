@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.Core.Services.Auth;
+using PharmaBill.Data.Persistence;
+using PharmaBill.Sync.Terminals;
 
 namespace PharmaBill.Sync;
 
@@ -36,6 +39,14 @@ public static class SyncServiceCollectionExtensions
 		services.AddSingleton<BranchNetworkSyncService>();
 		services.AddSingleton<ZeroConfigSyncCoordinator>();
 		services.AddHostedService<LocalSyncHostedService>();
+		// Billing terminals: kept with this PC (not the data folder), like licence state. Off until the owner enables it.
+		string terminals = Path.Combine(AppDataPaths.LocalRootDirectory, "terminals");
+		services.AddSingleton(new TerminalDeviceStore(terminals));
+		services.AddSingleton(new TerminalServerCertificate(terminals));
+		services.AddSingleton(new TerminalServerSettingsStore(terminals));
+		services.AddSingleton<TerminalSessions>();
+		services.AddSingleton<TerminalServer>();
+		services.AddHostedService<TerminalServerHostedService>();
 		return services;
 	}
 }

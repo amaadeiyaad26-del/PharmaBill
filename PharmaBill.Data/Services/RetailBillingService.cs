@@ -226,6 +226,13 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		{
 			throw new InvalidOperationException("Billing is unavailable in read-only mode.");
 		}
+		// A terminal retrying a save whose reply was lost gets the bill it already made, before anything is re-checked:
+		// the stock it took is no longer on hand, so re-validating would wrongly refuse it.
+		RetailSaleResult? retried = await FindRetriedSaleAsync(input, cancellationToken);
+		if (retried != null)
+		{
+			return retried;
+		}
 		ArgumentException.ThrowIfNullOrWhiteSpace(input.PatientName, "input.PatientName");
 		string phone = NormalizePhone(input.PatientPhone);
 		if (phone.Count(char.IsDigit) < 7)
@@ -341,6 +348,12 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			RetailSaleResult result;
 			await using (IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken))
 			{
+				// Two retries of one request can arrive together; inside the transaction only one gets past here.
+				RetailSaleResult? retriedInside = await FindRetriedSaleAsync(input, cancellationToken);
+				if (retriedInside != null)
+				{
+					return retriedInside;
+				}
 				// The check above gives an early answer; this one decides. Another bill, a phone sync or an
 				// import may have moved stock since, and only a read inside this transaction is safe from them.
 				Dictionary<Guid, decimal> onHand = await StockOnHand.ByBatchAsync(context, batchIds, retailLocation.Id, cancellationToken);
@@ -437,7 +450,8 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 					MrdNumber = NullIfWhiteSpace(input.MrdNumber),
 					IsLocked = true,
 					BilledByUserId = actingUserId,
-					BranchId = branch.Id
+					BranchId = branch.Id,
+					ClientRequestId = input.ClientRequestId
 				};
 				context.Sales.Add(sale);
 				foreach (PreparedSaleLine prepared in preparedLines)
@@ -556,6 +570,27 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				File.Delete(stagedPendingPath);
 			}
 		}
+	}
+
+	private async Task<RetailSaleResult?> FindRetriedSaleAsync(SaveRetailSaleInput input, CancellationToken cancellationToken)
+	{
+		if (input.ClientRequestId is not Guid requestId)
+		{
+			return null;
+		}
+		Sale? existing = await unitOfWork.Context.Sales.AsNoTracking().SingleOrDefaultAsync((Sale sale) => sale.ClientRequestId == requestId, cancellationToken);
+		if (existing == null)
+		{
+			return null;
+		}
+		int lines = await unitOfWork.Context.SaleItems.CountAsync((SaleItem item) => item.SaleId == existing.Id, cancellationToken);
+		if (lines != input.Items.Count)
+		{
+			throw new InvalidOperationException($"This save request was already used for bill {existing.InvoiceNo}, which has different items. Nothing was saved.");
+		}
+		decimal tendered = input.Payments.Where((RetailPaymentInput payment) => payment.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase)).Sum((RetailPaymentInput payment) => (!(payment.TenderedAmount > 0m)) ? payment.AppliedAmount : payment.TenderedAmount);
+		decimal applied = input.Payments.Where((RetailPaymentInput payment) => payment.Method.Equals("Cash", StringComparison.OrdinalIgnoreCase)).Sum((RetailPaymentInput payment) => payment.AppliedAmount);
+		return new RetailSaleResult(existing, existing.Subtotal, existing.TaxAmount, existing.DiscountAmount, existing.TotalAmount, existing.PaidAmount, RetailTaxCalculator.RoundMoney(Math.Max(0m, tendered - applied)), existing.InvoiceNo);
 	}
 
 	public async Task<IReadOnlyList<RecentRetailBill>> SearchRecentBillsAsync(string? query, CancellationToken cancellationToken = default(CancellationToken))

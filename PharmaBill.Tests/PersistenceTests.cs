@@ -98,7 +98,7 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_RegisterRecordedBy",
+            "_SaleClientRequestId",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
         Assert.Equal(51, database.Context.Model.GetEntityTypes().Count());
 

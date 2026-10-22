@@ -172,6 +172,7 @@ public partial class App : Application
 				services.AddSingleton<RetailBillPdfService>();
 				services.AddSingleton<IInvoicePrintService, InvoicePrintService>();
 				services.AddSingleton<DocumentOutputSettingsStore>();
+				services.AddSingleton<PharmaBill.Sync.Terminals.ITerminalPrintBrandingProvider, TerminalPrintBrandingProvider>();
 		services.AddSingleton<ShopIdentityViewModel>();
 				services.AddSingleton<UserManualEmailQueueStore>();
 				services.AddSingleton<IUserManualDialogService, UserManualDialogService>();
