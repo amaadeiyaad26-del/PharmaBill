@@ -2129,7 +2129,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			await scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, mrp);
+			await scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, mrp, _session.User?.Role ?? throw new UnauthorizedAccessException("Sign in first."));
 			StatusMessage = "MRP saved for " + medicineName + " · batch " + batchNo + ".";
 		}
 		catch (Exception ex)

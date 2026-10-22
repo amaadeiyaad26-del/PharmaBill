@@ -361,8 +361,13 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 		await transaction.CommitAsync(cancellationToken);
 	}
 
-	public async Task UpdateBatchMrpAsync(Guid batchId, decimal mrp, CancellationToken cancellationToken = default)
+	public async Task UpdateBatchMrpAsync(Guid batchId, decimal mrp, UserRole role, CancellationToken cancellationToken = default)
 	{
+		// The price ceiling of every later sale: changed only by someone allowed to enter stock, from any screen or terminal.
+		if (!PermissionMatrix.Allows(role, AppPermission.EnterStock))
+		{
+			throw new UnauthorizedAccessException("Your role cannot change a batch MRP. Ask a pharmacist, manager or the owner.");
+		}
 		if (mrp < 0m)
 		{
 			throw new ArgumentOutOfRangeException(nameof(mrp), "MRP cannot be negative.");

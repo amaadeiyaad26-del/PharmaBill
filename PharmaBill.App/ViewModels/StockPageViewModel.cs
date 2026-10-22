@@ -1251,7 +1251,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
-			await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(row.BatchId, row.Mrp));
+			await RecordLockUi.RunAsync(scope.ServiceProvider, () => scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(row.BatchId, row.Mrp, currentSession.User?.Role ?? throw new UnauthorizedAccessException("Sign in first.")));
 			for (int index = 0; index < Items.Count; index++)
 			{
 				StockDrugRow drug = Items[index];

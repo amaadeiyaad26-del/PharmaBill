@@ -3230,7 +3230,7 @@ public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, Cu
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
-			await scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, mrp);
+			await scope.ServiceProvider.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, mrp, currentSession.User?.Role ?? throw new UnauthorizedAccessException("Sign in first."));
 			StatusMessage = "MRP saved for " + medicineName + " · batch " + batchNo + ".";
 		}
 		catch (Exception ex)

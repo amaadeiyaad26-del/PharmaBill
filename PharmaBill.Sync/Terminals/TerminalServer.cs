@@ -271,9 +271,9 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		user.MapGet("/sales/{id:guid}/print", (HttpContext http, Guid id, CancellationToken token) => WithScope(http, AppPermission.Print, (scope, _) => scope.GetRequiredService<RetailBillingService>().GetPrintableBillAsync(id, token)));
 		user.MapPut("/products/{drugId:guid}/tax", (HttpContext http, Guid drugId, TerminalProductTaxRequest request, CancellationToken token) => WithScope(http, AppPermission.CreateBill, (scope, session) =>
 			scope.GetRequiredService<ProductTaxService>().SetAsync(new ProductTaxUpdate(drugId, request.HsnCode, request.IsNilRated ? null : request.GstRate, request.IsNilRated), session.UserId, "Terminal bill (" + Device(http).Name + ")", token)));
-		user.MapPut("/batches/{batchId:guid}/mrp", (HttpContext http, Guid batchId, TerminalBatchMrpRequest request, CancellationToken token) => WithScope(http, AppPermission.EnterStock, async (scope, _) =>
+		user.MapPut("/batches/{batchId:guid}/mrp", (HttpContext http, Guid batchId, TerminalBatchMrpRequest request, CancellationToken token) => WithScope(http, AppPermission.EnterStock, async (scope, session) =>
 		{
-			await scope.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, request.Mrp, token);
+			await scope.GetRequiredService<InventoryService>().UpdateBatchMrpAsync(batchId, request.Mrp, session.Role, token);
 			return new { batchId, request.Mrp };
 		}));
 	}

@@ -90,7 +90,7 @@ public sealed class EndToEndHealthCheckTests
 		await Assert.ThrowsAsync<InvalidOperationException>(() =>
 			retail.SaveSaleAsync(input, catalog.Admin.Id, UserRole.Owner));
 
-		await inventory.UpdateBatchMrpAsync(catalog.ZeroMrpBatchA.Id, 15m);
+		await inventory.UpdateBatchMrpAsync(catalog.ZeroMrpBatchA.Id, 15m, UserRole.Owner);
 		var saved = await retail.SaveSaleAsync(input, catalog.Admin.Id, UserRole.Owner);
 		Assert.True(saved.TotalAmount > 0m);
 	}
@@ -324,7 +324,7 @@ public sealed class EndToEndHealthCheckTests
 		var catalog = await E2EHealthSeed.SeedAsync(database.Context);
 		var inventory = new InventoryService(database.Context, new UnitOfWork(database.Context), new HealthEntitlements());
 
-		await inventory.UpdateBatchMrpAsync(catalog.ZeroMrpBatchB.Id, 22m);
+		await inventory.UpdateBatchMrpAsync(catalog.ZeroMrpBatchB.Id, 22m, UserRole.Owner);
 		var batch = await database.Context.Batches.SingleAsync(b => b.Id == catalog.ZeroMrpBatchB.Id);
 		Assert.Equal(22m, batch.Mrp);
 
