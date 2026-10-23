@@ -1139,7 +1139,8 @@ public partial class MainWindow : Window
 
 	private void PurchaseNewItemExpiry_LostFocus(object sender, RoutedEventArgs e)
 	{
-		if (_viewModel.CurrentPage is PurchasePageViewModel purchase)
+		// The page this box belongs to.
+		if ((sender as FrameworkElement)?.DataContext is PurchasePageViewModel purchase)
 		{
 			purchase.NormalizeNewItemExpiry();
 		}

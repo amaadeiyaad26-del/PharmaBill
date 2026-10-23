@@ -1078,6 +1078,40 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 	}
 
+	/// <summary>
+	/// A medicine's HSN code and GST rate live on its master record, which billing reads. A medicine with neither on record
+	/// takes them from this row (both required); a different HSN typed here corrects the record. The row's GST % is the
+	/// supplier invoice's rate for this line, so it changes the master only when the master has none. Audited.
+	/// </summary>
+	private async Task<Drug> SaveTaxToMasterAsync(Drug drug)
+	{
+		string typedHsn = NewItemHsn.Trim();
+		bool complete = !string.IsNullOrWhiteSpace(drug.HsnCode) && (drug.IsNilRated || drug.GstRate is > 0m);
+		ProductTaxUpdate update;
+		if (!complete)
+		{
+			ProductTaxDetails tax = RequireNewProductTax(drug.Name);
+			update = new ProductTaxUpdate(drug.Id, tax.HsnCode, tax.GstRate, tax.IsNilRated);
+		}
+		else if (typedHsn.Length > 0 && !string.Equals(typedHsn, drug.HsnCode?.Trim(), StringComparison.OrdinalIgnoreCase))
+		{
+			update = new ProductTaxUpdate(drug.Id, typedHsn, drug.IsNilRated ? null : drug.GstRate, drug.IsNilRated);
+		}
+		else
+		{
+			return drug;
+		}
+
+		using IServiceScope scope = scopeFactory.CreateScope();
+		ProductTaxDetails saved = await new ProductTaxService(scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>())
+			.SetAsync(update, currentSession.User?.Id, "Purchase / inward entry");
+		drug.HsnCode = saved.HsnCode;
+		drug.GstRate = saved.GstRate;
+		drug.IsNilRated = saved.IsNilRated;
+		NewItemHsn = saved.HsnCode;
+		return drug;
+	}
+
 	/// <summary>HSN and GST for a medicine being created here. Both required; throws with a message naming the medicine.</summary>
 	private ProductTaxDetails RequireNewProductTax(string name)
 	{
@@ -1986,6 +2020,15 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		catch (Exception ex)
 		{
 			NewItemError = PharmaBill.Core.UserMessage.Of(ex);
+			// A Drug Bank medicine is added to the master with its HSN and GST: point at the box that is missing.
+			if (NewItemError.Contains("HSN", StringComparison.Ordinal))
+			{
+				RequestFocus("NewItemHsn");
+			}
+			else if (NewItemError.Contains("GST", StringComparison.Ordinal))
+			{
+				RequestFocus("NewItemGst");
+			}
 			return;
 		}
 
@@ -2034,6 +2077,16 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		{
 			NewItemError = "Free quantity, GST % and trade discount % must be valid numbers";
 			RequestFocus("NewItemGst");
+			return;
+		}
+		try
+		{
+			drug = await SaveTaxToMasterAsync(drug);
+		}
+		catch (Exception ex)
+		{
+			NewItemError = PharmaBill.Core.UserMessage.Of(ex);
+			RequestFocus("NewItemHsn");
 			return;
 		}
 

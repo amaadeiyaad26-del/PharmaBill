@@ -4036,6 +4036,7 @@
                       <ColumnDefinition Width="90" />
                       <ColumnDefinition Width="65" />
                       <ColumnDefinition Width="65" />
+                      <ColumnDefinition Width="90" />
                       <ColumnDefinition Width="70" />
                       <ColumnDefinition Width="105" />
                     </Grid.ColumnDefinitions>
@@ -4127,6 +4128,17 @@
                       </TextBox>
                     </StackPanel>
                     <StackPanel Grid.Column="9" Margin="0,0,6,0">
+                      <TextBlock Style="{StaticResource EntryCaption}" Text="HSN Code" TextTrimming="None"
+                                 ToolTip="From the supplier's invoice: 4, 6 or 8 digits. Required when the medicine has no HSN on record; saved to the medicine." />
+                      <TextBox x:Name="PurchaseNewItemHsn" Style="{StaticResource EntryBox}" Tag="HSN" Text="{Binding Path=NewItemHsn, UpdateSourceTrigger=PropertyChanged}"
+                               AutomationProperties.Name="HSN Code"
+                               ToolTip="From the supplier's invoice: 4, 6 or 8 digits. Required when the medicine has no HSN on record; saved to the medicine.">
+                        <UIElement.InputBindings>
+                          <KeyBinding Key="Enter" Command="{Binding ConfirmAddItemCommand}" />
+                        </UIElement.InputBindings>
+                      </TextBox>
+                    </StackPanel>
+                    <StackPanel Grid.Column="10" Margin="0,0,6,0">
                       <TextBlock Style="{StaticResource EntryCaption}" Text="Rack" />
                       <TextBox x:Name="PurchaseNewItemRack" Style="{StaticResource EntryBox}" Tag="Rack" Text="{Binding Path=NewItemRack, UpdateSourceTrigger=PropertyChanged}" ToolTip="Rack / location">
                         <UIElement.InputBindings>
@@ -4134,7 +4146,7 @@
                         </UIElement.InputBindings>
                       </TextBox>
                     </StackPanel>
-                    <Button Grid.Column="10" Content="Add to bill" Height="30" VerticalAlignment="Bottom" Padding="10,0" Background="{StaticResource BrandTeal}" Foreground="White" FontWeight="SemiBold" Cursor="Hand" Command="{Binding ConfirmAddItemCommand}" ToolTip="Add this medicine, batch, quantity, and purchase rate as a row on the purchase bill. Enter on Quantity does the same.">
+                    <Button Grid.Column="11" Content="Add to bill" Height="32" VerticalAlignment="Bottom" Padding="10,0" Background="{StaticResource BrandTeal}" Foreground="White" FontWeight="SemiBold" Cursor="Hand" Command="{Binding ConfirmAddItemCommand}" ToolTip="Add this medicine, batch, quantity, and purchase rate as a row on the purchase bill. Enter on Quantity does the same.">
                       <Button.Template>
                         <ControlTemplate TargetType="{x:Type Button}">
                           <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
@@ -4155,33 +4167,31 @@
                       </Button.Template>
                     </Button>
                   </Grid>
-                  <WrapPanel VerticalAlignment="Center">
-                    <controls:FloatingField Label="Pack size (Drug Bank)" Width="230" Margin="0,0,8,0" HelperText="From catalogue — editable">
-                      <TextBox x:Name="PurchaseNewItemPack" Style="{StaticResource EntryBox}" Height="32" Padding="4,2" Text="{Binding Path=NewItemPackLabel, UpdateSourceTrigger=PropertyChanged}"
-                               ToolTip="Packaging from Drug Bank (e.g. 10 Tablets / Strip, 100ml Bottle)" />
-                    </controls:FloatingField>
-                    <Button Content="Search" MinWidth="70" Height="32" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" Command="{Binding OpenMedicineSuggestionsCommand}" ToolTip="Open medicine suggestions. F4 jumps to the medicine box. Enter selects the highlighted medicine and moves to Quantity." />
-                    <Button Content="+ New Medicine" MinWidth="120" Height="32" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
-                    <Button Content="Cancel" MinWidth="70" Height="32" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" Command="{Binding CancelAddItemCommand}" />
-                    <Button Height="30" Margin="0,0,8,0" HorizontalContentAlignment="Left" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this search text as a new medicine and add it to this purchase">
+                  <!-- Second row: same caption-over-box style as the row above, aligned on the boxes, so nothing is clipped. -->
+                  <WrapPanel Margin="0,2,0,0">
+                    <StackPanel Width="230" Margin="0,0,8,4" VerticalAlignment="Bottom">
+                      <TextBlock Style="{StaticResource EntryCaption}" Text="Pack size (Drug Bank, editable)" TextTrimming="None" />
+                      <TextBox x:Name="PurchaseNewItemPack" Style="{StaticResource EntryBox}" Tag="e.g. 10 Tablets / Strip" Text="{Binding Path=NewItemPackLabel, UpdateSourceTrigger=PropertyChanged}"
+                               AutomationProperties.Name="Pack size" ToolTip="Packaging from Drug Bank (e.g. 10 Tablets / Strip, 100ml Bottle)" />
+                    </StackPanel>
+                    <StackPanel Width="150" Margin="0,0,8,4" VerticalAlignment="Bottom"
+                                Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      <TextBlock Style="{StaticResource EntryCaption}" Text="Formulation / form" TextTrimming="None" />
+                      <TextBox x:Name="PurchaseNewItemFormulation" Style="{StaticResource EntryBox}" Tag="Tab, Syr, Inj, Cap" Text="{Binding Path=NewItemFormulation, UpdateSourceTrigger=PropertyChanged}"
+                               AutomationProperties.Name="Formulation" ToolTip="e.g. Tab, Syr, Inj, Cap" />
+                    </StackPanel>
+                    <CheckBox Content="Nil-rated (0% GST)" VerticalAlignment="Bottom" Margin="0,0,12,11" IsChecked="{Binding NewItemNilRated}"
+                              AutomationProperties.Name="Nil-rated"
+                              ToolTip="Tick only if this medicine is genuinely nil-rated. A blank GST % is never treated as 0%." />
+                    <Button Content="Search" MinWidth="70" Height="32" Margin="0,0,8,4" VerticalAlignment="Bottom" Style="{StaticResource FrostedMintPillButton}" Command="{Binding OpenMedicineSuggestionsCommand}" ToolTip="Open medicine suggestions. F4 jumps to the medicine box. Enter selects the highlighted medicine and moves to Quantity." />
+                    <Button Content="+ New Medicine" MinWidth="120" Height="32" Margin="0,0,8,4" VerticalAlignment="Bottom" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
+                    <Button Content="Cancel" MinWidth="70" Height="32" Margin="0,0,8,4" VerticalAlignment="Bottom" Style="{StaticResource SecondaryButton}" Command="{Binding CancelAddItemCommand}" />
+                    <Button MinHeight="32" Margin="0,0,8,4" VerticalAlignment="Bottom" HorizontalContentAlignment="Left" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" Visibility="{Binding ShowCreateUnlisted, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Save this search text as a new medicine and add it to this purchase">
                       <TextBlock Text="{Binding CreateUnlistedCaption}" TextWrapping="Wrap" />
                     </Button>
-                    <Button Height="30" Margin="0,0,8,0" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Button MinHeight="32" Margin="0,0,8,4" VerticalAlignment="Bottom" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}">
                       <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
                     </Button>
-                    <controls:FloatingField Label="Formulation / form" Width="140" Margin="0,2,8,2"
-                                            Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
-                      <TextBox x:Name="PurchaseNewItemFormulation" Padding="4,2" Text="{Binding Path=NewItemFormulation, UpdateSourceTrigger=PropertyChanged}"
-                               ToolTip="e.g. Tab, Syr, Inj, Cap" />
-                    </controls:FloatingField>
-                    <controls:FloatingField Label="HSN code" Width="110" Margin="0,2,8,2" IsRequired="True"
-                                            Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}">
-                      <TextBox x:Name="PurchaseNewItemHsn" Padding="4,2" Text="{Binding Path=NewItemHsn, UpdateSourceTrigger=PropertyChanged}"
-                               ToolTip="Required for a new medicine: 4, 6 or 8 digits from the supplier's invoice." />
-                    </controls:FloatingField>
-                    <CheckBox Content="Nil-rated (0% GST)" VerticalAlignment="Center" Margin="0,2,8,2" IsChecked="{Binding NewItemNilRated}"
-                              Visibility="{Binding ShowManualDrugFields, Converter={StaticResource BooleanToVisibilityConverter}}"
-                              ToolTip="Tick only if this medicine is genuinely nil-rated. A blank GST % is never treated as 0%." />
                   </WrapPanel>
                   <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding RateSuggestionHint}" Visibility="{Binding HasRateSuggestion, Converter={StaticResource BooleanToVisibilityConverter}}" />
                   <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding NewItemError}" />
@@ -4278,7 +4288,7 @@
                           IsReadOnly="False" HeadersVisibility="Column" SelectionMode="Single" SelectionUnit="FullRow"
                           GridLinesVisibility="All" HorizontalGridLinesBrush="#FFE2E8F0"
                           VerticalGridLinesBrush="#FFE2E8F0" BorderBrush="#FF10B981"
-                          BorderThickness="1" FontSize="13" RowHeight="34" ColumnHeaderHeight="34"
+                          BorderThickness="1" FontSize="13" RowHeight="34" ColumnHeaderHeight="38"
                           EnableRowVirtualization="True" EnableColumnVirtualization="False"
                           HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Visible"
                           ScrollViewer.VerticalScrollBarVisibility="Visible"
