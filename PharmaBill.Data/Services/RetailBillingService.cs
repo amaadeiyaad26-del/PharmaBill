@@ -143,6 +143,10 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		List<ScheduleOverride> overrides = await (from item in context.ScheduleOverrides.AsNoTracking()
 			where drugIds.Contains(item.DrugId)
 			select item).ToListAsync(cancellationToken);
+		// Salt, maker and pack size for the search flyout, from the drug bank rows these medicines are linked to.
+		Dictionary<Guid, CatalogMedicine> bank = await context.CatalogMedicines.AsNoTracking()
+			.Where(medicine => catalogMedicineIds.Contains(medicine.Id))
+			.ToDictionaryAsync(medicine => medicine.Id, cancellationToken);
 		DateOnly today = BusinessClock.Today;
 		return (from choice in drugs.SelectMany((Drug drug) => (from batch in batches
 				where batch.DrugId == drug.Id
@@ -152,7 +156,9 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				select batch).ThenBy((Batch batch) => batch.BatchNo, StringComparer.OrdinalIgnoreCase).Select((Batch batch) =>
 			{
 				CatalogInfo catalogInfo2 = FindCatalogInfo(drug, catalogInfo);
-				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate, ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType, drug.IsBanned || batch.IsBanned, drug.HsnCode, drug.IsNilRated);
+				return new RetailStockChoice(drug.Id, drug.Name, drug.Barcode, batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp ?? drug.Mrp.GetValueOrDefault(), batch.SalePrice ?? drug.SalePrice, stock.GetValueOrDefault(batch.Id), drug.GstRate, ResolveSchedule(drug, catalogInfo2, overrides.Where((ScheduleOverride item) => item.DrugId == drug.Id).ToList()), catalogInfo2?.IsHabitForming ?? false, catalogInfo2?.RegisterType, drug.IsBanned || batch.IsBanned, drug.HsnCode, drug.IsNilRated,
+					BankComposition(drug, bank) ?? drug.GenericName, drug.CatalogMedicineId is Guid id && bank.TryGetValue(id, out CatalogMedicine? linked) ? linked.Manufacturer : null,
+					drug.CatalogMedicineId is Guid packId && bank.TryGetValue(packId, out CatalogMedicine? packed) && !string.IsNullOrWhiteSpace(packed.PackSizeLabel) ? packed.PackSizeLabel : drug.Unit);
 			}))
 			orderby choice.Barcode == searchTerm descending
 			select choice).ThenBy((RetailStockChoice choice) => choice.DrugName, StringComparer.OrdinalIgnoreCase).ThenBy((RetailStockChoice choice) => choice.ExpiryDate ?? DateOnly.MaxValue).ToArray();
@@ -1213,6 +1219,11 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 		string combined = string.Join(" ", new[] { habit, file, waived }.Where(part => !string.IsNullOrWhiteSpace(part)));
 		return string.IsNullOrWhiteSpace(combined) ? null : combined;
 	}
+
+	private static string? BankComposition(Drug drug, IReadOnlyDictionary<Guid, CatalogMedicine> bank) =>
+		drug.CatalogMedicineId is Guid id && bank.TryGetValue(id, out CatalogMedicine? medicine)
+			? CatalogSearchService.JoinComposition(medicine.ShortComposition1, medicine.ShortComposition2)
+			: null;
 
 	private static CatalogInfo? FindCatalogInfo(Drug drug, IReadOnlyCollection<CatalogInfo> infos)
 	{

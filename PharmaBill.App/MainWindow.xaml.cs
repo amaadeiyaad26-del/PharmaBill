@@ -1088,6 +1088,7 @@ public partial class MainWindow : Window
 
 		if (e.Key == Key.Down && retail.SearchResults.Count > 0)
 		{
+			retail.ReopenSearchFlyoutCommand.Execute(null);
 			retail.MoveSearchHighlight(1);
 			ScrollRetailSuggestion(retail);
 			e.Handled = true;
@@ -1122,7 +1123,9 @@ public partial class MainWindow : Window
 
 	private void ScrollRetailSuggestion(RetailBillingViewModel retail)
 	{
-		if (FindVisualChildByName(this, "RetailMedicineSuggestionList") is ListBox list && retail.SelectedSearchResult != null)
+		// The list lives in the search flyout, a popup outside the window's visual tree.
+		if (FindVisualChildByName(this, "RetailSearchFlyout") is Popup { Child: { } flyout }
+			&& FindVisualChildByName(flyout, "RetailMedicineSuggestionList") is ListBox list && retail.SelectedSearchResult != null)
 		{
 			list.ScrollIntoView(retail.SelectedSearchResult);
 		}
@@ -1143,6 +1146,15 @@ public partial class MainWindow : Window
 		if ((sender as FrameworkElement)?.DataContext is PurchasePageViewModel purchase)
 		{
 			purchase.NormalizeNewItemExpiry();
+		}
+	}
+
+	private void RetailItemSearchBox_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+	{
+		// Back in the search box after the flyout was closed: show the results again.
+		if ((sender as FrameworkElement)?.DataContext is RetailBillingViewModel retail)
+		{
+			retail.ReopenSearchFlyoutCommand.Execute(null);
 		}
 	}
 

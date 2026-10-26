@@ -1286,4 +1286,72 @@
     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
     <Setter Property="Margin" Value="0,0,0,10" />
   </Style>
+  <!-- Medicine search flyout: one look for every screen's search results (Retail, Wholesale, Stock). -->
+  <Style x:Key="MedicineFlyoutCard" TargetType="{x:Type Border}">
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="Margin" Value="0,4,10,14" />
+    <Setter Property="MaxHeight" Value="380" />
+    <Setter Property="Effect">
+      <Setter.Value>
+        <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.18" Color="#FF0F172A" />
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="MedicineFlyoutSection" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Setter Property="Margin" Value="8,6,8,2" />
+  </Style>
+  <Style x:Key="MedicineRowTitle" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style x:Key="MedicineRowPrice" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Margin" Value="12,0,0,0" />
+  </Style>
+  <!-- Salt and maker lines: hidden when the record has nothing to say. -->
+  <Style x:Key="MedicineRowSalt" TargetType="{x:Type TextBlock}">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontStyle" Value="Italic" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Style.Triggers>
+      <Trigger Property="Text" Value="">
+        <Setter Property="Visibility" Value="Collapsed" />
+      </Trigger>
+      <Trigger Property="Text" Value="{x:Null}">
+        <Setter Property="Visibility" Value="Collapsed" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="MedicineRowMeta" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource MedicineRowSalt}">
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="FontStyle" Value="Normal" />
+  </Style>
+  <Style x:Key="MedicineRowAction" TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="Margin" Value="6,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style x:Key="MedicineRowBadge" TargetType="{x:Type Border}">
+    <Setter Property="Background" Value="#FFFFEDD5" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
 </ResourceDictionary>

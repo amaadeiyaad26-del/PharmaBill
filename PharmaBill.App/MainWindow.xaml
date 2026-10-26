@@ -2054,7 +2054,7 @@
                           IsEditable="True"
                           IsTextSearchEnabled="False"
                           StaysOpenOnEdit="True"
-                          MaxDropDownHeight="320"
+                          MaxDropDownHeight="380"
                           ToolTip="F4 jumps here. Type a brand or molecule. Arrows highlight a result. Enter adds that line and focuses Qty. Out-of-stock names open Quick Inward before they can be billed."
                           PreviewKeyDown="WholesaleMedicineSearchBox_PreviewKeyDown"
                           ItemsSource="{Binding MedicinePickerItems}"
@@ -2067,11 +2067,17 @@
                     </Style>
                   </ComboBox.ItemContainerStyle>
                   <ComboBox.ItemTemplate>
+                    <!-- The same three-line row as the Retail and Stock search flyouts. -->
                     <DataTemplate>
-                      <StackPanel Margin="2,3">
-                        <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding GroupKey}" />
-                        <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" Text="{Binding DisplayTitle}" />
-                        <TextBlock FontSize="11" Foreground="{DynamicResource PrimaryTextBrush}" TextWrapping="Wrap" Text="{Binding DisplayDetail}" />
+                      <StackPanel Margin="4,5">
+                        <TextBlock Style="{StaticResource MedicineFlyoutSection}" Margin="0,0,0,2" Text="{Binding GroupKey}" />
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Right" Style="{StaticResource MedicineRowPrice}" Text="{Binding SuggestedMrp, StringFormat=MRP ₹{0:N2}}" />
+                          <TextBlock Style="{StaticResource MedicineRowTitle}" Text="{Binding DisplayTitle}" />
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource MedicineRowSalt}" Text="{Binding Composition}" />
+                        <TextBlock Style="{StaticResource MedicineRowMeta}" Text="{Binding Manufacturer}" />
+                        <TextBlock Style="{StaticResource MedicineRowMeta}" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" TextTrimming="None" Text="{Binding DisplayDetail}" />
                       </StackPanel>
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
@@ -3013,9 +3019,9 @@
                 <Button DockPanel.Dock="Right" Content="F5 Substitutes" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="9" ToolTip="Find salt / composition substitutes for the searched medicine" Style="{StaticResource SecondaryButton}" Command="{Binding ShowSubstitutesCommand}" />
                 <Button DockPanel.Dock="Right" Content="+ New Medicine" MinWidth="150" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
                 <Button DockPanel.Dock="Right" Content="+ Add" Height="48" MinWidth="96" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="8" Style="{StaticResource FrostedMintPillButton}" Command="{Binding AddMatchedItemCommand}" ToolTip="Add the highlighted or matched medicine from the search bar into this bill." />
-                <controls:FloatingField Label="Search medicine, salt or scan barcode (F4)" EnterMovesNext="False" TabIndex="7" ToolTip="F4 jumps here. Type a brand, salt, or scan a barcode. Search adds the first saleable FEFO batch. F5 opens salt substitutes." behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="2.5" behaviors:CyclingPlaceholder.Hints="Search 'Paracetamol 650mg'...|Search 'Amoxicillin 500mg'...|Search 'Azithromycin'...">
+                <controls:FloatingField x:Name="RetailSearchField" Label="Search medicine, salt or scan barcode (F4)" EnterMovesNext="False" TabIndex="7" ToolTip="F4 jumps here. Type a brand, salt, or scan a barcode. Search adds the first saleable FEFO batch. F5 opens salt substitutes." behaviors:CyclingPlaceholder.Enabled="True" behaviors:CyclingPlaceholder.IntervalSeconds="2.5" behaviors:CyclingPlaceholder.Hints="Search 'Paracetamol 650mg'...|Search 'Amoxicillin 500mg'...|Search 'Azithromycin'...">
                   <Grid>
-                    <TextBox Name="RetailItemSearchBox" Padding="0,0,22,0" Text="{Binding Path=ItemSearch, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="RetailItemSearchBox_PreviewKeyDown">
+                    <TextBox Name="RetailItemSearchBox" Padding="0,0,22,0" Text="{Binding Path=ItemSearch, UpdateSourceTrigger=PropertyChanged}" PreviewKeyDown="RetailItemSearchBox_PreviewKeyDown" PreviewMouseLeftButtonUp="RetailItemSearchBox_PreviewMouseLeftButtonUp">
                       <UIElement.InputBindings>
                         <KeyBinding Key="F5" Command="{Binding ShowSubstitutesCommand}" />
                       </UIElement.InputBindings>
@@ -3027,47 +3033,83 @@
               <Button Margin="0,0,0,6" Padding="10,6" MinWidth="0" HorizontalAlignment="Left" HorizontalContentAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding SearchOnlineCommand}" Visibility="{Binding ShowOnlineLookup, Converter={StaticResource BooleanToVisibilityConverter}}" ToolTip="Medicine not in local stock. Click to add it, filling the details from the medicine data bank">
                 <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
               </Button>
-              <ListBox Name="RetailMedicineSuggestionList" MaxHeight="105" ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}" Visibility="{Binding HasSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}" PreviewMouseLeftButtonUp="RetailMedicineSuggestionList_PreviewMouseLeftButtonUp">
-                <UIElement.InputBindings>
-                  <KeyBinding Key="Enter" Command="{Binding PickFirstSearchResultCommand}" />
-                </UIElement.InputBindings>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <DockPanel Margin="3">
-                      <TextBlock FontWeight="SemiBold" Text="{Binding DrugName}" />
-                      <TextBlock Margin="16,0,0,0" Text="{Binding BatchNo, StringFormat=Batch {0}}" />
-                      <TextBlock Margin="16,0,0,0" Text="{Binding ExpiryDate, StringFormat=Expiry {0:d}}" />
-                      <TextBlock Margin="16,0,0,0" Text="{Binding Mrp, StringFormat=MRP ₹{0:N2}}" />
-                      <TextBlock Margin="16,0,0,0" Text="{Binding AvailableQuantity, StringFormat=Stock {0}}" />
-                      <Border Background="#FFFFEDD5" CornerRadius="8" Padding="5,2" Margin="16,0,0,0" Visibility="{Binding IsHabitForming, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Decorator.Child>
-                          <TextBlock Text="Habit-forming (reference data)" Foreground="#FFC2410C" />
-                        </Decorator.Child>
-                      </Border>
-                    </DockPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ListBox>
-              <StackPanel Visibility="{Binding HasCatalogOnlyMatches, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,4,0,6">
-                <TextBlock Text="In the drug bank but not in stock: add stock to bill it" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,3" />
-                <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
-                  <ItemsControl ItemsSource="{Binding CatalogOnlyMatches}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <DockPanel Margin="3">
-                          <Button DockPanel.Dock="Right" Content="Add to stock" Padding="10,4" Margin="12,0,0,0" Style="{StaticResource SecondaryButton}" Command="{Binding DataContext.AddCatalogToStockCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
-                          <Border DockPanel.Dock="Right" Background="{DynamicResource AccentSoftBrush}" CornerRadius="8" Padding="6,2" Margin="12,0,0,0">
-                            <TextBlock Text="No stock" Foreground="{DynamicResource AccentBrush}" />
-                          </Border>
-                          <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                          <TextBlock Margin="12,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Composition}" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Margin="12,0,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding Manufacturer}" />
-                        </DockPanel>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </ScrollViewer>
-              </StackPanel>
+              <!-- Search results float under the search box instead of pushing the bill down. Up/Down/Enter still work from the box. -->
+              <Popup x:Name="RetailSearchFlyout" Placement="Bottom" PlacementTarget="{Binding ElementName=RetailSearchField}" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+                     Width="{Binding ActualWidth, ElementName=RetailSearchField}" MinWidth="520"
+                     behaviors:FlyoutDismiss.Enabled="True"
+                     IsOpen="{Binding IsSearchFlyoutOpen, Mode=TwoWay}">
+                <Border Style="{StaticResource MedicineFlyoutCard}" AutomationProperties.Name="Medicine search results">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                      <TextBlock Style="{StaticResource MedicineFlyoutSection}" Text="IN STOCK · EARLIEST EXPIRY FIRST" Visibility="{Binding HasSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      <ListBox Name="RetailMedicineSuggestionList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch"
+                               ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                               ItemsSource="{Binding SearchResults}" SelectedItem="{Binding SelectedSearchResult}"
+                               Visibility="{Binding HasSearchResults, Converter={StaticResource BooleanToVisibilityConverter}}"
+                               PreviewMouseLeftButtonUp="RetailMedicineSuggestionList_PreviewMouseLeftButtonUp">
+                        <UIElement.InputBindings>
+                          <KeyBinding Key="Enter" Command="{Binding PickFirstSearchResultCommand}" />
+                        </UIElement.InputBindings>
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Grid Margin="4,6">
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                              </Grid.ColumnDefinitions>
+                              <StackPanel>
+                                <DockPanel>
+                                  <TextBlock DockPanel.Dock="Right" Style="{StaticResource MedicineRowPrice}" Text="{Binding Mrp, StringFormat=₹{0:N2}}" ToolTip="MRP of this batch" />
+                                  <Border DockPanel.Dock="Right" Style="{StaticResource MedicineRowBadge}" Visibility="{Binding IsHabitForming, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="Habit-forming" FontSize="11" Foreground="#FFC2410C" />
+                                  </Border>
+                                  <TextBlock Style="{StaticResource MedicineRowTitle}" Text="{Binding DrugName}" />
+                                </DockPanel>
+                                <TextBlock Style="{StaticResource MedicineRowSalt}" Text="{Binding Composition}" />
+                                <TextBlock Style="{StaticResource MedicineRowMeta}" Text="{Binding MakerAndPack}" />
+                                <TextBlock Style="{StaticResource MedicineRowMeta}" Foreground="{DynamicResource AccentBrush}" Text="{Binding BatchSummary}" />
+                              </StackPanel>
+                              <Button Grid.Column="1" Content="Add" Style="{StaticResource MedicineRowAction}" Margin="12,0,0,0" AutomationProperties.Name="Add this batch"
+                                      ToolTip="Add this batch to the bill"
+                                      Command="{Binding DataContext.AddSearchResultCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" CommandParameter="{Binding}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ListBox>
+                      <TextBlock Style="{StaticResource MedicineFlyoutSection}" Text="IN THE DRUG BANK · NOT IN STOCK: ADD STOCK TO BILL IT" Visibility="{Binding HasCatalogOnlyMatches, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      <ItemsControl ItemsSource="{Binding CatalogOnlyMatches}" Visibility="{Binding HasCatalogOnlyMatches, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <Border BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="8,6">
+                              <Grid>
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="*" />
+                                  <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                  <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource MedicineRowPrice}" Text="{Binding DisplayPrice, StringFormat=₹{0:N2}}" ToolTip="Reference price from the drug bank" />
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource MedicineRowBadge}" Background="{DynamicResource AccentSoftBrush}">
+                                      <TextBlock Text="No stock" FontSize="11" Foreground="{DynamicResource AccentBrush}" />
+                                    </Border>
+                                    <TextBlock Style="{StaticResource MedicineRowTitle}" Text="{Binding Name}" />
+                                  </DockPanel>
+                                  <TextBlock Style="{StaticResource MedicineRowSalt}" Text="{Binding Composition}" />
+                                  <TextBlock Style="{StaticResource MedicineRowMeta}" Text="{Binding MakerAndPack}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="6,0,0,0">
+                                  <Button Content="Add to stock" Style="{StaticResource MedicineRowAction}" Command="{Binding DataContext.AddCatalogToStockCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                  <Button Content="Substitutes" Style="{StaticResource MedicineRowAction}" ToolTip="Same-salt medicines you have in stock" Command="{Binding DataContext.ShowSubstitutesForCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" />
+                                </StackPanel>
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
               <TextBlock Text="Out-of-stock substitutes open in the right drawer. Pharmacist must confirm suitability." Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,4" Visibility="{Binding HasSubstitutes, Converter={StaticResource BooleanToVisibilityConverter}}" />
               <Border Background="#FFFFEDD5" CornerRadius="8" Padding="8,4" Margin="0,2,0,4" HorizontalAlignment="Left" Visibility="{Binding HasHabitFormingItems, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Decorator.Child>

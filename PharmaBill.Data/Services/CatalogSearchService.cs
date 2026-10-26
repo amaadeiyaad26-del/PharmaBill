@@ -386,7 +386,7 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		return new MedicineSearchResult(medicine.Id, medicine.Name, JoinComposition(medicine.ShortComposition1, medicine.ShortComposition2), medicine.CompositionKey, medicine.Manufacturer, medicine.PackSizeLabel, medicine.ReferencePrice, habitForming, stockQuantity, stockQuantity > 0m, nearestExpiry, rack, mrp ?? medicine.ReferencePrice, drugId, string.IsNullOrWhiteSpace(otherBranchAvailability) ? null : otherBranchAvailability);
 	}
 
-	private static string? JoinComposition(string? first, string? second)
+	internal static string? JoinComposition(string? first, string? second)
 	{
 		string[] array = new string[2] { first, second }.Where((string value) => !string.IsNullOrWhiteSpace(value)).ToArray();
 		if (array.Length != 0)

@@ -1,8 +1,11 @@
 using System;
 using System.Diagnostics;
 using System.Windows;
+using System.Collections.Specialized;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using PharmaBill.App.ViewModels;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -31,6 +34,8 @@ public partial class GlobalMedicineSearchControl : UserControl
 		}
 	}
 
+	private CatalogSearchViewModel? _search;
+
 	public GlobalMedicineSearchControl()
 	{
 		InitializeComponent();
@@ -42,7 +47,74 @@ public partial class GlobalMedicineSearchControl : UserControl
 		{
 			_hintTimer?.Stop();
 			_hintTimer = null;
+			ResultsFlyout.IsOpen = false;
 		};
+		DataContextChanged += (_, _) => Watch(DataContext as CatalogSearchViewModel);
+		IsVisibleChanged += (_, _) =>
+		{
+			if (!IsVisible)
+			{
+				ResultsFlyout.IsOpen = false;
+			}
+		};
+	}
+
+	/// <summary>True while the results flyout is showing (for tests and keyboard checks).</summary>
+	public bool IsResultsFlyoutOpen => ResultsFlyout.IsOpen;
+
+	private bool HasResults => _search is { } search && (search.HasInStock || search.HasCatalog || search.HasSubstitutes);
+
+	// The header search shares this view model, so the flyout opens only for searches made from this control:
+	// while its own search row has the keyboard, or while the flyout is already showing (e.g. Substitutes).
+	private void Watch(CatalogSearchViewModel? search)
+	{
+		if (_search != null)
+		{
+			_search.InStockResults.CollectionChanged -= OnResultsChanged;
+			_search.CatalogResults.CollectionChanged -= OnResultsChanged;
+			_search.SubstituteResults.CollectionChanged -= OnResultsChanged;
+		}
+		_search = search;
+		if (search != null)
+		{
+			search.InStockResults.CollectionChanged += OnResultsChanged;
+			search.CatalogResults.CollectionChanged += OnResultsChanged;
+			search.SubstituteResults.CollectionChanged += OnResultsChanged;
+		}
+	}
+
+	private void OnResultsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+	{
+		if (!HasResults)
+		{
+			ResultsFlyout.IsOpen = false;
+		}
+		else if (IsVisible && (ResultsFlyout.IsOpen || SearchRow.IsKeyboardFocusWithin))
+		{
+			ResultsFlyout.IsOpen = true;
+		}
+	}
+
+	private void SearchRow_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+	{
+		// Back in the search box after the flyout was closed: show the results again.
+		// Its buttons (Search, + New Medicine) do their own thing.
+		if (HasResults && e.OriginalSource is DependencyObject source && !IsInsideButton(source))
+		{
+			ResultsFlyout.IsOpen = true;
+		}
+	}
+
+	private bool IsInsideButton(DependencyObject source)
+	{
+		for (DependencyObject? current = source; current is Visual && current != SearchRow; current = VisualTreeHelper.GetParent(current))
+		{
+			if (current is ButtonBase)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void InitAnimatedSearchHint()
