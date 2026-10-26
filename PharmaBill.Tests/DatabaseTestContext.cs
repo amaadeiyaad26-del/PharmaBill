@@ -34,6 +34,20 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
 
     public UnitOfWork CreateUnitOfWork() => new(Context);
 
+    private string? _pooledConnectionString;
+
+    /// <summary>A second context on the same database, with its own connection: what the app gives each DI scope.
+    /// Use it where screens query from background threads; one shared context is not thread-safe. Pooled as in the app,
+    /// so the SQLCipher key is derived once rather than on every scope.</summary>
+    public PharmaBillDbContext OpenContext()
+    {
+        _pooledConnectionString ??= new SqliteConnectionStringBuilder(Connection.ConnectionString) { Pooling = true, DefaultTimeout = 60 }.ToString();
+        var deviceId = new DatabaseDeviceId(Guid.NewGuid());
+        return new PharmaBillDbContext(new DbContextOptionsBuilder<PharmaBillDbContext>()
+            .UseSqlite(_pooledConnectionString)
+            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId)).Options, deviceId);
+    }
+
     public StorageLocationService CreateStorageLocations() => new(Context);
 
     public BranchService CreateBranchService(IUnitOfWork? unitOfWork = null) =>
@@ -122,6 +136,12 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
     {
         await Context.DisposeAsync();
         await Connection.DisposeAsync();
+        if (_pooledConnectionString != null)
+        {
+            // Only this database's pool: other tests' pools are left alone.
+            using var pooled = new SqliteConnection(_pooledConnectionString);
+            SqliteConnection.ClearPool(pooled);
+        }
         Directory.Delete(_directory, recursive: true);
     }
 }

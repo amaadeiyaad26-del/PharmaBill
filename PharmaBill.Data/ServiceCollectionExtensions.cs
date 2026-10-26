@@ -81,6 +81,7 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<AddStockService>();
 		services.AddScoped<StockVerificationService>();
 		services.AddScoped<RetailBillingService>();
+		services.AddScoped<PosMedicineMatcher>();
 		services.AddScoped<OperatorAccountService>();
 		services.AddScoped<WholesaleCustomerService>();
 		services.AddScoped<WholesalePricingService>();

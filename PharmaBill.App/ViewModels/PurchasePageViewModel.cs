@@ -31,7 +31,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr, PurchaseReturnDocumentService returnDocuments) : ObservableObject, ILoadablePage
+public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr, PurchaseReturnDocumentService returnDocuments, PurchaseEntryHandoff? purchaseEntry = null) : ObservableObject, ILoadablePage
 {
 	private Supplier? _selectedSupplier;
 
@@ -1799,6 +1799,16 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				item4.Batch.BatchNo,
 				$"{item4.DrugName} / {item4.Batch.BatchNo} / {item4.SupplierName} / Qty {item4.Batch.Quantity}",
 				item4.Batch.PurchasePrice));
+		}
+
+		// Sent from the counter, where this medicine could not be sold for want of stock.
+		if (purchaseEntry?.MedicineName is string medicine)
+		{
+			purchaseEntry.MedicineName = null;
+			IsAddItemOpen = true;
+			MedicineSearchText = medicine;
+			StatusMessage = $"Add {medicine}: choose it in the list, then enter its batch, expiry, quantity and rates.";
+			RequestFocus("NewItemMedicine");
 		}
 	}
 

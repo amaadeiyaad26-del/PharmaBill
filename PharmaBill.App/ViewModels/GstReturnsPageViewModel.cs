@@ -108,6 +108,10 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 
 	public string NetGstPayableText => MoneyFormat.Rupees(Math.Abs(NetGstPayable));
 
+	/// <summary>The period's figures as one sum, the way the GSTR-3B offset works them out.</summary>
+	public string CalculationSummary =>
+		$"{MoneyFormat.Rupees(OutputCgst)} CGST + {MoneyFormat.Rupees(OutputSgst)} SGST + {MoneyFormat.Rupees(OutputIgst)} IGST − {MoneyFormat.Rupees(EligibleItc)} eligible ITC = {NetGstPayableText} {NetGstLabel.ToLowerInvariant()}";
+
 	public string B2bEmptyHint => Gstr1B2bRows.Count == 0
 		? "No B2B invoices this period. B2B lists only sales to buyers with a valid GSTIN; buyers without one are reported under B2C."
 		: string.Empty;
@@ -534,6 +538,7 @@ public class GstReturnsPageViewModel : ObservableObject, ILoadablePage
 			OutputIgst = gstReturnDashboardSummary.OutputIgst;
 			EligibleItc = gstReturnDashboardSummary.EligibleItcFromPurchases;
 			NetGstPayable = gstReturnDashboardSummary.NetGstPayable;
+			OnPropertyChanged(nameof(CalculationSummary));
 			GstTaxAuditResult gstTaxAuditResult = await service.ValidatePeriodAsync(from, to, cancellationToken);
 			AuditStatusLabel = gstTaxAuditResult.StatusLabel;
 			IsAuditClean = gstTaxAuditResult.IsClean;

@@ -27,7 +27,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, QuotationConversionHandoff quoteHandoff, RetailReissueHandoff reissueHandoff, IAddStockDialogService? addStockDialog = null) : ObservableObject, ILoadablePage
+public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, CatalogSearchViewModel catalogSearch, IInvoicePrintService invoicePrintService, IPrescriptionDialogService prescriptionDialogs, INavigationService navigationService, IPaymentQrDialogService paymentQrDialogs, DocumentOutputSettingsStore documentOutputSettings, SettingsPageViewModel settingsPage, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, QuotationConversionHandoff quoteHandoff, RetailReissueHandoff reissueHandoff, IAddStockDialogService? addStockDialog = null, PurchaseEntryHandoff? purchaseEntry = null) : ObservableObject, ILoadablePage
 {
 	private string _billNumber = "Assigned on save";
 

@@ -50,6 +50,7 @@ public sealed class PurchaseInwardHsnTests
             await Ui.SettleAsync();
             TextBox Box(string name) => Ui.Single<TextBox>(host, box => box.Name == name);
             TextBox hsn = Ui.Named<TextBox>(host, "HSN Code");
+            Assert.True(Ui.Named<Border>(host, "Purchase steps").IsVisible);
 
             async Task FillAndAddAsync(string hsnCode)
             {

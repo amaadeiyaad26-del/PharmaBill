@@ -171,6 +171,7 @@ public partial class App : Application
 				services.AddSingleton<PurchaseReturnDocumentService>();
 				services.AddSingleton<WholesaleReissueHandoff>();
 				services.AddSingleton<QuotationConversionHandoff>();
+				services.AddSingleton<PurchaseEntryHandoff>();
 				services.AddSingleton<RetailReissueHandoff>();
 				services.AddSingleton<BillingDeskState>();
 				services.AddSingleton<QuotationDocumentService>();
@@ -186,6 +187,7 @@ public partial class App : Application
 				services.AddTransient<WholesaleReportsPageViewModel>();
 				services.AddTransient<ReportsPageViewModel>();
 				services.AddTransient<GstReturnsPageViewModel>();
+				services.AddSingleton(_ => new OnboardingSettingsStore(PharmaBill.Data.Persistence.AppDataPaths.RootDirectory));
 				services.AddTransient<DashboardPageViewModel>();
 				services.AddTransient<WholesaleDashboardPageViewModel>();
 				services.AddTransient<BackupPageViewModel>();

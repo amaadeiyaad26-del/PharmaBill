@@ -77,6 +77,63 @@
             <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="DASHBOARD"
                                         Note="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
           </DockPanel>
+          <!-- Getting started: a new shop's first three milestones, ticked from its records; gone once done or hidden. -->
+          <Border DockPanel.Dock="Top" Margin="0,0,0,16" Padding="16,12" CornerRadius="12" Background="#FFF5F3FF" BorderBrush="#FFC4B5FD" BorderThickness="1"
+                  Visibility="{Binding ShowGettingStarted, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Getting started">
+            <StackPanel>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Hide" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding HideGettingStartedCommand}"
+                        ToolTip="Hide this checklist. It does not come back." AutomationProperties.Name="Hide getting started" />
+                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,12,0" FontWeight="SemiBold" Foreground="#FF6D28D9" Text="{Binding GettingStartedProgress}" />
+                <StackPanel>
+                  <TextBlock Text="Welcome to Pharma Remit: three steps to your first bill" FontSize="16" FontWeight="SemiBold" Foreground="#FF4C1D95" />
+                  <TextBlock Text="Each step ticks itself as soon as it is done." FontSize="12" Foreground="#FF6D28D9" />
+                </StackPanel>
+              </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <Button DockPanel.Dock="Right" Content="Open settings" MinWidth="130" Height="32" Padding="12,0" Style="{StaticResource SecondaryButton}"
+                          CommandParameter="Settings" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                          Visibility="{Binding StoreDetailsDone, Converter={StaticResource InverseBooleanToVisibilityConverter}}" AutomationProperties.Name="Open settings" />
+                  <Grid DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Ellipse Stroke="#FF7C3AED" StrokeThickness="2" Visibility="{Binding StoreDetailsDone, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                    <Ellipse Fill="#FF16A34A" Visibility="{Binding StoreDetailsDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Text="✓" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StoreDetailsDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  </Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Add store details" FontWeight="SemiBold" FontSize="13.5" Foreground="#FF1E1B4B" />
+                    <TextBlock Text="Name, address and GSTIN or drug licence: what every invoice prints." FontSize="12" Foreground="#FF64748B" TextWrapping="Wrap" />
+                  </StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <Button DockPanel.Dock="Right" Content="Enter a purchase" MinWidth="130" Height="32" Padding="12,0" Style="{StaticResource SecondaryButton}"
+                          CommandParameter="Purchases" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                          Visibility="{Binding FirstDrugDone, Converter={StaticResource InverseBooleanToVisibilityConverter}}" AutomationProperties.Name="Enter a purchase" />
+                  <Grid DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Ellipse Stroke="#FF7C3AED" StrokeThickness="2" Visibility="{Binding FirstDrugDone, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                    <Ellipse Fill="#FF16A34A" Visibility="{Binding FirstDrugDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Text="✓" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding FirstDrugDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  </Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Add your first drug" FontWeight="SemiBold" FontSize="13.5" Foreground="#FF1E1B4B" />
+                    <TextBlock Text="Enter a supplier bill in Purchases, or add stock directly, with batch and expiry." FontSize="12" Foreground="#FF64748B" TextWrapping="Wrap" />
+                  </StackPanel>
+                </DockPanel>
+                <DockPanel Margin="0,8,0,0">
+                  <Button DockPanel.Dock="Right" Content="Start a bill" MinWidth="130" Height="32" Padding="12,0" Style="{StaticResource SecondaryButton}"
+                          CommandParameter="Billing" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                          Visibility="{Binding FirstSaleDone, Converter={StaticResource InverseBooleanToVisibilityConverter}}" AutomationProperties.Name="Start a bill" />
+                  <Grid DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Ellipse Stroke="#FF7C3AED" StrokeThickness="2" Visibility="{Binding FirstSaleDone, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                    <Ellipse Fill="#FF16A34A" Visibility="{Binding FirstSaleDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Text="✓" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding FirstSaleDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  </Grid>
+                  <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Complete your first sale" FontWeight="SemiBold" FontSize="13.5" Foreground="#FF1E1B4B" />
+                    <TextBlock Text="Search a medicine or type a sale like '1 strip paracetamol to John', then Save &amp; Print." FontSize="12" Foreground="#FF64748B" TextWrapping="Wrap" />
+                  </StackPanel>
+                </DockPanel>
+            </StackPanel>
+          </Border>
           <TextBlock DockPanel.Dock="Top" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding ErrorMessage}" />
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
@@ -1643,6 +1700,19 @@
                 </StackPanel>
               </Border>
             </UniformGrid>
+            <!-- How the figures above are worked out, and what each export is for. -->
+            <Border Padding="14" CornerRadius="10" Margin="0,0,0,16" BorderThickness="1" BorderBrush="#FFBFDBFE" Background="#FFEFF6FF" AutomationProperties.Name="GST calculation summary">
+              <StackPanel>
+                <TextBlock FontWeight="SemiBold" FontSize="15" Foreground="#FF1E3A8A" Text="How this period's GST is worked out" />
+                <TextBlock Margin="0,6,0,0" FontSize="13.5" FontWeight="SemiBold" Foreground="#FF1E40AF" TextWrapping="Wrap" Text="{Binding CalculationSummary}" />
+                <TextBlock Margin="0,8,0,0" FontSize="12.5" Foreground="#FF334155" TextWrapping="Wrap"
+                           Text="• Output tax is read from the bills as they were saved (filed values, not recomputed). Every retail bill and in-state B2B invoice splits its GST half CGST, half SGST, rounded to the paise exactly as printed; inter-state B2B invoices carry IGST." />
+                <TextBlock Margin="0,2,0,0" FontSize="12.5" Foreground="#FF334155" TextWrapping="Wrap"
+                           Text="• Eligible ITC is the GST on this period's posted purchase bills. Net payable is output tax less ITC; a negative result is carried forward." />
+                <TextBlock Margin="0,2,0,0" FontSize="12.5" Foreground="#FF334155" TextWrapping="Wrap"
+                           Text="• Exports: GSTR-1 JSON uploads to the GST portal; GSTR-1 and GSTR-3B Excel are for your CA's review; e-Invoice and e-Way Bill JSON go to the IRP and e-Way portals. Clear every item under Tax Audit Status before filing." />
+              </StackPanel>
+            </Border>
             <Border Padding="14" CornerRadius="10" Margin="0,0,0,16" BorderThickness="1" BorderBrush="{DynamicResource DividerBrush}" Background="{DynamicResource CardBackgroundBrush}">
               <StackPanel>
                 <DockPanel>
@@ -2821,6 +2891,124 @@
                   </Grid>
                 </Decorator.Child>
               </Border>
+              <!-- Counter command: "sold 1 strip of pacimol to mr x" becomes a previewed bill line. -->
+              <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="10" Background="#FFF5F3FF" BorderBrush="#FFC4B5FD" BorderThickness="1">
+                <StackPanel>
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Check" MinWidth="80" Height="36" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding RunPosCommandCommand}" ToolTip="Read the command and show what it will add" AutomationProperties.Name="Check command" />
+                    <TextBlock DockPanel.Dock="Left" FontFamily="Segoe MDL2 Assets" Text="&#xE765;" FontSize="18" Foreground="#FF6D28D9" VerticalAlignment="Center" Margin="2,0,10,0" />
+                    <Grid>
+                      <TextBox x:Name="PosCommandBox" Height="36" Padding="8,0" VerticalContentAlignment="Center" FontSize="14"
+                               Text="{Binding PosCommandText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Sale command"
+                               ToolTip="Write a sale as you would say it: 1 strip paracetamol to John · dolo 650 x2 for Mrs Rao · 5 tablets crocin">
+                        <TextBox.InputBindings>
+                          <KeyBinding Key="Enter" Command="{Binding SubmitPosCommandCommand}" />
+                          <KeyBinding Key="Escape" Command="{Binding CancelPosCommandCommand}" />
+                        </TextBox.InputBindings>
+                      </TextBox>
+                      <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="#FF94A3B8" FontSize="13"
+                                 Text="{x:Static vm:RetailBillingViewModel.CommandHint}">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding PosCommandText}" Value="">
+                                <Setter Property="Visibility" Value="Visible" />
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                    </Grid>
+                  </DockPanel>
+
+                  <!-- What the command will add, before it is added. -->
+                  <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="8" Background="White" BorderBrush="#FFDDD6FE" BorderThickness="1"
+                          Visibility="{Binding HasPosPreview, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Command preview">
+                    <DockPanel DataContext="{Binding PosPreview}">
+                      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Add to bill" MinWidth="110" Height="36" Margin="8,0,0,0" Style="{StaticResource PrimaryButton}"
+                                Command="{Binding DataContext.ConfirmPosCommandCommand, RelativeSource={RelativeSource AncestorType=Border}}" AutomationProperties.Name="Add command to bill" />
+                        <Button Content="Cancel" MinWidth="80" Height="36" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                                Command="{Binding DataContext.CancelPosCommandCommand, RelativeSource={RelativeSource AncestorType=Border}}" AutomationProperties.Name="Cancel command" />
+                      </StackPanel>
+                      <StackPanel>
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#FF0F172A">
+                          <Run Text="{Binding DrugName, Mode=OneWay}" /><Run Text="  ·  " Foreground="#FF94A3B8" /><Run Text="{Binding QuantityText, Mode=OneWay}" /><Run Text="  ·  " Foreground="#FF94A3B8" /><Run Text="{Binding AmountText, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,2,0,0" Foreground="#FF475569" Visibility="{Binding HasCustomer, Converter={StaticResource BooleanToVisibilityConverter}}">
+                          <Run Text="Patient: " /><Run Text="{Binding Customer, Mode=OneWay}" FontWeight="SemiBold" />
+                        </TextBlock>
+                        <ComboBox Margin="0,6,0,0" MinHeight="30" HorizontalAlignment="Left" MinWidth="380" ItemsSource="{Binding Batches}" SelectedItem="{Binding SelectedBatch}"
+                                  Visibility="{Binding HasBatchChoice, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Batch"
+                                  ToolTip="Earliest expiry first. Choose the batch you are handing over.">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                              <TextBlock Text="{Binding Converter={x:Static vm:RetailBillingViewModel.BatchLabel}}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Margin="0,4,0,0" Foreground="#FF475569" Text="{Binding BatchSummary}"
+                                   Visibility="{Binding HasBatchChoice, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                        <TextBlock Margin="0,4,0,0" Foreground="#FF6D28D9" FontSize="12" TextWrapping="Wrap" Text="{Binding TaxSummary}" AutomationProperties.Name="Invoice tax" />
+                        <ItemsControl Margin="0,2,0,0" ItemsSource="{Binding Notes}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                              <TextBlock Foreground="#FF92400E" FontSize="12" TextWrapping="Wrap" Text="{Binding}" />
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Foreground="#FFB42318" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding StockWarning}" />
+                      </StackPanel>
+                    </DockPanel>
+                  </Border>
+
+                  <!-- Not in stock: never a dead end. -->
+                  <Border Margin="0,8,0,0" Padding="10,8" CornerRadius="8" Background="#FFFFFBEB" BorderBrush="#FFFCD34D" BorderThickness="1"
+                          Visibility="{Binding HasPosMissing, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Not in stock">
+                    <StackPanel>
+                      <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#FF92400E" Text="{Binding PosMissingTitle}" />
+                      <ItemsControl Margin="0,4,0,0" ItemsSource="{Binding PosMissing}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <DockPanel Margin="0,4,0,0">
+                              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="+ Add via Purchase Entry" Height="32" Margin="8,0,0,0" Padding="10,0" Style="{StaticResource SecondaryButton}"
+                                        Command="{Binding DataContext.AddMissingViaPurchaseCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                        ToolTip="Open Purchases with this medicine, to enter the supplier bill it came on" AutomationProperties.Name="Add via Purchase Entry" />
+                                <Button Content="+ Add directly to stock" Height="32" Margin="8,0,0,0" Padding="10,0" Style="{StaticResource PrimaryButton}"
+                                        Command="{Binding DataContext.AddMissingToStockCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"
+                                        ToolTip="Enter its batch, expiry, MRP and quantity now; the sale continues as soon as it is saved" AutomationProperties.Name="Add directly to stock" />
+                              </StackPanel>
+                              <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding Name}" />
+                                <TextBlock FontSize="12" Foreground="#FF64748B" TextTrimming="CharacterEllipsis">
+                                  <Run Text="{Binding Where, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding Composition, Mode=OneWay}" />
+                                </TextBlock>
+                              </StackPanel>
+                            </DockPanel>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </Border>
+                  <TextBlock Margin="2,6,0,0" FontSize="12" Foreground="#FF5B21B6" TextWrapping="Wrap" Text="{Binding PosMessage}" AutomationProperties.Name="Command message">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                          <Trigger Property="Text" Value="">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                          </Trigger>
+                          <Trigger Property="Text" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                          </Trigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </StackPanel>
+              </Border>
               <DockPanel Margin="0,8,0,6">
                 <Button DockPanel.Dock="Right" Content="F5 Substitutes" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" TabIndex="9" ToolTip="Find salt / composition substitutes for the searched medicine" Style="{StaticResource SecondaryButton}" Command="{Binding ShowSubstitutesCommand}" />
                 <Button DockPanel.Dock="Right" Content="+ New Medicine" MinWidth="150" Height="48" VerticalAlignment="Top" Margin="8,2,0,2" Style="{StaticResource FrostedMintPillButton}" Command="{Binding QuickAddMedicineCommand}" ToolTip="Create a medicine. Text already typed in the search box is filled in as the brand name." />
@@ -3061,6 +3249,24 @@
                   </DataGridTemplateColumn>
                 </DataGrid.Columns>
               </DataGrid>
+              <!-- Empty bill: say how to start. -->
+              <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="16,40,16,16" IsHitTestVisible="False" AutomationProperties.Name="Empty bill hint">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding BillItems.Count}" Value="0">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7BF;" FontSize="34" Foreground="#FFCBD5E1" HorizontalAlignment="Center" />
+                <TextBlock Margin="0,8,0,0" FontSize="14" FontWeight="SemiBold" Foreground="#FF475569" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                           Text="Start typing a medicine name or use natural commands (e.g., '1 strip paracetamol to John')." />
+                <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="#FF94A3B8" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                           Text="Search box (F4) for one medicine at a time · the purple command bar above for a whole line in one go." />
+              </StackPanel>
               <Grid Grid.Row="2" Margin="0,4,0,2" VerticalAlignment="Bottom">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="1.8*" MinWidth="360" />
@@ -3712,6 +3918,12 @@
 
           <!-- Row 0: Title + Invoice Tools menu + status -->
           <DockPanel Grid.Row="0" Margin="0,0,0,4" LastChildFill="True">
+            <!-- The three steps of an inward entry, always in view. -->
+            <Border DockPanel.Dock="Bottom" Margin="0,6,0,2" Padding="10,6" CornerRadius="8" Background="#FFF0FDFA" BorderBrush="#FF99F6E4" BorderThickness="1" AutomationProperties.Name="Purchase steps">
+              <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="#FF115E59">
+                <Run Text="Step 1:" FontWeight="SemiBold" /><Run Text=" Select supplier.   " /><Run Text="Step 2:" FontWeight="SemiBold" /><Run Text=" Enter invoice.   " /><Run Text="Step 3:" FontWeight="SemiBold" /><Run Text=" Add items with batch and expiry to update stock." />
+              </TextBlock>
+            </Border>
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
               <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
                 <TextBlock Text="Purchases" FontSize="20" FontWeight="SemiBold" />

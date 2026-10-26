@@ -16,7 +16,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSyncServer localSync, LicenceViewModel licence, ShopIdentityViewModel shop) : ObservableObject, ILoadablePage
+public partial class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSyncServer localSync, LicenceViewModel licence, ShopIdentityViewModel shop, OnboardingSettingsStore? onboarding = null) : ObservableObject, ILoadablePage
 {
 	private DashboardSnapshot _snapshot = new DashboardSnapshot(0m, 0m, 0, 0, 0m, 0);
 
@@ -549,6 +549,7 @@ public class DashboardPageViewModel(IServiceScopeFactory scopeFactory, LocalSync
 		RefreshLicenseBadge();
 		await shop.ReloadAsync(cancellationToken);
 		await RefreshAsync(cancellationToken);
+		await RefreshOnboardingAsync(cancellationToken);
 	}
 
 	private void OpenUpgrade()

@@ -266,7 +266,8 @@ public sealed class TerminalScreenTests : IAsyncLifetime
         Ui.Tab(window, "Bill");
         Ui.Type(Ui.Named<TextBox>(window, "Search medicine"), medicine);
         await Ui.PressAsync(Ui.Button(window, "Search"));
-        Assert.NotEmpty(counter.SearchResults);
+        Assert.True(counter.SearchResults.Count > 0,
+            $"the search for \"{medicine}\" found nothing. Status: \"{counter.StatusMessage}\"; error: \"{counter.ErrorMessage}\"; connection: \"{counter.ConnectionMessage}\"");
         int before = counter.Lines.Count;
         await Ui.PressAsync(Ui.Button(window, "Add to bill"));
         Assert.Equal(before + 1, counter.Lines.Count);
