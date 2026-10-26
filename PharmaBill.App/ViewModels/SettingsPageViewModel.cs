@@ -19,7 +19,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
+public partial class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 {
 	private readonly IThemeService _themeService;
 
@@ -2993,6 +2993,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			ApplyCategoryVisibility(SelectedSettingsCategory);
 		}
 		RefreshCategorySelectionFlags();
+		await LoadMaintenanceAsync(cancellationToken);
 	}
 
 	private async Task LoadBranchAsync(CancellationToken cancellationToken)
@@ -3524,6 +3525,11 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 				ApplyCategoryVisibility(category);
 			}
 			RefreshCategorySelectionFlags();
+			// Choosing Data & Maintenance loads its shown tab, as opening that screen did.
+			if (category == SettingsCategories.Data && !_suppressMaintenanceLoad)
+			{
+				_ = LoadMaintenanceAsync();
+			}
 		}
 	}
 
@@ -3681,7 +3687,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 
 	private static IReadOnlyList<SettingsSearchEntry> BuildSettingsIndex()
 	{
-		return new _003C_003Ez__ReadOnlyArray<SettingsSearchEntry>(new SettingsSearchEntry[15]
+		return new _003C_003Ez__ReadOnlyArray<SettingsSearchEntry>(new SettingsSearchEntry[]
 		{
 			new SettingsSearchEntry("appearance", "Appearance", "Theme, accent, language and UI sounds", "appearance theme accent language dark light ui colour color sound click tick alert preferences general", "General"),
 			new SettingsSearchEntry("businessMode", "Licensing & Mode", "Business mode and drug-licence posture", "licensing mode retail wholesale both 2-in-1 license licence subscription business production store", "General"),
@@ -3696,6 +3702,8 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			new SettingsSearchEntry("dataBackup", "Data & Backup", "Retention, archive and local backup policy", "data backup retention archive usb export purge soft-delete encrypted zip", "Data"),
 			new SettingsSearchEntry("sync", "Sync Station", "Local Wi-Fi pairing on port 5055", "sync station port 5055 wifi wi-fi local pairing mdns listener firewall rule android", "Data", "Sync"),
 			new SettingsSearchEntry("backupNav", "Backup", "Back up to a folder or USB, and restore", "backup folder onedrive google drive dropbox usb export restore move pc password", "Data", "Backup"),
+			new SettingsSearchEntry(MaintenanceSearchImport, "Medicine data import", "Import the medicine catalogue and medicine information files", "import medicine data catalogue catalog drug bank csv excel bulk master", "Data"),
+			new SettingsSearchEntry(MaintenanceSearchDiagnostics, "System diagnostics", "Data file imports and database row counts", "diagnostics health check database rows tables error log import status", "Data"),
 			new SettingsSearchEntry("userManual", "User Manual & Guides", "In-app quick guides, PDF manual and email dispatch", "user manual guide quick start tutorial help f1 pdf email shortcuts billing sync reports", "About"),
 			new SettingsSearchEntry("about", "About Pharma Remit", "Version, updates and user manual", "about version update release notes manual support email saer", "About")
 		});
@@ -3734,7 +3742,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		SetSection("dataBackup", hashSet.Contains("dataBackup"), hashSet.Contains("dataBackup"));
 		SetSection("userManual", hashSet.Contains("userManual"), hashSet.Contains("userManual"));
 		SetSection("about", hashSet.Contains("about"), hashSet.Contains("about"));
-		ShowSyncShortcut = hashSet.Contains("sync");
+		ShowSyncShortcut = hashSet.Contains("sync") || ShowMaintenanceForSearch(hashSet);
 		HighlightSyncShortcut = ShowSyncShortcut;
 		ShowBackupShortcut = hashSet.Contains("backupNav");
 		HighlightBackupShortcut = ShowBackupShortcut;

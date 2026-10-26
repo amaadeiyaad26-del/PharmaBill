@@ -55,6 +55,9 @@
       <TextBlock Foreground="#B42318" TextWrapping="Wrap" Margin="0,0,0,8" Text="{Binding ErrorMessage}" />
       <TextBlock Foreground="#047857" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding StatusMessage}" />
 
+      <!-- Reports & Daily MIS, front and centre: the day's sales, peak hours and statutory movement in one click. -->
+      <controls:ReportsQuickCard Margin="0,0,0,16" />
+
       <!-- Section A: KPI cards -->
       <UniformGrid Columns="4" Margin="0,0,0,4">
         <Border Style="{StaticResource WsGlassCard}">

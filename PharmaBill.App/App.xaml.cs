@@ -151,8 +151,6 @@ public partial class App : Application
 				services.AddTransient<InitialSetupWindow>();
 				services.AddTransient<FirstRunWizardWindow>();
 				services.AddTransient<AuthenticationWindow>();
-				services.AddTransient<CatalogImportWindow>();
-				services.AddTransient<DiagnosticsWindow>();
 				services.AddSingleton<SocialLoginCoordinator>();
 				services.AddSingleton<LoginPreferenceStore>();
 				services.AddSingleton<ActiveBillingDeskModeStore>();

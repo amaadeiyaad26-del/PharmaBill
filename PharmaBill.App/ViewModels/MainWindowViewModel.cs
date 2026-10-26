@@ -362,11 +362,6 @@ public class MainWindowViewModel : ObservableObject
 		LicenseManager.GetExpiryWarningMessage()
 		?? "Your annual license is approaching expiry. Contact support to renew.";
 
-	// "Customers" in the sidebar is a group: clicking it shows or hides its three sub-items.
-	private const string CustomersGroupKey = "CustomersGroup";
-
-	private bool _customersExpanded;
-
 	public ObservableCollection<NavigationItem> NavigationItems { get; } = new ObservableCollection<NavigationItem>();
 
 	private string _navFilter = string.Empty;
@@ -391,27 +386,10 @@ public class MainWindowViewModel : ObservableObject
 	/// <summary>The sidebar list, filtered by <see cref="NavFilter"/>. Stays in step with <see cref="NavigationItems"/>.</summary>
 	public ICollectionView NavigationItemsView => _navigationItemsView ??= BuildNavigationItemsView();
 
-	private static bool IsCustomersSection(string? sectionKey) =>
-		sectionKey is "Customers" or "WholesaleBuyers" or "RetailBuyers" or "WholesaleSuppliers";
-
-	private string CustomersGroupTitle() => "Customers " + (_customersExpanded ? "▾" : "▸");
-
-	private void ToggleCustomers()
-	{
-		_customersExpanded = !_customersExpanded;
-		NavigationItem? header = NavigationItems.FirstOrDefault((NavigationItem item) => item.SectionKey == CustomersGroupKey);
-		if (header != null)
-		{
-			NavigationItems[NavigationItems.IndexOf(header)] = new NavigationItem(CustomersGroupKey, CustomersGroupTitle());
-		}
-		NavigationItemsView.Refresh();
-	}
-
 	private ICollectionView BuildNavigationItemsView()
 	{
 		ICollectionView view = CollectionViewSource.GetDefaultView(NavigationItems);
 		view.Filter = item => item is NavigationItem navigationItem
-			&& (!navigationItem.IsSubItem || _customersExpanded || !string.IsNullOrWhiteSpace(NavFilter))
 			&& (string.IsNullOrWhiteSpace(NavFilter) || navigationItem.Title.Contains(NavFilter.Trim(), StringComparison.OrdinalIgnoreCase));
 		return view;
 	}
@@ -1412,6 +1390,8 @@ public class MainWindowViewModel : ObservableObject
 		_navigationService.SectionChanged += OnSectionChanged;
 		_languageService.LanguageChanged += OnLanguageChanged;
 		_settingsPage.BusinessModeChanged += OnBusinessModeChanged;
+		// Backup & Sync, the medicine data import and diagnostics are shown in Settings > Data & Maintenance.
+		_settingsPage.AttachMaintenance(new DataSyncPageViewModel(ResolveNavTitle(DataSyncPageViewModel.SectionKey), _backupPage, _syncPage), _scopeFactory);
 		_folderSync.SettingsChanged += OnFolderSyncSettingsChanged;
 		_catalogSearch.StockChanged += OnCatalogStockChanged;
 		_catalogSearch.ViewStockRequested += OnViewStockRequested;
@@ -2142,19 +2122,13 @@ public class MainWindowViewModel : ObservableObject
 			throw new ArgumentException("A navigation section must be provided.", "sectionKey");
 		}
 
-		if (sectionKey == CustomersGroupKey)
-		{
-			ToggleCustomers();
-			return;
-		}
-
-		if (MergedScreens.TryOpen(sectionKey, CurrentPage))
-		{
-			return;
-		}
-
 		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
 		string resolvedKey = ResolveCustomersNavigation(ResolveBillingNavigation(sectionKey));
+
+		if (MergedScreens.TryOpen(resolvedKey, CurrentPage))
+		{
+			return;
+		}
 
 		bool flag = IsCriticalUpdateRequired;
 		if (flag)
@@ -2168,20 +2142,10 @@ public class MainWindowViewModel : ObservableObject
 		}
 		else
 		{
-			if (resolvedKey == "Stock" && _navigationService.CurrentSectionKey == "Stock")
+			// Choosing the screen already open refreshes it.
+			if (resolvedKey == _navigationService.CurrentSectionKey && CurrentPage is HubPageViewModel openHub)
 			{
-				_ = _stockPage.LoadAsync();
-			}
-
-
-			if (IsCustomerListKey(resolvedKey))
-			{
-				_wholesaleCustomerPage.SetCustomerView(CustomerViewFor(resolvedKey));
-			}
-
-			if (IsCustomersSection(resolvedKey) && !_customersExpanded)
-			{
-				ToggleCustomers();
+				_ = openHub.LoadAsync();
 			}
 
 			_navigationService.Navigate(resolvedKey);
@@ -2206,23 +2170,117 @@ public class MainWindowViewModel : ObservableObject
 
 	private const string ComplianceSectionKey = ComplianceRegistersPageViewModel.SectionKey;
 
-	private const string DataSyncSectionKey = DataSyncPageViewModel.SectionKey;
+	private const string StockHubKey = "StockHub";
 
-	private DataSyncPageViewModel? _dataSyncPage;
+	private const string PartiesHubKey = "Parties";
+
+	private HubPageViewModel? _stockHub;
+
+	private HubPageViewModel? _partiesHub;
+
+	private SupplierDirectoryPageViewModel? _supplierDirectory;
 
 	private MergedScreenRoutes? _mergedScreenRoutes;
 
 	// Old keys of screens that became tabs (dashboard links, Settings, reminders, the assistant) open that tab.
-	private MergedScreenRoutes MergedScreens => _mergedScreenRoutes ??= new MergedScreenRoutes(_navigationService);
+	private MergedScreenRoutes MergedScreens => _mergedScreenRoutes ??= CreateMergedScreenRoutes();
 
-	private DataSyncPageViewModel CreateDataSyncPage()
+	private MergedScreenRoutes CreateMergedScreenRoutes()
 	{
-		_dataSyncPage ??= new DataSyncPageViewModel(ResolveNavTitle(DataSyncSectionKey), _backupPage, _syncPage);
-		if (MergedScreens.TakeDataSyncTab() is DataSyncTab tab)
+		var routes = new MergedScreenRoutes(_navigationService);
+		routes.AddHubAlias("Stock", StockHubKey, "inventory");
+		routes.AddHubAlias("StockInHand", StockHubKey, "inhand");
+		routes.AddHubAlias("StockTransfer", StockHubKey, "transfer");
+		routes.AddHubAlias("Accounts", PartiesHubKey, "ledgers");
+		routes.AddHubAlias("Customers", PartiesHubKey, "Customers");
+		routes.AddHubAlias("WholesaleBuyers", PartiesHubKey, "WholesaleBuyers");
+		routes.AddHubAlias("RetailBuyers", PartiesHubKey, "RetailBuyers");
+		routes.AddHubAlias("WholesaleSuppliers", PartiesHubKey, "suppliers");
+		routes.ShowDataSyncInSettings = ShowDataSyncInSettingsAsync;
+		return routes;
+	}
+
+	// Backup & Sync lives in Settings > Data & Maintenance; its old keys (Settings links, the USB reminder, the
+	// assistant) open it there.
+	private async Task ShowDataSyncInSettingsAsync(DataSyncTab? tab, bool settingsOnScreen)
+	{
+		_settingsPage.ShowMaintenance(MaintenanceTab.Backup, tab);
+		RefreshUsbBackupReminder();
+		if (settingsOnScreen)
 		{
-			_dataSyncPage.ShowTab(tab);
+			await _settingsPage.LoadMaintenanceAsync();
 		}
-		return _dataSyncPage;
+	}
+
+	/// <summary>Opens Settings &gt; Data &amp; Maintenance on a tab (backup and sync, the medicine data import, diagnostics).</summary>
+	public void OpenMaintenance(MaintenanceTab tab)
+	{
+		_settingsPage.ShowMaintenance(tab);
+		if (CurrentPage is SettingsPageViewModel)
+		{
+			_ = _settingsPage.LoadMaintenanceAsync();
+			return;
+		}
+		Navigate(MergedScreenRoutes.SettingsSectionKey);
+	}
+
+	/// <summary>Stock Management: inventory and batches, stock in hand and transfers, as tabs.</summary>
+	private HubPageViewModel StockHub()
+	{
+		_stockHub ??= new HubPageViewModel(StockHubKey, ResolveNavTitle(StockHubKey),
+			"Inventory and batches, stock in hand and transfers between godowns and counters.");
+		bool wholesaleDesk = _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale;
+		_stockHub.SetTabs(
+		[
+			new HubTab("inventory", "Inventory Master & Batches", _stockPage, "Every medicine and batch: stock, pricing, MRP and alerts"),
+			new HubTab("inhand", "Stock in Hand", _stockInHandPage, "Valuation, shortages, near-expiry and audit summaries, worked out from stock movements"),
+			new HubTab("transfer", wholesaleDesk ? "Godown / Counter Challan" : "Stock Transfer", _stockTransferPage, "Move stock between godowns, stores and counters"),
+		]);
+		if (MergedScreens.TakeHubTab(StockHubKey) is string tab)
+		{
+			_stockHub.ShowTab(tab);
+		}
+		return _stockHub;
+	}
+
+	/// <summary>
+	/// Accounts &amp; Parties: the party ledgers and the directory of patients, buyers and suppliers, as tabs. Which
+	/// customer lists appear follows the desk: patients on the retail desk, wholesale and retail buyers on the wholesale desk.
+	/// </summary>
+	private HubPageViewModel PartiesHub()
+	{
+		_partiesHub ??= new HubPageViewModel(PartiesHubKey, ResolveNavTitle(PartiesHubKey),
+			"Ledgers and outstanding balances, with the directory of everyone you buy from and sell to.");
+		bool wholesaleDesk = _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale;
+		var tabs = new List<HubTab>
+		{
+			new(PartyLedgerLinks.LedgersTab, wholesaleDesk ? "Party Ledgers" : "Accounts & Ledgers", _wholesaleAccountsPage, "Supplier payables and customer accounts: balances, ageing and payments"),
+		};
+		if (!wholesaleDesk && _businessMode != BusinessMode.Wholesaler)
+		{
+			tabs.Add(new HubTab("Customers", "Patients & Consumers", _wholesaleCustomerPage, "Patients and walk-in customers: contact details and purchase history",
+				() => _wholesaleCustomerPage.SetCustomerView(CustomerListView.Patients)));
+		}
+		if (wholesaleDesk && _businessMode != BusinessMode.Retail)
+		{
+			tabs.Add(new HubTab("WholesaleBuyers", "Wholesale Buyers", _wholesaleCustomerPage, "Distributors, hospitals and other licensed buyers",
+				() => _wholesaleCustomerPage.SetCustomerView(CustomerListView.WholesaleBuyers)));
+			tabs.Add(new HubTab("RetailBuyers", "Retail Buyers", _wholesaleCustomerPage, "Chemists and retailers who buy from you",
+				() => _wholesaleCustomerPage.SetCustomerView(CustomerListView.RetailBuyers)));
+		}
+		if (_supplierDirectory == null)
+		{
+			_supplierDirectory = new SupplierDirectoryPageViewModel(_scopeFactory);
+			// A patient, buyer or supplier in the directory opens their ledger in the Ledgers tab.
+			PartyLedgerLinks.Connect(_partiesHub, _wholesaleAccountsPage, _wholesaleCustomerPage, _supplierDirectory);
+		}
+		tabs.Add(new HubTab("suppliers", "Suppliers", _supplierDirectory, "Distributors and companies you buy from"));
+		_partiesHub.SetTabs(tabs);
+		if (MergedScreens.TakeHubTab(PartiesHubKey) is string tab)
+		{
+			_partiesHub.ShowTab(tab);
+		}
+		return _partiesHub;
 	}
 
 	private ComplianceRegistersPageViewModel CreateCompliancePage()
@@ -2235,13 +2293,6 @@ public class MainWindowViewModel : ObservableObject
 
 	private static bool IsCustomerListKey(string? sectionKey) =>
 		sectionKey is "Customers" or "WholesaleBuyers" or "RetailBuyers";
-
-	private static CustomerListView CustomerViewFor(string sectionKey) => sectionKey switch
-	{
-		"Customers" => CustomerListView.Patients,
-		"RetailBuyers" => CustomerListView.RetailBuyers,
-		_ => CustomerListView.WholesaleBuyers,
-	};
 
 	private string ResolveBillingNavigation(string sectionKey)
 	{
@@ -2620,7 +2671,7 @@ public class MainWindowViewModel : ObservableObject
 	private void EnsureBillingSectionForShortcuts()
 	{
 		string text = _navigationService.CurrentSectionKey;
-		bool onBillingSurface = text is "Billing" or "WholesaleBilling" or "Stock" or "Purchases" or "StockTransfer";
+		bool onBillingSurface = text is "Billing" or "WholesaleBilling" or StockHubKey or "Purchases";
 		if (!onBillingSurface)
 		{
 			Navigate(PreferredBillingSection() ?? "Billing");
@@ -2651,13 +2702,9 @@ public class MainWindowViewModel : ObservableObject
 			return;
 		}
 		// An old key asked for directly (Settings uses the navigation service): open the merged screen's tab instead.
-		if (MergedScreens.TryOpen(section, CurrentPage))
+		if (MergedScreens.TryOpen(ResolveCustomersNavigation(section), CurrentPage))
 		{
 			return;
-		}
-		if (section is DataSyncSectionKey)
-		{
-			RefreshUsbBackupReminder();
 		}
 		await NavigateToAsync(async () =>
 		{
@@ -2676,9 +2723,8 @@ public class MainWindowViewModel : ObservableObject
 		{
 		case "Billing":
 		case "WholesaleBilling":
-		case "Stock":
+		case StockHubKey:
 		case "Purchases":
-		case "StockTransfer":
 			isVisible = true;
 			break;
 		default:
@@ -2824,31 +2870,18 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Clear();
 		NavigationItems.Add(new NavigationItem("Dashboard", wholesaleDesk ? "Wholesale Dashboard" : "Dashboard"));
 		AddPrimaryBillingNavigationItems();
-		NavigationItems.Add(new NavigationItem("Stock", _languageService.GetString("NavStock")));
-		NavigationItems.Add(new NavigationItem("StockTransfer", wholesaleDesk ? "Godown / Counter Challan" : "Stock transfer"));
+		// Stock, stock in hand and stock transfer are tabs of Stock Management.
+		NavigationItems.Add(new NavigationItem(StockHubKey, _languageService.GetString("NavStockHub")));
 		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
-		_customersExpanded = _customersExpanded || IsCustomersSection(CurrentSectionKey);
-		NavigationItems.Add(new NavigationItem(CustomersGroupKey, CustomersGroupTitle()));
-		// Each desk gets its own customer screen: patients on Retail/Combined, buyers on Wholesale.
-		if (!wholesaleDesk && mode != BusinessMode.Wholesaler)
-		{
-			NavigationItems.Add(new NavigationItem("Customers", "Patients & Consumers", IsSubItem: true));
-		}
-		if (wholesaleDesk && mode != BusinessMode.Retail)
-		{
-			NavigationItems.Add(new NavigationItem("WholesaleBuyers", "Wholesale Buyers", IsSubItem: true));
-			NavigationItems.Add(new NavigationItem("RetailBuyers", "Retail Buyers", IsSubItem: true));
-		}
-		NavigationItems.Add(new NavigationItem("WholesaleSuppliers", "Wholesale Suppliers", IsSubItem: true));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
-		NavigationItems.Add(new NavigationItem("Accounts",wholesaleDesk ? "Party Ledgers" : (mode == BusinessMode.Retail ? "Accounts & Ledgers" : "Accounts")));
+		// Ledgers and the patient, buyer and supplier lists are tabs of Accounts & Parties.
+		NavigationItems.Add(new NavigationItem(PartiesHubKey, _languageService.GetString("NavParties")));
 		if (mode != BusinessMode.Retail)
 		{
 			NavigationItems.Add(new NavigationItem("Pricing", "Pack levels & pricing"));
 			NavigationItems.Add(new NavigationItem("BankReconciliation", "Bank & Ledger Reconciliation"));
 			NavigationItems.Add(new NavigationItem("CollectionsDunning", "Collections & Smart Dunning"));
 			NavigationItems.Add(new NavigationItem("Returns", "Returns & credit notes"));
-			NavigationItems.Add(new NavigationItem("StockInHand", "Stock in hand"));
 		}
 		if (mode != BusinessMode.Wholesaler)
 		{
@@ -2857,7 +2890,7 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Tools", "🧰 Tools: calendar, notepad, narrations"));
 		NavigationItems.Add(new NavigationItem("Reports", "📈 Reports & Daily MIS"));
 		NavigationItems.Add(new NavigationItem("GstReturns", "📊 GST & e-Way"));
-		NavigationItems.Add(new NavigationItem(DataSyncSectionKey, _languageService.GetString("NavDataSync")));
+		// Backup & Sync, the medicine data import and diagnostics live in Settings > Data & Maintenance.
 		NavigationItems.Add(new NavigationItem("Inspector", _languageService.GetString("NavInspector")));
 		UpdateActiveNavigation();
 	}
@@ -2918,13 +2951,10 @@ public class MainWindowViewModel : ObservableObject
 		_activeBillingDeskModeStore.Save(mode2);
 		RefreshModeBadge();
 		RebuildNavigationItems(_businessMode);
-		if (IsCustomerListKey(CurrentSectionKey))
+		// A hub's tabs follow the desk (patients or buyers, the transfer tab's name): rebuild them and reload.
+		if (CurrentPage is HubPageViewModel hub)
 		{
-			// Switching desk while on a customer screen moves to that desk's screen.
-			Navigate(CurrentSectionKey);
-		}
-		if (CurrentPage is WholesaleAccountsPageViewModel)
-		{
+			CurrentPage = CreatePage(hub.SectionKey);
 			_ = LoadCurrentPageAsync();
 		}
 		if (CurrentPage is DashboardPageViewModel or WholesaleDashboardPageViewModel)
@@ -2976,24 +3006,17 @@ public class MainWindowViewModel : ObservableObject
 			"Dashboard" => _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale && CanUseWholesaleBilling
 				? _wholesaleDashboardPage
 				: _dashboardPage, 
-			DataSyncSectionKey => CreateDataSyncPage(),
-			"Settings" => _settingsPage, 
-			"Stock" => _stockPage, 
-			"StockTransfer" => _stockTransferPage, 
-			"Purchases" => _purchasePage, 
-			"Customers" => _wholesaleCustomerPage,
-			"WholesaleBuyers" => _wholesaleCustomerPage,
-			"RetailBuyers" => _wholesaleCustomerPage,
-				"WholesaleSuppliers" => new SupplierDirectoryPageViewModel(_scopeFactory),
-			"WholesaleBilling" => _wholesaleBillingPage, 
-			"Pricing" => _wholesalePricingPage, 
-			"Accounts" => _wholesaleAccountsPage, 
-			"BankReconciliation" => _wholesaleReconciliationPage, 
+			"Settings" => _settingsPage,
+			StockHubKey => StockHub(),
+			PartiesHubKey => PartiesHub(),
+			"Purchases" => _purchasePage,
+			"WholesaleBilling" => _wholesaleBillingPage,
+			"Pricing" => _wholesalePricingPage,
+			"BankReconciliation" => _wholesaleReconciliationPage,
 			"CollectionsDunning" => _dunningDashboardPage, 
 			"Returns" => _wholesaleReturnsPage,
 			"Quotations" => _quotationsPage,
 			"Tools" => _toolsPage,
-			"StockInHand" => _stockInHandPage, 
 			"Billing" => _retailBillingPage, 
 			"Reports" => _reportsPage, 
 			"GstReturns" => _gstReturnsPage, 

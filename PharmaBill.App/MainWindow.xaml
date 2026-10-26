@@ -77,6 +77,8 @@
             <controls:ShopIdentityBlock Shop="{Binding Shop}" Label="DASHBOARD"
                                         Note="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
           </DockPanel>
+          <!-- Reports & Daily MIS, front and centre: the day's sales, peak hours and statutory movement in one click. -->
+          <controls:ReportsQuickCard DockPanel.Dock="Top" Margin="0,0,0,16" />
           <!-- Getting started: a new shop's first three milestones, ticked from its records; gone once done or hidden. -->
           <Border DockPanel.Dock="Top" Margin="0,0,0,16" Padding="16,12" CornerRadius="12" Background="#FFF5F3FF" BorderBrush="#FFC4B5FD" BorderThickness="1"
                   Visibility="{Binding ShowGettingStarted, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Getting started">
@@ -736,7 +738,7 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:DataSyncPageViewModel}}" DataType="{x:Type vm:DataSyncPageViewModel}">
         <DockPanel>
           <StackPanel DockPanel.Dock="Top" Margin="20,20,20,0">
-            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" />
+            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" controls:HubHost.CollapseWhenEmbedded="True" />
             <TextBlock Margin="0,2,0,12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"
                        Text="Keep encrypted copies of the shop's records and move them to a new PC, and keep counters and phones in step with this PC." />
             <Border HorizontalAlignment="Left" CornerRadius="20" Padding="3" Background="{DynamicResource AccentSoftBrush}" AutomationProperties.Name="Backup and sync tabs">
@@ -1092,12 +1094,12 @@
             <KeyBinding Key="F5" Command="{Binding RecordSupplierPaymentCommand}" />
           </DockPanel.InputBindings>
           <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock controls:HubHost.CollapseWhenEmbedded="True" Style="{StaticResource WholesalePageTitle}" Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
             <TextBlock Text="{Binding PageSubtitle}" TextWrapping="Wrap" Margin="0,2,0,0" FontSize="12.5" Foreground="{DynamicResource SecondaryTextBrush}" />
             <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="12.5" Text="{Binding ErrorMessage}" />
             <TextBlock Foreground="{DynamicResource AccentBrush}" Margin="0,2,0,0" FontSize="12.5" Text="{Binding StatusMessage}" />
           </StackPanel>
-          <TabControl>
+          <TabControl SelectedIndex="{Binding SelectedLedgerTab}">
             <TabItem Header="🏢 Supplier Ledgers &amp; Payables">
               <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,8,0,0">
               <Grid>
@@ -1450,7 +1452,7 @@
             </ResourceDictionary>
           </FrameworkElement.Resources>
           <StackPanel DockPanel.Dock="Top">
-            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Stock in hand (movement-derived)" FontSize="23" FontWeight="SemiBold" />
+            <TextBlock controls:HubHost.CollapseWhenEmbedded="True" Style="{StaticResource WholesalePageTitle}" Text="Stock in hand (movement-derived)" FontSize="23" FontWeight="SemiBold" />
             <WrapPanel Margin="0,10">
               <TextBlock Text="As of" VerticalAlignment="Center" />
               <DatePicker Margin="6,0" SelectedDate="{Binding AsOfDate}" />
@@ -2419,7 +2421,7 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Wholesale Suppliers" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock controls:HubHost.CollapseWhenEmbedded="True" Style="{StaticResource WholesalePageTitle}" Text="Wholesale Suppliers" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
             <Button Grid.Row="1" Margin="0,10,0,10" Padding="10,6" HorizontalAlignment="Left" Content="New supplier" Command="{Binding NewCommand}" />
             <ListBox Grid.Row="2" BorderBrush="{DynamicResource DividerBrush}" ItemsSource="{Binding Suppliers}" SelectedItem="{Binding SelectedSupplier, Mode=TwoWay}">
               <ListBox.ItemTemplate>
@@ -2435,7 +2437,21 @@
           </Grid>
           <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <StackPanel behaviors:KeyNavigationBehavior.Enabled="True">
-              <TextBlock Text="Supplier details" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,6" />
+              <DockPanel Margin="0,0,0,6">
+                <Button DockPanel.Dock="Right" Content="📒 Open ledger" VerticalAlignment="Center" Padding="12,5" AutomationProperties.Name="Open ledger"
+                        ToolTip="Balances, bills and payments of this party in Accounts &amp; Parties" Command="{Binding OpenLedgerCommand}">
+                  <Button.Style>
+                    <Style TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedSupplier}" Value="{x:Null}">
+                          <Setter Property="IsEnabled" Value="False" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Button.Style>
+                </Button>
+                <TextBlock Text="Supplier details" FontSize="20" FontWeight="SemiBold" />
+              </DockPanel>
               <TextBlock Text="Suppliers are added automatically when you enter a distributor on a purchase bill. You can also add or correct them here." TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,10" />
               <Grid>
                 <Grid.ColumnDefinitions>
@@ -2493,7 +2509,7 @@
               <RowDefinition Height="Auto" />
               <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Style="{StaticResource WholesalePageTitle}" Text="{Binding PageTitle}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock controls:HubHost.CollapseWhenEmbedded="True" Style="{StaticResource WholesalePageTitle}" Text="{Binding PageTitle}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
             <WrapPanel Grid.Row="1" Margin="0,10,0,10">
               <Button Padding="10,6" Command="{Binding NewCustomerCommand}" Content="{Binding NewButtonLabel}" />
               <Button Content="Import Excel" Padding="10,6" Margin="6,0,0,0" Command="{Binding ImportExcelCommand}" Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -2514,7 +2530,21 @@
           </Grid>
           <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <StackPanel behaviors:KeyNavigationBehavior.Enabled="True">
-              <TextBlock Text="{Binding DetailsHeader}" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
+              <DockPanel Margin="0,0,0,10">
+                <Button DockPanel.Dock="Right" Content="📒 Open ledger" VerticalAlignment="Center" Padding="12,5" AutomationProperties.Name="Open ledger"
+                        ToolTip="Balances, bills and payments of this party in Accounts &amp; Parties" Command="{Binding OpenLedgerCommand}">
+                  <Button.Style>
+                    <Style TargetType="{x:Type Button}" BasedOn="{StaticResource SecondaryButton}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding SelectedRecord}" Value="{x:Null}">
+                          <Setter Property="IsEnabled" Value="False" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </Button.Style>
+                </Button>
+                <TextBlock Text="{Binding DetailsHeader}" FontSize="20" FontWeight="SemiBold" />
+              </DockPanel>
               <Border Margin="0,0,0,10" Padding="10,8" CornerRadius="8" Background="#FFECFDF5" BorderBrush="#FFA7F3D0" BorderThickness="1" Visibility="{Binding IsRetailMode, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <TextBlock TextWrapping="Wrap" Foreground="#FF065F46" Text="{Binding RetailSuppliersHint}" />
               </Border>
@@ -3675,7 +3705,7 @@
               </ResourceDictionary>
             </FrameworkElement.Resources>
             <controls:GlobalMedicineSearchControl ShowActions="True" Margin="0,0,0,16" DataContext="{Binding DataContext.CatalogSearch, RelativeSource={RelativeSource AncestorType=Window}}" />
-            <TextBlock Style="{StaticResource PageTitle}" Text="Stock" FontSize="28" Margin="0,0,0,14" />
+            <TextBlock controls:HubHost.CollapseWhenEmbedded="True" Style="{StaticResource PageTitle}" Text="Stock" FontSize="28" Margin="0,0,0,14" />
             <TextBlock Margin="0,-8,0,14" Foreground="{DynamicResource SecondaryTextBrush}" Text="Every batch, expiry and shortage in one place. Tap a card to filter." />
             <UniformGrid Columns="5" Margin="0,0,0,16">
               <Button Style="{StaticResource KpiCardButton}" BorderBrush="#FF6366F1" Margin="0,0,10,0" Command="{Binding SetStockFilterCommand}" CommandParameter="All" ToolTip="Show every batch in stock.">
@@ -3883,7 +3913,7 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:StockTransferPageViewModel}}" DataType="{x:Type vm:StockTransferPageViewModel}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="28">
-            <TextBlock Text="Stock transfer challan" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <TextBlock controls:HubHost.CollapseWhenEmbedded="True" Text="Stock transfer challan" FontSize="28" FontWeight="SemiBold" Margin="0,0,0,6" />
             <TextBlock Text="Move batches between godowns. Counter billing only sells from Shop Front." Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,14" />
             <WrapPanel Margin="0,0,0,12">
               <controls:FloatingField Label="Source location" Width="220" Margin="0,0,8,8">
@@ -4790,6 +4820,32 @@
         </Grid>
           </ScrollViewer>
       </DataTemplate>
+      <!-- A hub (Stock Management, Accounts & Parties): one sidebar item whose tabs show existing screens unchanged. -->
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:HubPageViewModel}}" DataType="{x:Type vm:HubPageViewModel}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Margin="20,20,20,0">
+            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" />
+            <TextBlock Margin="0,2,0,12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" Text="{Binding Subtitle}" />
+            <Border HorizontalAlignment="Left" CornerRadius="20" Padding="3" Background="{DynamicResource AccentSoftBrush}" AutomationProperties.Name="Hub tabs">
+              <ItemsControl ItemsSource="{Binding Tabs}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Content="{Binding Title}" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsSelected}" ToolTip="{Binding ToolTip}"
+                            Command="{Binding DataContext.SelectTabCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Key}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Border>
+            <TextBlock Margin="0,6,0,0" Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+          </StackPanel>
+          <ContentControl Content="{Binding ActivePage}" Focusable="False" controls:HubHost.IsEmbedded="True" AutomationProperties.Name="Hub tab content" />
+        </DockPanel>
+      </DataTemplate>
       <!-- Compliance & Registers: the statutory registers and the drug records movement report as two tabs of one screen. -->
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:ComplianceRegistersPageViewModel}}" DataType="{x:Type vm:ComplianceRegistersPageViewModel}">
         <DockPanel>
@@ -5289,18 +5345,6 @@
               <StackPanel Orientation="Horizontal">
                 <TextBlock Style="{StaticResource NavIconText}" Text="" />
                 <TextBlock Text="{DynamicResource NavSettings}" />
-              </StackPanel>
-            </Button>
-            <Button Style="{StaticResource SidebarNavButtonStyle}" Click="OpenDiagnostics_Click">
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Style="{StaticResource NavIconText}" Text="" />
-                <TextBlock Text="Diagnostics" />
-              </StackPanel>
-            </Button>
-            <Button Style="{StaticResource SidebarNavButtonStyle}" Click="OpenCatalogImport_Click">
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Style="{StaticResource NavIconText}" Text="" />
-                <TextBlock Text="Import medicine data" />
               </StackPanel>
             </Button>
             <TextBlock Margin="14,14,14,6" FontSize="10" LineHeight="14" TextWrapping="Wrap" Foreground="{DynamicResource SidebarTextBrush}" Opacity="0.85" Text="Designed and developed by S.A.E.R. to serve pharma professionals." />

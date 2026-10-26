@@ -105,12 +105,23 @@
           <Button Style="{StaticResource SettingsNavButton}" CommandParameter="{x:Static vm:SettingsCategories.Payments}" Content="Payments &amp; Billing" Command="{Binding SelectSettingsCategoryCommand}" Tag="{Binding IsPaymentsCategorySelected}" />
           <Button Style="{StaticResource SettingsNavButton}" CommandParameter="{x:Static vm:SettingsCategories.Printer}" Content="Printer &amp; Documents" Command="{Binding SelectSettingsCategoryCommand}" Tag="{Binding IsPrinterCategorySelected}" />
           <Button Style="{StaticResource SettingsNavButton}" CommandParameter="{x:Static vm:SettingsCategories.Users}" Content="Users &amp; Security" Command="{Binding SelectSettingsCategoryCommand}" Tag="{Binding IsUsersCategorySelected}" />
-          <Button Style="{StaticResource SettingsNavButton}" CommandParameter="{x:Static vm:SettingsCategories.Data}" Content="Data, Backup &amp; Sync" Command="{Binding SelectSettingsCategoryCommand}" Tag="{Binding IsDataCategorySelected}" />
+          <Button Style="{StaticResource SettingsNavButton}" CommandParameter="{x:Static vm:SettingsCategories.Data}" Content="Data &amp; Maintenance" Command="{Binding SelectSettingsCategoryCommand}" Tag="{Binding IsDataCategorySelected}" />
           <Button Style="{StaticResource SettingsNavButton}" CommandParameter="{x:Static vm:SettingsCategories.About}" Content="About &amp; Updates" Command="{Binding SelectSettingsCategoryCommand}" Tag="{Binding IsAboutCategorySelected}" />
         </StackPanel>
       </Border>
       <ScrollViewer Name="SettingsScrollViewer" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
-        <StackPanel MaxWidth="820" HorizontalAlignment="Left">
+        <StackPanel HorizontalAlignment="Left">
+          <!-- Data & Maintenance needs the room: the sync page lists devices in grids. -->
+          <StackPanel.Style>
+            <Style TargetType="{x:Type StackPanel}">
+              <Setter Property="MaxWidth" Value="820" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsDataCategorySelected}" Value="True">
+                  <Setter Property="MaxWidth" Value="1180" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </StackPanel.Style>
           <TextBlock Margin="0,0,0,12" TextWrapping="Wrap" FontSize="13" Foreground="#FF64748B" Text="{Binding SettingsSearchEmptyMessage}">
             <FrameworkElement.Style>
               <Style TargetType="{x:Type TextBlock}">
@@ -603,41 +614,9 @@
               <Button Content="Save inspector PIN" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" Click="SaveInspectorPin_Click" />
             </StackPanel>
           </Border>
-          <Border Visibility="{Binding ShowSyncShortcut, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <FrameworkElement.Style>
-              <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
-                <Style.Triggers>
-                  <DataTrigger Value="True" Binding="{Binding HighlightSyncShortcut}">
-                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="BorderThickness" Value="2" />
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </FrameworkElement.Style>
-            <StackPanel>
-              <TextBlock Text="Sync Station" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
-              <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" Text="Local Wi-Fi pairing on port 5055, mDNS listener, and firewall rules." />
-              <Button Content="Open Sync Station" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" CommandParameter="Sync" Command="{Binding OpenRelatedSettingsSectionCommand}" />
-            </StackPanel>
-          </Border>
-          <Border Visibility="{Binding ShowBackupShortcut, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <FrameworkElement.Style>
-              <Style BasedOn="{StaticResource SettingsCard}" TargetType="{x:Type Border}">
-                <Style.Triggers>
-                  <DataTrigger Value="True" Binding="{Binding HighlightBackupShortcut}">
-                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                    <Setter Property="BorderThickness" Value="2" />
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </FrameworkElement.Style>
-            <StackPanel>
-              <TextBlock Text="Backup" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
-              <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" Text="Back up to any folder, including a OneDrive, Google Drive or Dropbox folder, or to a USB stick." />
-              <WrapPanel>
-                <Button Content="Open Backup" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" CommandParameter="Backup" Command="{Binding OpenRelatedSettingsSectionCommand}" />
-              </WrapPanel>
-            </StackPanel>
+          <!-- Data & Maintenance: Backup & Sync, the medicine data import and system diagnostics (once separate sidebar items). -->
+          <Border Style="{StaticResource SettingsCard}" Padding="0" Visibility="{Binding ShowDataMaintenance, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Data and maintenance">
+            <views:DataMaintenanceView DataContext="{Binding Maintenance}" />
           </Border>
           <Border Visibility="{Binding ShowDataBackupSection, Converter={StaticResource BooleanToVisibilityConverter}}">
             <FrameworkElement.Style>

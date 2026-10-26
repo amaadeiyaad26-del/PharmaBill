@@ -62,7 +62,7 @@ public sealed class SupplierBillChoice(OpenSupplierBill bill, Action changed) : 
 	public decimal? Amount => decimal.TryParse(PayAmount, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amount) ? amount : null;
 }
 
-public class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
+public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadablePage
 {
 	private bool _payAgainstBills;
 

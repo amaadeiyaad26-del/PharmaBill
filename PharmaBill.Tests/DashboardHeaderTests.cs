@@ -47,6 +47,13 @@ public sealed class DashboardHeaderTests
                 Assert.True(reports.Command != null, $"command not bound ({binding?.Status}): " + string.Join(" | ", trace.Lines.Where(l => l.Contains("NavigateCommand")).Take(3)));
                 await Ui.PressAsync(reports);
                 Assert.Equal(["Reports"], shell.Opened);
+
+                // The large Reports & Daily MIS card on the dashboard opens the same hub, and says what is there.
+                Button card = Ui.Button(host, "Reports & Daily MIS card");
+                Assert.True(card.ActualWidth > 600, "the card spans the dashboard");
+                Assert.Contains(Descendants(card).OfType<TextBlock>(), text => text.Text.Contains("Peak billing hours"));
+                await Ui.PressAsync(card);
+                Assert.Equal(["Reports", "Reports"], shell.Opened);
                 Assert.DoesNotContain(Descendants(host).OfType<Button>(), b => b.Content as string == "Sync Station" || (b.CommandParameter as string) == "Sync");
                 host.Close();
             }

@@ -11,6 +11,8 @@
   <String x:Key="NavRegisters" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">رجسٹر</String>
   <String x:Key="NavDrugRecords" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">دوائی کا ریکارڈ</String>
   <String x:Key="NavCompliance" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">تعمیل اور رجسٹر</String>
+  <String x:Key="NavParties" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">کھاتے اور پارٹیاں</String>
+  <String x:Key="NavStockHub" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">اسٹاک مینجمنٹ</String>
   <String x:Key="NavDataSync" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">بیک اپ اور سنک</String>
   <String x:Key="NavInspector" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">انسپکٹر</String>
   <String x:Key="NavReports" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">رپورٹس</String>

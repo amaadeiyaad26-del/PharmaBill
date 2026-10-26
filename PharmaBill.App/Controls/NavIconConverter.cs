@@ -11,6 +11,7 @@ public sealed class NavIconConverter : IValueConverter
 		["Billing"] = "\ue719", // Shopping cart / register
 		["WholesaleBilling"] = "\ue8a5", // Document / invoice
 		["Stock"] = "\ue7b8",
+		["StockHub"] = "\ue7b8",
 		["Purchases"] = "\ue7b8",
 		["Customers"] = "\ue716",
 		["CustomersGroup"] = "",
@@ -19,6 +20,7 @@ public sealed class NavIconConverter : IValueConverter
 			["RetailBuyers"] = "",
 			["Pricing"] = "\ue8ec",
 		["Accounts"] = "\ue8c7",
+		["Parties"] = "\ue8c7",
 		["BankReconciliation"] = "\ue8c8",
 		["CollectionsDunning"] = "\ue8bd",
 		["Returns"] = "\ue7a7",

@@ -18,7 +18,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
+public partial class WholesaleCustomerPageViewModel : ObservableObject, ILoadablePage
 {
 	private readonly IServiceScopeFactory _scopeFactory;
 

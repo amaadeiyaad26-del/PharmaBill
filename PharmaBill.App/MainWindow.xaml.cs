@@ -696,21 +696,10 @@ public partial class MainWindow : Window
 		e.Handled = true;
 	}
 
-	private void OpenDiagnostics_Click(object sender, RoutedEventArgs e)
-	{
-		using IServiceScope serviceScope = _scopeFactory.CreateScope();
-		DiagnosticsWindow requiredService = serviceScope.ServiceProvider.GetRequiredService<DiagnosticsWindow>();
-		requiredService.Owner = this;
-		requiredService.ShowDialog();
-	}
+	// Diagnostics and the medicine data import live in Settings > Data & Maintenance.
+	private void OpenDiagnostics_Click(object sender, RoutedEventArgs e) => _viewModel.OpenMaintenance(MaintenanceTab.Diagnostics);
 
-	private void OpenCatalogImport_Click(object sender, RoutedEventArgs e)
-	{
-		using IServiceScope serviceScope = _scopeFactory.CreateScope();
-		CatalogImportWindow requiredService = serviceScope.ServiceProvider.GetRequiredService<CatalogImportWindow>();
-		requiredService.Owner = this;
-		requiredService.ShowDialog();
-	}
+	private void OpenCatalogImport_Click(object sender, RoutedEventArgs e) => _viewModel.OpenMaintenance(MaintenanceTab.Import);
 
 	private void ReportsGrid_AutoGeneratingColumn(object? sender, DataGridAutoGeneratingColumnEventArgs e)
 	{

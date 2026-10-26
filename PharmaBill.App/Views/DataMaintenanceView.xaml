@@ -1,0 +1,40 @@
+<UserControl x:Class="PharmaBill.App.Views.DataMaintenanceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:PharmaBill.App.ViewModels"
+             xmlns:views="clr-namespace:PharmaBill.App.Views"
+             xmlns:controls="clr-namespace:PharmaBill.App.Controls">
+  <!-- Settings > Data & Maintenance: Backup & Sync, the medicine data import and system diagnostics (once sidebar items). -->
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+  </UserControl.Resources>
+  <StackPanel>
+    <StackPanel Margin="14,14,14,6">
+      <TextBlock Text="Data &amp; Maintenance" FontSize="16" FontWeight="SemiBold" />
+      <TextBlock Margin="0,2,0,10" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                 Text="Backups and moving to a new PC, syncing counters and phones, the medicine data import, and system checks." />
+      <Border HorizontalAlignment="Left" CornerRadius="20" Padding="3" Background="{DynamicResource AccentSoftBrush}" AutomationProperties.Name="Maintenance tabs">
+        <StackPanel Orientation="Horizontal">
+          <Button Content="💾 Data &amp; Backup" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsBackupTab}"
+                  Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:MaintenanceTab.Backup}"
+                  ToolTip="Encrypted backups, restore and moving to a new PC; counters, phones and cloud sync" />
+          <Button Content="📥 Data Import" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsImportTab}"
+                  Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:MaintenanceTab.Import}"
+                  ToolTip="Import the medicine catalogue and medicine information files" />
+          <Button Content="🔧 System Diagnostics" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsDiagnosticsTab}"
+                  Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:MaintenanceTab.Diagnostics}"
+                  ToolTip="Data file imports and database row counts" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+    <!-- The Backup & Sync page itself, with its own two tabs; its big title hides here. -->
+    <ContentControl Content="{Binding DataSync}" Focusable="False" controls:HubHost.IsEmbedded="True"
+                    Visibility="{Binding IsBackupTab, Converter={StaticResource BooleanToVisibilityConverter}}" />
+    <Border Padding="14,6,14,14" Visibility="{Binding IsImportTab, Converter={StaticResource BooleanToVisibilityConverter}}">
+      <views:CatalogImportView DataContext="{Binding CatalogImport}" />
+    </Border>
+    <Border Padding="14,6,14,14" Visibility="{Binding IsDiagnosticsTab, Converter={StaticResource BooleanToVisibilityConverter}}">
+      <views:DiagnosticsView DataContext="{Binding Diagnostics}" />
+    </Border>
+  </StackPanel>
+</UserControl>

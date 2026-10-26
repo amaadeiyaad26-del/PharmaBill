@@ -1,22 +1,24 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="PharmaBill.App.DiagnosticsWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Pharma Remit - Diagnostics" Width="900" Height="720" MinWidth="760" MinHeight="600" WindowStartupLocation="CenterOwner" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
-  <DockPanel Margin="20">
+<UserControl x:Class="PharmaBill.App.Views.DiagnosticsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             AutomationProperties.Name="System diagnostics">
+  <!-- System diagnostics, shown in Settings > Data & Maintenance: import status of the data files and database row counts. -->
+  <DockPanel>
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
-      <TextBlock Text="Diagnostics" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
-      <Button Content="Refresh" Margin="16,0,0,0" Padding="12,6" Command="{Binding RefreshCommand}" />
+      <Button Content="Refresh" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" />
       <Button Content="Key Generator" Margin="8,0,0,0" Padding="12,6" Opacity="0.55" ToolTip="Admin: generate 1 Month / 1 Year / Lifetime keys (Ctrl+Shift+K)" Click="OpenKeyGenerator_Click" />
     </StackPanel>
     <TextBlock DockPanel.Dock="Bottom" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,10,0,0" Text="{Binding ErrorMessage}" />
-    <TabControl>
+    <TabControl MinHeight="320">
       <TabItem Header="Import">
         <DockPanel Margin="12">
           <TextBlock DockPanel.Dock="Top" Text="CSV files" FontWeight="SemiBold" Margin="0,0,0,8" />
-          <ListView MaxHeight="140" ItemsSource="{Binding Files}">
+          <ListView DockPanel.Dock="Top" MaxHeight="140" ItemsSource="{Binding Files}">
             <ListView.View>
               <GridView>
-                <GridViewColumn Header="File" Width="220" DisplayMemberBinding="{Binding Name}" />
-                <GridViewColumn Header="Path" Width="460" DisplayMemberBinding="{Binding Path}" />
-                <GridViewColumn Header="Size (bytes)" Width="120" DisplayMemberBinding="{Binding SizeBytes}" />
+                <GridViewColumn Header="File" Width="200" DisplayMemberBinding="{Binding Name}" />
+                <GridViewColumn Header="Path" Width="380" DisplayMemberBinding="{Binding Path}" />
+                <GridViewColumn Header="Size (bytes)" Width="110" DisplayMemberBinding="{Binding SizeBytes}" />
               </GridView>
             </ListView.View>
           </ListView>
@@ -24,14 +26,14 @@
             <ListView.View>
               <GridView>
                 <GridViewColumn Header="Import" Width="100" DisplayMemberBinding="{Binding ImportKey}" />
-                <GridViewColumn Header="Status" Width="130" DisplayMemberBinding="{Binding Status}" />
+                <GridViewColumn Header="Status" Width="120" DisplayMemberBinding="{Binding Status}" />
                 <GridViewColumn Header="Imported" Width="90" DisplayMemberBinding="{Binding ImportedRows}" />
                 <GridViewColumn Header="Skipped" Width="80" DisplayMemberBinding="{Binding SkippedRows}" />
-                <GridViewColumn Header="Last error" Width="300" DisplayMemberBinding="{Binding LastError}" />
+                <GridViewColumn Header="Last error" Width="240" DisplayMemberBinding="{Binding LastError}" />
                 <GridViewColumn Header="Action">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate>
-                      <Button Content="Re-import" Padding="8,4" Command="{Binding DataContext.ReimportCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
+                      <Button Content="Re-import" Padding="8,4" Command="{Binding DataContext.ReimportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
@@ -52,4 +54,4 @@
       </TabItem>
     </TabControl>
   </DockPanel>
-</Window>
+</UserControl>

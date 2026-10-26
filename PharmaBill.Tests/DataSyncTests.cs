@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -16,72 +17,9 @@ using Xunit;
 namespace PharmaBill.Tests;
 
 // Backup & Sync: local backup and PC migration, and device and cloud sync, as two tabs of one screen, built from the
-// real Backup and Sync pages. The old "Backup" and "Sync" keys (Settings links, reminders, the assistant) open their tab.
+// real Backup and Sync pages (shown inside Settings > Data & Maintenance; the routing is in MergedScreenRoutesTests).
 public sealed class DataSyncTests
 {
-    [Fact]
-    public void OldScreenKeys_OpenTheirTab_AndOnTheScreenOnlyTheTabChanges()
-    {
-        WithShop(async shop =>
-        {
-            DataSyncPageViewModel page = shop.Page();
-            var navigation = new NavigationService();
-            var routes = new MergedScreenRoutes(navigation);
-            object? current = null;
-            var built = new List<string>();
-            ComplianceTab? complianceTab = null;
-            // What the main window does when the section changes: old keys are routed, anything else builds its screen.
-            navigation.SectionChanged += (_, _) =>
-            {
-                string key = navigation.CurrentSectionKey;
-                if (routes.ConsumeKeepCurrentPage() || routes.TryOpen(key, current))
-                {
-                    return;
-                }
-                built.Add(key);
-                if (key == DataSyncPageViewModel.SectionKey && routes.TakeDataSyncTab() is DataSyncTab tab)
-                {
-                    page.ShowTab(tab);
-                }
-                if (key == ComplianceRegistersPageViewModel.SectionKey)
-                {
-                    complianceTab = routes.TakeComplianceTab();
-                }
-                current = key == DataSyncPageViewModel.SectionKey ? page : key;
-            };
-
-            // Settings' "Open Sync Station" asks for "Sync" directly.
-            navigation.Navigate("Sync");
-            Assert.Equal(["DataSync"], built);
-            Assert.Equal("DataSync", navigation.CurrentSectionKey);
-            Assert.True(page.IsSyncTab);
-
-            // The USB reminder's "Back up now" asks for "Backup" while the screen is open: only the tab changes.
-            navigation.Navigate("Backup");
-            await Ui.SettleAsync();
-            Assert.Equal(["DataSync"], built);
-            Assert.Equal("DataSync", navigation.CurrentSectionKey);
-            Assert.True(page.IsBackupTab);
-
-            // Leaving and coming back by the sidebar keeps the tab last used.
-            page.ShowTab(DataSyncTab.Sync);
-            navigation.Navigate("Dashboard");
-            navigation.Navigate("DataSync");
-            Assert.True(page.IsSyncTab);
-
-            // The registers' old keys work the same way.
-            navigation.Navigate("DrugRecords");
-            Assert.Equal("Compliance", navigation.CurrentSectionKey);
-            Assert.Equal(ComplianceTab.DrugRecords, complianceTab);
-            Assert.False(routes.TryOpen("Reports", current));
-
-            // The assistant still answers with the old keys.
-            var today = new DateOnly(2026, 10, 21);
-            Assert.Equal(DataSyncTab.Backup, DataSyncPageViewModel.TabForSection(AssistantQueryInterpreter.Interpret("backup", today).SectionKey));
-            Assert.Equal(DataSyncTab.Sync, DataSyncPageViewModel.TabForSection(AssistantQueryInterpreter.Interpret("sync", today).SectionKey));
-        });
-    }
-
     [Fact]
     public void Tabs_ShowTheRealBackupAndSyncPages_AndKeepTheirState()
     {
@@ -117,6 +55,49 @@ public sealed class DataSyncTests
             await Ui.PressAsync(Ui.Button(host, "💾 Local Backup & PC Migration"));
             Assert.Equal(shop.Picker.Folder, page.Backup.BackupFolder);
             Assert.Equal(shop.Picker.Folder, Ui.Named<TextBox>(host, "Backup folder").Text);
+            bindings.AssertNone();
+            host.Close();
+        });
+    }
+
+    // Settings > Data & Maintenance: Backup & Sync, the medicine data import and diagnostics, once sidebar items.
+    [Fact]
+    public void DataAndMaintenance_ShowsBackupImportAndDiagnostics_AndOpeningTheImportStartsNothing()
+    {
+        WithShop(async shop =>
+        {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
+            var maintenance = new DataMaintenanceViewModel(shop.Page(), shop.Scopes);
+            var view = new PharmaBill.App.Views.DataMaintenanceView { DataContext = maintenance };
+            var mainWindow = new MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
+            BindingSafetyTests.Retire(mainWindow);
+            var host = new Window { Width = 1300, Height = 1000, Resources = mainWindow.Resources };
+            Ui.Prepare(host);
+            host.Show();
+            host.Content = new ScrollViewer { Content = view };
+            await maintenance.LoadAsync();
+            await Ui.SettleAsync();
+
+            // Data & Backup: the Backup page, under Backup & Sync's own tabs (its big title hidden).
+            Assert.True(Equals(true, Ui.Button(host, "💾 Data & Backup").Tag));
+            Ui.Button(host, "💾 Local Backup & PC Migration");
+            Ui.Button(host, "Back up now");
+            Assert.DoesNotContain("Backup & Sync", Texts(host));
+
+            // Data Import: the import panel, with nothing running until Import is pressed.
+            await Ui.PressAsync(Ui.Button(host, "📥 Data Import"));
+            Assert.NotNull(maintenance.CatalogImport);
+            Assert.False(maintenance.CatalogImport!.IsImporting);
+            Ui.Button(host, "Import / resume");
+            Assert.False(Ui.Button(host, "Cancel import").IsEnabled);
+            Assert.Equal(0, await shop.CountCatalogAsync());
+
+            // System Diagnostics: the database row counts.
+            await Ui.PressAsync(Ui.Button(host, "🔧 System Diagnostics"));
+            Assert.NotNull(maintenance.Diagnostics);
+            await Ui.UntilAsync(() => maintenance.Diagnostics!.TableCounts.Count > 0, "the row counts");
+            Assert.True(string.IsNullOrEmpty(maintenance.Diagnostics!.ErrorMessage), maintenance.Diagnostics.ErrorMessage);
+            Ui.Button(host, "Refresh");
             bindings.AssertNone();
             host.Close();
         });
@@ -223,24 +204,36 @@ public sealed class DataSyncTests
                 .AddSingleton(new TerminalClientSettingsStore(terminals))
                 .AddSingleton<DevicesViewModel>()
                 .AddSingleton<BackupPageViewModel>()
-                .AddSingleton<SyncSettingsPageViewModel>();
+                .AddSingleton<SyncSettingsPageViewModel>()
+                .AddScoped<CatalogImportService>()
+                .AddTransient<CatalogImportViewModel>();
             shop._services = services.BuildServiceProvider();
             return shop;
         }
 
+        public IServiceScopeFactory Scopes => _services.GetRequiredService<IServiceScopeFactory>();
+
         public DataSyncPageViewModel Page() =>
             new("Backup & Sync", _services.GetRequiredService<BackupPageViewModel>(), _services.GetRequiredService<SyncSettingsPageViewModel>());
 
-        public async Task<Window> ShowAsync(DataSyncPageViewModel page)
+        public Task<Window> ShowAsync(DataSyncPageViewModel page) => ShowAsync(page, typeof(DataSyncPageViewModel));
+
+        public async Task<Window> ShowAsync(object page, Type pageType)
         {
             var mainWindow = new MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
             BindingSafetyTests.Retire(mainWindow);
             var host = new Window { Width = 1500, Height = 1000 };
             Ui.Prepare(host);
             host.Show();
-            host.Content = new ContentControl { Content = page, ContentTemplate = (DataTemplate)mainWindow.Resources[new DataTemplateKey(typeof(DataSyncPageViewModel))], Resources = mainWindow.Resources };
+            host.Content = new ContentControl { Content = page, ContentTemplate = (DataTemplate)mainWindow.Resources[new DataTemplateKey(pageType)], Resources = mainWindow.Resources };
             await Ui.SettleAsync();
             return host;
+        }
+
+        public async Task<int> CountCatalogAsync()
+        {
+            using IServiceScope scope = Scopes.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().CatalogMedicines.CountAsync();
         }
 
         public async ValueTask DisposeAsync() => await _services.DisposeAsync();

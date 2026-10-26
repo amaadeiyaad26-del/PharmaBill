@@ -10,7 +10,7 @@ namespace PharmaBill.App.ViewModels;
 
 // Wholesale Suppliers: the distributors and wholesalers the pharmacy buys from.
 // Reads and writes the same Supplier table that purchase bills use.
-public sealed class SupplierDirectoryPageViewModel : ObservableObject, ILoadablePage
+public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, ILoadablePage
 {
 	private readonly IServiceScopeFactory _scopeFactory;
 
