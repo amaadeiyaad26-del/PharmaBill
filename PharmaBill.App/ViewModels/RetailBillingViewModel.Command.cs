@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Linq;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using PharmaBill.App.Services;
 using PharmaBill.Core.Pos;
 using PharmaBill.Data.Services;
 

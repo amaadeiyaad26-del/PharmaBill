@@ -1,4 +1,3 @@
-using System;
 using System.Security.Cryptography;
 
 namespace PharmaBill.Core.Security;

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Windows;
 using PharmaBill.App.ViewModels;
 

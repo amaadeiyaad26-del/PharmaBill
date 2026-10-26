@@ -1,8 +1,4 @@
-using System;
-using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading;
-using System.Threading.Tasks;
 using PharmaBill.Core.Ai;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;

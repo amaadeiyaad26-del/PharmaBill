@@ -1,15 +1,10 @@
 ﻿using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -1806,10 +1801,19 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 		if (string.IsNullOrWhiteSpace(_upiId))
 		{
-			using IServiceScope scope = _scopeFactory.CreateScope();
-			PharmacyProfile pharmacyProfile = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles.AsNoTracking().SingleAsync();
-			_pharmacyName = pharmacyProfile.Name;
-			_upiId = pharmacyProfile.UpiId ?? string.Empty;
+			// Started without awaiting (from a key or button): a failure here must show, not vanish.
+			try
+			{
+				using IServiceScope scope = _scopeFactory.CreateScope();
+				PharmacyProfile pharmacyProfile = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().PharmacyProfiles.AsNoTracking().SingleAsync();
+				_pharmacyName = pharmacyProfile.Name;
+				_upiId = pharmacyProfile.UpiId ?? string.Empty;
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+				return;
+			}
 		}
 		decimal num = EstimatedTotal;
 		if (PaidAmount > 0m)
@@ -2386,7 +2390,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		OnPropertyChanged("EstimatedTotal");
 		OnPropertyChanged("LineCount");
 		SaveDraft();
-		RefreshCreditGateAsync();
+		_ = RefreshCreditGateAsync();
 	}
 
 	private async Task RefreshCreditGateAsync()
@@ -2454,7 +2458,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			IsCustomerDropDownOpen = false;
 		}
 
-		RefreshCreditGateAsync();
+		_ = RefreshCreditGateAsync();
 		_ = RefreshBuyerHeaderAsync();
 	}
 
@@ -2951,7 +2955,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		OnPropertyChanged("IsUpiPayment");
 		if (!_suppressUpiAutoModal && IsUpiPayment && EstimatedTotal > 0m)
 		{
-			ShowPaymentQrAsync();
+			_ = ShowPaymentQrAsync();
 		}
 	}
 

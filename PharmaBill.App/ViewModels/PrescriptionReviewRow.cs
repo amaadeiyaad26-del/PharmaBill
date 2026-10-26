@@ -1,9 +1,6 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PharmaBill.Core.Ai;
 using PharmaBill.Data.Services;

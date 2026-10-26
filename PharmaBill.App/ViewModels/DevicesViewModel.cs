@@ -1,9 +1,6 @@
 using PharmaBill.Core;
-using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;

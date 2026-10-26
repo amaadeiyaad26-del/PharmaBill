@@ -1,14 +1,8 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Printing;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -4032,7 +4026,7 @@ public class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 				Period = value.Period
 			});
 			RetentionStatus = "Retention period saved: " + value.DisplayName + ".";
-			RefreshRetentionSummaryAsync();
+			_ = RefreshRetentionSummaryAsync();
 		}
 	}
 

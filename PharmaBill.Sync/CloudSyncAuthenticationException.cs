@@ -1,4 +1,3 @@
-using System;
 
 namespace PharmaBill.Sync;
 

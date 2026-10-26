@@ -2,13 +2,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using PharmaBill.App;
 using PharmaBill.App.Services;
 using PharmaBill.App.ViewModels;
 using PharmaBill.Core.Ai;
-using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using PharmaBill.Sync;
@@ -90,6 +87,7 @@ public sealed class DataSyncTests
     {
         WithShop(async shop =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             DataSyncPageViewModel page = shop.Page();
             Window host = await shop.ShowAsync(page);
             await page.LoadAsync();
@@ -119,6 +117,7 @@ public sealed class DataSyncTests
             await Ui.PressAsync(Ui.Button(host, "💾 Local Backup & PC Migration"));
             Assert.Equal(shop.Picker.Folder, page.Backup.BackupFolder);
             Assert.Equal(shop.Picker.Folder, Ui.Named<TextBox>(host, "Backup folder").Text);
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -212,7 +211,6 @@ public sealed class DataSyncTests
                 .AddSingleton<GoogleDriveSyncSettingsStore>()
                 .AddSingleton<GoogleDriveSyncService>()
                 .AddSingleton<CloudAutoBackupPreferencesStore>()
-                .AddSingleton<ICloudStorageService>(provider => new GoogleDriveCloudStorageAdapter(provider.GetRequiredService<GoogleDriveSyncService>()))
                 .AddSingleton<CloudBackupOrchestrator>()
                 .AddSingleton<BranchNetworkSyncService>()
                 .AddSingleton<ZeroConfigSyncCoordinator>()

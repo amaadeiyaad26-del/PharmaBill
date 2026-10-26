@@ -1,13 +1,7 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -18,7 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
-using PharmaBill.Data.Services;
 using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
@@ -1645,7 +1638,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		DevicesPanel.Refresh();
-		_ = 4;
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
@@ -1670,13 +1662,12 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		string text = _filePicker.PickFolder("Choose Google Drive or another synced folder");
 		if (text != null)
 		{
-			SaveSyncFolderAsync(text);
+			_ = SaveSyncFolderAsync(text);
 		}
 	}
 
 	private async Task SyncNowAsync()
 	{
-		_ = 1;
 		try
 		{
 			await _folderSync.ConfigureAsync(SyncFolderPath, AutoSyncEnabled);
@@ -1734,7 +1725,6 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task CloudSyncNowAsync()
 	{
-		_ = 1;
 		try
 		{
 			await _cloudSync.ConfigureAsync(CloudServerUrl, CloudApiKey, CloudSyncEnabled);
@@ -1969,7 +1959,7 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 		NotifyGoogleDriveCardState();
 		if (settings.IsConnected && !flag)
 		{
-			ClearStaleGoogleDriveAsync();
+			_ = ClearStaleGoogleDriveAsync();
 		}
 	}
 
@@ -2457,14 +2447,14 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	{
 		if (!string.IsNullOrWhiteSpace(value))
 		{
-			UpdateLocalNameAsync(value);
+			_ = UpdateLocalNameAsync(value);
 		}
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnAutoSyncEnabledChanged(bool value)
 	{
-		SaveAutoSyncPreferenceAsync(value);
+		_ = SaveAutoSyncPreferenceAsync(value);
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
@@ -2482,13 +2472,13 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnGoogleDriveSyncOnExitChanged(bool value)
 	{
-		PersistGoogleDrivePreferencesAsync();
+		_ = PersistGoogleDrivePreferencesAsync();
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnGoogleDriveSyncOnBillSaveChanged(bool value)
 	{
-		PersistGoogleDrivePreferencesAsync();
+		_ = PersistGoogleDrivePreferencesAsync();
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]

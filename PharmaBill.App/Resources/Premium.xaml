@@ -1,12 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Color x:Key="FocusGlowColor">#FF3B82F6</Color>
-  <Color x:Key="EmeraldGlowColor">#FF10B981</Color>
   <SolidColorBrush x:Key="FocusRingBrush" Color="#FF3B82F6" />
-  <LinearGradientBrush x:Key="PrimaryGradientBrush" StartPoint="0,0" EndPoint="1,1">
-    <GradientStop Color="#FF2563EB" Offset="0" />
-    <GradientStop Color="#FF1D4ED8" Offset="1" />
-  </LinearGradientBrush>
   <LinearGradientBrush x:Key="SuccessGradientBrush" StartPoint="0,0" EndPoint="1,1">
     <GradientStop Color="#FF059669" Offset="0" />
     <GradientStop Color="#FF0D9488" Offset="1" />
@@ -15,11 +9,6 @@
     <GradientStop Color="#FF0F172A" Offset="0" />
     <GradientStop Color="#FF1E293B" Offset="1" />
   </LinearGradientBrush>
-  <RadialGradientBrush x:Key="NavPillGlowBrush">
-    <GradientStop Color="#FF6EE7B7" Offset="0" />
-    <GradientStop Color="#FF10B981" Offset="1" />
-  </RadialGradientBrush>
-  <Duration x:Key="HoverDuration">0:0:0.15</Duration>
   <QuadraticEase x:Key="EaseOutQuad" EasingMode="EaseOut" />
   <Style x:Key="{x:Type ToolTip}" TargetType="{x:Type ToolTip}">
     <Setter Property="FrameworkElement.OverridesDefaultStyle" Value="True" />

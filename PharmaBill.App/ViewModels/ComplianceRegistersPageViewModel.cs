@@ -1,5 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 
 namespace PharmaBill.App.ViewModels;
@@ -72,6 +70,7 @@ public sealed class ComplianceRegistersPageViewModel : SectionPageViewModel, ILo
 	}
 
 	// A tab is unlocked once per visit. One whose PIN was cancelled asks again when it is chosen again.
+	// Tab clicks start this without awaiting: a failure (the PIN check reads the database) shows on that tab.
 	private async Task OpenActiveTabAsync(CancellationToken cancellationToken = default)
 	{
 		if (IsRegistersTab)
@@ -79,13 +78,27 @@ public sealed class ComplianceRegistersPageViewModel : SectionPageViewModel, ILo
 			if (!_registersOpened || !Registers.IsUnlocked)
 			{
 				_registersOpened = true;
-				await Registers.LoadAsync(cancellationToken);
+				try
+				{
+					await Registers.LoadAsync(cancellationToken);
+				}
+				catch (Exception ex) when (ex is not OperationCanceledException)
+				{
+					Registers.ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+				}
 			}
 		}
 		else if (!_drugRecordsOpened || !DrugRecords.IsUnlocked)
 		{
 			_drugRecordsOpened = true;
-			await DrugRecords.LoadAsync(cancellationToken);
+			try
+			{
+				await DrugRecords.LoadAsync(cancellationToken);
+			}
+			catch (Exception ex) when (ex is not OperationCanceledException)
+			{
+				DrugRecords.ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			}
 		}
 	}
 }

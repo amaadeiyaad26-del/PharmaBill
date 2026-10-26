@@ -1,11 +1,7 @@
 using PharmaBill.Core;
-using System;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;

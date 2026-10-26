@@ -1,11 +1,6 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Sync;

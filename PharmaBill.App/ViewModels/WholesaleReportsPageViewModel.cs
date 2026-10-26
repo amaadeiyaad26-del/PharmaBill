@@ -1,15 +1,10 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -232,7 +227,6 @@ public class WholesaleReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task RefreshAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		_ = 4;
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();

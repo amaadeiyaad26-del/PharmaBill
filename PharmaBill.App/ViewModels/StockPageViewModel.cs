@@ -1,14 +1,9 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -507,7 +502,6 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		_ = 1;
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
@@ -1176,7 +1170,6 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	private async Task RunInventoryActionAsync(Func<IServiceScope, Task> action)
 	{
-		_ = 1;
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
@@ -1308,7 +1301,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnScheduleFilterChanged(string? value)
 	{
-		LoadAsync();
+		_ = LoadAsync();
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]

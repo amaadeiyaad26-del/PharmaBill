@@ -1,16 +1,10 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using PharmaBill.App.Services;
 using PharmaBill.Data.Services;
 using PharmaBill.Sync;
 
@@ -575,7 +569,6 @@ public partial class DashboardPageViewModel(IServiceScopeFactory scopeFactory, L
 
 	private async Task RefreshAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		_ = 1;
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();

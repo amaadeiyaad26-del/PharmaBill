@@ -38,6 +38,7 @@ public sealed class ComplianceRegistersTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Compliance shop = await Compliance.OpenAsync();
             ComplianceRegistersPageViewModel page = shop.Page();
             using var pin = new PinAnswerer(Pin);
@@ -82,6 +83,7 @@ public sealed class ComplianceRegistersTests
             List<string?> granted = await shop.Database.Context.AuditLogs.AsNoTracking()
                 .Where(log => log.Action == "SensitiveRecordsAccessGranted").Select(log => log.Details).ToListAsync();
             Assert.Equal(["open statutory registers", "open Drug Records"], granted.Order().Reverse().ToList());
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -91,6 +93,7 @@ public sealed class ComplianceRegistersTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Compliance shop = await Compliance.OpenAsync();
             ComplianceRegistersPageViewModel page = shop.Page(ComplianceTab.DrugRecords);
             Window host = await shop.ShowAsync(page);
@@ -107,6 +110,7 @@ public sealed class ComplianceRegistersTests
             await Ui.PressAsync(Ui.Button(host, "Drug Records Movement"));
             await Ui.UntilAsync(() => page.DrugRecords.IsUnlocked, "the drug records tab to unlock");
             Assert.Single(pin.Prompts);
+            bindings.AssertNone();
             host.Close();
         });
     }

@@ -1,8 +1,5 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -234,7 +231,7 @@ public partial class App : Application
 			}
 			RegistrationNotificationService registrationNotifications = _host.Services.GetRequiredService<RegistrationNotificationService>();
 			registrationNotifications.EnsureNetworkHook();
-			Task.Run(async () =>
+			_ = Task.Run(async () =>
 			{
 				try
 				{
@@ -370,7 +367,6 @@ public partial class App : Application
 		MainWindowViewModel mainVm = _host.Services.GetRequiredService<MainWindowViewModel>();
 		Task.Run(async () =>
 		{
-			_ = 1;
 			try
 			{
 				await Task.Delay(2500).ConfigureAwait(continueOnCapturedContext: false);

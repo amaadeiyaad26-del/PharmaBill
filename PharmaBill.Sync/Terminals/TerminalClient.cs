@@ -1,13 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using PharmaBill.Core.Gst;
 using PharmaBill.Data.Services;
 
@@ -194,7 +188,7 @@ public sealed class TerminalClient : IDisposable
 		{
 			response = await _http.SendAsync(request, token);
 		}
-		catch (HttpRequestException exception) when (_identityMismatch)
+		catch (HttpRequestException) when (_identityMismatch)
 		{
 			throw new TerminalServerIdentityException($"Something at {_settings.ServerHost} answered, but it is not the paired server PC ({_settings.ServerName}). Nothing was sent. If the server PC was replaced or reinstalled, pair this PC again; otherwise someone may be interfering with the shop network.");
 		}

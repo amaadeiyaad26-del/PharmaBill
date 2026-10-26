@@ -1,13 +1,8 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
@@ -1599,7 +1594,7 @@ public class MainWindowViewModel : ObservableObject
 			WelcomeStatusLine = "The previous database could not be opened and was archived as " + System.IO.Path.GetFileName(archived) + " in the data folder. Contact support to recover its records.";
 		}
 		ShowWelcomeToast = true;
-		AutoDismissWelcomeToastAsync();
+		_ = AutoDismissWelcomeToastAsync();
 	}
 
 	private void DismissWelcomeToast()
@@ -1696,7 +1691,7 @@ public class MainWindowViewModel : ObservableObject
 
 	private void OnRetailBillSaved(object? sender, EventArgs e)
 	{
-		MaybeZeroConfigSyncAfterBillAsync();
+		_ = MaybeZeroConfigSyncAfterBillAsync();
 	}
 
 	public async Task SyncGoogleDriveOnExitAsync()
@@ -1944,7 +1939,6 @@ public class MainWindowViewModel : ObservableObject
 
 	private async Task OpenProfileAsync()
 	{
-		_ = 1;
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
@@ -2128,7 +2122,7 @@ public class MainWindowViewModel : ObservableObject
 	private void ShowBarcodeToast(string message)
 	{
 		BarcodeToastMessage = message;
-		DismissBarcodeToastAfterDelayAsync();
+		_ = DismissBarcodeToastAfterDelayAsync();
 	}
 
 	private async Task DismissBarcodeToastAfterDelayAsync()
@@ -2170,7 +2164,7 @@ public class MainWindowViewModel : ObservableObject
 		}
 		if (flag)
 		{
-			PromptCriticalUpdateAsync();
+			_ = PromptCriticalUpdateAsync();
 		}
 		else
 		{
@@ -2300,7 +2294,7 @@ public class MainWindowViewModel : ObservableObject
 		ShowUpdateBanner = result.IsUpdateAvailable && (IsCriticalUpdateRequired || !_appUpdates.IsSnoozed());
 		if (IsCriticalUpdateRequired && !_criticalUpdateDialogShown)
 		{
-			PromptCriticalUpdateAsync();
+			_ = PromptCriticalUpdateAsync();
 		}
 	}
 
@@ -2340,7 +2334,7 @@ public class MainWindowViewModel : ObservableObject
 	{
 		if (IsCriticalUpdateRequired)
 		{
-			PromptCriticalUpdateAsync();
+			_ = PromptCriticalUpdateAsync();
 			return;
 		}
 		_appUpdates.RemindTomorrow();
@@ -3020,7 +3014,6 @@ public class MainWindowViewModel : ObservableObject
 
 	public async Task NavigateToAsync(Func<Task> loadViewAction, string message = "Loading...")
 	{
-		_ = 1;
 		try
 		{
 			BusyMessage = message;

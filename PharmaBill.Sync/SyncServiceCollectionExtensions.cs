@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.Core.Services.Auth;
 using PharmaBill.Data.Persistence;
@@ -34,7 +32,6 @@ public static class SyncServiceCollectionExtensions
 		services.AddSingleton<GoogleDriveSyncSettingsStore>();
 		services.AddSingleton<GoogleDriveSyncService>();
 		services.AddSingleton<CloudAutoBackupPreferencesStore>();
-		services.AddSingleton((Func<IServiceProvider, ICloudStorageService>)((IServiceProvider provider) => new GoogleDriveCloudStorageAdapter(provider.GetRequiredService<GoogleDriveSyncService>())));
 		services.AddSingleton<CloudBackupOrchestrator>();
 		services.AddSingleton<BranchNetworkSyncService>();
 		services.AddSingleton<ZeroConfigSyncCoordinator>();

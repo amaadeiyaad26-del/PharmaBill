@@ -1,8 +1,6 @@
 using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;

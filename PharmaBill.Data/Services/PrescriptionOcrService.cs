@@ -1,16 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PharmaBill.Core.Ai;
-using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 
 namespace PharmaBill.Data.Services;

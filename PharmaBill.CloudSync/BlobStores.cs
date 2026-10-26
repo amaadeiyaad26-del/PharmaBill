@@ -1,5 +1,4 @@
-﻿using System.Security.Cryptography;
-using Amazon.S3;
+﻿using Amazon.S3;
 using Amazon.S3.Model;
 
 namespace PharmaBill.CloudSync;

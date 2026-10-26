@@ -1,4 +1,3 @@
-using System;
 using PharmaBill.Core.Services.Auth;
 
 namespace PharmaBill.App.Services;

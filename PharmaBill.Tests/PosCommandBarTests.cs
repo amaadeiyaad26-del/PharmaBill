@@ -23,6 +23,7 @@ public sealed class PosCommandBarTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Shop shop = await Shop.OpenAsync();
             // A second Paracetamol batch expiring later: the earliest-expiring one must come first.
             Batch later = await shop.AddBatchAsync(shop.Catalog.Paracetamol650, "PCM-LATE", BusinessClock.Today.AddYears(2), 5m);
@@ -65,6 +66,7 @@ public sealed class PosCommandBarTests
             Assert.Equal("Mr X", (await shop.Database.Context.Patients.AsNoTracking().SingleAsync(p => p.Id == sale.PatientId)).Name);
             Assert.Equal(before - 2m, await shop.OnHandAsync(shop.Catalog.ParacetamolBatch.Id));
             Assert.Equal(5m, await shop.OnHandAsync(later.Id));
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -74,6 +76,7 @@ public sealed class PosCommandBarTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Shop shop = await Shop.OpenAsync();
             var limcee = new CatalogMedicine { SourceId = "L-1", Name = "Limcee 500 Chewable Tablet", CompositionKey = "vitamin c 500mg", ShortComposition1 = "Vitamin C (500mg)", PackSizeLabel = "15 Tablets / Strip" };
             shop.Database.Context.CatalogMedicines.Add(limcee);
@@ -104,12 +107,16 @@ public sealed class PosCommandBarTests
             Assert.Equal("Ali", page.PosPreview.Customer);
             await Ui.PressAsync(Ui.Single<Button>(host, b => System.Windows.Automation.AutomationProperties.GetName(b) == "Add command to bill"));
             Assert.Equal(limcee.Name, Assert.Single(page.BillItems).Choice.DrugName);
+            bindings.AssertNone();
             host.Close();
 
             // Purchases opens on that medicine.
             var purchases = new PurchasePageViewModel(shop.Services.GetRequiredService<IServiceScopeFactory>(), shop.Session, null!, null!, null!, null!, null!, null!, null!, null!, null!, shop.PurchaseEntry);
             shop.PurchaseEntry.MedicineName = "Limcee 500 Chewable Tablet";
             await purchases.LoadAsync();
+            // Loading the page also loads the medicine list in the background; let it finish before the database goes.
+            await Ui.UntilAsync(() => purchases.IsMedicineListReady, "the medicine list to load");
+            Assert.StartsWith("Add Limcee 500 Chewable Tablet", purchases.StatusMessage);
             Assert.True(purchases.IsAddItemOpen);
             Assert.Equal("Limcee 500 Chewable Tablet", purchases.MedicineSearchText);
             Assert.Null(shop.PurchaseEntry.MedicineName);
@@ -121,6 +128,7 @@ public sealed class PosCommandBarTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Shop shop = await Shop.OpenAsync();
             await shop.Database.Context.Database.ExecuteSqlRawAsync("UPDATE Drugs SET Unit = '10 Tablets / Strip' WHERE Id = {0}", shop.Catalog.Paracetamol650.Id);
             Window host = await shop.ShowBillingAsync();
@@ -142,6 +150,7 @@ public sealed class PosCommandBarTests
             await PressEnterAsync(page);
             Assert.Empty(page.BillItems);
             Assert.StartsWith("Only ", page.PosMessage);
+            bindings.AssertNone();
             host.Close();
         });
     }

@@ -1,11 +1,8 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Packaging;
 using System.Reflection;
 using System.Resources;
-using System.Runtime.CompilerServices;
 using System.Windows;
 
 namespace PharmaBill.App.Services;

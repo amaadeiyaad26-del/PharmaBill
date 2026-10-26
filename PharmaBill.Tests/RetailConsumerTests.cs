@@ -1,8 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System.Threading;
-using System.Threading.Tasks;
-using PharmaBill.Core;
-using PharmaBill.Core.Compliance;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Services;

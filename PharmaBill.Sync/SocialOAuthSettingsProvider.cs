@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using PharmaBill.Core.Services.Auth;
 
 namespace PharmaBill.Sync;

@@ -1,10 +1,7 @@
 using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
-using System;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;

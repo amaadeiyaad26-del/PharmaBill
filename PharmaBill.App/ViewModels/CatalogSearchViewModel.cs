@@ -1,10 +1,6 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -384,7 +380,7 @@ public class CatalogSearchViewModel : ObservableObject, IDisposable
 		_searchCancellation = new CancellationTokenSource();
 		CancellationToken token = _searchCancellation.Token;
 		ErrorMessage = string.Empty;
-		bool flag = mode == "debounce";
+		bool flag = mode is "debounce";
 		if (Query.Trim().Length < 2)
 		{
 			IsSearching = false;

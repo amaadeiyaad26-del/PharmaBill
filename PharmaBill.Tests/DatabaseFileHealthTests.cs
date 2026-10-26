@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using Xunit;

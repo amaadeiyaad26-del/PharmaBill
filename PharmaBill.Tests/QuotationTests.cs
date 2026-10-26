@@ -1,8 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core;
 using PharmaBill.Core.Entities;
-using PharmaBill.Core.Security;
-using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using Xunit;
 

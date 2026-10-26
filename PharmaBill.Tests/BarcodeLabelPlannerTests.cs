@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using PharmaBill.Core.Labels;
 using Xunit;
 

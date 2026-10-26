@@ -1,5 +1,4 @@
 ﻿using PharmaBill.Core;
-using System;
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
@@ -218,7 +217,6 @@ public partial class MainWindow : Window
 
 	private async void OnBarcodeScanned(string barcode)
 	{
-		_ = 1;
 		try
 		{
 			SoundHelper.PlayTick();
@@ -881,7 +879,7 @@ public partial class MainWindow : Window
 
 	private void PurchaseMedicineSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
 	{
-		if (_viewModel.CurrentPage is not PurchasePageViewModel purchase)
+		if (PageOf<PurchasePageViewModel>(sender) is not { } purchase)
 		{
 			return;
 		}
@@ -896,7 +894,7 @@ public partial class MainWindow : Window
 		if (e.Key == Key.Down)
 		{
 			purchase.OpenMedicineSuggestionsCommand.Execute(null);
-			if (FindVisualChildByName(this, "PurchaseMedicineSuggestionList") is ListBox list && list.Items.Count > 0)
+			if (PurchaseSuggestionList() is ListBox list && list.Items.Count > 0)
 			{
 				list.Focus();
 				list.SelectedIndex = Math.Max(0, list.SelectedIndex);
@@ -911,7 +909,7 @@ public partial class MainWindow : Window
 
 		if (e.Key == Key.Up && purchase.IsMedicineDropDownOpen)
 		{
-			if (FindVisualChildByName(this, "PurchaseMedicineSuggestionList") is ListBox upList && upList.Items.Count > 0)
+			if (PurchaseSuggestionList() is ListBox upList && upList.Items.Count > 0)
 			{
 				upList.Focus();
 				upList.SelectedIndex = upList.SelectedIndex <= 0 ? 0 : upList.SelectedIndex - 1;
@@ -935,9 +933,23 @@ public partial class MainWindow : Window
 		}
 	}
 
+	// Handlers on controls inside a page's template take that page from the control's own DataContext, not from the
+	// window's current page: the control always knows which page it belongs to.
+	private static T? PageOf<T>(object sender) where T : class => (sender as FrameworkElement)?.DataContext as T;
+
+	// A dropdown item's DataContext is the item; its page is the owning ComboBox's.
+	private static WholesaleBillingPageViewModel? WholesalePageOfItem(object sender) =>
+		sender is DependencyObject item ? ItemsControl.ItemsControlFromItemContainer(item)?.DataContext as WholesaleBillingPageViewModel : null;
+
+	// The suggestion list lives in a popup, outside the window's visual tree: reach it through the popup.
+	private ListBox? PurchaseSuggestionList() =>
+		FindVisualChildByName(this, "PurchaseMedicineFlyout") is Popup { Child: { } flyout }
+			? LogicalTreeHelper.FindLogicalNode(flyout, "PurchaseMedicineSuggestionList") as ListBox
+			: null;
+
 	private void PurchaseMedicineSuggestionList_PreviewKeyDown(object sender, KeyEventArgs e)
 	{
-		if (_viewModel.CurrentPage is not PurchasePageViewModel purchase || sender is not ListBox list)
+		if (PageOf<PurchasePageViewModel>(sender) is not { } purchase || sender is not ListBox list)
 		{
 			return;
 		}
@@ -975,7 +987,7 @@ public partial class MainWindow : Window
 
 	private void WholesaleMedicineSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
 	{
-		if (_viewModel.CurrentPage is not WholesaleBillingPageViewModel wholesale)
+		if (PageOf<WholesaleBillingPageViewModel>(sender) is not { } wholesale)
 		{
 			return;
 		}
@@ -1021,7 +1033,7 @@ public partial class MainWindow : Window
 
 	private void WholesaleMedicineItem_Click(object sender, MouseButtonEventArgs e)
 	{
-		if (_viewModel.CurrentPage is not WholesaleBillingPageViewModel wholesale)
+		if (WholesalePageOfItem(sender) is not { } wholesale)
 		{
 			return;
 		}
@@ -1081,7 +1093,7 @@ public partial class MainWindow : Window
 
 	private void RetailItemSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
 	{
-		if (_viewModel.CurrentPage is not RetailBillingViewModel retail)
+		if (PageOf<RetailBillingViewModel>(sender) is not { } retail)
 		{
 			return;
 		}
@@ -1160,7 +1172,7 @@ public partial class MainWindow : Window
 
 	private void RetailMedicineSuggestionList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
 	{
-		if (_viewModel.CurrentPage is RetailBillingViewModel retail)
+		if (PageOf<RetailBillingViewModel>(sender) is { } retail)
 		{
 			retail.NoteExplicitBatchPick();
 		}
@@ -1168,7 +1180,7 @@ public partial class MainWindow : Window
 
 	private void PurchaseMedicineSuggestionList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
 	{
-		if (_viewModel.CurrentPage is not PurchasePageViewModel purchase)
+		if (PageOf<PurchasePageViewModel>(sender) is not { } purchase)
 		{
 			return;
 		}

@@ -1,14 +1,11 @@
-using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using System.Text.RegularExpressions;
 using PharmaBill.Core.Ai;
 using PharmaBill.Data.Services;
-using UglyToad.PdfPig;
 using Windows.Data.Pdf;
 using Windows.Storage;
 using Windows.Storage.Streams;

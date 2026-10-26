@@ -1,10 +1,5 @@
 using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace PharmaBill.Data.Services;
 

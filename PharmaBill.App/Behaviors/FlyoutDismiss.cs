@@ -1,4 +1,3 @@
-using System;
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
@@ -29,10 +28,13 @@ public static class FlyoutDismiss
 		}
 		popup.Opened -= OnOpened;
 		popup.Closed -= OnClosed;
+		popup.Unloaded -= OnClosed;
 		if ((bool)e.NewValue)
 		{
 			popup.Opened += OnOpened;
 			popup.Closed += OnClosed;
+			// The page can go while its flyout is open: let go of the window then too.
+			popup.Unloaded += OnClosed;
 		}
 	}
 

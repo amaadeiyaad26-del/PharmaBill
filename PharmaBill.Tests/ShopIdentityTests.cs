@@ -1,4 +1,3 @@
-using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Media;

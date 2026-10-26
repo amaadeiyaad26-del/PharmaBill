@@ -1,14 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Windows.ApplicationModel;
 using Windows.Services.Store;
 
 namespace PharmaBill.App.Services;
@@ -208,25 +202,17 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 		{
 			try
 			{
-				using (HttpResponseMessage response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(continueOnCapturedContext: false))
+				using HttpResponseMessage response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+				if (!response.IsSuccessStatusCode)
 				{
-					if (!response.IsSuccessStatusCode)
-					{
-						goto end_IL_00e9;
-					}
-					await using (Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false))
-					{
-						ReleaseManifest releaseManifest = await JsonSerializer.DeserializeAsync<ReleaseManifest>(stream, JsonOptions, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
-						if (releaseManifest != null && !string.IsNullOrWhiteSpace(releaseManifest.LatestVersion))
-						{
-							return releaseManifest;
-						}
-					}
-					ReleaseManifest releaseManifest2 = null;
-					goto end_IL_0051;
-					end_IL_00e9:;
+					continue;
 				}
-				end_IL_0051:;
+				await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+				ReleaseManifest? releaseManifest = await JsonSerializer.DeserializeAsync<ReleaseManifest>(stream, JsonOptions, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+				if (releaseManifest != null && !string.IsNullOrWhiteSpace(releaseManifest.LatestVersion))
+				{
+					return releaseManifest;
+				}
 			}
 			catch (Exception exception)
 			{

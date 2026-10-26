@@ -1,5 +1,3 @@
-using System;
-using System.Diagnostics;
 using System.Windows;
 using System.Collections.Specialized;
 using System.Windows.Controls;
@@ -39,17 +37,27 @@ public partial class GlobalMedicineSearchControl : UserControl
 	public GlobalMedicineSearchControl()
 	{
 		InitializeComponent();
+		// The search view model lives for the whole session and this control is built on every visit to the page:
+		// it watches the results only while it is on screen, so a closed page is not kept alive by the view model.
 		Loaded += (object _, RoutedEventArgs _) =>
 		{
 			InitAnimatedSearchHint();
+			Watch(DataContext as CatalogSearchViewModel);
 		};
 		Unloaded += (object _, RoutedEventArgs _) =>
 		{
 			_hintTimer?.Stop();
 			_hintTimer = null;
 			ResultsFlyout.IsOpen = false;
+			Watch(null);
 		};
-		DataContextChanged += (_, _) => Watch(DataContext as CatalogSearchViewModel);
+		DataContextChanged += (_, _) =>
+		{
+			if (IsLoaded)
+			{
+				Watch(DataContext as CatalogSearchViewModel);
+			}
+		};
 		IsVisibleChanged += (_, _) =>
 		{
 			if (!IsVisible)

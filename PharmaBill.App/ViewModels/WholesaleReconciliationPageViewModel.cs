@@ -1,13 +1,8 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -213,7 +208,6 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 
 	public async Task ImportFromPathAsync(string path)
 	{
-		_ = 1;
 		try
 		{
 			IsBusy = true;
@@ -286,7 +280,6 @@ public class WholesaleReconciliationPageViewModel : ObservableObject, ILoadableP
 
 	private async Task BatchSettleAsync()
 	{
-		_ = 1;
 		try
 		{
 			IsBusy = true;

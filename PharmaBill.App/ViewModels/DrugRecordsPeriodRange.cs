@@ -1,5 +1,4 @@
 using PharmaBill.Core;
-using System;
 
 namespace PharmaBill.App.ViewModels;
 

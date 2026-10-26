@@ -1,6 +1,4 @@
 using PharmaBill.Data.Persistence;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;

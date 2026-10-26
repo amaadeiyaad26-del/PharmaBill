@@ -1,12 +1,7 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -298,7 +293,20 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	// Started from the invoice selection without awaiting: a failure shows on the page instead of vanishing.
 	private async Task LoadInvoiceLinesAsync(Guid invoiceId)
+	{
+		try
+		{
+			await LoadInvoiceLinesCoreAsync(invoiceId);
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+		}
+	}
+
+	private async Task LoadInvoiceLinesCoreAsync(Guid invoiceId)
 	{
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
@@ -340,7 +348,7 @@ public class WholesaleReturnsPageViewModel : ObservableObject, ILoadablePage
 	{
 		if ((object)value != null)
 		{
-			LoadInvoiceLinesAsync(value.Id);
+			_ = LoadInvoiceLinesAsync(value.Id);
 		}
 	}
 }

@@ -26,6 +26,7 @@ public sealed class MedicineSearchFlyoutTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Pharmacy shop = await Pharmacy.OpenAsync();
             RetailBillingViewModel page = shop.RetailPage();
             Window host = await shop.ShowAsync(page, typeof(RetailBillingViewModel));
@@ -68,6 +69,7 @@ public sealed class MedicineSearchFlyoutTests
             await Ui.PressAsync(add);
             Assert.Equal(shop.Catalog.ParacetamolBatch.Id, Assert.Single(page.BillItems).Choice.BatchId);
             Assert.False(flyout.IsOpen);
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -77,6 +79,7 @@ public sealed class MedicineSearchFlyoutTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Pharmacy shop = await Pharmacy.OpenAsync();
             RetailBillingViewModel page = shop.RetailPage();
             Window host = await shop.ShowAsync(page, typeof(RetailBillingViewModel));
@@ -94,6 +97,7 @@ public sealed class MedicineSearchFlyoutTests
             AssertOnTheRight(addToStock, card);
             await Ui.PressAsync(addToStock);
             Assert.Equal("Limcee 500 Chewable Tablet", shop.AddStock.Requested?.MedicineName);
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -103,6 +107,7 @@ public sealed class MedicineSearchFlyoutTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Pharmacy shop = await Pharmacy.OpenAsync();
             // The main window shows the search on the Stock section.
             var search = new CatalogSearchViewModel(shop.Scopes, NullLogger<CatalogSearchViewModel>.Instance) { IsVisible = true };
@@ -145,6 +150,7 @@ public sealed class MedicineSearchFlyoutTests
             await search.SearchCommand.ExecuteAsync(null);
             await Ui.SettleAsync();
             Assert.False(control.IsResultsFlyoutOpen);
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -154,6 +160,7 @@ public sealed class MedicineSearchFlyoutTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using Pharmacy shop = await Pharmacy.OpenAsync();
             var page = new WholesaleBillingPageViewModel(shop.Scopes, shop.Session, null!, null!, null!, null!, null!, null!, null!, null!,
                 new WholesaleReissueHandoff(), new QuotationConversionHandoff(), null!, null!);
@@ -170,6 +177,7 @@ public sealed class MedicineSearchFlyoutTests
             Assert.Contains("Abbott", lines);
             Assert.Contains("MRP ₹22.50", lines);
             picker.IsDropDownOpen = false;
+            bindings.AssertNone();
             host.Close();
         });
     }

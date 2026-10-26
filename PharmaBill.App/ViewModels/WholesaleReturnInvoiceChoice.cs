@@ -1,4 +1,3 @@
-using System;
 using PharmaBill.Core.Compliance;
 
 namespace PharmaBill.App.ViewModels;

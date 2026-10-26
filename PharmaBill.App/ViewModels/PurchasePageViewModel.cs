@@ -1,7 +1,5 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -10,13 +8,9 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -31,7 +25,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr, PurchaseReturnDocumentService returnDocuments, PurchaseEntryHandoff? purchaseEntry = null) : ObservableObject, ILoadablePage
+public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFactory, CurrentSession currentSession, IFilePickerService filePicker, IConfirmationService confirmationService, PurchaseSpreadsheetReader spreadsheetReader, IPromptService promptService, IQuickAddMedicineDialog quickAdd, ISmartDrugLookupService smartLookup, IPrescriptionDialogService prescriptionDialogs, IOcrTextRecognizer ocr, PurchaseReturnDocumentService returnDocuments, PurchaseEntryHandoff? purchaseEntry = null) : ObservableObject, ILoadablePage
 {
 	private Supplier? _selectedSupplier;
 
@@ -1054,6 +1048,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			{
 				_newItemHsn = value ?? string.Empty;
 				OnPropertyChanged(nameof(NewItemHsn));
+				OnTaxBoxEdited();
 			}
 		}
 	}
@@ -1294,6 +1289,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 				OnPropertyChanging(nameof(NewItemGst));
 				_newItemGst = value;
 				OnPropertyChanged(nameof(NewItemGst));
+				OnTaxBoxEdited();
 			}
 		}
 	}
@@ -1814,6 +1810,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 
 	private async Task LoadDrugIndexInBackgroundAsync(CancellationToken cancellationToken)
 	{
+		IsMedicineListReady = false;
 		try
 		{
 			List<Drug> loadedDrugs = await Task.Run(async () =>
@@ -1827,14 +1824,26 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 					.ToListAsync(cancellationToken);
 			}, cancellationToken).ConfigureAwait(false);
 			_drugIndex = loadedDrugs;
-			await DispatchAsync(() => StatusMessage = $"Medicine master ready ({loadedDrugs.Count:N0} medicines).").ConfigureAwait(false);
+			await DispatchAsync(() =>
+			{
+				IsMedicineListReady = true;
+				// An instruction already on screen (a medicine sent from the counter) stays; otherwise say the list is ready.
+				if (string.IsNullOrEmpty(StatusMessage))
+				{
+					StatusMessage = $"Medicine master ready ({loadedDrugs.Count:N0} medicines).";
+				}
+			}).ConfigureAwait(false);
 		}
 		catch (OperationCanceledException)
 		{
 		}
 		catch (Exception ex)
 		{
-			await DispatchAsync(() => ErrorMessage = $"Medicine master could not be loaded: {PharmaBill.Core.UserMessage.Of(ex)}").ConfigureAwait(false);
+			await DispatchAsync(() =>
+			{
+				IsMedicineListReady = true;
+				ErrorMessage = $"Medicine master could not be loaded: {PharmaBill.Core.UserMessage.Of(ex)}";
+			}).ConfigureAwait(false);
 		}
 	}
 
@@ -2213,7 +2222,8 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		}
 
 		NewItemDrug = item.Drug;
-		ApplyImmediateDefaults(item);
+		ResetTaxForNewMedicine();
+		FillTax(() => ApplyImmediateDefaults(item));
 
 		if (item.IsAddManually)
 		{
@@ -2315,13 +2325,21 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 			{
 				NewItemFormulation = catalogDefaults.DosageForm!;
 			}
-			if (string.IsNullOrWhiteSpace(NewItemGst) && catalogDefaults.GstRate is > 0m)
+			FillTax(() =>
 			{
-				NewItemGst = FormatAmount(catalogDefaults.GstRate.Value);
-			}
-			if (string.IsNullOrWhiteSpace(NewItemHsn) && !string.IsNullOrWhiteSpace(catalogDefaults.HsnCode))
+				if (string.IsNullOrWhiteSpace(NewItemGst) && catalogDefaults.GstRate is > 0m)
+				{
+					NewItemGst = FormatAmount(catalogDefaults.GstRate.Value);
+				}
+				if (string.IsNullOrWhiteSpace(NewItemHsn) && !string.IsNullOrWhiteSpace(catalogDefaults.HsnCode))
+				{
+					NewItemHsn = catalogDefaults.HsnCode!;
+				}
+			});
+			await FillTaxFromSameSaltAsync(catalogId, scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>(), cts.Token);
+			if (cts.IsCancellationRequested)
 			{
-				NewItemHsn = catalogDefaults.HsnCode!;
+				return;
 			}
 
 			decimal? suggestedMrp = await addStock.SuggestMrpAsync(drugId, catalogId, cts.Token);
@@ -2427,7 +2445,11 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		decimal slab = StandardGstSlab(last.TaxRate);
 		if (string.IsNullOrWhiteSpace(NewItemGst) || NewItemGst == gstSnapshot)
 		{
-			NewItemGst = FormatAmount(slab);
+			FillTax(() => NewItemGst = FormatAmount(slab));
+			if (NewItemGst != gstSnapshot && NewItemHsn.Trim().Length > 0)
+			{
+				NoteGstFromLastPurchase(last.InvoiceNo);
+			}
 		}
 
 		decimal gross = last.Quantity * last.UnitPrice;
@@ -3843,6 +3865,7 @@ public sealed class PurchasePageViewModel(IServiceScopeFactory scopeFactory, Cur
 		NewItemPackLabel = string.Empty;
 		NewItemError = string.Empty;
 		_defaultsEnrichCts?.Cancel();
+		ClearTaxSource();
 	}
 
 	private void NotifyTotals()

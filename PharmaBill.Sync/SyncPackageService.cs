@@ -1,14 +1,8 @@
 using PharmaBill.Core;
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Sync;

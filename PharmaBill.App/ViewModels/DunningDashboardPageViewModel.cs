@@ -1,12 +1,7 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -158,7 +153,6 @@ public class DunningDashboardPageViewModel : ObservableObject, ILoadablePage
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		_ = 2;
 		try
 		{
 			ErrorMessage = string.Empty;

@@ -1,7 +1,4 @@
-using System;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Services.Auth;

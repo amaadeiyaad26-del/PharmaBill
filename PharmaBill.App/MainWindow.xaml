@@ -1407,8 +1407,12 @@
                   </DataGrid>
                   <TextBlock Text="Outstanding / ageing" FontWeight="SemiBold" Margin="0,0,0,6" />
                   <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MinHeight="140" ItemsSource="{Binding Ageing}">
+                    <!-- Column headers are not in the visual tree, so they reach the page through a proxy, not RelativeSource. -->
+                    <DataGrid.Resources>
+                      <controls:BindingProxy x:Key="AgeingProxy" Data="{Binding}" />
+                    </DataGrid.Resources>
                     <DataGrid.Columns>
-                      <DataGridTextColumn Header="{Binding DataContext.AgeingPartyHeader, RelativeSource={RelativeSource AncestorType=DataGrid}}" Binding="{Binding CustomerName}" Width="*" MinWidth="140" />
+                      <DataGridTextColumn Header="{Binding Data.AgeingPartyHeader, Source={StaticResource AgeingProxy}}" Binding="{Binding CustomerName}" Width="*" MinWidth="140" />
                       <DataGridTextColumn Header="0-30" Binding="{Binding Current0To30}" Width="Auto" MinWidth="70" />
                       <DataGridTextColumn Header="31-60" Binding="{Binding Days31To60}" Width="Auto" MinWidth="70" />
                       <DataGridTextColumn Header="61-90" Binding="{Binding Days61To90}" Width="Auto" MinWidth="70" />
@@ -4345,7 +4349,7 @@
                           <TextBlock Margin="7,0,8,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="#FF94A3B8" FontSize="12" TextTrimming="CharacterEllipsis"
                                      Text="Search catalogue or type a new name…"
                                      Visibility="{Binding ShowMedicineSearchPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                          <Popup Placement="Bottom"
+                          <Popup x:Name="PurchaseMedicineFlyout" Placement="Bottom"
                                  PlacementTarget="{Binding ElementName=PurchaseMedicineSearchBox}"
                                  StaysOpen="False"
                                  AllowsTransparency="True"
@@ -4480,6 +4484,7 @@
                       <TextBlock Text="{Binding OnlineLookupCaption}" TextWrapping="Wrap" />
                     </Button>
                   </WrapPanel>
+                  <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding TaxSourceHint}" Visibility="{Binding HasTaxSourceHint, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="HSN and GST source" />
                   <TextBlock Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding RateSuggestionHint}" Visibility="{Binding HasRateSuggestion, Converter={StaticResource BooleanToVisibilityConverter}}" />
                   <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="12" Text="{Binding NewItemError}" />
                 </StackPanel>
@@ -4736,6 +4741,10 @@
               <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="150">
                 <StackPanel>
                   <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" Height="80" Margin="0,0,0,6" ItemsSource="{Binding ReturnLines}">
+                    <!-- Grid columns are not in the visual tree, so they reach the page through a proxy, not RelativeSource. -->
+                    <DataGrid.Resources>
+                      <controls:BindingProxy x:Key="PurchaseReturnProxy" Data="{Binding}" />
+                    </DataGrid.Resources>
                     <DataGrid.Style>
                       <Style TargetType="{x:Type DataGrid}" BasedOn="{StaticResource {x:Type DataGrid}}">
                         <Style.Triggers>
@@ -4747,7 +4756,7 @@
                       </Style>
                     </DataGrid.Style>
                     <DataGrid.Columns>
-                      <DataGridComboBoxColumn Header="Select Batch / Medicine" DisplayMemberPath="Display" Width="*" ItemsSource="{Binding DataContext.ReturnBatches, RelativeSource={RelativeSource AncestorType=DataGrid}}" SelectedItemBinding="{Binding Batch, UpdateSourceTrigger=PropertyChanged}" />
+                      <DataGridComboBoxColumn Header="Select Batch / Medicine" DisplayMemberPath="Display" Width="*" ItemsSource="{Binding Data.ReturnBatches, Source={StaticResource PurchaseReturnProxy}}" SelectedItemBinding="{Binding Batch, UpdateSourceTrigger=PropertyChanged}" />
                       <DataGridTextColumn Header="Return Qty" Width="110" Binding="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" />
                     </DataGrid.Columns>
                   </DataGrid>

@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using PharmaBill.Data.Persistence;
 
@@ -181,7 +178,6 @@ public sealed class ZeroConfigSyncCoordinator
 
 	private async Task PublishPendingChangesQuietlyAsync(CancellationToken cancellationToken)
 	{
-		_ = 3;
 		try
 		{
 			SyncFolderSettings syncFolderSettings = await _folderSync.GetSettingsAsync(cancellationToken);

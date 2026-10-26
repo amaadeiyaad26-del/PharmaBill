@@ -1,6 +1,5 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using PharmaBill.App.ViewModels;
 
 namespace PharmaBill.App.Services;

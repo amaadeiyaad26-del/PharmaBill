@@ -1,6 +1,4 @@
-using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows;
 using PharmaBill.App.Controls;
 using PharmaBill.App.Services;

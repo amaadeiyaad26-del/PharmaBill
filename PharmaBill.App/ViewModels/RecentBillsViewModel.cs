@@ -1,11 +1,6 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Compliance;
-using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
@@ -584,6 +578,6 @@ public sealed class RecentBillsViewModel(IServiceScopeFactory scopeFactory, Reta
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnSelectedBillChanged(RecentRetailBill? value)
 	{
-		LoadReturnableLinesAsync();
+		_ = LoadReturnableLinesAsync();
 	}
 }

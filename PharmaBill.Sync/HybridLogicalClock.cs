@@ -1,5 +1,4 @@
 using PharmaBill.Core;
-using System;
 using PharmaBill.Core.Sync;
 using PharmaBill.Data.Persistence;
 

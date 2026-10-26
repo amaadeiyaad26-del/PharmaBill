@@ -1,12 +1,7 @@
 using PharmaBill.Core;
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -669,7 +664,20 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		}
 	}
 
+	// Started from the medicine selection without awaiting: a failure shows on the page instead of vanishing.
 	private async Task LoadDrugAsync(Guid drugId, CancellationToken cancellationToken)
+	{
+		try
+		{
+			await LoadDrugCoreAsync(drugId, cancellationToken);
+		}
+		catch (Exception ex) when (ex is not OperationCanceledException)
+		{
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+		}
+	}
+
+	private async Task LoadDrugCoreAsync(Guid drugId, CancellationToken cancellationToken)
 	{
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
@@ -698,7 +706,7 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 	{
 		if (value != null)
 		{
-			LoadDrugAsync(value.Id, CancellationToken.None);
+			_ = LoadDrugAsync(value.Id, CancellationToken.None);
 		}
 	}
 

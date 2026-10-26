@@ -8,7 +8,6 @@ using PharmaBill.App.ViewModels;
 using PharmaBill.Core;
 using PharmaBill.Core.Accounting;
 using PharmaBill.Core.Entities;
-using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using Xunit;
 

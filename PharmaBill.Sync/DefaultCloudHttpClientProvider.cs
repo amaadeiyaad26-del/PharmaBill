@@ -1,5 +1,3 @@
-using System;
-using System.Net.Http;
 
 namespace PharmaBill.Sync;
 

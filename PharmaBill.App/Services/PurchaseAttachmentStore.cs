@@ -1,8 +1,6 @@
-using PharmaBill.Data.Persistence;
 using PharmaBill.Core;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Windows.Media.Imaging;
 using Windows.Data.Pdf;
 using Windows.Storage;

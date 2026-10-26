@@ -1,10 +1,8 @@
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.ViewModels;
-using PharmaBill.Core;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
 using PharmaBill.Data.Persistence;
@@ -43,6 +41,7 @@ public sealed class GuidanceTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using var database = await DatabaseTestContext.CreateAsync();
             database.Context.PharmacyProfiles.Add(new PharmacyProfile { Name = "New Pharmacy", Address = "Residency Road, Srinagar", Gstin = "01ABCDE1234F1Z5", BusinessMode = BusinessMode.Retail, InvoicePrefix = "NEW" });
             await database.Context.SaveChangesAsync();
@@ -70,6 +69,7 @@ public sealed class GuidanceTests
             await Ui.PressAsync(Ui.Button(host, "Hide"));
             Assert.False(Ui.Named<Border>(host, "Getting started", visibleOnly: false).IsVisible);
             Assert.False((await LoadedDashboardAsync(services, settings)).ShowGettingStarted);
+            bindings.AssertNone();
             host.Close();
         });
     }
@@ -79,6 +79,7 @@ public sealed class GuidanceTests
     {
         Ui.Run(async () =>
         {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
             await using var database = await DatabaseTestContext.CreateAsync();
             var catalog = await E2EHealthSeed.SeedAsync(database.Context);
             await database.CreateRetailBillingService(new Allowed()).SaveSaleAsync(
@@ -109,6 +110,7 @@ public sealed class GuidanceTests
             Assert.StartsWith("₹3.22 CGST + ₹3.21 SGST + ₹0.00 IGST − ", sum);
             Assert.Equal(gst.CalculationSummary, sum);
             Assert.Contains(gst.NetGstPayableText, sum);
+            bindings.AssertNone();
             host.Close();
         });
     }

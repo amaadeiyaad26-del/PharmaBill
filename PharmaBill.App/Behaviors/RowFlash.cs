@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
@@ -42,22 +40,48 @@ public static class RowFlash
 	{
 		if (d is DataGrid dataGrid && (bool)e.NewValue != (bool)e.OldValue)
 		{
-			DependencyPropertyDescriptor dependencyPropertyDescriptor = DependencyPropertyDescriptor.FromProperty(ItemsControl.ItemsSourceProperty, typeof(DataGrid));
 			if ((bool)e.NewValue)
 			{
 				dataGrid.SetValue(StateProperty, new FlashState());
 				dataGrid.LoadingRow += OnLoadingRow;
-				dependencyPropertyDescriptor.AddValueChanged(dataGrid, OnItemsSourceChanged);
-				Hook(dataGrid);
+				dataGrid.Loaded += OnGridLoaded;
+				dataGrid.Unloaded += OnGridUnloaded;
+				if (dataGrid.IsLoaded)
+				{
+					Attach(dataGrid);
+				}
 			}
 			else
 			{
 				dataGrid.LoadingRow -= OnLoadingRow;
-				dependencyPropertyDescriptor.RemoveValueChanged(dataGrid, OnItemsSourceChanged);
-				Unhook(dataGrid);
+				dataGrid.Loaded -= OnGridLoaded;
+				dataGrid.Unloaded -= OnGridUnloaded;
+				Detach(dataGrid);
 				dataGrid.ClearValue(StateProperty);
 			}
 		}
+	}
+
+	// The bill grids are rebuilt on every visit to a billing screen while their bills live all session. Watching only
+	// while on screen keeps a closed screen's grid from being held by the bill (and by the property descriptor's
+	// static table, which holds every grid registered with it).
+	private static readonly DependencyPropertyDescriptor ItemsSourceDescriptor = DependencyPropertyDescriptor.FromProperty(ItemsControl.ItemsSourceProperty, typeof(DataGrid));
+
+	private static void OnGridLoaded(object sender, RoutedEventArgs e) => Attach((DataGrid)sender);
+
+	private static void OnGridUnloaded(object sender, RoutedEventArgs e) => Detach((DataGrid)sender);
+
+	private static void Attach(DataGrid grid)
+	{
+		ItemsSourceDescriptor.RemoveValueChanged(grid, OnItemsSourceChanged);
+		ItemsSourceDescriptor.AddValueChanged(grid, OnItemsSourceChanged);
+		Hook(grid);
+	}
+
+	private static void Detach(DataGrid grid)
+	{
+		ItemsSourceDescriptor.RemoveValueChanged(grid, OnItemsSourceChanged);
+		Unhook(grid);
 	}
 
 	private static void OnItemsSourceChanged(object? sender, EventArgs e)
@@ -71,7 +95,7 @@ public static class RowFlash
 	private static void Hook(DataGrid grid)
 	{
 		object value = grid.GetValue(StateProperty);
-		FlashState state = value as FlashState;
+		FlashState? state = value as FlashState;
 		if (state == null)
 		{
 			return;

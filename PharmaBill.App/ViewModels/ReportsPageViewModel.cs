@@ -1,14 +1,9 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -518,7 +513,16 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task RefreshWithFiltersAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
-		await LoadDimensionFiltersAsync(cancellationToken);
+		// Started from filter changes without awaiting: a failure loading the filters shows instead of vanishing.
+		try
+		{
+			await LoadDimensionFiltersAsync(cancellationToken);
+		}
+		catch (Exception ex) when (ex is not OperationCanceledException)
+		{
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			return;
+		}
 		await RefreshAsync(cancellationToken);
 	}
 
@@ -860,7 +864,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	{
 		if (!_suppressReportChangeRefresh)
 		{
-			RefreshWithFiltersAsync();
+			_ = RefreshWithFiltersAsync();
 		}
 	}
 
@@ -871,7 +875,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 		DimensionFilterLabel = ReportsDashboardService.DimensionFilterLabel(value.Kind);
 		if (!_suppressReportChangeRefresh)
 		{
-			RefreshWithFiltersAsync();
+			_ = RefreshWithFiltersAsync();
 		}
 	}
 
@@ -918,7 +922,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	{
 		if (!_suppressReportChangeRefresh)
 		{
-			RefreshAsync();
+			_ = RefreshAsync();
 		}
 	}
 }

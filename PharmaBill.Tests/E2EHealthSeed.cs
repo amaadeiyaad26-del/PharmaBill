@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;

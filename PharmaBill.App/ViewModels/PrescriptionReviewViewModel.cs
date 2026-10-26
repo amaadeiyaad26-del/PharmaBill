@@ -1,16 +1,10 @@
 using PharmaBill.Core;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
-using PharmaBill.App;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
 using PharmaBill.Core.Ai;

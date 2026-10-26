@@ -3,7 +3,6 @@ using System.Windows.Media.Imaging;
 using PharmaBill.Core.Labels;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
 using ZXing;
 using ZXing.Common;
 using ZXing.Rendering;

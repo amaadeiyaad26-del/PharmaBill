@@ -1,9 +1,4 @@
 using PharmaBill.Core;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Gst;
@@ -15,6 +10,15 @@ namespace PharmaBill.Data.Services;
 public sealed record ProductMissingTaxRow(Guid DrugId, string Name, string? HsnCode, decimal? GstRate, bool IsNilRated, string Missing);
 
 public sealed record ProductTaxUpdate(Guid DrugId, string? HsnCode, decimal? GstRate, bool IsNilRated);
+
+/// <summary>
+/// The tax that every medicine in the master with the same salt and strength carries. <see cref="Disagree"/> when they
+/// carry different ones, and then nothing is suggested.
+/// </summary>
+public sealed record SameSaltTax(string? HsnCode, decimal? GstRate, bool IsNilRated, string? ExampleName, bool Disagree)
+{
+	public bool HasSuggestion => !Disagree && HsnCode != null;
+}
 
 /// <summary>Reads and records a product's HSN code and GST rate. Every change is audited with the old and new values.</summary>
 public sealed class ProductTaxService(PharmaBillDbContext context)
@@ -34,6 +38,38 @@ public sealed class ProductTaxService(PharmaBillDbContext context)
 			.Where(row => row.Missing.Length > 0)
 			.OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
 			.ToList();
+	}
+
+	/// <summary>
+	/// The drug bank carries no HSN or GST. For a drug bank medicine, the medicines already in the master with the same
+	/// salt and strength (same composition key) tell what it is taxed at, but only when they all agree.
+	/// </summary>
+	public async Task<SameSaltTax> SuggestFromSameSaltAsync(Guid catalogMedicineId, CancellationToken cancellationToken = default)
+	{
+		string? key = await context.CatalogMedicines.AsNoTracking()
+			.Where(medicine => medicine.Id == catalogMedicineId)
+			.Select(medicine => medicine.CompositionKey)
+			.FirstOrDefaultAsync(cancellationToken);
+		if (string.IsNullOrWhiteSpace(key))
+		{
+			return new SameSaltTax(null, null, false, null, false);
+		}
+		var siblings = await (from drug in context.Drugs.AsNoTracking()
+				join medicine in context.CatalogMedicines.AsNoTracking() on drug.CatalogMedicineId equals medicine.Id
+				where drug.IsActive && medicine.CompositionKey == key && drug.HsnCode != null && drug.HsnCode.Trim() != ""
+					&& (drug.IsNilRated || drug.GstRate > 0m)
+				select new { drug.Name, drug.HsnCode, drug.GstRate, drug.IsNilRated })
+			.ToListAsync(cancellationToken);
+		var rates = siblings
+			.Select(row => (Hsn: row.HsnCode!.Trim(), Rate: row.IsNilRated ? null : row.GstRate, row.IsNilRated))
+			.Distinct()
+			.ToList();
+		return rates.Count switch
+		{
+			0 => new SameSaltTax(null, null, false, null, false),
+			1 => new SameSaltTax(rates[0].Hsn, rates[0].Rate, rates[0].IsNilRated, siblings.Select(row => row.Name).Order(StringComparer.OrdinalIgnoreCase).First(), false),
+			_ => new SameSaltTax(null, null, false, null, true),
+		};
 	}
 
 	/// <summary>Validates and saves one product's tax details. Throws <see cref="InvalidOperationException"/> naming the product when the entry is invalid.</summary>

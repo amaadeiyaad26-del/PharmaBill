@@ -1,12 +1,6 @@
-using System;
-using System.IO;
-using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 using PharmaBill.Core;
 
 namespace PharmaBill.Sync.Terminals;

@@ -1,7 +1,6 @@
 ﻿using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Catalog;
-using PharmaBill.Core.Entities;
 using PharmaBill.Data.Services;
 using Xunit;
 

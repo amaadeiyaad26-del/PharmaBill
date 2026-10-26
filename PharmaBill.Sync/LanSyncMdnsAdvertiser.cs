@@ -1,6 +1,4 @@
-using System;
 using System.Net.NetworkInformation;
-using System.Threading.Tasks;
 using Makaretu.Dns;
 using Microsoft.Extensions.Logging;
 

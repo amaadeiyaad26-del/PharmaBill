@@ -1,16 +1,11 @@
-using System;
 using System.CodeDom.Compiler;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -3651,7 +3646,7 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 		}
 		else
 		{
-			DebouncedLiveSearchAsync(value);
+			_ = DebouncedLiveSearchAsync(value);
 		}
 	}
 
@@ -3669,7 +3664,7 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 		RefreshUpiLink();
 		if (!_suppressUpiAutoModal && IsUpiPayment && TotalAmount > 0m)
 		{
-			ShowPaymentQrAsync();
+			_ = ShowPaymentQrAsync();
 		}
 	}
 

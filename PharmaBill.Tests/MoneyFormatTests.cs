@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using PharmaBill.App.Services;
+﻿using PharmaBill.App.Services;
 using Xunit;
 
 namespace PharmaBill.Tests;
