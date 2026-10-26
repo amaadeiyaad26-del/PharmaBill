@@ -223,6 +223,8 @@ public sealed class DbInitializer(
 		if (connection.State != ConnectionState.Open)
 		{
 			await connection.OpenAsync(cancellationToken);
+			// Opened here, not through EF: give it the same WAL settings as every other connection.
+			await SqliteWal.ApplyAsync(connection, cancellationToken);
 		}
 
 		await using DbCommand command = connection.CreateCommand();

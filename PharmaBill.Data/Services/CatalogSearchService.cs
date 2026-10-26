@@ -327,6 +327,8 @@ public sealed class CatalogSearchService(PharmaBillDbContext context, BranchServ
 		if (closeConnection)
 		{
 			await connection.OpenAsync(cancellationToken);
+			// Opened here, not through EF: give it the same WAL settings as every other connection.
+			await SqliteWal.ApplyAsync(connection, cancellationToken);
 		}
 		List<Guid> result3;
 		try

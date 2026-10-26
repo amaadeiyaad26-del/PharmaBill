@@ -268,7 +268,7 @@ public sealed class BackupAndReportsTests
         var options = new DbContextOptionsBuilder<PharmaBillDbContext>()
             .ConfigureWarnings(warnings => warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning))
             .UseSqlite(connectionString)
-            .AddInterceptors(new SaveChangesAuditInterceptor(new DatabaseDeviceId(Guid.NewGuid())))
+            .AddInterceptors(new SaveChangesAuditInterceptor(new DatabaseDeviceId(Guid.NewGuid())), SqliteWalInterceptor.Instance)
             .Options;
         return new PharmaBillDbContext(options, new DatabaseDeviceId(Guid.NewGuid()));
     }

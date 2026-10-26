@@ -254,7 +254,7 @@ public sealed class FolderBackupTests
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
         var options = new DbContextOptionsBuilder<PharmaBillDbContext>()
             .UseSqlite(new SqliteConnectionStringBuilder { DataSource = storage.DatabasePath, Password = password, Pooling = false }.ToString())
-            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId))
+            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId), SqliteWalInterceptor.Instance)
             .Options;
         return new PharmaBillDbContext(options, deviceId);
     }

@@ -321,7 +321,13 @@ public static class StoreDataLocation
 			.ToList();
 		try
 		{
+			// In WAL mode the latest changes can still be in pharmabill.db-wal: fold them into the database files, so
+			// each copied database is complete on its own.
+			CheckpointDatabases(source);
 			SqliteConnection.ClearAllPools();
+			files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
+				.Where(file => !IsLocalOnly(Path.GetRelativePath(source, file)))
+				.ToList();
 			foreach (string file in files)
 			{
 				string destination = Path.Combine(target, Path.GetRelativePath(source, file));
@@ -445,6 +451,23 @@ public static class StoreDataLocation
 	}
 
 	/// <summary>Every copied database must open with the copied key before the app switches to it.</summary>
+	private static void CheckpointDatabases(string root)
+	{
+		string keyPath = Path.Combine(root, "data", "database.key");
+		if (!File.Exists(keyPath))
+		{
+			return;
+		}
+		string password = Convert.ToHexString(new DatabaseEncryptionKeyProvider(keyPath).GetOrCreateKey());
+		foreach (string database in Directory.EnumerateFiles(root, AppDataPaths.DatabaseFileName, SearchOption.AllDirectories)
+			.Where(path => new FileInfo(path).Length > 0 && File.Exists(path + "-wal")))
+		{
+			using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = database, Password = password, Pooling = false }.ToString());
+			connection.Open();
+			SqliteWal.Checkpoint(connection);
+		}
+	}
+
 	private static void VerifyDatabasesOpen(string target)
 	{
 		string keyPath = Path.Combine(target, "data", "database.key");

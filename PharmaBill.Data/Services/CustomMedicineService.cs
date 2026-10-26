@@ -195,6 +195,8 @@ public sealed class CustomMedicineService(PharmaBillDbContext context)
 		if (close)
 		{
 			await connection.OpenAsync(cancellationToken);
+			// Opened here, not through EF: give it the same WAL settings as every other connection.
+			await SqliteWal.ApplyAsync(connection, cancellationToken);
 		}
 
 		try

@@ -48,7 +48,7 @@ public static class ServiceCollectionExtensions
 			// PendingModelChangesWarning is deliberately NOT suppressed: model drift without a migration must fail loudly.
 			options
 				.UseSqlite(connectionString)
-				.AddInterceptors(provider.GetRequiredService<SaveChangesAuditInterceptor>());
+				.AddInterceptors(provider.GetRequiredService<SaveChangesAuditInterceptor>(), SqliteWalInterceptor.Instance);
 		});
 		services.AddScoped<IUnitOfWork, UnitOfWork>();
 		services.AddScoped<NumberSeriesService>();

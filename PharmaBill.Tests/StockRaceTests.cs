@@ -108,7 +108,7 @@ public sealed class StockRaceTests
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
         var builder = new DbContextOptionsBuilder<PharmaBillDbContext>()
             .UseSqlite(database.Connection)
-            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId));
+            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId), SqliteWalInterceptor.Instance);
         if (race != null)
         {
             builder.AddInterceptors(race);

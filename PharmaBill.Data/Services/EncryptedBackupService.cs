@@ -222,7 +222,11 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 		await using SqliteConnection destination = new SqliteConnection(connectionString2);
 		await source.OpenAsync(cancellationToken);
 		await destination.OpenAsync(cancellationToken);
+		// SQLite's online backup reads one consistent state of the live database, including what is still in its
+		// -wal file. The copy takes the source's WAL mode with it: fold it into one self-contained file before it
+		// is zipped, so nothing of the snapshot is left in a -wal file beside it.
 		source.BackupDatabase(destination);
+		await SqliteWal.MakeSelfContainedAsync(destination, cancellationToken);
 	}
 
 	private async Task CreateZipAsync(string archivePath, string databasePath, byte[] databaseKey, BackupManifest manifest, IReadOnlyList<(string FullPath, string RelativePath)> attachments, CancellationToken cancellationToken)
@@ -349,6 +353,9 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 			{
 				File.Move(storage.DatabasePath, oldDatabase);
 				databaseMoved = true;
+				// In WAL mode the latest changes can still be in -wal: it goes with its database. Left behind, SQLite
+				// would replay the old log onto the restored file.
+				MoveCompanions(storage.DatabasePath, oldDatabase);
 			}
 			keyProvider.ReplaceKey(newKey);
 			keyChanged = true;
@@ -382,10 +389,18 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 			if (databaseMoved && File.Exists(storage.DatabasePath))
 			{
 				File.Delete(storage.DatabasePath);
+				foreach (string suffix in SqliteWal.CompanionSuffixes)
+				{
+					if (File.Exists(storage.DatabasePath + suffix))
+					{
+						File.Delete(storage.DatabasePath + suffix);
+					}
+				}
 			}
 			if (databaseMoved && File.Exists(oldDatabase))
 			{
 				File.Move(oldDatabase, storage.DatabasePath);
+				MoveCompanions(oldDatabase, storage.DatabasePath);
 			}
 			if (keyChanged)
 			{
@@ -411,6 +426,17 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 		{
 			CryptographicOperations.ZeroMemory(oldKey);
 			TryDeleteDirectory(rollbackDirectory);
+		}
+	}
+
+	private static void MoveCompanions(string fromDatabase, string toDatabase)
+	{
+		foreach (string suffix in SqliteWal.CompanionSuffixes)
+		{
+			if (File.Exists(fromDatabase + suffix))
+			{
+				File.Move(fromDatabase + suffix, toDatabase + suffix, overwrite: true);
+			}
 		}
 	}
 

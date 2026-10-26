@@ -79,7 +79,7 @@ internal sealed class SearchStack : IAsyncDisposable
         services.AddDbContext<PharmaBillDbContext>((IServiceProvider provider, DbContextOptionsBuilder options) =>
             options.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning))
                 .UseSqlite(connectionString)
-                .AddInterceptors(provider.GetRequiredService<CommandTimingInterceptor>()));
+                .AddInterceptors(provider.GetRequiredService<CommandTimingInterceptor>(), SqliteWalInterceptor.Instance));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<NumberSeriesService>();
         services.AddScoped<BranchService>();

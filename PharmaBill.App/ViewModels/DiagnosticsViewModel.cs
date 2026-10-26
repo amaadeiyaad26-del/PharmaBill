@@ -114,6 +114,8 @@ public class DiagnosticsViewModel(IServiceScopeFactory scopeFactory, IFilePicker
 		if (closeConnection)
 		{
 			await connection.OpenAsync();
+			// Opened here, not through EF: give it the same WAL settings as every other connection.
+			await SqliteWal.ApplyAsync(connection);
 		}
 		IReadOnlyList<TableRowCount> result2;
 		try

@@ -44,7 +44,7 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
         return new PharmaBillDbContext(new DbContextOptionsBuilder<PharmaBillDbContext>()
             .UseSqlite(_pooledConnectionString)
-            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId)).Options, deviceId);
+            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId), SqliteWalInterceptor.Instance).Options, deviceId);
     }
 
     public StorageLocationService CreateStorageLocations() => new(Context);
@@ -116,11 +116,13 @@ internal sealed class DatabaseTestContext : IAsyncDisposable
             Password = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
         }.ToString());
         await connection.OpenAsync();
+        // As the app does on every connection (SqliteWalInterceptor): this one is opened here, not by EF.
+        await SqliteWal.ApplyAsync(connection);
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
         // Mirror production: the pending-model warning is not suppressed, so model drift fails tests.
         var options = new DbContextOptionsBuilder<PharmaBillDbContext>()
             .UseSqlite(connection)
-            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId))
+            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId), SqliteWalInterceptor.Instance)
             .Options;
         var context = new PharmaBillDbContext(options, deviceId);
         if (createSchema)

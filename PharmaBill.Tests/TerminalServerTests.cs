@@ -632,7 +632,7 @@ public sealed class TerminalServerTests : IAsyncLifetime
         var deviceId = new DatabaseDeviceId(Guid.NewGuid());
         return new PharmaBillDbContext(new DbContextOptionsBuilder<PharmaBillDbContext>()
             .UseSqlite(new SqliteConnectionStringBuilder { DataSource = storage.DatabasePath, Password = password, DefaultTimeout = 60 }.ToString())
-            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId)).Options, deviceId);
+            .AddInterceptors(new SaveChangesAuditInterceptor(deviceId), SqliteWalInterceptor.Instance).Options, deviceId);
     }
 
     private sealed class RecordingLogger : ILogger<TerminalServer>
