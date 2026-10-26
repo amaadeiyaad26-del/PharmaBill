@@ -34,6 +34,12 @@ public sealed class DrugRecordsPageViewModel : SectionPageViewModel, ILoadablePa
 
 	private bool _authorized;
 
+	/// <summary>True once the PIN was accepted on this visit.</summary>
+	public bool IsUnlocked => _authorized;
+
+	/// <summary>False inside Compliance &amp; Registers, whose own title sits above the tabs.</summary>
+	public bool ShowPageTitle { get; init; } = true;
+
 	private string _searchText = string.Empty;
 
 	private DrugRecordsPeriod _period;

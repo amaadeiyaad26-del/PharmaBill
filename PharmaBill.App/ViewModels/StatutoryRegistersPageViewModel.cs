@@ -36,6 +36,12 @@ public sealed class StatutoryRegistersPageViewModel : SectionPageViewModel, ILoa
 
 	private bool _authorized;
 
+	/// <summary>True once the PIN was accepted on this visit.</summary>
+	public bool IsUnlocked => _authorized;
+
+	/// <summary>False inside Compliance &amp; Registers, whose own title sits above the tabs.</summary>
+	public bool ShowPageTitle { get; init; } = true;
+
 	private string _selectedRegisterType = "All";
 
 	private StatutoryRegisterRow? _selectedEntry;

@@ -2154,6 +2154,19 @@ public class MainWindowViewModel : ObservableObject
 			return;
 		}
 
+		// Registers and Drug Records are tabs of Compliance & Registers; their old keys (dashboard links, the assistant)
+		// open that screen on the right tab.
+		if (ComplianceRegistersPageViewModel.TabForSection(sectionKey) is ComplianceTab tab)
+		{
+			if (CurrentPage is ComplianceRegistersPageViewModel compliance)
+			{
+				_ = compliance.SelectTabAsync(tab);
+				return;
+			}
+			_pendingComplianceTab = tab;
+			sectionKey = ComplianceSectionKey;
+		}
+
 		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
 		string resolvedKey = ResolveCustomersNavigation(ResolveBillingNavigation(sectionKey));
 
@@ -2203,6 +2216,20 @@ public class MainWindowViewModel : ObservableObject
 		}
 
 		return sectionKey;
+	}
+
+	private const string ComplianceSectionKey = ComplianceRegistersPageViewModel.SectionKey;
+
+	private ComplianceTab _pendingComplianceTab = ComplianceTab.StatutoryRegisters;
+
+	private ComplianceRegistersPageViewModel CreateCompliancePage()
+	{
+		ComplianceTab tab = _pendingComplianceTab;
+		_pendingComplianceTab = ComplianceTab.StatutoryRegisters;
+		return new ComplianceRegistersPageViewModel(ResolveNavTitle(ComplianceSectionKey),
+			new StatutoryRegistersPageViewModel(_statutoryRegisterService, _sensitiveAccessService, _confirmationService, _filePickerService, _tabularExportService, _currentSession) { ShowPageTitle = false },
+			new DrugRecordsPageViewModel(_drugRecordsService, _filePickerService, _tabularExportService, _sensitiveAccessService, _confirmationService, _currentSession) { ShowPageTitle = false },
+			tab);
 	}
 
 	private static bool IsCustomerListKey(string? sectionKey) =>
@@ -2742,8 +2769,7 @@ public class MainWindowViewModel : ObservableObject
 			switch (_navigationService.CurrentSectionKey)
 			{
 			case "Billing":
-			case "Registers":
-			case "DrugRecords":
+			case ComplianceSectionKey:
 				flag2 = true;
 				break;
 			default:
@@ -2815,8 +2841,7 @@ public class MainWindowViewModel : ObservableObject
 		}
 		if (mode != BusinessMode.Wholesaler)
 		{
-			NavigationItems.Add(new NavigationItem("Registers", _languageService.GetString("NavRegisters")));
-			NavigationItems.Add(new NavigationItem("DrugRecords", _languageService.GetString("NavDrugRecords")));
+			NavigationItems.Add(new NavigationItem(ComplianceSectionKey, _languageService.GetString("NavCompliance")));
 		}
 		NavigationItems.Add(new NavigationItem("Tools", "🧰 Tools: calendar, notepad, narrations"));
 		NavigationItems.Add(new NavigationItem("Reports", "📈 Reports & Daily MIS"));
@@ -2963,8 +2988,7 @@ public class MainWindowViewModel : ObservableObject
 			"Billing" => _retailBillingPage, 
 			"Reports" => _reportsPage, 
 			"GstReturns" => _gstReturnsPage, 
-			"DrugRecords" => new DrugRecordsPageViewModel(_drugRecordsService, _filePickerService, _tabularExportService, _sensitiveAccessService, _confirmationService, _currentSession), 
-			"Registers" => new StatutoryRegistersPageViewModel(_statutoryRegisterService, _sensitiveAccessService, _confirmationService, _filePickerService, _tabularExportService, _currentSession), 
+			ComplianceSectionKey => CreateCompliancePage(),
 			"Inspector" => new InspectorPageViewModel(_scopeFactory, _sensitiveAccessService), 
 			_ => new SectionPageViewModel(ResolveNavTitle(sectionKey)), 
 		};

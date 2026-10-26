@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Window x:Class="PharmaBill.App.PinPromptWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="/Assets/Icons/app.ico" Title="Sensitive records access" SizeToContent="WidthAndHeight" MinWidth="400" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
+<Window x:Class="PharmaBill.App.PinPromptWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Icon="pack://application:,,,/PharmaBill.App;component/Assets/Icons/app.ico" Title="Sensitive records access" SizeToContent="WidthAndHeight" MinWidth="400" WindowStartupLocation="CenterOwner" ResizeMode="NoResize" xmlns:app="clr-namespace:PharmaBill.App;assembly=PharmaBill.App">
   <StackPanel Margin="24">
     <TextBlock FontSize="16" TextWrapping="Wrap" Margin="0,0,0,16" Text="{Binding Prompt}" />
     <StackPanel Name="UsernamePanel" Visibility="Collapsed" Margin="0,0,0,10">

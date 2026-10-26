@@ -1286,6 +1286,44 @@
     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
     <Setter Property="Margin" Value="0,0,0,10" />
   </Style>
+  <!-- Segmented pill tab: the selected one (Tag = True) is a raised white pill on the soft accent track. -->
+  <Style x:Key="SegmentedPillTab" TargetType="{x:Type Button}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="16,7" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Border x:Name="Pill" Background="{TemplateBinding Background}" CornerRadius="17" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Pill" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+              <Setter TargetName="Pill" Property="BorderThickness" Value="1" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Effect">
+          <Setter.Value>
+            <DropShadowEffect BlurRadius="6" ShadowDepth="1" Opacity="0.15" Color="#FF0F172A" />
+          </Setter.Value>
+        </Setter>
+      </DataTrigger>
+    </Style.Triggers>
+  </Style>
   <!-- Medicine search flyout: one look for every screen's search results (Retail, Wholesale, Stock). -->
   <Style x:Key="MedicineFlyoutCard" TargetType="{x:Type Border}">
     <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />

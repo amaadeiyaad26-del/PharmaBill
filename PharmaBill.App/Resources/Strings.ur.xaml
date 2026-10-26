@@ -10,6 +10,7 @@
   <String x:Key="NavCustomers" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">گاہک</String>
   <String x:Key="NavRegisters" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">رجسٹر</String>
   <String x:Key="NavDrugRecords" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">دوائی کا ریکارڈ</String>
+  <String x:Key="NavCompliance" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">تعمیل اور رجسٹر</String>
   <String x:Key="NavInspector" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">انسپکٹر</String>
   <String x:Key="NavReports" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">رپورٹس</String>
   <String x:Key="NavSettings" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">ترتیبات</String>

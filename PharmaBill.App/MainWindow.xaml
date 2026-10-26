@@ -4748,10 +4748,32 @@
         </Grid>
           </ScrollViewer>
       </DataTemplate>
+      <!-- Compliance & Registers: the statutory registers and the drug records movement report as two tabs of one screen. -->
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:ComplianceRegistersPageViewModel}}" DataType="{x:Type vm:ComplianceRegistersPageViewModel}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Margin="20,20,20,0">
+            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" />
+            <TextBlock Margin="0,2,0,12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"
+                       Text="Schedule H1 / X / NDPS registers and the drug-wise movement report. Each tab asks for your PIN the first time it is opened." />
+            <Border HorizontalAlignment="Left" CornerRadius="20" Padding="3" Background="{DynamicResource AccentSoftBrush}" AutomationProperties.Name="Compliance tabs">
+              <StackPanel Orientation="Horizontal">
+                <Button Content="Statutory Registers" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsRegistersTab}"
+                        Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:ComplianceTab.StatutoryRegisters}"
+                        ToolTip="Schedule H1, X, NDPS and habit-forming registers, with PDF and Excel export" />
+                <Button Content="Drug Records Movement" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsDrugRecordsTab}"
+                        Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:ComplianceTab.DrugRecords}"
+                        ToolTip="Purchases and sales of chosen medicines over a period, with opening and closing balance" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+          <!-- Each tab's page keeps its own template, filters and exports unchanged. -->
+          <ContentControl Content="{Binding ActivePage}" Focusable="False" AutomationProperties.Name="Compliance tab content" />
+        </DockPanel>
+      </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:StatutoryRegistersPageViewModel}}" DataType="{x:Type vm:StatutoryRegistersPageViewModel}">
         <DockPanel Margin="20">
           <StackPanel DockPanel.Dock="Top">
-            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" />
+            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" Visibility="{Binding ShowPageTitle, Converter={StaticResource BooleanToVisibilityConverter}}" />
             <TextBlock Margin="0,6,0,2" Text="{Binding StatusMessage}" />
             <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
             <WrapPanel Margin="0,8,0,8">
@@ -4844,7 +4866,7 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:DrugRecordsPageViewModel}}" DataType="{x:Type vm:DrugRecordsPageViewModel}">
         <DockPanel Margin="20">
           <StackPanel DockPanel.Dock="Top">
-            <TextBlock Text="Drug Records" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock Text="Drug Records" FontSize="26" FontWeight="SemiBold" Visibility="{Binding ShowPageTitle, Converter={StaticResource BooleanToVisibilityConverter}}" />
             <TextBlock Margin="0,2,0,10" Foreground="{DynamicResource SecondaryTextBrush}" Text="Select medicines, choose a period, then run the statutory movement report." />
 
             <!-- TOP: drug selection -->
