@@ -18,6 +18,9 @@ namespace PharmaBill.App.ViewModels;
 // restore, and when the last backup was made. (Sync is for devices: phones and billing counters.)
 public class BackupPageViewModel : ObservableObject, ILoadablePage
 {
+	/// <summary>False inside Backup &amp; Sync, whose own title sits above the tabs.</summary>
+	public bool ShowPageTitle { get; set; } = true;
+
 	private readonly BackupSettingsStore _settingsStore;
 
 	private readonly FolderBackupService _folderBackup;

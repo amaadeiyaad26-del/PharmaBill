@@ -11,6 +11,7 @@
   <String x:Key="NavRegisters" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">रजिस्टर</String>
   <String x:Key="NavDrugRecords" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">दवा रिकॉर्ड</String>
   <String x:Key="NavCompliance" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">अनुपालन और रजिस्टर</String>
+  <String x:Key="NavDataSync" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">बैकअप और सिंक</String>
   <String x:Key="NavInspector" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">निरीक्षक</String>
   <String x:Key="NavReports" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">रिपोर्ट</String>
   <String x:Key="NavSettings" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">सेटिंग्स</String>

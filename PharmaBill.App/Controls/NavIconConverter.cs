@@ -33,6 +33,7 @@ public sealed class NavIconConverter : IValueConverter
 		["StockTransfer"] = "\ue8ab",
 		["Backup"] = "\ue74e",
 		["Sync"] = "\ue895",
+		["DataSync"] = "\ue895",
 		["Inspector"] = "\ue721",
 		["Settings"] = "\ue713",
 		["Diagnostics"] = "\ue9d9",

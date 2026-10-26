@@ -25,6 +25,9 @@ namespace PharmaBill.App.ViewModels;
 
 public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 {
+	/// <summary>False inside Backup &amp; Sync, whose own title sits above the tabs.</summary>
+	public bool ShowPageTitle { get; set; } = true;
+
 	private readonly IServiceScopeFactory _scopeFactory;
 
 	private readonly DatabaseDeviceId _localDevice;

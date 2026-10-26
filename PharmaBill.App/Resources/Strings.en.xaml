@@ -11,6 +11,7 @@
   <String x:Key="NavRegisters" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Registers</String>
   <String x:Key="NavDrugRecords" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Drug Records</String>
   <String x:Key="NavCompliance" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Compliance &amp; Registers</String>
+  <String x:Key="NavDataSync" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Backup &amp; Sync</String>
   <String x:Key="NavInspector" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Inspector</String>
   <String x:Key="NavReports" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Reports</String>
   <String x:Key="NavSettings" xmlns:sys="clr-namespace:System;assembly=System.Runtime" xmlns="clr-namespace:System;assembly=System.Private.CoreLib">Settings</String>

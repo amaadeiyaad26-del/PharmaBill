@@ -178,7 +178,7 @@ public sealed class BackupPageEndToEndTests
         public string Value { get => _value; set => SetProperty(ref _value, value); }
     }
 
-    private sealed class AlwaysYes : IConfirmationService
+    internal sealed class AlwaysYes : IConfirmationService
     {
         public bool Confirm(string message, string title) => true;
         public bool? Choose(string message, string title, string acceptLabel, string alternateLabel) => true;
@@ -186,7 +186,7 @@ public sealed class BackupPageEndToEndTests
         public void NotifyError(string title, string message) { }
     }
 
-    private sealed class FakePicker : IFilePickerService
+    internal sealed class FakePicker : IFilePickerService
     {
         public string? Folder { get; set; }
         public string? BackupFile { get; set; }

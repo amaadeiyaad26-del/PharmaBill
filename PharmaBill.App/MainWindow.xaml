@@ -732,10 +732,32 @@
           </Grid>
         </DockPanel>
       </DataTemplate>
+      <!-- Backup & Sync: local backup and PC migration, and device and cloud sync, as two tabs of one screen. -->
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:DataSyncPageViewModel}}" DataType="{x:Type vm:DataSyncPageViewModel}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Margin="20,20,20,0">
+            <TextBlock FontSize="26" FontWeight="SemiBold" Text="{Binding Title}" />
+            <TextBlock Margin="0,2,0,12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"
+                       Text="Keep encrypted copies of the shop's records and move them to a new PC, and keep counters and phones in step with this PC." />
+            <Border HorizontalAlignment="Left" CornerRadius="20" Padding="3" Background="{DynamicResource AccentSoftBrush}" AutomationProperties.Name="Backup and sync tabs">
+              <StackPanel Orientation="Horizontal">
+                <Button Content="💾 Local Backup &amp; PC Migration" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsBackupTab}"
+                        Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:DataSyncTab.Backup}"
+                        ToolTip="Encrypted backups to a folder or USB drive, the backup password, and restore (also how you move to a new PC)" />
+                <Button Content="🔄 Device &amp; Cloud Sync" Style="{StaticResource SegmentedPillTab}" Tag="{Binding IsSyncTab}"
+                        Command="{Binding SelectTabCommand}" CommandParameter="{x:Static vm:DataSyncTab.Sync}"
+                        ToolTip="Connected counters and phones, the Android sync station, pending changes and cloud or folder sync" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+          <!-- Each tab's page keeps its own template, commands and settings unchanged. -->
+          <ContentControl Content="{Binding ActivePage}" Focusable="False" AutomationProperties.Name="Backup and sync tab content" />
+        </DockPanel>
+      </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:BackupPageViewModel}}" DataType="{x:Type vm:BackupPageViewModel}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="20" MaxWidth="900" HorizontalAlignment="Left">
-            <TextBlock Text="Backup" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="Backup" FontSize="24" FontWeight="SemiBold" Visibility="{Binding ShowPageTitle, Converter={StaticResource BooleanToVisibilityConverter}}" />
             <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" TextWrapping="Wrap" Text="Copies of the shop's records: to a folder, to a USB drive, and back again." />
             <Border CornerRadius="10" Padding="16,12" Margin="0,12,0,16" BorderThickness="1">
               <FrameworkElement.Style>
@@ -820,7 +842,18 @@
           <DockPanel Margin="16">
             <StackPanel DockPanel.Dock="Top">
               <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Sync Station" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="Sync Station" FontWeight="SemiBold" VerticalAlignment="Center">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="FontSize" Value="24" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding ShowPageTitle}" Value="False">
+                          <Setter Property="FontSize" Value="16" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
                 <controls:InfoHelper Title="Sync Station (port 5055)" Margin="10,0,0,0" Body="This PC listens on TCP 5055 for the Android app on the same Wi-Fi. Scan the QR or let mDNS discover _pharmabill-sync._tcp. If Windows Firewall blocks the port, use Allow firewall rule (admin) or the allow-firewall-port5055.ps1 script. When the Wi-Fi link fails, changes can still move through a shared folder or by USB." />
               </StackPanel>
               <TextBlock Text="Every PC and phone connected to this shop. Billing counters use this PC's records directly; phones keep their own copy and sync." Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,3,0,8" />

@@ -2154,17 +2154,9 @@ public class MainWindowViewModel : ObservableObject
 			return;
 		}
 
-		// Registers and Drug Records are tabs of Compliance & Registers; their old keys (dashboard links, the assistant)
-		// open that screen on the right tab.
-		if (ComplianceRegistersPageViewModel.TabForSection(sectionKey) is ComplianceTab tab)
+		if (MergedScreens.TryOpen(sectionKey, CurrentPage))
 		{
-			if (CurrentPage is ComplianceRegistersPageViewModel compliance)
-			{
-				_ = compliance.SelectTabAsync(tab);
-				return;
-			}
-			_pendingComplianceTab = tab;
-			sectionKey = ComplianceSectionKey;
+			return;
 		}
 
 		// Desk mode owns which billing surface is shown — never open Retail billing while WS Mode is active.
@@ -2220,16 +2212,31 @@ public class MainWindowViewModel : ObservableObject
 
 	private const string ComplianceSectionKey = ComplianceRegistersPageViewModel.SectionKey;
 
-	private ComplianceTab _pendingComplianceTab = ComplianceTab.StatutoryRegisters;
+	private const string DataSyncSectionKey = DataSyncPageViewModel.SectionKey;
+
+	private DataSyncPageViewModel? _dataSyncPage;
+
+	private MergedScreenRoutes? _mergedScreenRoutes;
+
+	// Old keys of screens that became tabs (dashboard links, Settings, reminders, the assistant) open that tab.
+	private MergedScreenRoutes MergedScreens => _mergedScreenRoutes ??= new MergedScreenRoutes(_navigationService);
+
+	private DataSyncPageViewModel CreateDataSyncPage()
+	{
+		_dataSyncPage ??= new DataSyncPageViewModel(ResolveNavTitle(DataSyncSectionKey), _backupPage, _syncPage);
+		if (MergedScreens.TakeDataSyncTab() is DataSyncTab tab)
+		{
+			_dataSyncPage.ShowTab(tab);
+		}
+		return _dataSyncPage;
+	}
 
 	private ComplianceRegistersPageViewModel CreateCompliancePage()
 	{
-		ComplianceTab tab = _pendingComplianceTab;
-		_pendingComplianceTab = ComplianceTab.StatutoryRegisters;
 		return new ComplianceRegistersPageViewModel(ResolveNavTitle(ComplianceSectionKey),
 			new StatutoryRegistersPageViewModel(_statutoryRegisterService, _sensitiveAccessService, _confirmationService, _filePickerService, _tabularExportService, _currentSession) { ShowPageTitle = false },
 			new DrugRecordsPageViewModel(_drugRecordsService, _filePickerService, _tabularExportService, _sensitiveAccessService, _confirmationService, _currentSession) { ShowPageTitle = false },
-			tab);
+			MergedScreens.TakeComplianceTab());
 	}
 
 	private static bool IsCustomerListKey(string? sectionKey) =>
@@ -2644,7 +2651,17 @@ public class MainWindowViewModel : ObservableObject
 		string section = _navigationService.CurrentSectionKey;
 		OnPropertyChanged("CurrentSectionKey");
 		UpdateActiveNavigation();
-		if (section is "Sync" or "Backup")
+		// Only the sidebar key changed: the screen showing already is that section.
+		if (MergedScreens.ConsumeKeepCurrentPage())
+		{
+			return;
+		}
+		// An old key asked for directly (Settings uses the navigation service): open the merged screen's tab instead.
+		if (MergedScreens.TryOpen(section, CurrentPage))
+		{
+			return;
+		}
+		if (section is DataSyncSectionKey)
 		{
 			RefreshUsbBackupReminder();
 		}
@@ -2846,8 +2863,7 @@ public class MainWindowViewModel : ObservableObject
 		NavigationItems.Add(new NavigationItem("Tools", "🧰 Tools: calendar, notepad, narrations"));
 		NavigationItems.Add(new NavigationItem("Reports", "📈 Reports & Daily MIS"));
 		NavigationItems.Add(new NavigationItem("GstReturns", "📊 GST & e-Way"));
-		NavigationItems.Add(new NavigationItem("Backup", "Backup & move PC"));
-		NavigationItems.Add(new NavigationItem("Sync", "Sync"));
+		NavigationItems.Add(new NavigationItem(DataSyncSectionKey, _languageService.GetString("NavDataSync")));
 		NavigationItems.Add(new NavigationItem("Inspector", _languageService.GetString("NavInspector")));
 		UpdateActiveNavigation();
 	}
@@ -2966,8 +2982,7 @@ public class MainWindowViewModel : ObservableObject
 			"Dashboard" => _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale && CanUseWholesaleBilling
 				? _wholesaleDashboardPage
 				: _dashboardPage, 
-			"Backup" => _backupPage, 
-			"Sync" => _syncPage, 
+			DataSyncSectionKey => CreateDataSyncPage(),
 			"Settings" => _settingsPage, 
 			"Stock" => _stockPage, 
 			"StockTransfer" => _stockTransferPage, 
