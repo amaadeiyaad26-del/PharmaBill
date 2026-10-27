@@ -5,7 +5,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using Microsoft.Extensions.DependencyInjection;
+using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
+using QuestPDF.Fluent;
 
 namespace PharmaBill.App.Services;
 
@@ -29,7 +31,7 @@ public sealed class InvoicePrintService(IServiceScopeFactory scopeFactory, Docum
 		return template switch
 		{
 			InvoiceTemplateType.Thermal80mm => await PrintThermalAsync(bill, settings, cancellationToken),
-			InvoiceTemplateType.StandardA4 => PrintStandardInvoice(bill, settings, silent),
+			InvoiceTemplateType.StandardA4 => await PrintStandardInvoiceAsync(bill, settings, silent, cancellationToken),
 			_ => await PrintThermalAsync(bill, settings, cancellationToken),
 		};
 	}
@@ -48,7 +50,7 @@ public sealed class InvoicePrintService(IServiceScopeFactory scopeFactory, Docum
 			template = chosen.Value.Item1;
 		}
 		return template == InvoiceTemplateType.StandardA4
-			? PrintStandardInvoice(bill, settings, settings.SilentPrint)
+			? await PrintStandardInvoiceAsync(bill, settings, settings.SilentPrint, cancellationToken)
 			: await PrintThermalAsync(bill, settings, cancellationToken);
 	}
 
@@ -145,7 +147,7 @@ public sealed class InvoicePrintService(IServiceScopeFactory scopeFactory, Docum
 		return printerName;
 	}
 
-	private static string PrintStandardInvoice(RetailBillPrintData bill, DocumentOutputSettings settings, bool silent)
+	private static async Task<string> PrintStandardInvoiceAsync(RetailBillPrintData bill, DocumentOutputSettings settings, bool silent, CancellationToken cancellationToken)
 	{
 		FlowDocument flowDocument = InvoiceFlowDocumentFactory.Create(bill, settings);
 		PrintDialog printDialog = new PrintDialog();
@@ -156,19 +158,87 @@ public sealed class InvoicePrintService(IServiceScopeFactory scopeFactory, Docum
 				return "cancelled";
 			}
 		}
-		else if (!string.IsNullOrWhiteSpace(settings.RetailInvoicePrinter))
+		else
 		{
-			try
+			if (!string.IsNullOrWhiteSpace(settings.RetailInvoicePrinter))
 			{
-				using LocalPrintServer localPrintServer = new LocalPrintServer();
-				printDialog.PrintQueue = localPrintServer.GetPrintQueue(settings.RetailInvoicePrinter);
+				try
+				{
+					using LocalPrintServer localPrintServer = new LocalPrintServer();
+					printDialog.PrintQueue = localPrintServer.GetPrintQueue(settings.RetailInvoicePrinter);
+				}
+				catch
+				{
+				}
 			}
-			catch
+			// Silent print to a printer that writes a file (Microsoft Print to PDF, XPS, OneNote, fax) would stop the
+			// counter at a Save As box before anyone has seen the bill. Open the invoice instead, and keep its PDF.
+			if (WritesToFile(printDialog.PrintQueue))
 			{
+				return await OpenForViewingAsync(bill, settings, InvoicesFolder, OpenWithShell, cancellationToken);
 			}
 		}
 		printDialog.PrintDocument(((IDocumentPaginatorSource)flowDocument).DocumentPaginator, "Invoice " + bill.InvoiceNo);
 		return printDialog.PrintQueue?.Name ?? "default-printer";
+	}
+
+	/// <summary>Where invoices opened for viewing are kept (the same folder WhatsApp sharing uses).</summary>
+	private static string InvoicesFolder => Path.Combine(AppDataPaths.RootDirectory, "Invoices");
+
+	/// <summary>True for what <see cref="PrintAsync"/> returns when the invoice was opened for viewing instead of printed.</summary>
+	public static bool OpenedForViewing(string? printResult) => printResult != null && printResult.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+
+	/// <summary>
+	/// Saves the A4 invoice as a PDF in <paramref name="folder"/>, named by its invoice number, and opens it in the PDF
+	/// viewer, where it can be printed or saved elsewhere. Returns the PDF's path.
+	/// </summary>
+	internal static async Task<string> OpenForViewingAsync(RetailBillPrintData bill, DocumentOutputSettings settings, string folder, Action<string> open, CancellationToken cancellationToken = default)
+	{
+		Directory.CreateDirectory(folder);
+		string name = string.Join("_", bill.InvoiceNo.Trim().Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+		string path = Path.Combine(folder, (name.Length == 0 ? "invoice" : name) + ".pdf");
+		await Task.Run(() => RetailBillPdfService.CreateDocument(bill, settings, RetailDocumentType.Invoice).GeneratePdf(path), cancellationToken);
+		open(path);
+		return path;
+	}
+
+	private static void OpenWithShell(string path)
+	{
+		if (Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }) == null)
+		{
+			throw new InvalidOperationException("Windows could not open the invoice PDF.");
+		}
+	}
+
+	private static bool WritesToFile(PrintQueue? queue)
+	{
+		if (queue == null)
+		{
+			return false;
+		}
+		try
+		{
+			return WritesToFile(queue.Name, queue.QueuePort?.Name, queue.QueueDriver?.Name);
+		}
+		catch (Exception)
+		{
+			return WritesToFile(queue.Name, null, null);
+		}
+	}
+
+	/// <summary>
+	/// Printers that put the page in a file (or a fax) rather than on paper: Windows asks where to save before printing.
+	/// </summary>
+	internal static bool WritesToFile(string? queueName, string? portName, string? driverName)
+	{
+		string port = portName?.Trim().ToUpperInvariant() ?? string.Empty;
+		if (port is "PORTPROMPT:" or "FILE:" || port.EndsWith(".PDF", StringComparison.Ordinal) || port.EndsWith(".XPS", StringComparison.Ordinal))
+		{
+			return true;
+		}
+		string text = ((queueName ?? string.Empty) + " " + (driverName ?? string.Empty)).ToUpperInvariant();
+		return text.Contains("PDF", StringComparison.Ordinal) || text.Contains("XPS", StringComparison.Ordinal)
+			|| text.Contains("ONENOTE", StringComparison.Ordinal) || text.Contains("FAX", StringComparison.Ordinal);
 	}
 
 	private static (InvoiceTemplateType Template, bool Preview)? AskForTemplate(bool previewOnly)

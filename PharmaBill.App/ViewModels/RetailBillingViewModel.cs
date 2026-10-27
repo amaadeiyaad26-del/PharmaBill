@@ -2787,9 +2787,10 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 						ChangeDueText = ((result.ChangeDue > 0m) ? ("Change due: " + MoneyFormat.Rupees(result.ChangeDue)) : string.Empty);
 						StatusMessage = $"Bill {result.InvoiceNo} saved. Total {MoneyFormat.Rupees(result.TotalAmount)}; paid {MoneyFormat.Rupees(result.PaidAmount)}.";
 						string printFailure = null;
+						string printed = null;
 						try
 						{
-							await invoicePrintService.PrintAsync(result.Sale.Id);
+							printed = await invoicePrintService.PrintAsync(result.Sale.Id);
 						}
 						catch (Exception ex)
 						{
@@ -2797,7 +2798,9 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 						}
 						ClearBill();
 						BillNumber = await service.PreviewNextInvoiceNoAsync();
-						StatusMessage = "Bill " + result.InvoiceNo + " saved. Use Recent bills or Ctrl+P to reprint.";
+						StatusMessage = InvoicePrintService.OpenedForViewing(printed)
+							? "Bill " + result.InvoiceNo + " saved and opened for viewing; print it from there. The PDF is kept in " + Path.GetDirectoryName(printed) + "."
+							: "Bill " + result.InvoiceNo + " saved. Use Recent bills or Ctrl+P to reprint.";
 						ErrorMessage = printFailure ?? string.Empty;
 						BillSaved?.Invoke(this, EventArgs.Empty);
 					}

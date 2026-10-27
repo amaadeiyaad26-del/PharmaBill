@@ -71,6 +71,47 @@ public sealed class PosCommandBarTests
         });
     }
 
+    // F10 when silent printing would go to a printer that writes a file (Microsoft Print to PDF): the bill is saved and the
+    // invoice opens for viewing at once, its PDF kept in the invoices folder; no Save As box stops the counter.
+    [Fact]
+    public void F10_OnAFileWritingPrinter_SavesTheBill_AndOpensTheInvoiceWithoutAskingWhereToSave()
+    {
+        Ui.Run(async () =>
+        {
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            await using Shop shop = await Shop.OpenAsync();
+            string invoices = Path.Combine(shop.Database.Storage.RootDirectory, "Invoices");
+            var opened = new List<string>();
+            shop.Printer.Print = async saleId =>
+            {
+                using IServiceScope scope = shop.Services.CreateScope();
+                RetailBillPrintData bill = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().GetPrintableBillAsync(saleId);
+                return await InvoicePrintService.OpenForViewingAsync(bill, new DocumentOutputSettings(), invoices, opened.Add);
+            };
+            Window host = await shop.ShowBillingAsync();
+            RetailBillingViewModel page = shop.Page;
+
+            Ui.Type(Ui.Named<TextBox>(host, "Sale command"), "sold 1 strip of paracetamol to mr x");
+            await PressEnterAsync(page);
+            Assert.True(page.HasPosPreview, "no preview: " + page.PosMessage + " | command: " + page.PosCommandText);
+            await PressEnterAsync(page);
+            Assert.True(page.BillItems.Count == 1, "not added: " + page.PosMessage);
+            page.PatientPhone = "9876543210";
+
+            await Ui.PressAsync(Ui.Button(host, "F10 Print & Save"));
+
+            Assert.True(string.IsNullOrEmpty(page.ErrorMessage), page.ErrorMessage);
+            Sale sale = await shop.Database.Context.Sales.AsNoTracking().SingleAsync();
+            string pdf = Assert.Single(opened);
+            Assert.Equal(Path.Combine(invoices, sale.InvoiceNo.Replace("/", "_") + ".pdf"), pdf);
+            Assert.Equal("%PDF"u8.ToArray(), File.ReadAllBytes(pdf)[..4]);
+            Assert.Contains("Bill " + sale.InvoiceNo + " saved and opened for viewing", page.StatusMessage);
+            Assert.Contains(invoices, page.StatusMessage);
+            Assert.Empty(page.BillItems);
+            host.Close();
+        });
+    }
+
     [Fact]
     public void NotInStock_OffersBothWaysIn_AndTheSaleContinuesOnceStocked()
     {
@@ -172,6 +213,7 @@ public sealed class PosCommandBarTests
         public RecordingNavigation Navigation { get; } = new();
         public PurchaseEntryHandoff PurchaseEntry { get; } = new();
         public StockingDialog AddStock { get; private set; } = null!;
+        public NoPrint Printer { get; } = new();
         public RetailBillingViewModel Page { get; private set; } = null!;
 
         public static async Task<Shop> OpenAsync()
@@ -201,7 +243,7 @@ public sealed class PosCommandBarTests
             shop.AddStock = new StockingDialog(shop);
             IServiceScopeFactory scopes = shop.Services.GetRequiredService<IServiceScopeFactory>();
             shop.Page = new RetailBillingViewModel(scopes, shop.Session, null!, new Quiet(), new CatalogSearchViewModel(scopes, NullLogger<CatalogSearchViewModel>.Instance),
-                new NoPrint(), null!, shop.Navigation, null!, new DocumentOutputSettingsStore(Path.Combine(database.Storage.RootDirectory, "print")), null!, null!, null!,
+                shop.Printer, null!, shop.Navigation, null!, new DocumentOutputSettingsStore(Path.Combine(database.Storage.RootDirectory, "print")), null!, null!, null!,
                 new QuotationConversionHandoff(), new RetailReissueHandoff(), shop.AddStock, shop.PurchaseEntry);
             return shop;
         }
@@ -277,7 +319,9 @@ public sealed class PosCommandBarTests
 
     private sealed class NoPrint : IInvoicePrintService
     {
-        public Task<string> PrintAsync(Guid saleId, InvoiceTemplateType? templateOverride = null, bool? silentOverride = null, CancellationToken cancellationToken = default) => Task.FromResult("printed");
+        /// <summary>What printing does; by default nothing, and it says "printed".</summary>
+        public Func<Guid, Task<string>> Print { get; set; } = _ => Task.FromResult("printed");
+        public Task<string> PrintAsync(Guid saleId, InvoiceTemplateType? templateOverride = null, bool? silentOverride = null, CancellationToken cancellationToken = default) => Print(saleId);
         public Task<string> PreviewAsync(Guid saleId, InvoiceTemplateType template = InvoiceTemplateType.StandardA4, CancellationToken cancellationToken = default) => Task.FromResult("preview");
         public Task<string?> PickFormatAndPrintAsync(Guid saleId, CancellationToken cancellationToken = default) => Task.FromResult<string?>("printed");
     }
