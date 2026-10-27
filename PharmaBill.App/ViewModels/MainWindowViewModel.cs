@@ -22,7 +22,7 @@ using PharmaBill.Sync;
 
 namespace PharmaBill.App.ViewModels;
 
-public class MainWindowViewModel : ObservableObject
+public partial class MainWindowViewModel : ObservableObject
 {
 	private readonly INavigationService _navigationService;
 
@@ -2341,6 +2341,7 @@ public class MainWindowViewModel : ObservableObject
 	private void ApplyUpdateAvailability(AppUpdateAvailability result)
 	{
 		IsCriticalUpdateRequired = result.IsUpdateAvailable && result.IsCritical;
+		ShowUpdateButton(result);
 		UpdateBannerText = result.StatusMessage;
 		ShowUpdateBanner = result.IsUpdateAvailable && (IsCriticalUpdateRequired || !_appUpdates.IsSnoozed());
 		if (IsCriticalUpdateRequired && !_criticalUpdateDialogShown)

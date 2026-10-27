@@ -37,14 +37,13 @@
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="16,0,0,0">
           <Button Content="Refresh" Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}"
                   behaviors:HoverTickSound.Enabled="True" Command="{Binding RefreshCommand}" />
-          <Button Margin="0,0,8,0" Style="{StaticResource FrostedMintPillButton}" behaviors:HoverTickSound.Enabled="True"
-                  ToolTip="Open Reports &amp; Daily MIS: sales, GST, stock and the day's figures" AutomationProperties.Name="Reports &amp; Daily MIS"
-                  CommandParameter="Reports" Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window}}">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9D2;" FontSize="15" VerticalAlignment="Center" Margin="0,0,8,0" />
-              <TextBlock Text="Reports &amp; Daily MIS" VerticalAlignment="Center" />
-            </StackPanel>
-          </Button>
+          <!-- Microsoft Store updates: quiet "Check for Updates", bright and pulsing when a new version is waiting. -->
+          <Button Height="36" Margin="0,0,8,0" FontSize="13" Style="{StaticResource UpdateHeaderButton}" behaviors:HoverTickSound.Enabled="True"
+                  Content="{Binding DataContext.UpdateButtonText, RelativeSource={RelativeSource AncestorType=Window}}"
+                  Tag="{Binding DataContext.IsUpdateAvailable, RelativeSource={RelativeSource AncestorType=Window}}"
+                  ToolTip="{Binding DataContext.UpdateButtonToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
+                  AutomationProperties.HelpText="{Binding DataContext.UpdateButtonToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
+                  Command="{Binding DataContext.CheckForUpdatesCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
           <Button Content="+ New B2B Order / Challan" Style="{StaticResource FrostedMintPillButton}"
                   behaviors:HoverTickSound.Enabled="True" Command="{Binding NewB2bOrderCommand}" />
         </StackPanel>

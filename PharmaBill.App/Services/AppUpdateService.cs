@@ -84,14 +84,10 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 			AppUpdateAvailability appUpdateAvailability2;
 			try
 			{
-				AppUpdateAvailability appUpdateAvailability = AppEdition.UsesReleaseFeed(AppEdition.Current)
-					? await TryStoreChannelAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false)
-					: StoreEditionResult(_versionInfo.Version);
-				if ((object)appUpdateAvailability == null)
-				{
-					appUpdateAvailability = await TryManifestChannelAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
-				}
-				appUpdateAvailability2 = appUpdateAvailability;
+				// Store edition: ask the Microsoft Store. Local Market edition: read the release feed.
+				appUpdateAvailability2 = AppEdition.UsesReleaseFeed(AppEdition.Current)
+					? await TryManifestChannelAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false)
+					: await CheckStoreAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
 			}
 			catch (Exception ex)
 			{
@@ -115,6 +111,8 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 
 	public async Task LaunchUpdateAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
+		// The Store shows its install dialog over this window; take its handle while still on the UI thread.
+		IntPtr owner = MainWindowHandle();
 		AppUpdateAvailability appUpdateAvailability = LastResult;
 		if ((object)appUpdateAvailability == null)
 		{
@@ -132,8 +130,17 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 			{
 				try
 				{
-					await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(_pendingStoreUpdates).AsTask(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
-					return;
+					// A desktop app must give the Store its window before the Store can show its dialog.
+					if (owner != IntPtr.Zero)
+					{
+						WinRT.Interop.InitializeWithWindow.Initialize(_storeContext, owner);
+					}
+					StorePackageUpdateResult installed = await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(_pendingStoreUpdates).AsTask(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+					_logger.LogInformation("Store update request finished: {State}", installed.OverallState);
+					if (installed.OverallState is StorePackageUpdateState.Completed or StorePackageUpdateState.Canceled)
+					{
+						return;
+					}
 				}
 				catch (Exception exception)
 				{
@@ -161,16 +168,77 @@ public sealed class AppUpdateService : IAppUpdateService, IDisposable
 	/// </summary>
 	internal static AppUpdateAvailability StoreEditionResult(string currentVersion)
 	{
-		return new AppUpdateAvailability(IsUpdateAvailable: false, currentVersion, currentVersion, IsCritical: false, UpdateChannel.MicrosoftStore, AppEdition.StoreUpdatesUri, "Updates for Pharma Remit are installed by the Microsoft Store. Open the Store's Downloads and updates page to update now.");
+		return new AppUpdateAvailability(IsUpdateAvailable: false, currentVersion, currentVersion, IsCritical: false, UpdateChannel.MicrosoftStore, AppEdition.StoreUpdatesUri, "Updates for Pharma Remit are installed by the Microsoft Store. Open the Store's Downloads and updates page to update now.", WasChecked: false);
 	}
 
-	private Task<AppUpdateAvailability?> TryStoreChannelAsync(CancellationToken cancellationToken)
+	/// <summary>
+	/// Store edition: asks the Microsoft Store whether this install has a newer package. The Store compares versions
+	/// itself (it knows what was published). Run unpackaged (a developer build) there is no Store install to ask, and
+	/// the button opens the Store's Downloads and updates page as before.
+	/// </summary>
+	private async Task<AppUpdateAvailability> CheckStoreAsync(CancellationToken cancellationToken)
 	{
-		// Direct Win32 / USB installs are not Store-packaged — skip StoreContext entirely.
 		_pendingStoreUpdates = null;
-		_storeContext = null;
-		cancellationToken.ThrowIfCancellationRequested();
-		return Task.FromResult<AppUpdateAvailability?>(null);
+		if (!IsStorePackaged())
+		{
+			return StoreEditionResult(_versionInfo.Version);
+		}
+		_storeContext ??= StoreContext.GetDefault();
+		IReadOnlyList<StorePackageUpdate> updates = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync().AsTask(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+		_pendingStoreUpdates = updates;
+		string storePage = await StoreProductPageUriAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+		if (updates.Count == 0)
+		{
+			return new AppUpdateAvailability(IsUpdateAvailable: false, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.MicrosoftStore, storePage, "Up to date ✓ (v" + _versionInfo.Display + ")");
+		}
+		// Never "critical" here: a critical update closes the app if declined, and a Store install that fails would then
+		// keep the shop from billing. The Store's own Mandatory flag is still shown in the message.
+		bool mandatory = updates.Any(update => update.Mandatory);
+		return new AppUpdateAvailability(IsUpdateAvailable: true, _versionInfo.Version, _versionInfo.Version, IsCritical: false, UpdateChannel.MicrosoftStore, storePage,
+			"A new version of Pharma Remit is available in the Microsoft Store" + (mandatory ? " (required by the publisher)." : ".") + " Click Update Available to install it.");
+	}
+
+	/// <summary>True when this copy was installed as a package (the Store edition's MSIX), so the Store can be asked.</summary>
+	private static bool IsStorePackaged()
+	{
+		try
+		{
+			return Windows.ApplicationModel.Package.Current != null;
+		}
+		catch (InvalidOperationException)
+		{
+			return false;
+		}
+	}
+
+	/// <summary>This app's Store page when its Store id is known, else the Store's Downloads and updates page.</summary>
+	private async Task<string> StoreProductPageUriAsync(CancellationToken cancellationToken)
+	{
+		try
+		{
+			string? storeId = _storeContext == null ? null
+				: (await _storeContext.GetStoreProductForCurrentAppAsync().AsTask(cancellationToken).ConfigureAwait(continueOnCapturedContext: false))?.Product?.StoreId;
+			return string.IsNullOrWhiteSpace(storeId) ? AppEdition.StoreUpdatesUri : "ms-windows-store://pdp/?ProductId=" + storeId;
+		}
+		catch (Exception exception)
+		{
+			_logger.LogDebug(exception, "Store product id not available; using the Downloads and updates page.");
+			return AppEdition.StoreUpdatesUri;
+		}
+	}
+
+	private static IntPtr MainWindowHandle()
+	{
+		try
+		{
+			System.Windows.Window? window = System.Windows.Application.Current?.MainWindow;
+			return window == null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(window).Handle;
+		}
+		catch (InvalidOperationException)
+		{
+			// Not on the UI thread: the Store opens its dialog without an owner window.
+			return IntPtr.Zero;
+		}
 	}
 
 	private async Task<AppUpdateAvailability> TryManifestChannelAsync(CancellationToken cancellationToken)
