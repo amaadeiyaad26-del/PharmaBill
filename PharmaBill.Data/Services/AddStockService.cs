@@ -42,19 +42,11 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 	public async Task<string?> SuggestScheduleAsync(Guid? drugId, Guid? catalogMedicineId, string medicineName, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		PharmaBillDbContext context = unitOfWork.Context;
-		Guid? guid = drugId ?? (await FindDrugIdAsync(catalogMedicineId, cancellationToken));
-		Guid? resolvedDrugId = guid;
-		if (resolvedDrugId.HasValue)
+		// An existing medicine keeps the schedule it is saved with; the catalog only suggests one for a new medicine.
+		string? saved = await SavedScheduleAsync(drugId, catalogMedicineId, cancellationToken);
+		if (saved != null)
 		{
-			DateTime today = BusinessClock.UtcNow;
-			string text = await (from item in context.ScheduleOverrides.AsNoTracking()
-				where item.DrugId == resolvedDrugId && (item.EffectiveFromUtc == null || item.EffectiveFromUtc <= today) && (item.EffectiveToUtc == null || item.EffectiveToUtc >= today)
-				orderby item.UpdatedAtUtc descending
-				select item.Schedule).FirstOrDefaultAsync(cancellationToken);
-			if (!string.IsNullOrWhiteSpace(text))
-			{
-				return text.Trim().ToUpperInvariant();
-			}
+			return saved;
 		}
 		string nameKey = medicineName.Trim().ToLowerInvariant();
 		CatalogInfo catalogInfo = await (from item in context.CatalogInfos.AsNoTracking()
@@ -65,6 +57,32 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 			return catalogInfo.Schedule.Trim().ToUpperInvariant();
 		}
 		return (catalogInfo != null && catalogInfo.RequiresPrescription) ? "H" : null;
+	}
+
+	/// <summary>
+	/// The schedule an existing medicine is saved with: its latest active schedule override, else its own schedule.
+	/// Null for a medicine not yet in stock, or one saved without a schedule.
+	/// </summary>
+	public async Task<string?> SavedScheduleAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
+	{
+		Guid? resolvedDrugId = drugId ?? (await FindDrugIdAsync(catalogMedicineId, cancellationToken));
+		if (!resolvedDrugId.HasValue)
+		{
+			return null;
+		}
+		PharmaBillDbContext context = unitOfWork.Context;
+		DateTime now = BusinessClock.UtcNow;
+		string? text = await (from item in context.ScheduleOverrides.AsNoTracking()
+			where item.DrugId == resolvedDrugId && (item.EffectiveFromUtc == null || item.EffectiveFromUtc <= now) && (item.EffectiveToUtc == null || item.EffectiveToUtc >= now)
+			orderby item.EffectiveFromUtc descending, item.UpdatedAtUtc descending
+			select item.Schedule).FirstOrDefaultAsync(cancellationToken);
+		if (string.IsNullOrWhiteSpace(text))
+		{
+			text = await (from item in context.Drugs.AsNoTracking()
+				where item.Id == resolvedDrugId
+				select item.Schedule).FirstOrDefaultAsync(cancellationToken);
+		}
+		return string.IsNullOrWhiteSpace(text) ? null : text.Trim().ToUpperInvariant();
 	}
 
 	public async Task<decimal?> SuggestMrpAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
@@ -243,13 +261,18 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 			if (drugId.HasValue)
 			{
 				drug = await context.Drugs.SingleAsync((Drug item) => item.Id == ((Guid?)drugId).Value && item.IsActive, cancellationToken);
-				if (string.IsNullOrWhiteSpace(drug.Schedule))
+				string? saved = await SavedScheduleAsync(drug.Id, null, cancellationToken);
+				if (saved == null)
 				{
 					drug.Schedule = schedule;
 				}
-				else if (!string.Equals(drug.Schedule.Trim(), schedule, StringComparison.OrdinalIgnoreCase))
+				else if (!string.Equals(saved, schedule, StringComparison.OrdinalIgnoreCase))
 				{
-					throw new InvalidOperationException("This medicine is saved with schedule " + drug.Schedule + ". Use a schedule override to change it.");
+					if (input.ScheduleChange == null)
+					{
+						throw new ScheduleChangeRequiredException(drug.Id, drug.Name, saved, schedule);
+					}
+					await ApplyScheduleOverrideAsync(drug, saved, schedule, input, actingUserId, cancellationToken);
 				}
 			}
 			else
@@ -312,6 +335,43 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 	public async Task<bool> WouldCreateProductAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		return !drugId.HasValue && !(await FindDrugIdAsync(catalogMedicineId, cancellationToken)).HasValue;
+	}
+
+	// The Admin-authorized schedule change, saved with the stock entry (one transaction): the medicine's schedule, a
+	// schedule override record (what billing reads), and the audit entry naming who entered and who authorized it.
+	private async Task ApplyScheduleOverrideAsync(Drug drug, string saved, string schedule, AddStockInput input, Guid actingUserId, CancellationToken cancellationToken)
+	{
+		ScheduleChangeAuthorization authorization = input.ScheduleChange!;
+		string reason = authorization.Reason?.Trim() ?? string.Empty;
+		if (reason.Length == 0)
+		{
+			throw new InvalidOperationException("Give a reason for the schedule override.");
+		}
+		PharmaBillDbContext context = unitOfWork.Context;
+		AppUser? admin = await context.AppUsers.AsNoTracking().FirstOrDefaultAsync((AppUser user) => user.Id == authorization.AuthorizedByUserId && user.IsActive, cancellationToken);
+		if (admin == null || !ScheduleChangeAuthorization.CanAuthorize(admin.Role))
+		{
+			throw new UnauthorizedAccessException("A schedule override must be authorized by an Admin.");
+		}
+		DateTime now = BusinessClock.UtcNow;
+		drug.Schedule = schedule;
+		context.ScheduleOverrides.Add(new ScheduleOverride
+		{
+			DrugId = drug.Id,
+			Schedule = schedule,
+			Reason = reason,
+			EffectiveFromUtc = now
+		});
+		context.AuditLogs.Add(new AuditLog
+		{
+			UserId = actingUserId,
+			ActionAtUtc = now,
+			Action = "ScheduleOverride",
+			EntityName = "Drug",
+			EntityId = drug.Id,
+			Details = $"{drug.Name}: schedule {saved} changed to {schedule} during stock entry (supplier invoice {input.SupplierInvoiceNo}, batch {input.BatchNo.Trim()}). Authorized by {admin.UserName} ({PermissionMatrix.ToOperatorLabel(admin.Role)}) with PIN. Reason: {reason}"
+		});
+		await unitOfWork.SaveChangesAsync(cancellationToken);
 	}
 
 	private async Task<Guid?> FindDrugIdAsync(Guid? catalogMedicineId, CancellationToken cancellationToken)

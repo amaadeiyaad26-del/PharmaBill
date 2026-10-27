@@ -202,6 +202,7 @@ public partial class App : Application
 				services.AddSingleton<RegistrationNotificationService>();
 				services.AddSingleton<AppVersionInfo>();
 				services.AddSingleton<SensitiveAccessService>();
+				services.AddSingleton<IScheduleOverridePrompt, ScheduleOverridePrompt>();
 				services.AddSingleton<RecordComplianceGate>();
 				services.AddSingleton<TabularExportService>();
 				services.AddSingleton<DrugRecordsService>();

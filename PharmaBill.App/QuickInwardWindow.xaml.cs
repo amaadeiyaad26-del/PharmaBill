@@ -89,6 +89,30 @@ public partial class QuickInwardWindow : Window
 			BatchNoBox.Focus();
 			BatchNoBox.SelectAll();
 		}
+		Loaded += async (_, _) => await SelectSavedScheduleAsync();
+	}
+
+	// An existing medicine opens on the schedule it is saved with, not on G: another schedule needs an Admin override.
+	private async Task SelectSavedScheduleAsync()
+	{
+		if (_drugId == null && _catalogMedicineId == null)
+		{
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			string? saved = await scope.ServiceProvider.GetRequiredService<AddStockService>().SavedScheduleAsync(_drugId, _catalogMedicineId);
+			ComboBoxItem? item = ScheduleBox.Items.OfType<ComboBoxItem>().FirstOrDefault(option => string.Equals(option.Content as string, saved, StringComparison.OrdinalIgnoreCase));
+			if (item != null)
+			{
+				ScheduleBox.SelectedItem = item;
+			}
+		}
+		catch (Exception ex)
+		{
+			System.Diagnostics.Debug.WriteLine("[QuickInward] saved schedule not loaded: " + ex.Message);
+		}
 	}
 
 	private void Cancel_Click(object sender, RoutedEventArgs e)
@@ -183,7 +207,7 @@ public partial class QuickInwardWindow : Window
 				return;
 			}
 
-			AddStockResult result = await addStock.AddStockAsync(input, user.Id, user.Role);
+			AddStockResult result = await ScheduleOverrideFlow.AddStockAsync(addStock, input, user, scope.ServiceProvider.GetService<IScheduleOverridePrompt>());
 
 			Batch batch = await context.Batches.SingleAsync(b => b.Id == result.BatchId);
 			batch.Ptr = ptr;

@@ -279,24 +279,20 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		using IServiceScope scope = _scopes.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		Guid supplierId = await EnsureQuickInwardSupplierAsync(context);
-		string schedule = "G";
+		AddStockService addStock = scope.ServiceProvider.GetRequiredService<AddStockService>();
+		// A medicine already in stock (found by id or by its catalog entry) keeps its saved schedule; a new one starts at G.
+		string? saved = await addStock.SavedScheduleAsync(drugId, catalogId);
+		string schedule = saved != null && AddStockService.Schedules.Contains(saved) ? saved : "G";
 		decimal gst = 0m;
 		if (drugId is Guid existingId)
 		{
 			Drug? drug = await context.Drugs.AsNoTracking().FirstOrDefaultAsync((Drug item) => item.Id == existingId && item.IsActive);
 			if (drug != null)
 			{
-				string normalized = drug.Schedule?.Trim().ToUpperInvariant() ?? string.Empty;
-				if (normalized.Length > 0 && AddStockService.Schedules.Contains(normalized))
-				{
-					schedule = normalized;
-				}
-
 				gst = drug.GstRate is > 0m ? drug.GstRate.Value : 0m;
 			}
 		}
 
-		AddStockService addStock = scope.ServiceProvider.GetRequiredService<AddStockService>();
 		AddStockInput? input = await NewProductTaxPrompt.CompleteAsync(addStock, scope.ServiceProvider.GetRequiredService<IPromptService>(), new AddStockInput(
 			drugId,
 			catalogId,
@@ -321,7 +317,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 			throw new InvalidOperationException(draft.BrandName + " is a new medicine and needs its HSN code and GST rate. Stock was not added.");
 		}
 
-		AddStockResult result = await addStock.AddStockAsync(input, user.Id, user.Role);
+		AddStockResult result = await ScheduleOverrideFlow.AddStockAsync(addStock, input, user, scope.ServiceProvider.GetService<IScheduleOverridePrompt>());
 		string name = await context.Drugs.AsNoTracking().Where((Drug item) => item.Id == result.DrugId).Select((Drug item) => item.Name).FirstAsync();
 		IReadOnlyList<RetailStockChoice> choices = await scope.ServiceProvider.GetRequiredService<RetailBillingService>().SearchStockAsync(name);
 		return choices.FirstOrDefault((RetailStockChoice choice) => choice.BatchId == result.BatchId)

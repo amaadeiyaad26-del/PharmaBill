@@ -850,8 +850,18 @@ public sealed class AddStockViewModel : ObservableObject
 		if (!IsManualMedicine)
 		{
 			AddStockService service = scope.ServiceProvider.GetRequiredService<AddStockService>();
-			string text = await service.SuggestScheduleAsync(DrugId, CatalogMedicineId, MedicineName);
-			ScheduleHint = ((text == null) ? "Choose the schedule from the pack label" : ("Suggested: " + text + ". Please choose to confirm."));
+			string? saved = await service.SavedScheduleAsync(DrugId, CatalogMedicineId);
+			if (saved != null && ScheduleOptions.Contains(saved))
+			{
+				// An existing medicine: its saved schedule is the choice; another one needs an Admin schedule override.
+				Schedule = saved;
+				ScheduleHint = "Saved for this medicine: " + saved + ". Changing it needs an Admin schedule override.";
+			}
+			else
+			{
+				string text = await service.SuggestScheduleAsync(DrugId, CatalogMedicineId, MedicineName);
+				ScheduleHint = ((text == null) ? "Choose the schedule from the pack label" : ("Suggested: " + text + ". Please choose to confirm."));
+			}
 			decimal? num = await service.SuggestMrpAsync(DrugId, CatalogMedicineId);
 			if (num.HasValue && string.IsNullOrWhiteSpace(MrpText))
 			{
@@ -997,7 +1007,7 @@ public sealed class AddStockViewModel : ObservableObject
 					input = completed;
 				}
 
-				AddStockResult e = await service.AddStockAsync(input, _session.User.Id, _session.User.Role);
+				AddStockResult e = await ScheduleOverrideFlow.AddStockAsync(service, input, _session.User, scope.ServiceProvider.GetService<IScheduleOverridePrompt>());
 				Saved?.Invoke(this, e);
 			}
 			catch (Exception ex)

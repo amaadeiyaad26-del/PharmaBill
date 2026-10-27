@@ -1,0 +1,40 @@
+<Window x:Class="PharmaBill.App.ScheduleOverrideWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="pack://application:,,,/PharmaBill.App;component/Assets/Icons/app.ico"
+        Title="Schedule Override Required" SizeToContent="Height" Width="500"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+  <StackPanel Margin="24">
+    <DockPanel Margin="0,0,0,12">
+      <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="20" Background="#FFFEF3F2" Margin="0,0,12,0" VerticalAlignment="Top">
+        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72E;" FontSize="18" Foreground="#FFB42318" HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Border>
+      <StackPanel>
+        <TextBlock Text="Schedule Override Required" FontSize="18" FontWeight="SemiBold" Foreground="#FF0F172A" />
+        <TextBlock x:Name="MessageText" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="#FF334155" />
+      </StackPanel>
+    </DockPanel>
+
+    <Border Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
+      <StackPanel>
+        <TextBlock x:Name="MedicineText" FontWeight="SemiBold" Foreground="#FF0F172A" TextWrapping="Wrap" />
+        <TextBlock x:Name="ChangeText" Margin="0,4,0,0" Foreground="#FF334155" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <Border x:Name="LowersControlsWarning" Visibility="Collapsed" Background="#FFFEF3F2" BorderBrush="#FFFECDCA" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,12">
+      <TextBlock x:Name="LowersControlsText" TextWrapping="Wrap" Foreground="#FFB42318" />
+    </Border>
+
+    <TextBlock Text="Reason (kept in the audit trail) *" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <TextBox x:Name="ReasonBox" Padding="8" MinHeight="56" TextWrapping="Wrap" AcceptsReturn="False" MaxLength="300"
+             AutomationProperties.Name="Schedule override reason" />
+    <TextBlock x:Name="ErrorText" Foreground="#FFB42318" Margin="0,6,0,0" TextWrapping="Wrap" />
+    <TextBlock Text="An Admin username and PIN are asked for next." Foreground="#FF64748B" FontSize="12" Margin="0,8,0,0" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button Content="Cancel" IsCancel="True" MinWidth="100" Padding="14,8" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" />
+      <Button Content="Override Schedule" IsDefault="True" MinWidth="150" Padding="14,8" Style="{StaticResource PrimaryButton}" Click="Override_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>
