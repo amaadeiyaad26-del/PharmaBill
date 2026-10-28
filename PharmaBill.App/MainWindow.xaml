@@ -1675,17 +1675,60 @@
                           <DataGridTextColumn Header="61-90" Binding="{Binding Days61To90, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="80" ElementStyle="{StaticResource AccNum}" />
                           <DataGridTextColumn Header="90+" Binding="{Binding Over90, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="80" ElementStyle="{StaticResource AccNum}" />
                           <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="96" FontWeight="SemiBold" ElementStyle="{StaticResource AccNum}" />
-                          <DataGridTemplateColumn Header="Reminder" Width="Auto" MinWidth="110">
+                          <DataGridTemplateColumn Header="Reminder" Width="Auto" MinWidth="130">
                             <DataGridTemplateColumn.CellTemplate>
                               <DataTemplate>
-                                <Button Content="WhatsApp" Padding="10,2" Margin="2" IsEnabled="{Binding HasPhone}" ToolTip="{Binding WhatsAppToolTip}" ToolTipService.ShowOnDisabled="True"
-                                        AutomationProperties.Name="{Binding CustomerName, StringFormat=WhatsApp reminder for {0}}"
-                                        Command="{Binding DataContext.OpenWhatsAppReminderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                                <StackPanel Margin="2">
+                                  <!-- A phone on record: the reminder. -->
+                                  <Button Content="WhatsApp" Padding="10,2" ToolTip="{Binding WhatsAppToolTip}"
+                                          Visibility="{Binding HasPhone, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                          AutomationProperties.Name="{Binding CustomerName, StringFormat=WhatsApp reminder for {0}}"
+                                          Command="{Binding DataContext.OpenWhatsAppReminderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                                  <!-- None: a way to add one, here. -->
+                                  <Button Padding="2,2" Cursor="Hand" Background="Transparent" BorderThickness="0" HorizontalAlignment="Left"
+                                          Visibility="{Binding ShowAddPhoneLink, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                          AutomationProperties.Name="{Binding CustomerName, StringFormat=Add phone for {0}}"
+                                          Command="{Binding DataContext.AddRowPhoneCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}">
+                                    <Button.Template>
+                                      <ControlTemplate TargetType="{x:Type Button}">
+                                        <TextBlock Text="+ Add phone" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" TextDecorations="Underline" />
+                                      </ControlTemplate>
+                                    </Button.Template>
+                                  </Button>
+                                  <StackPanel Visibility="{Binding IsAddingPhone, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                      <TextBox Width="118" Padding="4,2" Text="{Binding NewPhone, UpdateSourceTrigger=PropertyChanged}"
+                                               AutomationProperties.Name="{Binding CustomerName, StringFormat=Phone for {0}}" ToolTip="10-digit mobile number" />
+                                      <Button Content="Save" Margin="4,0,0,0" Padding="8,1" Style="{StaticResource PrimaryButton}" MinHeight="0" Height="26"
+                                              AutomationProperties.Name="{Binding CustomerName, StringFormat=Save phone for {0}}"
+                                              Command="{Binding DataContext.SaveRowPhoneCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                                      <Button Content="✕" Margin="2,0,0,0" Padding="6,1" Background="Transparent" BorderThickness="0" ToolTip="Cancel"
+                                              AutomationProperties.Name="{Binding CustomerName, StringFormat=Cancel phone for {0}}"
+                                              Command="{Binding DataContext.CancelRowPhoneCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                    <TextBlock FontSize="11" TextWrapping="Wrap" MaxWidth="200">
+                                      <TextBlock.Style>
+                                        <Style TargetType="{x:Type TextBlock}">
+                                          <Setter Property="Text" Value="{Binding PhoneError}" />
+                                          <Setter Property="Foreground" Value="#FFB42318" />
+                                          <Style.Triggers>
+                                            <DataTrigger Binding="{Binding PhoneError}" Value="">
+                                              <Setter Property="Text" Value="10-digit mobile number" />
+                                              <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                            </DataTrigger>
+                                          </Style.Triggers>
+                                        </Style>
+                                      </TextBlock.Style>
+                                    </TextBlock>
+                                  </StackPanel>
+                                </StackPanel>
                               </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                           </DataGridTemplateColumn>
                         </DataGrid.Columns>
                       </DataGrid>
+                      <TextBlock Text="{Binding DuesWithoutPhoneText}" Foreground="#FFB54708" FontWeight="SemiBold" TextWrapping="Wrap" Margin="2,8,0,0"
+                                 AutomationProperties.Name="Dues without phone" Visibility="{Binding HasDuesWithoutPhone, Converter={StaticResource BooleanToVisibilityConverter}}" />
                       <TextBlock Style="{StaticResource AccEmpty}" Text="No customer owes anything right now. Credit bills appear here with their ageing; use “Open any customer” to see a settled account."
                                  Visibility="{Binding HasDues, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
                     </StackPanel>

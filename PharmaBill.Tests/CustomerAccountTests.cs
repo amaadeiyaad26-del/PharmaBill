@@ -137,9 +137,10 @@ public sealed class CustomerAccountTests
             // Nothing selected: it says what to do. The dues list (from the ledger at the retail desk) has both customers.
             Assert.Contains(Texts(host), text => text.StartsWith("Select a customer above to open their account"));
             Assert.Equal(["Asha Devi", "Ravi Kumar"], page.Dues.Select(due => due.CustomerName));
-            Button raviWhatsApp = Ui.Named<Button>(host, "WhatsApp reminder for Ravi Kumar");
-            Assert.False(raviWhatsApp.IsEnabled);
-            Assert.Equal("No phone number for Ravi Kumar. Open the account to add one.", raviWhatsApp.ToolTip);
+            // Ravi has no phone: his row offers "Add phone" instead of a WhatsApp button, and the gap is counted under the grid.
+            Assert.True(Ui.Named<Button>(host, "Add phone for Ravi Kumar").IsVisible);
+            Assert.False(Ui.Named<Button>(host, "WhatsApp reminder for Ravi Kumar", visibleOnly: false).IsVisible);
+            Assert.StartsWith("1 customer with dues has no phone number (₹400.00 owed).", Ui.Named<TextBlock>(host, "Dues without phone").Text);
 
             // Asha's row opens her account: the balance is the headline, with its ageing and credit limit.
             Ui.Named<DataGrid>(host, "Customers with dues").SelectedItem = page.Dues[0];
@@ -210,6 +211,78 @@ public sealed class CustomerAccountTests
             Ui.Type(Ui.Named<TextBox>(host, "Amount received"), "150");
             await Ui.PressAsync(Ui.Button(host, "Receive Payment"));
             await Ui.UntilAsync(() => balance.Text == "₹250.00", "the balance after the payment");
+            Assert.Equal(string.Empty, page.ErrorMessage);
+            bindings.AssertNone();
+            host.Close();
+        });
+    }
+
+    // The dues list: a customer with no phone gets "+ Add phone" in the reminder cell; the number is saved there and the
+    // cell becomes a working WhatsApp button at once. The line under the grid counts who has no phone.
+    [Fact]
+    public void DuesRow_AddPhoneInPlace_TurnsIntoAWorkingWhatsAppButton()
+    {
+        Ui.Run(async () =>
+        {
+            using BindingErrorWatch bindings = BindingErrorWatch.Start();
+            await using var database = await DatabaseTestContext.CreateAsync();
+            Shop shop = await SeedAsync(database.Context);
+            var altaf = new Customer { Name = "altaf medicate", BuyerType = "Retail", CreditDays = 30 };
+            database.Context.AddRange(altaf, new CustomerLedgerEntry { CustomerId = altaf.Id, EntryAtUtc = Ist(10, 18), EntryType = LedgerEntryTypes.RetailSale, ReferenceNo = "INV-0009", Debit = 55386m });
+            await database.Context.SaveChangesAsync();
+            ServiceProvider services = new ServiceCollection()
+                .AddScoped(_ => database.OpenContext())
+                .AddScoped(sp => new WholesaleAccountsService(new UnitOfWork(sp.GetRequiredService<PharmaBillDbContext>())))
+                .BuildServiceProvider();
+            var session = new CurrentSession();
+            session.SignIn(shop.User);
+            var page = new WholesaleAccountsPageViewModel(services.GetRequiredService<IServiceScopeFactory>(), session, null!, new TabularExportService(), new BillingDeskState());
+            var opened = new List<string>();
+            page.OpenUrl = opened.Add;
+            await page.LoadAsync();
+            var mainWindow = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
+            BindingSafetyTests.Retire(mainWindow);
+            var host = new Window { Width = 1366, Height = 1000 };
+            Ui.Prepare(host);
+            host.Show();
+            host.Content = new ContentControl { Content = page, ContentTemplate = (DataTemplate)mainWindow.Resources[new DataTemplateKey(typeof(WholesaleAccountsPageViewModel))], Resources = mainWindow.Resources };
+            await Ui.SettleAsync();
+            Ui.Tab(host, "👤 Retail Customer Accounts & Dues");
+            await Ui.SettleAsync();
+
+            Assert.Equal("2 customers with dues have no phone number (₹55,786.00 owed between them). Use “Add phone” on their rows to send reminders.",
+                Ui.Named<TextBlock>(host, "Dues without phone").Text);
+
+            // + Add phone opens a short prompt in the cell; a bad number is refused there, with the reason.
+            await Ui.PressAsync(Ui.Named<Button>(host, "Add phone for altaf medicate"));
+            Assert.False(Ui.Named<Button>(host, "Add phone for altaf medicate", visibleOnly: false).IsVisible);
+            Ui.Type(Ui.Named<TextBox>(host, "Phone for altaf medicate"), "98765");
+            await Ui.PressAsync(Ui.Named<Button>(host, "Save phone for altaf medicate"));
+            Assert.Equal("Enter a 10-digit mobile number.", page.Dues.Single(row => row.CustomerName == "altaf medicate").PhoneError);
+            Assert.True(Ui.Named<TextBox>(host, "Phone for altaf medicate").IsVisible);
+
+            // Saved: the cell is a working WhatsApp button straight away, and the count drops.
+            Ui.Type(Ui.Named<TextBox>(host, "Phone for altaf medicate"), "98765 43210");
+            await Ui.PressAsync(Ui.Named<Button>(host, "Save phone for altaf medicate"));
+            Button whatsApp = Ui.Named<Button>(host, "WhatsApp reminder for altaf medicate");
+            Assert.True(whatsApp.IsVisible && whatsApp.IsEnabled);
+            Assert.False(Ui.Named<TextBox>(host, "Phone for altaf medicate", visibleOnly: false).IsVisible);
+            Assert.StartsWith("1 customer with dues has no phone number (₹400.00 owed).", Ui.Named<TextBlock>(host, "Dues without phone").Text);
+            await Ui.PressAsync(whatsApp);
+            Assert.StartsWith("https://wa.me/919876543210?text=", Assert.Single(opened));
+            await using (PharmaBillDbContext check = database.OpenContext())
+            {
+                Assert.Equal("9876543210", (await check.Customers.AsNoTracking().SingleAsync(customer => customer.Id == altaf.Id)).Phone);
+            }
+
+            // Cancel closes the prompt without saving; the last one fixed hides the line.
+            await Ui.PressAsync(Ui.Named<Button>(host, "Add phone for Ravi Kumar"));
+            await Ui.PressAsync(Ui.Named<Button>(host, "Cancel phone for Ravi Kumar"));
+            Assert.True(Ui.Named<Button>(host, "Add phone for Ravi Kumar").IsVisible);
+            await Ui.PressAsync(Ui.Named<Button>(host, "Add phone for Ravi Kumar"));
+            Ui.Type(Ui.Named<TextBox>(host, "Phone for Ravi Kumar"), "9876500002");
+            await Ui.PressAsync(Ui.Named<Button>(host, "Save phone for Ravi Kumar"));
+            Assert.False(Ui.Named<TextBlock>(host, "Dues without phone", visibleOnly: false).IsVisible);
             Assert.Equal(string.Empty, page.ErrorMessage);
             bindings.AssertNone();
             host.Close();

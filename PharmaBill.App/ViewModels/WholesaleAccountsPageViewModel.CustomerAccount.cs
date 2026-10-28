@@ -11,19 +11,69 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-/// <summary>A customer in the dues list, with whether a WhatsApp reminder can be sent to them.</summary>
-public sealed record DueRow(CustomerAgeing Ageing)
+/// <summary>
+/// A customer in the dues list. With a phone, the row's reminder cell is a WhatsApp button; without one it is an
+/// "Add phone" link that opens a short prompt in the cell, and the saved number turns it into the button straight away.
+/// </summary>
+public sealed class DueRow(CustomerAgeing ageing) : ObservableObject
 {
+	private string? _phone = ageing.Phone;
+	private bool _isAddingPhone;
+	private string _newPhone = string.Empty;
+	private string _phoneError = string.Empty;
+
+	public CustomerAgeing Ageing { get; } = ageing;
 	public string CustomerName => Ageing.CustomerName;
 	public decimal Current0To30 => Ageing.Current0To30;
 	public decimal Days31To60 => Ageing.Days31To60;
 	public decimal Days61To90 => Ageing.Days61To90;
 	public decimal Over90 => Ageing.Over90;
 	public decimal Total => Ageing.Total;
-	public bool HasPhone => !string.IsNullOrWhiteSpace(Ageing.Phone);
-	public string WhatsAppToolTip => HasPhone
-		? $"Send {Ageing.CustomerName} a WhatsApp reminder of {MoneyFormat.Rupees(Ageing.Total)}"
-		: $"No phone number for {Ageing.CustomerName}. Open the account to add one.";
+
+	public string? Phone
+	{
+		get => _phone;
+		set
+		{
+			if (SetProperty(ref _phone, value))
+			{
+				OnPropertyChanged(nameof(HasPhone));
+				OnPropertyChanged(nameof(ShowAddPhoneLink));
+				OnPropertyChanged(nameof(WhatsAppToolTip));
+			}
+		}
+	}
+
+	public bool HasPhone => !string.IsNullOrWhiteSpace(Phone);
+
+	/// <summary>No phone and the prompt not open: the cell shows the "Add phone" link.</summary>
+	public bool ShowAddPhoneLink => !HasPhone && !IsAddingPhone;
+
+	public string WhatsAppToolTip => $"Send {Ageing.CustomerName} a WhatsApp reminder of {MoneyFormat.Rupees(Ageing.Total)}";
+
+	public bool IsAddingPhone
+	{
+		get => _isAddingPhone;
+		set
+		{
+			if (SetProperty(ref _isAddingPhone, value))
+			{
+				OnPropertyChanged(nameof(ShowAddPhoneLink));
+			}
+		}
+	}
+
+	public string NewPhone
+	{
+		get => _newPhone;
+		set => SetProperty(ref _newPhone, value ?? string.Empty);
+	}
+
+	public string PhoneError
+	{
+		get => _phoneError;
+		set => SetProperty(ref _phoneError, value);
+	}
 }
 
 /// <summary>Statement lines, bills, payments and credits as shown: dates in IST.</summary>
@@ -117,6 +167,82 @@ public partial class WholesaleAccountsPageViewModel
 	public ObservableCollection<AccountNoteRow> AccountNotes { get; } = new();
 
 	public bool HasDues => Dues.Count > 0;
+
+	/// <summary>How many customers who owe have no phone on record, so the gap is seen at once, not row by row.</summary>
+	public int DuesWithoutPhone => Dues.Count(row => !row.HasPhone);
+
+	public bool HasDuesWithoutPhone => DuesWithoutPhone > 0;
+
+	public string DuesWithoutPhoneText => DuesWithoutPhone switch
+	{
+		0 => string.Empty,
+		1 => $"1 customer with dues has no phone number ({MoneyFormat.Rupees(Dues.Where(row => !row.HasPhone).Sum(row => row.Total))} owed). Use “Add phone” on that row to send reminders.",
+		int count => $"{count} customers with dues have no phone number ({MoneyFormat.Rupees(Dues.Where(row => !row.HasPhone).Sum(row => row.Total))} owed between them). Use “Add phone” on their rows to send reminders.",
+	};
+
+	private RelayCommand<DueRow?>? _addRowPhoneCommand;
+	private RelayCommand<DueRow?>? _cancelRowPhoneCommand;
+	private AsyncRelayCommand<DueRow?>? _saveRowPhoneCommand;
+
+	public IRelayCommand<DueRow?> AddRowPhoneCommand => _addRowPhoneCommand ??= new RelayCommand<DueRow?>(row =>
+	{
+		if (row != null)
+		{
+			row.NewPhone = string.Empty;
+			row.PhoneError = string.Empty;
+			row.IsAddingPhone = true;
+		}
+	});
+
+	public IRelayCommand<DueRow?> CancelRowPhoneCommand => _cancelRowPhoneCommand ??= new RelayCommand<DueRow?>(row =>
+	{
+		if (row != null)
+		{
+			row.IsAddingPhone = false;
+			row.PhoneError = string.Empty;
+		}
+	});
+
+	public IAsyncRelayCommand<DueRow?> SaveRowPhoneCommand => _saveRowPhoneCommand ??= new AsyncRelayCommand<DueRow?>(SaveRowPhoneAsync);
+
+	// Saves the number to that customer and turns the cell into the WhatsApp button at once; the open account follows.
+	private async Task SaveRowPhoneAsync(DueRow? row)
+	{
+		if (row == null)
+		{
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			string saved = await new CustomerAccountService(scope.ServiceProvider.GetRequiredService<PharmaBill.Data.Persistence.PharmaBillDbContext>())
+				.SetPhoneAsync(row.Ageing.CustomerId, row.NewPhone, _session.User?.Id);
+			row.Phone = saved;
+			row.IsAddingPhone = false;
+			row.PhoneError = string.Empty;
+			if (Customers.FirstOrDefault(customer => customer.Id == row.Ageing.CustomerId) is Customer customer)
+			{
+				customer.Phone = saved;
+			}
+			NotifyPhoneGap();
+			StatusMessage = "Phone number saved for " + row.CustomerName + ".";
+			if (SelectedCustomer?.Id == row.Ageing.CustomerId)
+			{
+				await LoadAccountAsync(row.Ageing.CustomerId);
+			}
+		}
+		catch (InvalidOperationException ex)
+		{
+			row.PhoneError = ex.Message;
+		}
+	}
+
+	private void NotifyPhoneGap()
+	{
+		OnPropertyChanged(nameof(DuesWithoutPhone));
+		OnPropertyChanged(nameof(HasDuesWithoutPhone));
+		OnPropertyChanged(nameof(DuesWithoutPhoneText));
+	}
 
 	/// <summary>Selecting a row in the dues list opens that customer's account.</summary>
 	public DueRow? SelectedDue
@@ -480,6 +606,7 @@ public partial class WholesaleAccountsPageViewModel
 		_selectedDue = SelectedCustomer == null ? null : Dues.FirstOrDefault(row => row.Ageing.CustomerId == SelectedCustomer.Id);
 		OnPropertyChanged(nameof(SelectedDue));
 		OnPropertyChanged(nameof(HasDues));
+		NotifyPhoneGap();
 	}
 
 	/// <summary>A statement of the account as shown (the date range applies), oldest first, dates in IST.</summary>

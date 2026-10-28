@@ -882,11 +882,10 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 		}
 		if (!row.HasPhone)
 		{
-			SelectedDue = row;
-			AddPhoneCommand.Execute(null);
+			AddRowPhoneCommand.Execute(row);
 			return;
 		}
-		string digits = new string(row.Ageing.Phone!.Where(char.IsDigit).ToArray());
+		string digits = new string(row.Phone!.Where(char.IsDigit).ToArray());
 		string text = Uri.EscapeDataString($"Dear {row.CustomerName}, our records show an outstanding balance of {MoneyFormat.Rupees(row.Total)}. Please contact us to settle your account.");
 		OpenUrl("https://wa.me/" + (digits.Length == 10 ? "91" + digits : digits) + "?text=" + text);
 		StatusMessage = "WhatsApp opened with a reminder for " + row.CustomerName + ".";
