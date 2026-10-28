@@ -1,490 +1,85 @@
-using PharmaBill.Core;
-using System.CodeDom.Compiler;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.App.Services;
+using PharmaBill.Core;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
+/// <summary>A batch in the picker: number, expiry and what is in stock.</summary>
+public sealed record BatchChoice(Batch Batch, decimal OnHand)
 {
+	public string Label => $"{Batch.BatchNo}  ·  Exp {(Batch.ExpiryDate is DateOnly expiry ? expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture) : "—")}  ·  {OnHand:0.##} in stock";
+}
+
+/// <summary>A customer in the recent-rates picker: found by name or phone.</summary>
+public sealed record CustomerChoice(Customer Customer)
+{
+	public string Label => string.IsNullOrWhiteSpace(Customer.Phone) ? Customer.Name : $"{Customer.Name}  ·  {Customer.Phone}";
+}
+
+/// <summary>A line of saved customer pricing, as shown.</summary>
+public sealed record SavedPricingRow(string Kind, string Category, string Value, string Period);
+
+/// <summary>A recent sale to the chosen customer, as shown: date in IST.</summary>
+public sealed record RecentRateRow(WholesaleRateHistoryRow Rate)
+{
+	public string SoldOn => Rate.SoldAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy  hh:mm tt", CultureInfo.InvariantCulture);
+	public string InvoiceNo => Rate.InvoiceNo;
+	public string RateText => Rate.UnitRate.ToString("N2", CultureInfo.InvariantCulture);
+	public string QuantityText => Rate.Quantity.ToString("0.##", CultureInfo.InvariantCulture);
+}
+
+/// <summary>
+/// Pack levels, batch rates and wholesale pricing. Pick a medicine, then one of its batches; then each section shows what
+/// is saved now, takes labelled values, refuses what cannot be right with the reason, and says what it saved.
+/// </summary>
+public sealed class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
+{
+	public const string ChooseFirst = "Choose a medicine and batch first.";
+
 	private readonly IServiceScopeFactory _scopeFactory;
-
 	private readonly CurrentSession _session;
-
 	private readonly IUserSessionService _userSession;
+	private readonly List<Drug> _allDrugs = [];
+	private readonly List<Customer> _allCustomers = [];
 
 	private Drug? _selectedDrug;
-
-	private Batch? _selectedBatch;
-
-	private string _priceCategory = string.Empty;
-
-	private string _categoryPrice = string.Empty;
-
-	private string _tradeDiscountPercent = string.Empty;
-
-	private string _buyQuantity = string.Empty;
-
-	private string _freeQuantity = string.Empty;
-
-	private DateTime? _effectiveFrom = BusinessClock.Now.Date;
-
-	private DateTime? _effectiveTo;
-
-	private decimal _purchaseRate;
-
-	private decimal? _ptr;
-
-	private decimal? _pts;
-
-	private decimal _mrp;
-
-	private string _message = string.Empty;
-
+	private BatchChoice? _selectedBatch;
+	private CustomerChoice? _selectedCustomer;
+	private string _medicineSearch = string.Empty;
+	private string _customerSearch = string.Empty;
+	private bool _isLoading;
+	private bool _isLoadingBatches;
+	private bool _isLoadingRates;
 	private string _errorMessage = string.Empty;
 
-	private string _newPackLevelName = "Unit";
+	private string _purchaseRateText = string.Empty, _ptrText = string.Empty, _ptsText = string.Empty, _mrpText = string.Empty;
+	private string _ratesMessage = string.Empty, _ratesError = string.Empty;
 
-	private string _newPackLabel = string.Empty;
+	private PackLevel _newPackLevel = PackLevel.Strip;
+	private string _newPackLabel = string.Empty, _newPackUnits = string.Empty;
+	private string _packMessage = string.Empty, _packError = string.Empty;
 
-	private string _newPackUnits = "1";
+	private string _priceCategory = string.Empty, _categoryPrice = string.Empty;
+	private DateTime? _priceFrom = BusinessClock.Now.Date, _priceTo;
+	private string _priceMessage = string.Empty, _priceError = string.Empty;
 
-	private Guid _selectedCustomerId;
+	private string _discountCategory = string.Empty, _discountPercent = string.Empty;
+	private DateTime? _discountFrom = BusinessClock.Now.Date, _discountTo;
+	private string _discountMessage = string.Empty, _discountError = string.Empty;
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? addPackLevelCommand;
+	private string _schemeCategory = string.Empty, _schemeBuy = string.Empty, _schemeFree = string.Empty;
+	private DateTime? _schemeFrom = BusinessClock.Now.Date, _schemeTo;
+	private string _schemeMessage = string.Empty, _schemeError = string.Empty;
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? saveBatchRatesCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? saveCategoryPriceCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? saveTradeDiscountCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? saveSchemeCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? loadRateHistoryCommand;
-
-	public bool CanViewPurchaseMargins => _userSession.CanViewPurchaseMargins;
-
-	public ObservableCollection<Drug> Drugs { get; } = new ObservableCollection<Drug>();
-
-	public ObservableCollection<Batch> Batches { get; } = new ObservableCollection<Batch>();
-
-	public ObservableCollection<DrugPackLevel> PackLevels { get; } = new ObservableCollection<DrugPackLevel>();
-
-	public ObservableCollection<WholesaleRateHistoryRow> RecentRates { get; } = new ObservableCollection<WholesaleRateHistoryRow>();
-
-	public PackLevel[] PackLevelOptions { get; } = Enum.GetValues<PackLevel>();
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public Drug? SelectedDrug
-	{
-		get
-		{
-			return _selectedDrug;
-		}
-		set
-		{
-			if (!EqualityComparer<Drug>.Default.Equals(_selectedDrug, value))
-			{
-				OnPropertyChanging(nameof(SelectedDrug));
-				_selectedDrug = value;
-				OnSelectedDrugChanged(value);
-				OnPropertyChanged(nameof(SelectedDrug));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public Batch? SelectedBatch
-	{
-		get
-		{
-			return _selectedBatch;
-		}
-		set
-		{
-			if (!EqualityComparer<Batch>.Default.Equals(_selectedBatch, value))
-			{
-				OnPropertyChanging(nameof(SelectedBatch));
-				_selectedBatch = value;
-				OnSelectedBatchChanged(value);
-				OnPropertyChanged(nameof(SelectedBatch));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string PriceCategory
-	{
-		get
-		{
-			return _priceCategory;
-		}
-		[MemberNotNull("_priceCategory")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_priceCategory, value))
-			{
-				OnPropertyChanging(nameof(PriceCategory));
-				_priceCategory = value;
-				OnPropertyChanged(nameof(PriceCategory));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string CategoryPrice
-	{
-		get
-		{
-			return _categoryPrice;
-		}
-		[MemberNotNull("_categoryPrice")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_categoryPrice, value))
-			{
-				OnPropertyChanging(nameof(CategoryPrice));
-				_categoryPrice = value;
-				OnPropertyChanged(nameof(CategoryPrice));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string TradeDiscountPercent
-	{
-		get
-		{
-			return _tradeDiscountPercent;
-		}
-		[MemberNotNull("_tradeDiscountPercent")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_tradeDiscountPercent, value))
-			{
-				OnPropertyChanging(nameof(TradeDiscountPercent));
-				_tradeDiscountPercent = value;
-				OnPropertyChanged(nameof(TradeDiscountPercent));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string BuyQuantity
-	{
-		get
-		{
-			return _buyQuantity;
-		}
-		[MemberNotNull("_buyQuantity")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_buyQuantity, value))
-			{
-				OnPropertyChanging(nameof(BuyQuantity));
-				_buyQuantity = value;
-				OnPropertyChanged(nameof(BuyQuantity));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string FreeQuantity
-	{
-		get
-		{
-			return _freeQuantity;
-		}
-		[MemberNotNull("_freeQuantity")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_freeQuantity, value))
-			{
-				OnPropertyChanging(nameof(FreeQuantity));
-				_freeQuantity = value;
-				OnPropertyChanged(nameof(FreeQuantity));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public DateTime? EffectiveFrom
-	{
-		get
-		{
-			return _effectiveFrom;
-		}
-		set
-		{
-			if (!EqualityComparer<DateTime?>.Default.Equals(_effectiveFrom, value))
-			{
-				OnPropertyChanging(nameof(EffectiveFrom));
-				_effectiveFrom = value;
-				OnPropertyChanged(nameof(EffectiveFrom));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public DateTime? EffectiveTo
-	{
-		get
-		{
-			return _effectiveTo;
-		}
-		set
-		{
-			if (!EqualityComparer<DateTime?>.Default.Equals(_effectiveTo, value))
-			{
-				OnPropertyChanging(nameof(EffectiveTo));
-				_effectiveTo = value;
-				OnPropertyChanged(nameof(EffectiveTo));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public decimal PurchaseRate
-	{
-		get
-		{
-			return _purchaseRate;
-		}
-		set
-		{
-			if (!EqualityComparer<decimal>.Default.Equals(_purchaseRate, value))
-			{
-				OnPropertyChanging(nameof(PurchaseRate));
-				_purchaseRate = value;
-				OnPropertyChanged(nameof(PurchaseRate));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public decimal? Ptr
-	{
-		get
-		{
-			return _ptr;
-		}
-		set
-		{
-			if (!EqualityComparer<decimal?>.Default.Equals(_ptr, value))
-			{
-				OnPropertyChanging(nameof(Ptr));
-				_ptr = value;
-				OnPropertyChanged(nameof(Ptr));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public decimal? Pts
-	{
-		get
-		{
-			return _pts;
-		}
-		set
-		{
-			if (!EqualityComparer<decimal?>.Default.Equals(_pts, value))
-			{
-				OnPropertyChanging(nameof(Pts));
-				_pts = value;
-				OnPropertyChanged(nameof(Pts));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public decimal Mrp
-	{
-		get
-		{
-			return _mrp;
-		}
-		set
-		{
-			if (!EqualityComparer<decimal>.Default.Equals(_mrp, value))
-			{
-				OnPropertyChanging(nameof(Mrp));
-				_mrp = value;
-				OnPropertyChanged(nameof(Mrp));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string Message
-	{
-		get
-		{
-			return _message;
-		}
-		[MemberNotNull("_message")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_message, value))
-			{
-				OnPropertyChanging(nameof(Message));
-				_message = value;
-				OnPropertyChanged(nameof(Message));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string ErrorMessage
-	{
-		get
-		{
-			return _errorMessage;
-		}
-		[MemberNotNull("_errorMessage")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_errorMessage, value))
-			{
-				OnPropertyChanging(nameof(ErrorMessage));
-				_errorMessage = value;
-				OnPropertyChanged(nameof(ErrorMessage));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string NewPackLevelName
-	{
-		get
-		{
-			return _newPackLevelName;
-		}
-		[MemberNotNull("_newPackLevelName")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_newPackLevelName, value))
-			{
-				OnPropertyChanging(nameof(NewPackLevelName));
-				_newPackLevelName = value;
-				OnPropertyChanged(nameof(NewPackLevelName));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string NewPackLabel
-	{
-		get
-		{
-			return _newPackLabel;
-		}
-		[MemberNotNull("_newPackLabel")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_newPackLabel, value))
-			{
-				OnPropertyChanging(nameof(NewPackLabel));
-				_newPackLabel = value;
-				OnPropertyChanged(nameof(NewPackLabel));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string NewPackUnits
-	{
-		get
-		{
-			return _newPackUnits;
-		}
-		[MemberNotNull("_newPackUnits")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_newPackUnits, value))
-			{
-				OnPropertyChanging(nameof(NewPackUnits));
-				_newPackUnits = value;
-				OnPropertyChanged(nameof(NewPackUnits));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public Guid SelectedCustomerId
-	{
-		get
-		{
-			return _selectedCustomerId;
-		}
-		set
-		{
-			if (!EqualityComparer<Guid>.Default.Equals(_selectedCustomerId, value))
-			{
-				OnPropertyChanging(nameof(SelectedCustomerId));
-				_selectedCustomerId = value;
-				OnPropertyChanged(nameof(SelectedCustomerId));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand AddPackLevelCommand => addPackLevelCommand ?? (addPackLevelCommand = new AsyncRelayCommand(AddPackLevelAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand SaveBatchRatesCommand => saveBatchRatesCommand ?? (saveBatchRatesCommand = new AsyncRelayCommand(SaveBatchRatesAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand SaveCategoryPriceCommand => saveCategoryPriceCommand ?? (saveCategoryPriceCommand = new AsyncRelayCommand(SaveCategoryPriceAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand SaveTradeDiscountCommand => saveTradeDiscountCommand ?? (saveTradeDiscountCommand = new AsyncRelayCommand(SaveTradeDiscountAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand SaveSchemeCommand => saveSchemeCommand ?? (saveSchemeCommand = new AsyncRelayCommand(SaveSchemeAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand LoadRateHistoryCommand => loadRateHistoryCommand ?? (loadRateHistoryCommand = new AsyncRelayCommand(LoadRateHistoryAsync));
+	private AsyncRelayCommand? _saveBatchRatesCommand, _addPackLevelCommand, _saveCategoryPriceCommand, _saveTradeDiscountCommand, _saveSchemeCommand;
 
 	public WholesalePricingPageViewModel(IServiceScopeFactory scopeFactory, CurrentSession session, IUserSessionService userSession)
 	{
@@ -493,84 +88,525 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 		_userSession = userSession;
 	}
 
-	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
+	public bool CanViewPurchaseMargins => _userSession.CanViewPurchaseMargins;
+
+	public ObservableCollection<Drug> MedicineMatches { get; } = new();
+	public ObservableCollection<BatchChoice> Batches { get; } = new();
+	public ObservableCollection<DrugPackLevel> PackLevels { get; } = new();
+	public ObservableCollection<SavedPricingRow> SavedPricing { get; } = new();
+	public ObservableCollection<CustomerChoice> CustomerMatches { get; } = new();
+	public ObservableCollection<RecentRateRow> RecentRates { get; } = new();
+	public ObservableCollection<string> PriceCategories { get; } = new();
+	public PackLevel[] PackLevelOptions { get; } = Enum.GetValues<PackLevel>();
+
+	// ---------- Step 1: medicine and batch ----------
+
+	/// <summary>Typed into the medicine picker: the list narrows to names containing it.</summary>
+	public string MedicineSearch
 	{
-		using IServiceScope scope = _scopeFactory.CreateScope();
-		PharmaBillDbContext requiredService = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-		Drugs.Clear();
-		foreach (Drug item in await (from item in requiredService.Drugs.AsNoTracking()
-			where item.IsActive
-			orderby item.Name
-			select item).ToListAsync(cancellationToken))
+		get => _medicineSearch;
+		set
 		{
-			Drugs.Add(item);
+			if (SetProperty(ref _medicineSearch, value ?? string.Empty) && !string.Equals(_medicineSearch, SelectedDrug?.Name, StringComparison.Ordinal))
+			{
+				FilterMedicines();
+			}
 		}
-		if (SelectedDrug != null)
+	}
+
+	public Drug? SelectedDrug
+	{
+		get => _selectedDrug;
+		set
 		{
-			await LoadDrugAsync(SelectedDrug.Id, cancellationToken);
+			if (SetProperty(ref _selectedDrug, value))
+			{
+				SelectedBatch = null;
+				Batches.Clear();
+				PackLevels.Clear();
+				SavedPricing.Clear();
+				RecentRates.Clear();
+				ClearSectionMessages();
+				OnSelectionChanged();
+				if (value != null)
+				{
+					MedicineLoading = LoadMedicineAsync(value.Id);
+				}
+			}
+		}
+	}
+
+	public BatchChoice? SelectedBatch
+	{
+		get => _selectedBatch;
+		set
+		{
+			if (SetProperty(ref _selectedBatch, value))
+			{
+				ShowSavedRates();
+				OnSelectionChanged();
+				RatesLoading = LoadRecentRatesAsync();
+			}
+		}
+	}
+
+	/// <summary>The load started by the last medicine choice, for tests to wait on.</summary>
+	internal Task MedicineLoading { get; private set; } = Task.CompletedTask;
+
+	/// <summary>The recent-rates load started by the last customer or batch choice, for tests to wait on.</summary>
+	internal Task RatesLoading { get; private set; } = Task.CompletedTask;
+
+	public bool HasMedicine => SelectedDrug != null;
+	public bool HasSelection => SelectedDrug != null && SelectedBatch != null;
+	public bool NeedsSelection => !HasSelection;
+	public bool HasBatches => Batches.Count > 0;
+	public bool HasNoBatches => HasMedicine && !IsLoadingBatches && Batches.Count == 0;
+	public bool HasNoMedicines => !IsLoading && _allDrugs.Count == 0;
+
+	public bool IsLoading
+	{
+		get => _isLoading;
+		private set
+		{
+			if (SetProperty(ref _isLoading, value))
+			{
+				OnPropertyChanged(nameof(HasNoMedicines));
+			}
+		}
+	}
+
+	public bool IsLoadingBatches
+	{
+		get => _isLoadingBatches;
+		private set
+		{
+			if (SetProperty(ref _isLoadingBatches, value))
+			{
+				OnPropertyChanged(nameof(HasNoBatches));
+			}
+		}
+	}
+
+	public bool IsLoadingRates
+	{
+		get => _isLoadingRates;
+		private set => SetProperty(ref _isLoadingRates, value);
+	}
+
+	/// <summary>Page-level problems only (the lists could not be loaded).</summary>
+	public string ErrorMessage
+	{
+		get => _errorMessage;
+		private set => SetProperty(ref _errorMessage, value);
+	}
+
+	public string SelectionHint => SelectedDrug == null ? ChooseFirst
+		: SelectedBatch == null ? (HasNoBatches ? $"{SelectedDrug.Name} has no batches yet. Add its stock first; its batches then appear here." : "Now choose the batch.")
+		: $"{SelectedDrug.Name}, batch {SelectedBatch.Batch.BatchNo}.";
+
+	// ---------- Batch rates ----------
+
+	public string SavedRatesText
+	{
+		get
+		{
+			if (SelectedBatch?.Batch is not Batch batch)
+			{
+				return string.Empty;
+			}
+			string purchase = CanViewPurchaseMargins ? $"Purchase {Money(batch.PurchasePrice)}  ·  " : string.Empty;
+			return $"Saved now: {purchase}PTR {Money(batch.Ptr)}  ·  PTS {Money(batch.Pts)}  ·  MRP {Money(batch.Mrp)}";
+		}
+	}
+
+	public string PurchaseRateText { get => _purchaseRateText; set => SetProperty(ref _purchaseRateText, value ?? string.Empty); }
+	public string PtrText { get => _ptrText; set => SetProperty(ref _ptrText, value ?? string.Empty); }
+	public string PtsText { get => _ptsText; set => SetProperty(ref _ptsText, value ?? string.Empty); }
+	public string MrpText { get => _mrpText; set => SetProperty(ref _mrpText, value ?? string.Empty); }
+	public string RatesMessage { get => _ratesMessage; private set => SetProperty(ref _ratesMessage, value); }
+	public string RatesError { get => _ratesError; private set => SetProperty(ref _ratesError, value); }
+
+	public IAsyncRelayCommand SaveBatchRatesCommand => _saveBatchRatesCommand ??= new AsyncRelayCommand(SaveBatchRatesAsync, () => HasSelection);
+
+	// ---------- Pack conversions ----------
+
+	public bool HasPackLevels => PackLevels.Count > 0;
+	public PackLevel NewPackLevel { get => _newPackLevel; set => SetProperty(ref _newPackLevel, value); }
+	public string NewPackLabel { get => _newPackLabel; set => SetProperty(ref _newPackLabel, value ?? string.Empty); }
+	public string NewPackUnits { get => _newPackUnits; set => SetProperty(ref _newPackUnits, value ?? string.Empty); }
+	public string PackMessage { get => _packMessage; private set => SetProperty(ref _packMessage, value); }
+	public string PackError { get => _packError; private set => SetProperty(ref _packError, value); }
+
+	public IAsyncRelayCommand AddPackLevelCommand => _addPackLevelCommand ??= new AsyncRelayCommand(AddPackLevelAsync, () => HasSelection);
+
+	// ---------- Customer pricing ----------
+
+	public bool HasSavedPricing => SavedPricing.Count > 0;
+
+	public string PriceCategory { get => _priceCategory; set => SetProperty(ref _priceCategory, value ?? string.Empty); }
+	public string CategoryPrice { get => _categoryPrice; set => SetProperty(ref _categoryPrice, value ?? string.Empty); }
+	public DateTime? PriceFrom { get => _priceFrom; set => SetProperty(ref _priceFrom, value); }
+	public DateTime? PriceTo { get => _priceTo; set => SetProperty(ref _priceTo, value); }
+	public string PriceMessage { get => _priceMessage; private set => SetProperty(ref _priceMessage, value); }
+	public string PriceError { get => _priceError; private set => SetProperty(ref _priceError, value); }
+
+	public string DiscountCategory { get => _discountCategory; set => SetProperty(ref _discountCategory, value ?? string.Empty); }
+	public string DiscountPercent { get => _discountPercent; set => SetProperty(ref _discountPercent, value ?? string.Empty); }
+	public DateTime? DiscountFrom { get => _discountFrom; set => SetProperty(ref _discountFrom, value); }
+	public DateTime? DiscountTo { get => _discountTo; set => SetProperty(ref _discountTo, value); }
+	public string DiscountMessage { get => _discountMessage; private set => SetProperty(ref _discountMessage, value); }
+	public string DiscountError { get => _discountError; private set => SetProperty(ref _discountError, value); }
+
+	public string SchemeCategory { get => _schemeCategory; set => SetProperty(ref _schemeCategory, value ?? string.Empty); }
+	public string SchemeBuy { get => _schemeBuy; set => SetProperty(ref _schemeBuy, value ?? string.Empty); }
+	public string SchemeFree { get => _schemeFree; set => SetProperty(ref _schemeFree, value ?? string.Empty); }
+	public DateTime? SchemeFrom { get => _schemeFrom; set => SetProperty(ref _schemeFrom, value); }
+	public DateTime? SchemeTo { get => _schemeTo; set => SetProperty(ref _schemeTo, value); }
+	public string SchemeMessage { get => _schemeMessage; private set => SetProperty(ref _schemeMessage, value); }
+	public string SchemeError { get => _schemeError; private set => SetProperty(ref _schemeError, value); }
+
+	public IAsyncRelayCommand SaveCategoryPriceCommand => _saveCategoryPriceCommand ??= new AsyncRelayCommand(SaveCategoryPriceAsync, () => HasSelection);
+	public IAsyncRelayCommand SaveTradeDiscountCommand => _saveTradeDiscountCommand ??= new AsyncRelayCommand(SaveTradeDiscountAsync, () => HasSelection);
+	public IAsyncRelayCommand SaveSchemeCommand => _saveSchemeCommand ??= new AsyncRelayCommand(SaveSchemeAsync, () => HasSelection);
+
+	// ---------- Recent rates ----------
+
+	public string CustomerSearch
+	{
+		get => _customerSearch;
+		set
+		{
+			if (SetProperty(ref _customerSearch, value ?? string.Empty) && !string.Equals(_customerSearch, SelectedCustomer?.Label, StringComparison.Ordinal))
+			{
+				FilterCustomers();
+			}
+		}
+	}
+
+	public CustomerChoice? SelectedCustomer
+	{
+		get => _selectedCustomer;
+		set
+		{
+			if (SetProperty(ref _selectedCustomer, value))
+			{
+				RatesLoading = LoadRecentRatesAsync();
+				OnPropertyChanged(nameof(RecentRatesEmptyText));
+			}
+		}
+	}
+
+	public bool HasRecentRates => RecentRates.Count > 0;
+
+	public string RecentRatesEmptyText => SelectedCustomer == null
+		? "Choose a customer to see the last five rates they were billed for this medicine."
+		: IsLoadingRates ? "Loading…"
+		: $"{SelectedCustomer.Customer.Name} has not been billed for {SelectedDrug?.Name ?? "this medicine"} yet.";
+
+	// ---------- Loading ----------
+
+	public async Task LoadAsync(CancellationToken cancellationToken = default)
+	{
+		IsLoading = true;
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
+			_allDrugs.Clear();
+			_allDrugs.AddRange(await context.Drugs.AsNoTracking().Where(drug => drug.IsActive).OrderBy(drug => drug.Name).ToListAsync(cancellationToken));
+			_allCustomers.Clear();
+			_allCustomers.AddRange(await context.Customers.AsNoTracking().Where(customer => customer.IsActive).OrderBy(customer => customer.Name).ToListAsync(cancellationToken));
+			PriceCategories.Clear();
+			foreach (string category in _allCustomers.Select(customer => customer.PriceCategory?.Trim()).Where(category => !string.IsNullOrEmpty(category)).Distinct(StringComparer.OrdinalIgnoreCase).Order()!)
+			{
+				PriceCategories.Add(category!);
+			}
+			FilterMedicines();
+			FilterCustomers();
+			ErrorMessage = string.Empty;
+			if (SelectedDrug != null)
+			{
+				await LoadMedicineAsync(SelectedDrug.Id);
+			}
+		}
+		catch (Exception ex) when (ex is not OperationCanceledException)
+		{
+			ErrorMessage = "The medicines could not be loaded: " + PharmaBill.Core.UserMessage.Of(ex);
+		}
+		finally
+		{
+			IsLoading = false;
+		}
+	}
+
+	private void FilterMedicines()
+	{
+		string text = MedicineSearch.Trim();
+		MedicineMatches.Clear();
+		foreach (Drug drug in _allDrugs.Where(drug => text.Length == 0 || drug.Name.Contains(text, StringComparison.OrdinalIgnoreCase)).Take(60))
+		{
+			MedicineMatches.Add(drug);
+		}
+		if (SelectedDrug != null && !MedicineMatches.Contains(SelectedDrug))
+		{
+			MedicineMatches.Insert(0, SelectedDrug);
+		}
+	}
+
+	private void FilterCustomers()
+	{
+		string text = CustomerSearch.Trim();
+		string digits = new(text.Where(char.IsDigit).ToArray());
+		CustomerMatches.Clear();
+		foreach (Customer customer in _allCustomers.Where(customer => text.Length == 0
+				|| customer.Name.Contains(text, StringComparison.OrdinalIgnoreCase)
+				|| (digits.Length >= 3 && (customer.Phone ?? string.Empty).Contains(digits, StringComparison.Ordinal))).Take(60))
+		{
+			CustomerMatches.Add(new CustomerChoice(customer));
+		}
+		if (SelectedCustomer != null && CustomerMatches.All(choice => choice.Customer.Id != SelectedCustomer.Customer.Id))
+		{
+			CustomerMatches.Insert(0, SelectedCustomer);
+		}
+	}
+
+	private async Task LoadMedicineAsync(Guid drugId)
+	{
+		IsLoadingBatches = true;
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			var pricing = new WholesalePricingService(new UnitOfWork(scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>()));
+			IReadOnlyList<BatchOnHand> batches = await pricing.GetBatchesAsync(drugId);
+			List<DrugPackLevel> levels = await scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>().DrugPackLevels.AsNoTracking()
+				.Where(level => level.DrugId == drugId).OrderBy(level => level.Level).ToListAsync();
+			DrugPricing saved = await pricing.GetPricingAsync(drugId);
+			if (SelectedDrug?.Id != drugId)
+			{
+				return;
+			}
+			Guid? keep = SelectedBatch?.Batch.Id;
+			Batches.Clear();
+			foreach (BatchOnHand batch in batches)
+			{
+				Batches.Add(new BatchChoice(batch.Batch, batch.OnHand));
+			}
+			PackLevels.Clear();
+			foreach (DrugPackLevel level in levels)
+			{
+				PackLevels.Add(level);
+			}
+			ShowSavedPricing(saved);
+			if (keep is Guid id)
+			{
+				_selectedBatch = Batches.FirstOrDefault(choice => choice.Batch.Id == id);
+				OnPropertyChanged(nameof(SelectedBatch));
+				ShowSavedRates();
+			}
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = "The batches could not be loaded: " + PharmaBill.Core.UserMessage.Of(ex);
+		}
+		finally
+		{
+			IsLoadingBatches = false;
+			OnPropertyChanged(nameof(HasBatches));
+			OnPropertyChanged(nameof(HasPackLevels));
+			OnSelectionChanged();
+		}
+	}
+
+	private void ShowSavedRates()
+	{
+		Batch? batch = SelectedBatch?.Batch;
+		PurchaseRateText = batch == null ? string.Empty : Amount(batch.PurchasePrice);
+		PtrText = batch?.Ptr is decimal ptr ? Amount(ptr) : string.Empty;
+		PtsText = batch?.Pts is decimal pts ? Amount(pts) : string.Empty;
+		MrpText = batch?.Mrp is decimal mrp ? Amount(mrp) : string.Empty;
+		OnPropertyChanged(nameof(SavedRatesText));
+	}
+
+	private void ShowSavedPricing(DrugPricing saved)
+	{
+		SavedPricing.Clear();
+		foreach (CustomerCategoryPrice price in saved.Prices)
+		{
+			SavedPricing.Add(new SavedPricingRow("Category price", price.PriceCategory, Money(price.UnitPrice) + " per pack", Period(price.EffectiveFrom, price.EffectiveTo)));
+		}
+		foreach (TradeDiscount discount in saved.Discounts)
+		{
+			SavedPricing.Add(new SavedPricingRow(discount.DrugId == null ? "Trade discount (all medicines)" : "Trade discount", discount.PriceCategory, discount.DiscountPercent.ToString("0.##", CultureInfo.InvariantCulture) + "%", Period(discount.EffectiveFrom, discount.EffectiveTo)));
+		}
+		foreach (WholesaleScheme scheme in saved.Schemes)
+		{
+			SavedPricing.Add(new SavedPricingRow(scheme.DrugId == null ? "Scheme (all medicines)" : "Scheme", string.IsNullOrWhiteSpace(scheme.PriceCategory) ? "All customers" : scheme.PriceCategory,
+				$"Buy {scheme.BuyQuantity:0.##}, get {scheme.FreeQuantity:0.##} free", Period(scheme.StartsOn, scheme.EndsOn)));
+		}
+		OnPropertyChanged(nameof(HasSavedPricing));
+	}
+
+	private async Task LoadRecentRatesAsync()
+	{
+		RecentRates.Clear();
+		OnPropertyChanged(nameof(HasRecentRates));
+		if (SelectedCustomer == null || SelectedDrug == null)
+		{
+			OnPropertyChanged(nameof(RecentRatesEmptyText));
+			return;
+		}
+		IsLoadingRates = true;
+		OnPropertyChanged(nameof(RecentRatesEmptyText));
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			IReadOnlyList<WholesaleRateHistoryRow> rates = await new WholesalePricingService(new UnitOfWork(scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>()))
+				.GetLastRatesAsync(SelectedCustomer.Customer.Id, SelectedDrug.Id);
+			foreach (WholesaleRateHistoryRow rate in rates)
+			{
+				RecentRates.Add(new RecentRateRow(rate));
+			}
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = "Recent rates could not be loaded: " + PharmaBill.Core.UserMessage.Of(ex);
+		}
+		finally
+		{
+			IsLoadingRates = false;
+			OnPropertyChanged(nameof(HasRecentRates));
+			OnPropertyChanged(nameof(RecentRatesEmptyText));
+		}
+	}
+
+	private void OnSelectionChanged()
+	{
+		foreach (string name in new[] { nameof(HasMedicine), nameof(HasSelection), nameof(NeedsSelection), nameof(HasNoBatches), nameof(SelectionHint), nameof(SavedRatesText), nameof(RecentRatesEmptyText) })
+		{
+			OnPropertyChanged(name);
+		}
+		foreach (AsyncRelayCommand? command in new[] { _saveBatchRatesCommand, _addPackLevelCommand, _saveCategoryPriceCommand, _saveTradeDiscountCommand, _saveSchemeCommand })
+		{
+			command?.NotifyCanExecuteChanged();
+		}
+	}
+
+	private void ClearSectionMessages()
+	{
+		RatesMessage = RatesError = PackMessage = PackError = PriceMessage = PriceError = DiscountMessage = DiscountError = SchemeMessage = SchemeError = string.Empty;
+	}
+
+	// ---------- Saving ----------
+
+	private async Task SaveBatchRatesAsync()
+	{
+		RatesMessage = RatesError = string.Empty;
+		if (SelectedBatch is not BatchChoice choice || SelectedDrug is not Drug drug)
+		{
+			RatesError = ChooseFirst;
+			return;
+		}
+		// Without the purchase-margin permission the purchase rate is not shown, and it is kept as saved.
+		decimal purchase = choice.Batch.PurchasePrice;
+		string? problem;
+		if (CanViewPurchaseMargins)
+		{
+			if (!TryAmount(PurchaseRateText, "Purchase rate", required: true, out decimal? typedPurchase, out problem))
+			{
+				RatesError = problem!;
+				return;
+			}
+			purchase = typedPurchase!.Value;
+		}
+		if (!TryAmount(PtrText, "PTR (price to retailer)", required: false, out decimal? ptr, out problem)
+			|| !TryAmount(PtsText, "PTS (price to stockist)", required: false, out decimal? pts, out problem)
+			|| !TryAmount(MrpText, "MRP", required: true, out decimal? mrp, out problem))
+		{
+			RatesError = problem!;
+			return;
+		}
+		var rates = new WholesaleBatchRate(purchase, ptr, pts, mrp!.Value);
+		if (WholesalePricingService.BatchRateProblem(rates) is string refused)
+		{
+			RatesError = refused;
+			return;
+		}
+		try
+		{
+			using IServiceScope scope = _scopeFactory.CreateScope();
+			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SaveBatchRatesAsync(choice.Batch.Id, rates,
+				(_session.User ?? throw new UnauthorizedAccessException("Sign in before changing rates.")).Id);
+			await LoadMedicineAsync(drug.Id);
+			RatesMessage = $"Saved for batch {choice.Batch.BatchNo}: PTR {Money(ptr)}, PTS {Money(pts)}, MRP {Money(mrp)}.";
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+		{
+			RatesError = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
 	private async Task AddPackLevelAsync()
 	{
-		if (SelectedDrug == null || !Enum.TryParse<PackLevel>(NewPackLevelName, out var level) || !decimal.TryParse(NewPackUnits, out var result) || result <= 0m)
+		PackMessage = PackError = string.Empty;
+		if (SelectedDrug is not Drug drug)
 		{
-			ErrorMessage = "Select a medicine, pack level and positive units-per-pack.";
+			PackError = ChooseFirst;
 			return;
 		}
-		DrugPackLevel[] packLevels = (from item in PackLevels
-			where item.Level != level
-			select new DrugPackLevel
-			{
-				Level = item.Level,
-				Label = item.Label,
-				UnitsPerPack = item.UnitsPerPack
-			}).Append(new DrugPackLevel
+		if (!int.TryParse(NewPackUnits.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int units) || units <= 0)
 		{
-			Level = level,
-			Label = (string.IsNullOrWhiteSpace(NewPackLabel) ? level.ToString() : NewPackLabel.Trim()),
-			UnitsPerPack = result
-		}).ToArray();
+			PackError = "Units per pack must be a whole number above zero, for example 10.";
+			return;
+		}
+		if (NewPackLevel == PackLevel.Unit && units != 1)
+		{
+			PackError = "The Unit level is the base unit itself, so it is always 1.";
+			return;
+		}
+		string label = string.IsNullOrWhiteSpace(NewPackLabel) ? NewPackLevel.ToString() : NewPackLabel.Trim();
+		List<DrugPackLevel> levels = PackLevels.Where(level => level.Level != NewPackLevel)
+			.Select(level => new DrugPackLevel { Level = level.Level, Label = level.Label, UnitsPerPack = level.UnitsPerPack })
+			.Append(new DrugPackLevel { Level = NewPackLevel, Label = label, UnitsPerPack = units })
+			.ToList();
+		if (levels.All(level => level.Level != PackLevel.Unit))
+		{
+			levels.Add(new DrugPackLevel { Level = PackLevel.Unit, Label = "Unit", UnitsPerPack = 1m });
+		}
 		try
 		{
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SavePackLevelsAsync(SelectedDrug.Id, packLevels);
-			await LoadDrugAsync(SelectedDrug.Id, CancellationToken.None);
-			Message = $"{level} pack conversion saved.";
-			ErrorMessage = string.Empty;
+			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SavePackLevelsAsync(drug.Id, levels);
+			await LoadMedicineAsync(drug.Id);
+			PackMessage = $"Saved: 1 {label} = {units} base units.";
+			NewPackLabel = NewPackUnits = string.Empty;
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
-		}
-	}
-
-	private async Task SaveBatchRatesAsync()
-	{
-		if (SelectedBatch == null)
-		{
-			ErrorMessage = "Select a batch before updating rates.";
-			return;
-		}
-		try
-		{
-			using IServiceScope scope = _scopeFactory.CreateScope();
-			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SaveBatchRatesAsync(SelectedBatch.Id, new WholesaleBatchRate(PurchaseRate, Ptr, Pts, Mrp), (_session.User ?? throw new UnauthorizedAccessException("Sign in before editing rates.")).Id);
-			Message = "Batch purchase rate, PTR, PTS and MRP saved.";
-			ErrorMessage = string.Empty;
-			await LoadDrugAsync(SelectedDrug.Id, CancellationToken.None);
-		}
-		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException) ? true : false)
-		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			PackError = ex.Message;
 		}
 	}
 
 	private async Task SaveCategoryPriceAsync()
 	{
-		if (SelectedDrug == null || string.IsNullOrWhiteSpace(PriceCategory) || !decimal.TryParse(CategoryPrice, out var result))
+		PriceMessage = PriceError = string.Empty;
+		if (SelectedDrug is not Drug drug)
 		{
-			ErrorMessage = "Select a medicine, category and valid category price.";
+			PriceError = ChooseFirst;
+			return;
+		}
+		if (string.IsNullOrWhiteSpace(PriceCategory))
+		{
+			PriceError = "Choose or type the customer category, for example Hospital.";
+			return;
+		}
+		if (!TryAmount(CategoryPrice, "Category price", required: true, out decimal? price, out string? problem))
+		{
+			PriceError = problem!;
+			return;
+		}
+		if (PeriodProblem(PriceFrom, PriceTo) is string period)
+		{
+			PriceError = period;
 			return;
 		}
 		try
@@ -578,26 +614,47 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SaveCategoryPriceAsync(new CustomerCategoryPrice
 			{
-				DrugId = SelectedDrug.Id,
+				DrugId = drug.Id,
 				PriceCategory = PriceCategory.Trim(),
-				UnitPrice = result,
-				EffectiveFrom = (EffectiveFrom.HasValue ? new DateOnly?(DateOnly.FromDateTime(EffectiveFrom.Value)) : ((DateOnly?)null)),
-				EffectiveTo = (EffectiveTo.HasValue ? new DateOnly?(DateOnly.FromDateTime(EffectiveTo.Value)) : ((DateOnly?)null))
+				UnitPrice = price!.Value,
+				EffectiveFrom = Date(PriceFrom),
+				EffectiveTo = Date(PriceTo)
 			});
-			Message = "Customer category price saved.";
-			ErrorMessage = string.Empty;
+			await LoadMedicineAsync(drug.Id);
+			PriceMessage = $"Saved: {PriceCategory.Trim()} pays {Money(price)} per pack for {drug.Name}, {Period(Date(PriceFrom), Date(PriceTo))}.";
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			PriceError = ex.Message;
 		}
 	}
 
 	private async Task SaveTradeDiscountAsync()
 	{
-		if (string.IsNullOrWhiteSpace(PriceCategory) || !decimal.TryParse(TradeDiscountPercent, out var result))
+		DiscountMessage = DiscountError = string.Empty;
+		if (SelectedDrug is not Drug drug)
 		{
-			ErrorMessage = "Enter a price category and a valid discount percentage.";
+			DiscountError = ChooseFirst;
+			return;
+		}
+		if (string.IsNullOrWhiteSpace(DiscountCategory))
+		{
+			DiscountError = "Choose or type the customer category the discount is for.";
+			return;
+		}
+		if (!TryAmount(DiscountPercent, "Discount", required: true, out decimal? percent, out string? problem))
+		{
+			DiscountError = problem!;
+			return;
+		}
+		if (percent > 100m)
+		{
+			DiscountError = "A discount cannot be more than 100%.";
+			return;
+		}
+		if (PeriodProblem(DiscountFrom, DiscountTo) is string period)
+		{
+			DiscountError = period;
 			return;
 		}
 		try
@@ -605,26 +662,43 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SaveTradeDiscountAsync(new TradeDiscount
 			{
-				DrugId = SelectedDrug?.Id,
-				PriceCategory = PriceCategory.Trim(),
-				DiscountPercent = result,
-				EffectiveFrom = (EffectiveFrom.HasValue ? new DateOnly?(DateOnly.FromDateTime(EffectiveFrom.Value)) : ((DateOnly?)null)),
-				EffectiveTo = (EffectiveTo.HasValue ? new DateOnly?(DateOnly.FromDateTime(EffectiveTo.Value)) : ((DateOnly?)null))
+				DrugId = drug.Id,
+				PriceCategory = DiscountCategory.Trim(),
+				DiscountPercent = percent!.Value,
+				EffectiveFrom = Date(DiscountFrom),
+				EffectiveTo = Date(DiscountTo)
 			});
-			Message = "Trade discount saved.";
-			ErrorMessage = string.Empty;
+			await LoadMedicineAsync(drug.Id);
+			DiscountMessage = $"Saved: {percent:0.##}% trade discount for {DiscountCategory.Trim()} on {drug.Name}, {Period(Date(DiscountFrom), Date(DiscountTo))}.";
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			DiscountError = ex.Message;
 		}
 	}
 
 	private async Task SaveSchemeAsync()
 	{
-		if (!decimal.TryParse(BuyQuantity, out var buy) || !decimal.TryParse(FreeQuantity, out var free) || !EffectiveFrom.HasValue || !EffectiveTo.HasValue)
+		SchemeMessage = SchemeError = string.Empty;
+		if (SelectedDrug is not Drug drug)
 		{
-			ErrorMessage = "Enter scheme buy/free quantities and start/end dates.";
+			SchemeError = ChooseFirst;
+			return;
+		}
+		if (!int.TryParse(SchemeBuy.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int buy) || buy <= 0
+			|| !int.TryParse(SchemeFree.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int free) || free <= 0)
+		{
+			SchemeError = "Enter whole numbers above zero for Buy and Free, for example buy 10, get 1 free.";
+			return;
+		}
+		if (SchemeFrom == null || SchemeTo == null)
+		{
+			SchemeError = "A scheme needs a start and an end date.";
+			return;
+		}
+		if (PeriodProblem(SchemeFrom, SchemeTo) is string period)
+		{
+			SchemeError = period;
 			return;
 		}
 		try
@@ -632,93 +706,67 @@ public class WholesalePricingPageViewModel : ObservableObject, ILoadablePage
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().SaveSchemeAsync(new WholesaleScheme
 			{
-				DrugId = SelectedDrug?.Id,
-				PriceCategory = (string.IsNullOrWhiteSpace(PriceCategory) ? null : PriceCategory.Trim()),
+				DrugId = drug.Id,
+				PriceCategory = string.IsNullOrWhiteSpace(SchemeCategory) ? null : SchemeCategory.Trim(),
 				BuyQuantity = buy,
 				FreeQuantity = free,
-				StartsOn = DateOnly.FromDateTime(EffectiveFrom.Value),
-				EndsOn = DateOnly.FromDateTime(EffectiveTo.Value)
+				StartsOn = DateOnly.FromDateTime(SchemeFrom.Value),
+				EndsOn = DateOnly.FromDateTime(SchemeTo.Value)
 			});
-			Message = $"Scheme saved: {buy:0.##}+{free:0.##}.";
-			ErrorMessage = string.Empty;
+			await LoadMedicineAsync(drug.Id);
+			SchemeMessage = $"Saved: buy {buy}, get {free} free on {drug.Name} for {(string.IsNullOrWhiteSpace(SchemeCategory) ? "all customers" : SchemeCategory.Trim())}, {Period(Date(SchemeFrom), Date(SchemeTo))}.";
 		}
 		catch (InvalidOperationException ex)
 		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			SchemeError = ex.Message;
 		}
 	}
 
-	private async Task LoadRateHistoryAsync()
+	// ---------- Helpers ----------
+
+	/// <summary>A typed amount: blank is allowed only when not required; never negative; the problem names the field.</summary>
+	internal static bool TryAmount(string text, string label, bool required, out decimal? amount, out string? problem)
 	{
-		if (SelectedDrug == null || SelectedCustomerId == Guid.Empty)
+		amount = null;
+		problem = null;
+		string trimmed = (text ?? string.Empty).Trim().TrimStart('₹').Trim();
+		if (trimmed.Length == 0)
 		{
-			ErrorMessage = "Enter/select a customer ID and medicine to view recent rates.";
-			return;
+			if (required)
+			{
+				problem = $"Enter the {label}.";
+				return false;
+			}
+			return true;
 		}
-		using IServiceScope scope = _scopeFactory.CreateScope();
-		IReadOnlyList<WholesaleRateHistoryRow> readOnlyList = await scope.ServiceProvider.GetRequiredService<WholesalePricingService>().GetLastRatesAsync(SelectedCustomerId, SelectedDrug.Id);
-		RecentRates.Clear();
-		foreach (WholesaleRateHistoryRow item in readOnlyList)
+		if (!decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal value))
 		{
-			RecentRates.Add(item);
+			problem = $"{label} must be a number, for example 42.50.";
+			return false;
 		}
+		if (value < 0m)
+		{
+			problem = $"{label} cannot be negative.";
+			return false;
+		}
+		amount = value;
+		return true;
 	}
 
-	// Started from the medicine selection without awaiting: a failure shows on the page instead of vanishing.
-	private async Task LoadDrugAsync(Guid drugId, CancellationToken cancellationToken)
-	{
-		try
-		{
-			await LoadDrugCoreAsync(drugId, cancellationToken);
-		}
-		catch (Exception ex) when (ex is not OperationCanceledException)
-		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
-		}
-	}
+	private static string? PeriodProblem(DateTime? from, DateTime? to) =>
+		from != null && to != null && to < from ? "The end date is before the start date." : null;
 
-	private async Task LoadDrugCoreAsync(Guid drugId, CancellationToken cancellationToken)
-	{
-		using IServiceScope scope = _scopeFactory.CreateScope();
-		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-		List<Batch> list = await (from item in context.Batches.AsNoTracking()
-			where item.DrugId == drugId
-			orderby item.ExpiryDate, item.BatchNo
-			select item).ToListAsync(cancellationToken);
-		Batches.Clear();
-		foreach (Batch item in list)
-		{
-			Batches.Add(item);
-		}
-		List<DrugPackLevel> list2 = await (from item in context.DrugPackLevels.AsNoTracking()
-			where item.DrugId == drugId
-			orderby item.Level
-			select item).ToListAsync(cancellationToken);
-		PackLevels.Clear();
-		foreach (DrugPackLevel item2 in list2)
-		{
-			PackLevels.Add(item2);
-		}
-	}
+	private static DateOnly? Date(DateTime? value) => value is DateTime date ? DateOnly.FromDateTime(date) : null;
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	private void OnSelectedDrugChanged(Drug? value)
+	private static string Period(DateOnly? from, DateOnly? to) => (from, to) switch
 	{
-		if (value != null)
-		{
-			_ = LoadDrugAsync(value.Id, CancellationToken.None);
-		}
-	}
+		(null, null) => "no end date",
+		(DateOnly f, null) => "from " + f.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+		(null, DateOnly t) => "until " + t.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+		(DateOnly f, DateOnly t) => f.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture) + " to " + t.ToString("dd-MMM-yyyy", CultureInfo.InvariantCulture),
+	};
 
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	private void OnSelectedBatchChanged(Batch? value)
-	{
-		if (value != null)
-		{
-			PurchaseRate = value.PurchasePrice;
-			Ptr = value.Ptr;
-			Pts = value.Pts;
-			Mrp = value.Mrp.GetValueOrDefault();
-		}
-	}
+	private static string Money(decimal? value) => value is decimal amount ? MoneyFormat.Rupees(amount) : "not set";
+
+	private static string Amount(decimal value) => value.ToString("0.00", CultureInfo.InvariantCulture);
 }

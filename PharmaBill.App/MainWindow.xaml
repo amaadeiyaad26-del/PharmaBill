@@ -1035,56 +1035,312 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesalePricingPageViewModel}}" DataType="{x:Type vm:WholesalePricingPageViewModel}">
         <ScrollViewer Name="WholesalePricingRoot" VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="18">
+            <StackPanel.Resources>
+              <Style x:Key="PrCard" TargetType="{x:Type Border}">
+                <Setter Property="Padding" Value="16" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Margin" Value="0,0,0,12" />
+              </Style>
+              <Style x:Key="PrSub" TargetType="{x:Type Border}">
+                <Setter Property="Padding" Value="12" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Margin" Value="0,10,0,0" />
+              </Style>
+              <Style x:Key="PrHeading" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </Style>
+              <Style x:Key="PrExplain" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,2,0,10" />
+              </Style>
+              <Style x:Key="PrLabel" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,0,0,4" />
+              </Style>
+              <Style x:Key="PrHelp" TargetType="{x:Type TextBlock}">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                <Setter Property="Margin" Value="0,3,0,0" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+              </Style>
+              <Style x:Key="PrOk" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="#FF067647" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,6,0,0" />
+              </Style>
+              <Style x:Key="PrErr" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="#FFB42318" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,6,0,0" />
+              </Style>
+              <Style x:Key="PrEmpty" TargetType="{x:Type TextBlock}">
+                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="2,8" />
+              </Style>
+              <Style x:Key="PrNum" TargetType="{x:Type TextBlock}">
+                <Setter Property="HorizontalAlignment" Value="Right" />
+                <Setter Property="Margin" Value="0,0,6,0" />
+              </Style>
+            </StackPanel.Resources>
+
             <TextBlock Style="{StaticResource WholesalePageTitle}" Text="Pack levels, batch rates and wholesale pricing" FontSize="23" FontWeight="SemiBold" />
-            <WrapPanel Margin="0,10">
-              <ComboBox Width="360" DisplayMemberPath="Name" Padding="6" ItemsSource="{Binding Drugs}" SelectedItem="{Binding SelectedDrug}" />
-              <ComboBox Width="220" DisplayMemberPath="BatchNo" Margin="8,0,0,0" Padding="6" ItemsSource="{Binding Batches}" SelectedItem="{Binding SelectedBatch}" />
-            </WrapPanel>
-            <TextBlock Text="Batch-specific purchase rate, PTR, PTS and MRP" FontSize="17" FontWeight="SemiBold" Margin="0,10,0,4" />
-            <WrapPanel>
-              <TextBox Width="145" ToolTip="Purchase rate" Padding="6" Visibility="{Binding CanViewPurchaseMargins, Converter={StaticResource BooleanToVisibilityConverter}}" Text="{Binding Path=PurchaseRate}" />
-              <TextBox Width="120" ToolTip="PTR" Padding="6" Margin="6,0" Text="{Binding Path=Ptr}" />
-              <TextBox Width="120" ToolTip="PTS" Padding="6" Text="{Binding Path=Pts}" />
-              <TextBox Width="120" ToolTip="MRP" Padding="6" Margin="6,0" Text="{Binding Path=Mrp}" />
-              <Button Content="Save batch rates" Padding="10,6" Command="{Binding SaveBatchRatesCommand}" />
-            </WrapPanel>
-            <TextBlock Text="Pack conversions (all quantities convert to the medicine's base unit)" FontSize="17" FontWeight="SemiBold" Margin="0,16,0,4" />
-            <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" MaxHeight="150" ItemsSource="{Binding PackLevels}">
-              <DataGrid.Columns>
-                <DataGridTextColumn Header="Level" IsReadOnly="True" Binding="{Binding Level}" />
-                <DataGridTextColumn Header="Label" IsReadOnly="True" Binding="{Binding Label}" />
-                <DataGridTextColumn Header="Units per pack" IsReadOnly="True" Binding="{Binding UnitsPerPack}" />
-              </DataGrid.Columns>
-            </DataGrid>
-            <WrapPanel Margin="0,6">
-              <ComboBox Width="120" IsEditable="True" Padding="5" ItemsSource="{Binding PackLevelOptions}" Text="{Binding NewPackLevelName}" />
-              <TextBox Width="160" ToolTip="Display label" Padding="6" Margin="6,0" Text="{Binding Path=NewPackLabel}" />
-              <TextBox Width="140" ToolTip="Base units per pack" Padding="6" Text="{Binding Path=NewPackUnits}" />
-              <Button Content="Save pack conversion" Padding="10,6" Margin="6,0" Command="{Binding AddPackLevelCommand}" />
-            </WrapPanel>
-            <TextBlock Text="Customer-category price lists, discounts and dated schemes" FontSize="17" FontWeight="SemiBold" Margin="0,16,0,4" />
-            <WrapPanel>
-              <TextBox Width="145" ToolTip="Category" Padding="6" Text="{Binding Path=PriceCategory}" />
-              <TextBox Width="145" ToolTip="Category base rate" Padding="6" Margin="6,0" Text="{Binding Path=CategoryPrice}" />
-              <TextBox Width="130" ToolTip="Trade discount percent" Padding="6" Text="{Binding Path=TradeDiscountPercent}" />
-              <DatePicker Margin="6,0" SelectedDate="{Binding EffectiveFrom}" />
-              <DatePicker SelectedDate="{Binding EffectiveTo}" />
-            </WrapPanel>
-            <WrapPanel Margin="0,6">
-              <Button Content="Save category price" Padding="10,6" Command="{Binding SaveCategoryPriceCommand}" />
-              <Button Content="Save trade discount" Padding="10,6" Margin="6,0" Command="{Binding SaveTradeDiscountCommand}" />
-              <TextBox Width="120" ToolTip="Scheme buy quantity, e.g. 10" Padding="6" Text="{Binding Path=BuyQuantity}" />
-              <TextBox Width="120" ToolTip="Scheme free quantity, e.g. 1" Padding="6" Margin="6,0" Text="{Binding Path=FreeQuantity}" />
-              <Button Content="Save scheme" Padding="10,6" Command="{Binding SaveSchemeCommand}" />
-            </WrapPanel>
-            <TextBlock Text="Last five rates for a customer and item" FontSize="17" FontWeight="SemiBold" Margin="0,16,0,4" />
-            <WrapPanel>
-              <TextBox Width="280" ToolTip="Customer GUID" Padding="6" Text="{Binding Path=SelectedCustomerId}" />
-              <Button Content="Load recent rates" Padding="10,6" Margin="6,0" Command="{Binding LoadRateHistoryCommand}" />
-            </WrapPanel>
-            <DataGrid AutoGenerateColumns="True" IsReadOnly="True" MaxHeight="130" ItemsSource="{Binding RecentRates}" />
-            <TextBlock Foreground="{DynamicResource AccentBrush}" Margin="0,8" Text="{Binding Message}" />
-            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
+            <TextBlock Style="{StaticResource PrExplain}" Text="Set what a batch was bought and sells at, how its packs convert, and the prices given to customer groups." />
+            <TextBlock Style="{StaticResource PrErr}" Text="{Binding ErrorMessage}" Margin="0,0,0,8" AutomationProperties.Name="Page problem" />
+
+            <!-- 1. The medicine and batch everything below is about. -->
+            <Border Style="{StaticResource PrCard}">
+              <StackPanel>
+                <TextBlock Style="{StaticResource PrHeading}" Text="1 · Choose the medicine and batch" />
+                <TextBlock Style="{StaticResource PrExplain}" Text="Everything below is for the batch you choose here." />
+                <WrapPanel>
+                  <StackPanel Width="380" Margin="0,0,16,0">
+                    <TextBlock Style="{StaticResource PrLabel}" Text="Medicine" />
+                    <ComboBox IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" Padding="6" DisplayMemberPath="Name"
+                              ItemsSource="{Binding MedicineMatches}" SelectedItem="{Binding SelectedDrug}" Text="{Binding MedicineSearch, UpdateSourceTrigger=PropertyChanged}"
+                              AutomationProperties.Name="Medicine" />
+                    <TextBlock Style="{StaticResource PrHelp}" Text="Type part of the name to narrow the list." />
+                  </StackPanel>
+                  <StackPanel Width="380">
+                    <TextBlock Style="{StaticResource PrLabel}" Text="Batch" />
+                    <ComboBox Padding="6" DisplayMemberPath="Label" ItemsSource="{Binding Batches}" SelectedItem="{Binding SelectedBatch}" IsEnabled="{Binding HasMedicine}"
+                              AutomationProperties.Name="Batch" />
+                    <TextBlock Style="{StaticResource PrHelp}" Text="Batch number · expiry · quantity in stock (base units). Earliest expiry first." />
+                  </StackPanel>
+                </WrapPanel>
+                <TextBlock Style="{StaticResource PrHelp}" Text="Loading medicines…" Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock Style="{StaticResource PrHelp}" Text="Loading batches…" Visibility="{Binding IsLoadingBatches, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock Style="{StaticResource PrEmpty}" Text="No medicines yet. Add a medicine or its stock first; it then appears here."
+                           Visibility="{Binding HasNoMedicines, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock Text="{Binding SelectionHint}" Margin="0,10,0,0" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" TextWrapping="Wrap"
+                           AutomationProperties.Name="Selection hint" />
+              </StackPanel>
+            </Border>
+
+            <!-- Everything below waits for a medicine and a batch. -->
+            <StackPanel IsEnabled="{Binding HasSelection}" AutomationProperties.Name="Pricing sections">
+              <StackPanel.Style>
+                <Style TargetType="{x:Type StackPanel}">
+                  <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                      <Setter Property="Opacity" Value="0.55" />
+                    </Trigger>
+                  </Style.Triggers>
+                </Style>
+              </StackPanel.Style>
+
+              <!-- Batch rates -->
+              <Border Style="{StaticResource PrCard}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource PrHeading}" Text="Batch rates" />
+                  <TextBlock Style="{StaticResource PrExplain}" Text="What this batch was bought at and is sold at, per pack. PTR is the price to retailer and PTS the price to stockist; neither can be more than the MRP." />
+                  <TextBlock Text="{Binding SavedRatesText}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8" AutomationProperties.Name="Saved batch rates" />
+                  <WrapPanel>
+                    <StackPanel Width="150" Margin="0,0,12,0" Visibility="{Binding CanViewPurchaseMargins, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="Purchase rate (₹ per pack)" />
+                      <TextBox Padding="6" Text="{Binding PurchaseRateText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Purchase rate" />
+                    </StackPanel>
+                    <StackPanel Width="190" Margin="0,0,12,0">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="PTR · price to retailer (₹)" />
+                      <TextBox Padding="6" Text="{Binding PtrText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="PTR"
+                               ToolTip="Price to retailer: what a retailer pays you per pack. Leave blank if not used." />
+                    </StackPanel>
+                    <StackPanel Width="190" Margin="0,0,12,0">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="PTS · price to stockist (₹)" />
+                      <TextBox Padding="6" Text="{Binding PtsText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="PTS"
+                               ToolTip="Price to stockist: what a stockist or distributor pays per pack. Leave blank if not used." />
+                    </StackPanel>
+                    <StackPanel Width="150" Margin="0,0,12,0">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="MRP (₹, as printed)" />
+                      <TextBox Padding="6" Text="{Binding MrpText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="MRP"
+                               ToolTip="Maximum retail price printed on the pack." />
+                    </StackPanel>
+                    <Button Content="Save batch rates" Height="36" Margin="0,18,0,0" Padding="16,6" Style="{StaticResource PrimaryButton}" Command="{Binding SaveBatchRatesCommand}" />
+                  </WrapPanel>
+                  <TextBlock Style="{StaticResource PrOk}" Text="{Binding RatesMessage}" AutomationProperties.Name="Batch rates saved" />
+                  <TextBlock Style="{StaticResource PrErr}" Text="{Binding RatesError}" AutomationProperties.Name="Batch rates problem" />
+                </StackPanel>
+              </Border>
+
+              <!-- Pack conversions -->
+              <Border Style="{StaticResource PrCard}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource PrHeading}" Text="Pack conversions" />
+                  <TextBlock Style="{StaticResource PrExplain}" Text="How many base units (for example tablets) make each pack of this medicine. Stock is kept in base units." />
+                  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="170" ItemsSource="{Binding PackLevels}"
+                            AutomationProperties.Name="Saved pack conversions" Visibility="{Binding HasPackLevels, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Pack level" Binding="{Binding Level, Mode=OneWay}" Width="Auto" MinWidth="110" />
+                      <DataGridTextColumn Header="Name on the pack" Binding="{Binding Label, Mode=OneWay}" Width="*" MinWidth="160" />
+                      <DataGridTextColumn Header="Base units per pack" Binding="{Binding UnitsPerPack, Mode=OneWay, StringFormat=0.##}" Width="Auto" MinWidth="140" ElementStyle="{StaticResource PrNum}" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                  <TextBlock Style="{StaticResource PrEmpty}" Text="No pack sizes saved for this medicine yet; its stock counts in single units."
+                             Visibility="{Binding HasPackLevels, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                  <WrapPanel Margin="0,8,0,0">
+                    <StackPanel Width="140" Margin="0,0,12,0">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="Pack level" />
+                      <ComboBox Padding="5" ItemsSource="{Binding PackLevelOptions}" SelectedItem="{Binding NewPackLevel}" AutomationProperties.Name="Pack level" />
+                    </StackPanel>
+                    <StackPanel Width="200" Margin="0,0,12,0">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="Name on the pack" />
+                      <TextBox Padding="6" Text="{Binding NewPackLabel, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Pack name" ToolTip="For example: Strip of 10" />
+                    </StackPanel>
+                    <StackPanel Width="170" Margin="0,0,12,0">
+                      <TextBlock Style="{StaticResource PrLabel}" Text="Base units per pack" />
+                      <TextBox Padding="6" Text="{Binding NewPackUnits, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Units per pack" ToolTip="A whole number, for example 10" />
+                    </StackPanel>
+                    <Button Content="Save pack size" Height="36" Margin="0,18,0,0" Padding="16,6" Style="{StaticResource PrimaryButton}" Command="{Binding AddPackLevelCommand}" />
+                  </WrapPanel>
+                  <TextBlock Style="{StaticResource PrOk}" Text="{Binding PackMessage}" AutomationProperties.Name="Pack saved" />
+                  <TextBlock Style="{StaticResource PrErr}" Text="{Binding PackError}" AutomationProperties.Name="Pack problem" />
+                </StackPanel>
+              </Border>
+
+              <!-- Customer pricing -->
+              <Border Style="{StaticResource PrCard}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource PrHeading}" Text="Customer pricing" />
+                  <TextBlock Style="{StaticResource PrExplain}" Text="Prices, discounts and free-goods schemes for a customer category (each customer's category is set on the customer). Each part saves on its own." />
+                  <TextBlock Style="{StaticResource PrLabel}" Text="Saved for this medicine" />
+                  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="180" ItemsSource="{Binding SavedPricing}"
+                            AutomationProperties.Name="Saved customer pricing" Visibility="{Binding HasSavedPricing, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="What" Binding="{Binding Kind, Mode=OneWay}" Width="Auto" MinWidth="170" />
+                      <DataGridTextColumn Header="Customer category" Binding="{Binding Category, Mode=OneWay}" Width="Auto" MinWidth="150" />
+                      <DataGridTextColumn Header="Value" Binding="{Binding Value, Mode=OneWay}" Width="*" MinWidth="150" />
+                      <DataGridTextColumn Header="Applies" Binding="{Binding Period, Mode=OneWay}" Width="Auto" MinWidth="200" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                  <TextBlock Style="{StaticResource PrEmpty}" Text="No customer prices, discounts or schemes saved for this medicine yet."
+                             Visibility="{Binding HasSavedPricing, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+
+                  <Border Style="{StaticResource PrSub}">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold" Text="Category price" />
+                      <TextBlock Style="{StaticResource PrHelp}" Text="A fixed price per pack for every customer in a category." Margin="0,0,0,8" />
+                      <WrapPanel>
+                        <StackPanel Width="180" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Customer category" />
+                          <ComboBox IsEditable="True" Padding="5" ItemsSource="{Binding PriceCategories}" Text="{Binding PriceCategory, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Price category" />
+                        </StackPanel>
+                        <StackPanel Width="150" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Price (₹ per pack)" />
+                          <TextBox Padding="6" Text="{Binding CategoryPrice, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Category price" />
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="From" />
+                          <DatePicker SelectedDate="{Binding PriceFrom}" />
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="To (optional)" />
+                          <DatePicker SelectedDate="{Binding PriceTo}" />
+                        </StackPanel>
+                        <Button Content="Save category price" Height="36" Margin="0,18,0,0" Padding="14,6" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCategoryPriceCommand}" />
+                      </WrapPanel>
+                      <TextBlock Style="{StaticResource PrOk}" Text="{Binding PriceMessage}" AutomationProperties.Name="Category price saved" />
+                      <TextBlock Style="{StaticResource PrErr}" Text="{Binding PriceError}" AutomationProperties.Name="Category price problem" />
+                    </StackPanel>
+                  </Border>
+
+                  <Border Style="{StaticResource PrSub}">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold" Text="Trade discount" />
+                      <TextBlock Style="{StaticResource PrHelp}" Text="A percentage off for every customer in a category." Margin="0,0,0,8" />
+                      <WrapPanel>
+                        <StackPanel Width="180" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Customer category" />
+                          <ComboBox IsEditable="True" Padding="5" ItemsSource="{Binding PriceCategories}" Text="{Binding DiscountCategory, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Discount category" />
+                        </StackPanel>
+                        <StackPanel Width="150" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Discount (%)" />
+                          <TextBox Padding="6" Text="{Binding DiscountPercent, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Discount percent" />
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="From" />
+                          <DatePicker SelectedDate="{Binding DiscountFrom}" />
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="To (optional)" />
+                          <DatePicker SelectedDate="{Binding DiscountTo}" />
+                        </StackPanel>
+                        <Button Content="Save trade discount" Height="36" Margin="0,18,0,0" Padding="14,6" Style="{StaticResource PrimaryButton}" Command="{Binding SaveTradeDiscountCommand}" />
+                      </WrapPanel>
+                      <TextBlock Style="{StaticResource PrOk}" Text="{Binding DiscountMessage}" AutomationProperties.Name="Trade discount saved" />
+                      <TextBlock Style="{StaticResource PrErr}" Text="{Binding DiscountError}" AutomationProperties.Name="Trade discount problem" />
+                    </StackPanel>
+                  </Border>
+
+                  <Border Style="{StaticResource PrSub}">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold" Text="Scheme (free goods)" />
+                      <TextBlock Style="{StaticResource PrHelp}" Text="Buy so many packs, get so many free, between two dates. Leave the category blank for all customers." Margin="0,0,0,8" />
+                      <WrapPanel>
+                        <StackPanel Width="110" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Buy (packs)" />
+                          <TextBox Padding="6" Text="{Binding SchemeBuy, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Scheme buy" />
+                        </StackPanel>
+                        <StackPanel Width="110" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Free (packs)" />
+                          <TextBox Padding="6" Text="{Binding SchemeFree, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Scheme free" />
+                        </StackPanel>
+                        <StackPanel Width="180" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Customer category (optional)" />
+                          <ComboBox IsEditable="True" Padding="5" ItemsSource="{Binding PriceCategories}" Text="{Binding SchemeCategory, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Scheme category" />
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Starts" />
+                          <DatePicker SelectedDate="{Binding SchemeFrom}" />
+                        </StackPanel>
+                        <StackPanel Width="140" Margin="0,0,12,0">
+                          <TextBlock Style="{StaticResource PrLabel}" Text="Ends" />
+                          <DatePicker SelectedDate="{Binding SchemeTo}" />
+                        </StackPanel>
+                        <Button Content="Save scheme" Height="36" Margin="0,18,0,0" Padding="14,6" Style="{StaticResource PrimaryButton}" Command="{Binding SaveSchemeCommand}" />
+                      </WrapPanel>
+                      <TextBlock Style="{StaticResource PrOk}" Text="{Binding SchemeMessage}" AutomationProperties.Name="Scheme saved" />
+                      <TextBlock Style="{StaticResource PrErr}" Text="{Binding SchemeError}" AutomationProperties.Name="Scheme problem" />
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+              </Border>
+
+              <!-- Recent rates -->
+              <Border Style="{StaticResource PrCard}">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource PrHeading}" Text="Recent rates to a customer" />
+                  <TextBlock Style="{StaticResource PrExplain}" Text="The last five rates a customer was billed for this medicine, to keep a quote consistent." />
+                  <StackPanel Width="380" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource PrLabel}" Text="Customer" />
+                    <ComboBox IsEditable="True" IsTextSearchEnabled="False" StaysOpenOnEdit="True" Padding="6" DisplayMemberPath="Label"
+                              ItemsSource="{Binding CustomerMatches}" SelectedItem="{Binding SelectedCustomer}" Text="{Binding CustomerSearch, UpdateSourceTrigger=PropertyChanged}"
+                              AutomationProperties.Name="Customer" />
+                    <TextBlock Style="{StaticResource PrHelp}" Text="Type part of a name or phone number." />
+                  </StackPanel>
+                  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="190" Margin="0,10,0,0" ItemsSource="{Binding RecentRates}"
+                            AutomationProperties.Name="Recent rates" Visibility="{Binding HasRecentRates, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DataGrid.Columns>
+                      <DataGridTextColumn Header="Sold on (IST)" Binding="{Binding SoldOn, Mode=OneWay}" Width="Auto" MinWidth="170" />
+                      <DataGridTextColumn Header="Invoice no." Binding="{Binding InvoiceNo, Mode=OneWay}" Width="*" MinWidth="140" />
+                      <DataGridTextColumn Header="Rate (₹ per pack)" Binding="{Binding RateText, Mode=OneWay}" Width="Auto" MinWidth="130" ElementStyle="{StaticResource PrNum}" />
+                      <DataGridTextColumn Header="Quantity" Binding="{Binding QuantityText, Mode=OneWay}" Width="Auto" MinWidth="90" ElementStyle="{StaticResource PrNum}" />
+                    </DataGrid.Columns>
+                  </DataGrid>
+                  <TextBlock Style="{StaticResource PrEmpty}" Text="{Binding RecentRatesEmptyText}" AutomationProperties.Name="Recent rates empty"
+                             Visibility="{Binding HasRecentRates, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </DataTemplate>
