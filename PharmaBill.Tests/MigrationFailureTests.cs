@@ -45,6 +45,7 @@ public sealed class MigrationFailureTests
 #else
         Assert.Equal("PharmaBill", AppDataPaths.RootFolderName);
 #endif
-        Assert.EndsWith(AppDataPaths.RootFolderName, AppDataPaths.RootDirectory);
+        // The default location (the test run itself is redirected to a temp folder).
+        Assert.EndsWith(AppDataPaths.RootFolderName, AppDataPaths.LocalRootDirectory);
     }
 }

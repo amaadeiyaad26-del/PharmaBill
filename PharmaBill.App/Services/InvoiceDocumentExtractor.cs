@@ -409,6 +409,8 @@ public static class InvoiceTextParser
 		}
 
 		ExtractedPurchaseInvoice metadata = Parse(rawText, fallbackName);
+		// Each line's own HSN and GST from its row, as in Parse.
+		items = InvoiceLineTax.Attach(items, (rawText ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), rawText);
 		return new ExtractedPurchaseInvoice(
 			metadata.DocumentType,
 			metadata.Supplier,
@@ -579,7 +581,8 @@ public static class InvoiceTextParser
 			string existingIdentity = GetMedicineIdentity(existingName);
 			return string.Equals(existingName, name, StringComparison.OrdinalIgnoreCase)
 				|| (!string.IsNullOrWhiteSpace(candidateIdentity)
-					&& string.Equals(existingIdentity, candidateIdentity, StringComparison.OrdinalIgnoreCase));
+					&& string.Equals(existingIdentity, candidateIdentity, StringComparison.OrdinalIgnoreCase))
+				|| SameRow(existing, existingName, candidate, name);
 		});
 		if (existingIndex < 0)
 		{
@@ -591,6 +594,8 @@ public static class InvoiceTextParser
 		ExtractedPurchaseLine existing = items[existingIndex];
 		items[existingIndex] = existing with
 		{
+			// Two readings of one row: keep the cleaner (shorter) name.
+			ItemName = name.Length < existing.ItemName.Trim().Length && SameRow(existing, existing.ItemName.Trim(), candidate, name) ? name : existing.ItemName,
 			Batch = string.IsNullOrWhiteSpace(existing.Batch) || existing.Batch == "NA" ? candidate.Batch : existing.Batch,
 			Expiry = string.IsNullOrWhiteSpace(existing.Expiry) ? candidate.Expiry : existing.Expiry,
 			Quantity = existing.Quantity > 0m ? existing.Quantity : candidate.Quantity,
@@ -706,9 +711,20 @@ public static class InvoiceTextParser
 		return match.Success ? match.Value : string.Empty;
 	}
 
+	// One invoice row read twice by two layouts: the same batch, and one name is the other plus the row's numbers.
+	private static bool SameRow(ExtractedPurchaseLine existing, string existingName, ExtractedPurchaseLine candidate, string candidateName)
+	{
+		string batch = existing.Batch?.Trim() ?? string.Empty;
+		return batch.Length >= 4 && !string.Equals(batch, "NA", StringComparison.OrdinalIgnoreCase)
+			&& string.Equals(batch, candidate.Batch?.Trim(), StringComparison.OrdinalIgnoreCase)
+			&& (existingName.StartsWith(candidateName, StringComparison.OrdinalIgnoreCase) || candidateName.StartsWith(existingName, StringComparison.OrdinalIgnoreCase));
+	}
+
 	public static string NormalizeMedicineName(string name)
 	{
 		string cleaned = name.Replace('æ', 'a').Replace('Æ', 'A');
+		// The row's HSN code is not part of the medicine's name (6 or 8 digits in a pharmacy chapter, or the 300x headings).
+		cleaned = Regex.Replace(cleaned, @"\b(?:(?:12|13|21|28|29|30|33|34|38|39|40|90|96)\d{4}(?:\d{2})?|300[2-6])\b(?!\s*(?:iu|mg|mcg|ml|gm|g|units?|lac|lakh)\b)", " ", RegexOptions.IgnoreCase);
 		// Pull distributor batch codes (AMC2512 / MET2511) out of the product label into Batch elsewhere.
 		cleaned = Regex.Replace(
 			cleaned,

@@ -1,3 +1,4 @@
+using PharmaBill.Core.Gst;
 using PharmaBill.Core;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -498,6 +499,10 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 		if (string.IsNullOrWhiteSpace(item.BatchNo) || !item.ExpiryDate.HasValue || item.Quantity <= 0m || item.FreeQuantity < 0m || item.Mrp < 0m || item.Rate < 0m || item.GstRate < 0m || item.DiscountAmount < 0m || item.DiscountAmount > item.Quantity * item.Rate)
 		{
 			throw new InvalidOperationException("Purchase line for '" + drug.Name + "' has invalid batch, expiry, quantity, rate, GST, MRP or discount.");
+		}
+		if (GstRates.Problem(item.GstRate) is string rateProblem)
+		{
+			throw new InvalidOperationException("Purchase line for '" + drug.Name + "': " + rateProblem);
 		}
 		if (item.ExpiryDate.Value < BusinessClock.Today)
 		{

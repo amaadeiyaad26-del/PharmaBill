@@ -15,7 +15,8 @@ public static class ProductTax
 
 	public static bool HasHsn(string? hsnCode) => !string.IsNullOrWhiteSpace(hsnCode);
 
-	public static bool HasGstRate(decimal? gstRate, bool isNilRated) => isNilRated || gstRate is > 0m;
+	/// <summary>Nil-rated, or a real slab. A recorded 2.5% (a CGST half) is not a known rate: it is asked for again.</summary>
+	public static bool HasGstRate(decimal? gstRate, bool isNilRated) => isNilRated || (gstRate is decimal rate && GstRates.IsStandardSlab(rate));
 
 	public static bool IsComplete(string? hsnCode, decimal? gstRate, bool isNilRated) =>
 		HasHsn(hsnCode) && HasGstRate(gstRate, isNilRated);
@@ -82,9 +83,9 @@ public static class ProductTax
 			return false;
 		}
 
-		if (gstRate.Value < 0m || gstRate.Value > 100m)
+		if (GstRates.Problem(gstRate.Value) is string problem)
 		{
-			error = "GST rate must be between 0 and 100.";
+			error = problem;
 			return false;
 		}
 

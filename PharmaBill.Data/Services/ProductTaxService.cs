@@ -36,9 +36,9 @@ public sealed class ProductTaxService(PharmaBillDbContext context)
 	{
 		// Same rule as ProductTax.IsComplete, written so SQLite can filter it.
 		var rows = await context.Drugs.AsNoTracking()
+			// Every non-nil product is checked below: a recorded rate that is not a real slab (2.5%) counts as missing.
 			.Where(drug => drug.IsActive
-				&& (drug.HsnCode == null || drug.HsnCode.Trim() == ""
-					|| (!drug.IsNilRated && (drug.GstRate == null || drug.GstRate <= 0m))))
+				&& (drug.HsnCode == null || drug.HsnCode.Trim() == "" || !drug.IsNilRated))
 			.Select(drug => new { drug.Id, drug.Name, drug.HsnCode, drug.GstRate, drug.IsNilRated })
 			.ToListAsync(cancellationToken);
 		return rows

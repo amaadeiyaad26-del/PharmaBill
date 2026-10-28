@@ -1,3 +1,4 @@
+using PharmaBill.Core.Gst;
 using PharmaBill.Core;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -344,6 +345,10 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 			decimal mrp = raw.Mrp < 0m ? 0m : raw.Mrp;
 			decimal rate = raw.Rate < 0m ? 0m : raw.Rate;
 			decimal gst = raw.Gst < 0m ? 0m : InvoiceLineTax.TotalRate(raw.Gst);
+			if (GstRates.Problem(gst) != null)
+			{
+				gst = 0m;
+			}
 			decimal amount = raw.Amount > 0m ? decimal.Round(raw.Amount, 2, MidpointRounding.AwayFromZero) : 0m;
 			if (rate > 0m && amount > 0m)
 			{

@@ -32,16 +32,20 @@ public sealed class ProductTaxTests
     }
 
     [Theory]
-    [InlineData(null, 12, false, "Enter the HSN code")]
-    [InlineData("30A4", 12, false, "4, 6 or 8 digits")]
-    [InlineData("300", 12, false, "4, 6 or 8 digits")]
+    [InlineData(null, 12.0, false, "Enter the HSN code")]
+    [InlineData("30A4", 12.0, false, "4, 6 or 8 digits")]
+    [InlineData("300", 12.0, false, "4, 6 or 8 digits")]
     [InlineData("3004", null, false, "Enter the GST rate")]
-    [InlineData("3004", 0, false, "Nil-rated")]
-    [InlineData("3004", 101, false, "between 0 and 100")]
-    [InlineData("3004", 5, true, "Nil-rated product is billed at 0%")]
-    public void TryCreate_RejectsIncompleteEntries(string? hsn, int? rate, bool nilRated, string expected)
+    [InlineData("3004", 0.0, false, "Nil-rated")]
+    [InlineData("3004", 101.0, false, "must be 0, 5, 12, 18 or 28")]
+    [InlineData("3004", 7.0, false, "must be 0, 5, 12, 18 or 28")]
+    [InlineData("3004", 2.5, false, "Enter the total GST rate, not the CGST half — for 5% GST, enter 5.")]
+    [InlineData("3004", 6.0, false, "not the CGST half")]
+    [InlineData("3004", 9.0, false, "not the CGST half")]
+    [InlineData("3004", 5.0, true, "Nil-rated product is billed at 0%")]
+    public void TryCreate_RejectsIncompleteEntries(string? hsn, double? rate, bool nilRated, string expected)
     {
-        Assert.False(ProductTax.TryCreate(hsn, rate, nilRated, out ProductTaxDetails? details, out string? error));
+        Assert.False(ProductTax.TryCreate(hsn, rate is null ? null : (decimal)rate.Value, nilRated, out ProductTaxDetails? details, out string? error));
         Assert.Null(details);
         Assert.Contains(expected, error);
     }

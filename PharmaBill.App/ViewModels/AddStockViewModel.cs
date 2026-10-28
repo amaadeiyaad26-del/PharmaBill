@@ -927,6 +927,10 @@ public sealed partial class AddStockViewModel : ObservableObject
 		FreeQuantityError = OptionalAmount(FreeQuantityText, "Free quantity");
 		PackSizeError = OptionalAmount(PackSizeText, "Pack size");
 		GstError = OptionalAmount(GstText, "GST %");
+		if (GstError.Length == 0 && TryAmount(GstText, out var slab) && PharmaBill.Core.Gst.GstRates.Problem(slab) is string slabProblem)
+		{
+			GstError = slabProblem;
+		}
 		if (GstError.Length == 0 && TryAmount(GstText, out var value) && value > 100m)
 		{
 			GstError = "GST % cannot be above 100";

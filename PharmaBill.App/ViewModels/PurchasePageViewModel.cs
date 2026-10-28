@@ -392,6 +392,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		new SpreadsheetColumnMapping("MRP", isRequired: false, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Rate", isRequired: true, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("GST", isRequired: false, new ObservableCollection<string>()),
+		new SpreadsheetColumnMapping("HSN", isRequired: false, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Discount", isRequired: false, new ObservableCollection<string>()),
 		new SpreadsheetColumnMapping("Amount", isRequired: false, new ObservableCollection<string>())
 	};
@@ -1395,7 +1396,14 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		return year;
 	}
 
+	/// <summary>A scanned or uploaded line's GST as a real slab: near-slab values rounded, a CGST half doubled, anything else 0 (unknown, asked).</summary>
 	private static decimal StandardGstSlab(decimal rate)
+	{
+		decimal total = InvoiceLineTax.TotalRate(NearestSlab(rate));
+		return GstRates.Problem(total) == null ? total : 0m;
+	}
+
+	private static decimal NearestSlab(decimal rate)
 	{
 		decimal[] slabs = new decimal[] { 0m, 5m, 12m, 18m, 28m };
 		decimal nearest = slabs[0];
@@ -2114,6 +2122,12 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		if (num < 0m || num2 < 0m || num2 > 100m || discountPercent < 0m || discountPercent > 100m)
 		{
 			NewItemError = "Free quantity, GST % and trade discount % must be valid numbers";
+			RequestFocus("NewItemGst");
+			return;
+		}
+		if (GstRates.Problem(num2) is string slabProblem)
+		{
+			NewItemError = slabProblem;
 			RequestFocus("NewItemGst");
 			return;
 		}
@@ -4449,6 +4463,11 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				skipped.Add("Row " + (num + 2) + " (" + itemName + "): invalid free / GST / discount.");
 				continue;
 			}
+			if (GstRates.Problem(gst) is string rowRateProblem)
+			{
+				skipped.Add("Row " + (num + 2) + " (" + itemName + "): " + rowRateProblem);
+				continue;
+			}
 
 			// Discount column may be % or ₹ — treat values ≤ 100 with no amount column as percent.
 			string amountText = Read(row, mappings, "Amount");
@@ -4478,6 +4497,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				Mrp = mrp,
 				Rate = rate,
 				GstRate = gst,
+				HsnCode = InvoiceLineTax.NormalizeHsn(Read(row, mappings, "HSN")),
 				DiscountAmount = discountAmount,
 				AcceptMedicineEdits = true,
 				InwardDate = InvoiceDate.Date
@@ -4729,6 +4749,13 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		}
 
 		NormalizeLineExpiries();
+		// Rates first: nothing is created for a purchase that cannot be saved.
+		if (Lines.FirstOrDefault(line => GstRates.Problem(line.GstRate) != null) is PurchaseLineDraft badRate)
+		{
+			ErrorMessage = $"'{badRate.MedicineName}': {GstRates.Problem(badRate.GstRate)}";
+			confirmationService.Notify("Cannot Save Purchase Yet", ErrorMessage);
+			return;
+		}
 		if (!await EnsurePurchaseMedicinesAsync())
 		{
 			return;
@@ -4944,6 +4971,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			"MRP" => ["mrp", "maximumretailprice"],
 			"Rate" => ["purchaserate", "purrate", "rate", "ptr", "pts", "unitprice", "price", "cost"],
 			"GST" => ["gstrate", "gst%", "gst", "tax%", "taxrate", "tax"],
+			"HSN" => ["hsncode", "hsn/sac", "hsnsac", "hsnsaccode", "hsn"],
 			"Discount" => ["discount%", "discount", "disc", "tradediscount"],
 			"Amount" => ["amount", "linevalue", "linetotal", "taxable", "value", "total"],
 			_ => [],
