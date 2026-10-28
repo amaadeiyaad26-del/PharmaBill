@@ -5,9 +5,13 @@
     <controls:FloatingField x:Name="HsnField" Label="HSN code" IsRequired="True" Margin="0,0,0,10">
       <TextBox Name="HsnBox" />
     </controls:FloatingField>
+    <TextBlock Name="HsnNote" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12" Margin="2,-6,0,10" Foreground="{DynamicResource SecondaryTextBrush}"
+               AutomationProperties.Name="Why this HSN" />
     <controls:FloatingField x:Name="RateField" Label="GST rate %" IsRequired="True" Margin="0,0,0,6">
       <TextBox Name="RateBox" />
     </controls:FloatingField>
+    <TextBlock Name="RateNote" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12" Margin="2,0,0,6" Foreground="{DynamicResource SecondaryTextBrush}"
+               AutomationProperties.Name="Where this rate came from" />
     <CheckBox Name="NilRatedBox" Content="Nil-rated (billed at 0% GST)" Margin="0,4,0,0" Checked="NilRated_Changed" Unchecked="NilRated_Changed"
               ToolTip="Tick only if this product is genuinely nil-rated. A blank rate is never treated as 0%." />
     <CheckBox Name="SaveToProductBox" Content="Save to the product so I'm not asked again" IsChecked="True" Margin="0,10,0,0"

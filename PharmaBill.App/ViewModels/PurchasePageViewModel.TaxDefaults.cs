@@ -1,11 +1,13 @@
+using PharmaBill.Core.Gst;
 using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-// HSN code and GST % on the Add item row. Picking a medicine fills them from its master record; a drug bank medicine,
-// which carries neither, takes them from the master's medicines with the same salt when those all agree. The pharmacist
-// can overtype either box for this invoice; the note under the row says where the values came from.
+// HSN code and GST % on the Add item row. Picking a medicine fills them from its master record; a medicine with neither
+// gets its HSN from its dosage form and its GST % from the last rate recorded for it or its salt (dated, never before the
+// September 2025 cut). The pharmacist can overtype either box for this invoice; the note under the row says where the
+// values came from.
 public sealed partial class PurchasePageViewModel
 {
 	private bool _fillingTax;
@@ -76,50 +78,56 @@ public sealed partial class PurchasePageViewModel
 		}
 	}
 
-	/// <summary>Neither the medicine nor its drug bank row has tax on record: ask the master's same-salt medicines.</summary>
-	private async Task FillTaxFromSameSaltAsync(Guid? catalogMedicineId, PharmaBillDbContext context, CancellationToken cancellationToken)
+	/// <summary>
+	/// Nothing on the medicine's record: the HSN comes from what it is (dosage form), the GST % from the last rate this
+	/// shop recorded for it or its salt ("same as last time", dated, never before the September 2025 cut). The note under
+	/// the row says where each came from; both boxes stay editable.
+	/// </summary>
+	private async Task FillTaxDefaultsAsync(Guid? drugId, Guid? catalogMedicineId, string? name, PharmaBillDbContext context, CancellationToken cancellationToken)
 	{
 		if (TaxComplete)
 		{
 			DescribeMasterTax();
 			return;
 		}
-		SameSaltTax suggestion = catalogMedicineId is Guid id
-			? await new ProductTaxService(context).SuggestFromSameSaltAsync(id, cancellationToken)
-			: new SameSaltTax(null, null, false, null, false);
+		var taxes = new ProductTaxService(context);
+		HsnSuggestion? hsn = NewItemHsn.Trim().Length == 0 ? await taxes.ClassifyHsnAsync(drugId, catalogMedicineId, name, cancellationToken) : null;
+		RememberedRate? remembered = NewItemGst.Trim().Length == 0 && !NewItemNilRated ? await taxes.LastRecordedRateAsync(drugId, catalogMedicineId, cancellationToken) : null;
 		if (cancellationToken.IsCancellationRequested)
 		{
 			return;
 		}
-		if (suggestion.HasSuggestion)
+		FillTax(() =>
 		{
-			FillTax(() =>
+			if (hsn != null)
 			{
-				if (string.IsNullOrWhiteSpace(NewItemHsn))
+				NewItemHsn = hsn.Code;
+			}
+			if (remembered != null)
+			{
+				if (remembered.IsNilRated)
 				{
-					NewItemHsn = suggestion.HsnCode!;
+					NewItemNilRated = true;
 				}
-				if (string.IsNullOrWhiteSpace(NewItemGst) && !NewItemNilRated)
+				else
 				{
-					if (suggestion.IsNilRated)
-					{
-						NewItemNilRated = true;
-					}
-					else if (suggestion.GstRate is decimal rate)
-					{
-						NewItemGst = FormatAmount(rate);
-					}
+					NewItemGst = FormatAmount(remembered.Rate!.Value);
 				}
-			});
-			_taxFromMaster = false;
-			TaxSourceHint = $"HSN {NewItemHsn} · GST {(NewItemNilRated ? "nil" : NewItemGst + "%")} taken from {suggestion.ExampleName}, the same salt in your medicine master. Check them against the supplier's invoice.";
-		}
-		else
+			}
+		});
+		_taxFromMaster = false;
+		var notes = new List<string>();
+		if (hsn != null)
 		{
-			TaxSourceHint = suggestion.Disagree
-				? "Medicines with this salt in your master carry different HSN or GST. Enter them from the supplier's invoice."
-				: "No HSN or GST on record for this medicine. Enter them from the supplier's invoice; they are saved to the medicine.";
+			notes.Add(hsn.Reason);
 		}
+		if (remembered != null)
+		{
+			notes.Add(remembered.Label);
+		}
+		TaxSourceHint = notes.Count > 0
+			? string.Join(". ", notes) + ". Check them against the supplier's invoice; what you enter is saved to this medicine."
+			: "No HSN or GST on record for this medicine. Enter them from the supplier's invoice; they are saved to the medicine.";
 	}
 
 	// The pharmacist overtyped a value the screen filled in: say what it replaces and what it changes.
@@ -138,9 +146,9 @@ public sealed partial class PurchasePageViewModel
 	}
 
 	// The last purchase of this medicine was billed at another GST %: that rate is offered, and the note says so.
-	private void NoteGstFromLastPurchase(string invoiceNo)
+	private void NoteGstFromLastPurchase(string invoiceNo, DateOnly invoiceDate)
 	{
-		TaxSourceHint = $"HSN {NewItemHsn} {(_taxFromMaster ? "from the medicine master" : "as suggested")}; GST {NewItemGst}% as on the last purchase ({invoiceNo}). Edit either box if this invoice differs.";
+		TaxSourceHint = $"HSN {NewItemHsn} {(_taxFromMaster ? "from the medicine master" : "as suggested")}; GST {NewItemGst}% same as last time, from supplier invoice {invoiceNo}, {invoiceDate:dd-MMM-yyyy}. Edit either box if this invoice differs.";
 	}
 
 	private static string Shown(string value) => value.Trim().Length == 0 ? "—" : value.Trim();

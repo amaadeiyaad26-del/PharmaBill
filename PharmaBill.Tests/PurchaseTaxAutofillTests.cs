@@ -34,15 +34,18 @@ public sealed class PurchaseTaxAutofillTests
             Assert.Equal(("30049099", "12"), (hsn.Text, gst.Text));
             Assert.StartsWith("HSN 30049099 · GST 12% from the medicine master", Source(host));
 
-            // 2. The next medicine has no tax on record: the boxes empty instead of keeping Dolo's, and it says what to do.
+            // 2. The next medicine has no tax on record: Dolo's values are not kept. Its HSN comes from its dosage form
+            //    (a syrup is a medicament, 3004) with the reason; its rate is never guessed, so the GST box stays empty.
             await shop.ChooseAsync(host, "Old Cough", "Old Cough Syrup");
-            Assert.Equal(("", ""), (hsn.Text, gst.Text));
-            Assert.StartsWith("No HSN or GST on record", Source(host));
+            Assert.Equal(("3004", ""), (hsn.Text, gst.Text));
+            Assert.StartsWith("Syrup → 3004, medicaments in measured doses or retail packs", Source(host));
 
-            // 3. A drug bank medicine carries no tax; Celin 500 has the same salt in the master, so its HSN and GST are offered.
+            // 3. A drug bank medicine carries no tax; Celin 500 has the same salt in the master: its HSN is offered, and its
+            //    rate as "same as last time", with where it came from and the date it was recorded.
             await shop.ChooseAsync(host, "Limcee", "Limcee 500 Chewable");
             Assert.Equal(("30045010", "12"), (hsn.Text, gst.Text));
-            Assert.Equal("HSN 30045010 · GST 12% taken from Celin 500, the same salt in your medicine master. Check them against the supplier's invoice.", Source(host));
+            Assert.StartsWith("Same HSN as Celin 500, the same salt in your medicine master. Same as last time: 12%, from Celin 500 (same salt), ", Source(host));
+            Assert.Contains(PharmaBill.Core.BusinessClock.Today.ToString("dd-MMM-yyyy"), Source(host));
 
             // 4. Overtyping: this invoice bills Dolo at 5%. The line takes 5%; the master keeps 12%.
             await shop.ChooseAsync(host, "Dolo", "Dolo 650");

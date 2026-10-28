@@ -2042,9 +2042,10 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		}
 
 		ProductTaxPromptResult? entered;
+		ProductTaxHints hints = await ProductTaxHintLoader.LoadAsync(_scopeFactory, choice.DrugId, choice.HsnCode, choice.GstRate, choice.IsNilRated);
 		using (IServiceScope scope = _scopeFactory.CreateScope())
 		{
-			entered = scope.ServiceProvider.GetRequiredService<IPromptService>().AskProductTax(choice.DrugName, choice.HsnCode, choice.GstRate, choice.IsNilRated);
+			entered = scope.ServiceProvider.GetRequiredService<IPromptService>().AskProductTax(choice.DrugName, choice.HsnCode, choice.GstRate, choice.IsNilRated, hints: hints);
 		}
 
 		if (entered == null)

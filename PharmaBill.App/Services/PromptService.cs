@@ -17,9 +17,9 @@ public sealed class PromptService : IPromptService
 		return textPromptWindow.Value;
 	}
 
-	public ProductTaxPromptResult? AskProductTax(string productName, string? currentHsn, decimal? currentRate, bool currentNilRated, bool newProduct = false)
+	public ProductTaxPromptResult? AskProductTax(string productName, string? currentHsn, decimal? currentRate, bool currentNilRated, bool newProduct = false, ProductTaxHints? hints = null)
 	{
-		ProductTaxPromptWindow window = new ProductTaxPromptWindow(productName, currentHsn, currentRate, currentNilRated, newProduct)
+		ProductTaxPromptWindow window = new ProductTaxPromptWindow(productName, currentHsn, currentRate, currentNilRated, newProduct, hints)
 		{
 			Owner = Application.Current?.MainWindow
 		};

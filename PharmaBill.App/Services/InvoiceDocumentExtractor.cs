@@ -681,6 +681,9 @@ public static class InvoiceTextParser
 				+ "Try a clearer, straight-on photo or a PDF of the invoice, or enter the lines manually.");
 		}
 
+		// Each line's own HSN and GST from its row; never one invoice-wide rate across a mixed-rate invoice.
+		items = InvoiceLineTax.Attach(items, tableLines, text);
+
 		decimal computed = items.Sum(item => item.Amount > 0m ? item.Amount : decimal.Round(item.Quantity * item.Rate, 2, MidpointRounding.AwayFromZero));
 		decimal subtotal = FindLabeledAmount(lines, "Taxable value") ?? computed;
 		decimal grand = FindLabeledAmount(lines, "Grand total") ?? decimal.Round(subtotal + (subtotal * gst / 100m), 2, MidpointRounding.AwayFromZero);

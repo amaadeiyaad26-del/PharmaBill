@@ -33,6 +33,9 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 
 	public string? ValidationWarning { get; set; }
 
+	/// <summary>The HSN printed on the supplier's invoice line (scanned), used if this line creates a new medicine.</summary>
+	public string? HsnCode { get; set; }
+
 	public DateTime InwardDate { get; set; }
 
 	public bool AcceptMedicineEdits { get; set; }

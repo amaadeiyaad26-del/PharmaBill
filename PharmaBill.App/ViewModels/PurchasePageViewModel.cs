@@ -1119,14 +1119,33 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 	}
 
 	/// <summary>
-	/// A scanned or typed purchase line names a medicine that is not in the master. Ask for its HSN and GST before it
-	/// is created; the GST % from the supplier's invoice line is offered when it has one. Null when the user cancels.
+	/// A scanned or typed purchase line names a medicine that is not in the master. Its HSN is the one printed on the
+	/// invoice line, else the one its dosage form gives; its rate is the invoice line's. With both known (and the rate a
+	/// real slab) nothing is asked. Otherwise the user is asked with those values filled in. Null when the user cancels.
 	/// </summary>
-	private ProductTaxDetails? AskNewMedicineTax(string name, decimal invoiceLineGst)
+	private ProductTaxDetails? AskNewMedicineTax(string name, string? invoiceLineHsn, decimal invoiceLineGst)
 	{
-		using IServiceScope scope = scopeFactory.CreateScope();
-		return scope.ServiceProvider.GetRequiredService<IPromptService>()
-			.AskProductTax(name, null, invoiceLineGst > 0m ? invoiceLineGst : null, false, newProduct: true)?.Details;
+		return ScannedLineTax(name, invoiceLineHsn, invoiceLineGst, () =>
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			return scope.ServiceProvider.GetRequiredService<IPromptService>();
+		});
+	}
+
+	/// <summary>
+	/// A new medicine's tax from its invoice line: the line's HSN (else its dosage form's) and the line's rate when it is
+	/// a real slab. Both known: nothing is asked. Otherwise the prompt is shown with what is known filled in.
+	/// </summary>
+	internal static ProductTaxDetails? ScannedLineTax(string name, string? invoiceLineHsn, decimal invoiceLineGst, Func<IPromptService> prompt)
+	{
+		HsnSuggestion? classified = ProductTax.HasHsn(invoiceLineHsn) ? null : HsnClassifier.Classify(name);
+		string? hsn = ProductTax.HasHsn(invoiceLineHsn) ? invoiceLineHsn!.Trim() : classified?.Code;
+		decimal? rate = invoiceLineGst > 0m && GstRates.IsStandardSlab(invoiceLineGst) ? invoiceLineGst : null;
+		if (ProductTax.TryCreate(hsn, rate, false, out ProductTaxDetails? details, out _))
+		{
+			return details;
+		}
+		return prompt().AskProductTax(name, ProductTax.HasHsn(invoiceLineHsn) ? invoiceLineHsn : null, rate, false, newProduct: true, new ProductTaxHints(classified, null))?.Details;
 	}
 
 	/// <summary>Drug Bank pack / packaging description (e.g. "100ml Bottle", "10 Tablets / Strip").</summary>
@@ -2336,7 +2355,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 					NewItemHsn = catalogDefaults.HsnCode!;
 				}
 			});
-			await FillTaxFromSameSaltAsync(catalogId, scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>(), cts.Token);
+			await FillTaxDefaultsAsync(drugId, catalogId, item.Drug?.Name ?? item.DisplayTitle, scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>(), cts.Token);
 			if (cts.IsCancellationRequested)
 			{
 				return;
@@ -2443,12 +2462,13 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		}
 
 		decimal slab = StandardGstSlab(last.TaxRate);
-		if (string.IsNullOrWhiteSpace(NewItemGst) || NewItemGst == gstSnapshot)
+		// A rate from before the September 2025 cut, or one that is not a real slab, is never offered again.
+		if ((string.IsNullOrWhiteSpace(NewItemGst) || NewItemGst == gstSnapshot) && !GstRates.IsBeforeRateCut(last.InvoiceDate) && GstRates.IsStandardSlab(slab))
 		{
 			FillTax(() => NewItemGst = FormatAmount(slab));
 			if (NewItemGst != gstSnapshot && NewItemHsn.Trim().Length > 0)
 			{
-				NoteGstFromLastPurchase(last.InvoiceNo);
+				NoteGstFromLastPurchase(last.InvoiceNo, last.InvoiceDate);
 			}
 		}
 
@@ -3098,7 +3118,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				batch = "NA";
 			}
 
-			bill.Lines.Add(ToSnapshot(item.ItemName, batch, item.Expiry, item.Quantity, item.Free, item.Mrp, item.Rate, item.Gst));
+			bill.Lines.Add(ToSnapshot(item.ItemName, batch, item.Expiry, item.Quantity, item.Free, item.Mrp, item.Rate, item.Gst, item.HsnCode));
 		}
 
 		bill.NotifyLinesChanged();
@@ -3122,7 +3142,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		LoadPhoneBill(bill);
 	}
 
-	private PhoneBillLineSnapshot ToSnapshot(string? name, string? batch, string? expiry, decimal quantity, decimal free, decimal mrp, decimal rate, decimal gst)
+	private PhoneBillLineSnapshot ToSnapshot(string? name, string? batch, string? expiry, decimal quantity, decimal free, decimal mrp, decimal rate, decimal gst, string? hsn = null)
 	{
 		string expiryText = expiry ?? string.Empty;
 		if (AddStockViewModel.TryParseExpiry(FormatExpiryInput(expiryText), out DateOnly lastDay) || DateOnly.TryParse(expiryText, CultureInfo.InvariantCulture, DateTimeStyles.None, out lastDay))
@@ -3141,7 +3161,8 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			Free = free,
 			Mrp = mrp,
 			Rate = rate,
-			Gst = StandardGstSlab(gst)
+			Gst = StandardGstSlab(gst),
+			Hsn = string.IsNullOrWhiteSpace(hsn) ? null : hsn.Trim()
 		};
 	}
 
@@ -3205,6 +3226,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 						Mrp = snapshot.Mrp,
 						Rate = snapshot.Rate,
 						GstRate = snapshot.Gst,
+						HsnCode = snapshot.Hsn,
 						DiscountAmount = snapshot.Discount,
 						InwardDate = bill.InvoiceDate.Date == default ? BusinessClock.Now.Date : bill.InvoiceDate.Date,
 						AcceptMedicineEdits = true
@@ -3371,7 +3393,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 
 			if (drug == null && !string.IsNullOrWhiteSpace(line.MedicineName))
 			{
-				ProductTaxDetails? newTax = AskNewMedicineTax(line.MedicineName.Trim(), line.Gst);
+				ProductTaxDetails? newTax = AskNewMedicineTax(line.MedicineName.Trim(), line.Hsn, line.Gst);
 				if (newTax == null)
 				{
 					ErrorMessage = "Bill " + bill.Index + ": '" + line.MedicineName.Trim() + "' is a new medicine and needs its HSN code and GST rate. Nothing was inwarded.";
@@ -3931,6 +3953,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				Mrp = staged.Mrp,
 				Rate = staged.Rate,
 				GstRate = staged.Gst,
+				HsnCode = staged.HsnCode,
 				ValidationWarning = staged.ValidationWarning,
 				DiscountAmount = decimal.Round(staged.Quantity * staged.Rate * staged.DiscountPercent / 100m, 2, MidpointRounding.AwayFromZero)
 			};
@@ -4142,6 +4165,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				Mrp = extractedLine.Mrp,
 				Rate = extractedLine.Rate,
 				Gst = StandardGstSlab(extractedLine.Gst),
+				HsnCode = extractedLine.HsnCode,
 				DiscountPercent = discounts != null && index < discounts.Count ? discounts[index] : 0m,
 				ValidationWarning = extractedLine.ValidationWarning
 			});
@@ -4614,7 +4638,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		foreach (PurchaseLineDraft line in missing)
 		{
-			ProductTaxDetails? tax = AskNewMedicineTax(line.MedicineName.Trim(), line.GstRate);
+			ProductTaxDetails? tax = AskNewMedicineTax(line.MedicineName.Trim(), line.HsnCode, line.GstRate);
 			if (tax == null)
 			{
 				ErrorMessage = "'" + line.MedicineName.Trim() + "' is a new medicine and needs its HSN code and GST rate. The purchase was not saved.";

@@ -11,7 +11,7 @@ public partial class ProductTaxPromptWindow : Window
 
 	public bool SaveToProduct => SaveToProductBox.IsChecked == true;
 
-	public ProductTaxPromptWindow(string productName, string? currentHsn, decimal? currentRate, bool currentNilRated, bool newProduct = false)
+	public ProductTaxPromptWindow(string productName, string? currentHsn, decimal? currentRate, bool currentNilRated, bool newProduct = false, ProductTaxHints? hints = null)
 	{
 		InitializeComponent();
 		string missing = ProductTax.DescribeMissing(currentHsn, currentRate, currentNilRated) ?? "HSN code and GST rate";
@@ -29,6 +29,26 @@ public partial class ProductTaxPromptWindow : Window
 		// A stored 0% that was never marked Nil-rated is not a known rate, so it is not shown as one.
 		RateBox.Text = currentRate is > 0m ? currentRate.Value.ToString("0.##") : string.Empty;
 		NilRatedBox.IsChecked = currentNilRated;
+		// Why the HSN was chosen, and where an offered rate came from (with its date): editable, never hidden.
+		if (string.IsNullOrWhiteSpace(HsnBox.Text) && hints?.Hsn is { } hsn)
+		{
+			HsnBox.Text = hsn.Code;
+			HsnNote.Text = hsn.Reason;
+			HsnNote.Visibility = Visibility.Visible;
+		}
+		if (string.IsNullOrWhiteSpace(RateBox.Text) && !currentNilRated && hints?.Rate is { } remembered)
+		{
+			if (remembered.IsNilRated)
+			{
+				NilRatedBox.IsChecked = true;
+			}
+			else
+			{
+				RateBox.Text = remembered.Rate!.Value.ToString("0.##");
+			}
+			RateNote.Text = remembered.Label;
+			RateNote.Visibility = Visibility.Visible;
+		}
 		Loaded += (_, _) =>
 		{
 			if (string.IsNullOrWhiteSpace(HsnBox.Text))

@@ -23,6 +23,9 @@ public sealed class PhoneBillLineSnapshot
 
 	public decimal Gst { get; set; }
 
+	/// <summary>The HSN printed on the invoice line, when the scan read one.</summary>
+	public string? Hsn { get; set; }
+
 	public decimal Discount { get; set; }
 }
 

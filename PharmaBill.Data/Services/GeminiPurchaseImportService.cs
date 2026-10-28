@@ -58,7 +58,7 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 								+ "Extract the purchase bill. Return ONLY strict JSON (no markdown) with exactly these fields:\n"
 								+ "documentType (PURCHASE_INVOICE or PURCHASE_RETURN),\n"
 								+ "supplier, invoiceNo, invoiceDate (YYYY-MM-DD),\n"
-								+ "items (array of objects with: itemName, batch, expiry (MM/YYYY), quantity, free, mrp, rate, gst, amount),\n"
+								+ "items (array of objects with: itemName, hsn, batch, expiry (MM/YYYY), quantity, free, mrp, rate, gst, amount),\n"
 								+ "subtotal, grandTotal.\n"
 								+ "HEADER RULES:\n"
 								+ "- supplier = text under 'Seller (Wholesaler)' ONLY (e.g. 'M/s Example Pharma Distributors'). "
@@ -74,6 +74,8 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 								+ "- Rate is the Rate (Rs.) column (e.g. 180.00, 145.00). Amount = Qty × Rate when readable.\n"
 								+ "- Batch codes look like PCT2407, AMC2512, PAN2509, CET2601, AZI2603, MET2511.\n"
 								+ "- Mfg/Exp composites '07/25 - 06/27': expiry = SECOND date as MM/YYYY (06/2027).\n"
+								+ "- hsn = the HSN code printed on THAT row (digits only, e.g. 3004 or 30049099), or empty if the row shows none. Never copy one row's HSN to another.\n"
+								+ "- gst = the TOTAL GST % printed on THAT row (CGST + SGST, or IGST), e.g. 5, 12 or 18. Never the CGST half alone, never one rate for the whole bill; 0 if the row shows none.\n"
 								+ "- STOP before Taxable value / CGST / SGST / Grand total / Amount in words / Signatory.\n"
 								+ "- IGNORE Drug Licence, Form 20/21, GSTIN, Tax Invoice, Buyer box, Dummy/Training headers.\n"
 								+ "If a field is unreadable keep the row with batch \"NA\" or expiry \"\". Do not invent unseen medicines."
@@ -233,7 +235,10 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 				amount = decimal.Round(quantity * rate - discount, 2, MidpointRounding.AwayFromZero);
 			}
 
-			lines.Add(new ExtractedPurchaseLine(name.Trim(), batch.Trim(), expiry.Trim(), quantity, free, mrp, rate, gst, amount));
+			lines.Add(new ExtractedPurchaseLine(name.Trim(), batch.Trim(), expiry.Trim(), quantity, free, mrp, rate, gst, amount)
+			{
+				HsnCode = InvoiceLineTax.NormalizeHsn(ReadString(row, "hsn", "hsnCode", "hsn_code", "HSN", "hsnSac", "hsn_sac"))
+			});
 		}
 
 		return lines;
@@ -338,7 +343,7 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 			decimal free = raw.Free < 0m ? 0m : raw.Free;
 			decimal mrp = raw.Mrp < 0m ? 0m : raw.Mrp;
 			decimal rate = raw.Rate < 0m ? 0m : raw.Rate;
-			decimal gst = raw.Gst < 0m ? 0m : raw.Gst;
+			decimal gst = raw.Gst < 0m ? 0m : InvoiceLineTax.TotalRate(raw.Gst);
 			decimal amount = raw.Amount > 0m ? decimal.Round(raw.Amount, 2, MidpointRounding.AwayFromZero) : 0m;
 			if (rate > 0m && amount > 0m)
 			{
@@ -360,7 +365,11 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 			}
 
 			string expiry = NormalizeExpiryText(raw.Expiry);
-			items.Add(new ExtractedPurchaseLine(raw.ItemName.Trim(), batch, expiry, quantity, free, mrp, rate, gst, amount));
+			items.Add(new ExtractedPurchaseLine(raw.ItemName.Trim(), batch, expiry, quantity, free, mrp, rate, gst, amount)
+			{
+				ValidationWarning = raw.ValidationWarning,
+				HsnCode = InvoiceLineTax.NormalizeHsn(raw.HsnCode)
+			});
 		}
 
 		if (items.Count == 0)

@@ -332,6 +332,14 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 	}
 
 	/// <summary>True when <see cref="AddStockAsync"/> would create a new product, which then needs its HSN code and GST rate.</summary>
+	/// <summary>The HSN for a medicine from what it is (dosage form, pack, the short exception lists). See <see cref="HsnClassifier"/>.</summary>
+	public Task<HsnSuggestion?> ClassifyHsnAsync(Guid? drugId, Guid? catalogMedicineId, string? medicineName, CancellationToken cancellationToken = default(CancellationToken)) =>
+		new ProductTaxService(unitOfWork.Context).ClassifyHsnAsync(drugId, catalogMedicineId, medicineName, cancellationToken);
+
+	/// <summary>The most recent GST rate recorded for this medicine or its salt, offered as "same as last time" (dated; never before the 2025 cut).</summary>
+	public Task<RememberedRate?> LastRecordedRateAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken)) =>
+		new ProductTaxService(unitOfWork.Context).LastRecordedRateAsync(drugId, catalogMedicineId, cancellationToken);
+
 	public async Task<bool> WouldCreateProductAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		return !drugId.HasValue && !(await FindDrugIdAsync(catalogMedicineId, cancellationToken)).HasValue;

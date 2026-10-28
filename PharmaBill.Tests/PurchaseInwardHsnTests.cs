@@ -81,7 +81,7 @@ public sealed class PurchaseInwardHsnTests
             // 2. An older medicine with no HSN on record: the same box completes its master record.
             page.SelectMedicineSuggestion(PurchaseMedicinePickerItem.FromLocalDrug(older));
             await Ui.SettleAsync();
-            Assert.Equal(string.Empty, hsn.Text);
+            await Ui.UntilAsync(() => hsn.Text == "3004", "the HSN from its dosage form (syrup)");
             await FillAndAddAsync(string.Empty);
             Assert.Contains("HSN", page.NewItemError);
             Assert.Single(page.Lines);

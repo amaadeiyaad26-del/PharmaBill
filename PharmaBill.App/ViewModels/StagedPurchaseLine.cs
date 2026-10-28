@@ -29,6 +29,9 @@ public sealed class StagedPurchaseLine : ObservableObject
 
 	public Drug? Drug { get; set; }
 
+	/// <summary>The HSN printed on the invoice line, when the scan read one.</summary>
+	public string? HsnCode { get; set; }
+
 	public string ItemName
 	{
 		get => _itemName;

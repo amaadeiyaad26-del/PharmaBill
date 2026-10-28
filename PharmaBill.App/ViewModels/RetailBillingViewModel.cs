@@ -3151,7 +3151,8 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 	/// </summary>
 	private async Task<bool> PromptMissingTaxAsync(RetailBillLineViewModel line)
 	{
-		ProductTaxPromptResult? entered = ResolvePrompt().AskProductTax(line.DrugName, line.Choice.HsnCode, line.Choice.GstRate, line.Choice.IsNilRated);
+		ProductTaxHints hints = await ProductTaxHintLoader.LoadAsync(scopeFactory, line.Choice.DrugId, line.Choice.HsnCode, line.Choice.GstRate, line.Choice.IsNilRated);
+		ProductTaxPromptResult? entered = ResolvePrompt().AskProductTax(line.DrugName, line.Choice.HsnCode, line.Choice.GstRate, line.Choice.IsNilRated, hints: hints);
 		if (entered == null)
 		{
 			StatusMessage = line.DrugName + ": " + line.MissingTaxText;

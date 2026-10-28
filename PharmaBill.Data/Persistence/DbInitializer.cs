@@ -14,6 +14,9 @@ public sealed class DbInitializer(
 	DatabaseStorageOptions storageOptions,
 	DatabaseEncryptionKeyProvider? keyProvider = null)
 {
+	/// <summary>What the one-time HSN pass did on the last database initialised this process, for the startup log.</summary>
+	public static Services.CatalogHsnPassResult? LastCatalogHsnPass { get; private set; }
+
 	/// <summary>Where the last empty database file was moved this process, for the startup log. Null when none was.</summary>
 	public static string? LastQuarantinedEmptyDatabase { get; private set; }
 
@@ -53,6 +56,16 @@ public sealed class DbInitializer(
 		try
 		{
 			await BuyerTypeRemapping.NormalizeExistingAsync(context, cancellationToken);
+		}
+		catch (Exception)
+		{
+			// Retried on the next launch.
+		}
+
+		// Once per database: 3004 on products with no HSN whose dosage form clearly makes them a medicament (audited).
+		try
+		{
+			LastCatalogHsnPass = await new Services.CatalogHsnPass(context).RunOnceAsync(cancellationToken: cancellationToken);
 		}
 		catch (Exception)
 		{

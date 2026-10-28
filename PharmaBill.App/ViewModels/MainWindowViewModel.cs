@@ -1573,6 +1573,11 @@ public partial class MainWindowViewModel : ObservableObject
 			// Non-blocking: the app has started on a fresh database; say where the old one went so records are not presumed lost.
 			WelcomeStatusLine = "The previous database could not be opened and was archived as " + System.IO.Path.GetFileName(archived) + " in the data folder. Contact support to recover its records.";
 		}
+		else if (PharmaBill.Data.Persistence.DbInitializer.LastCatalogHsnPass is { AlreadyRun: false, Examined: > 0 } hsnPass)
+		{
+			// Shown once, on the launch the one-time HSN pass ran.
+			WelcomeStatusLine = hsnPass.Summary;
+		}
 		ShowWelcomeToast = true;
 		_ = AutoDismissWelcomeToastAsync();
 	}

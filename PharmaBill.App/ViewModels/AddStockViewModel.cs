@@ -15,7 +15,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public sealed class AddStockViewModel : ObservableObject
+public sealed partial class AddStockViewModel : ObservableObject
 {
 	private static readonly string[] ExpiryFormats =
 	[
@@ -402,6 +402,7 @@ public sealed class AddStockViewModel : ObservableObject
 				OnPropertyChanging(nameof(GstText));
 				_gstText = value;
 				OnPropertyChanged(nameof(GstText));
+				OnPropertyChanged(nameof(GstHint));
 			}
 		}
 	}
@@ -862,6 +863,7 @@ public sealed class AddStockViewModel : ObservableObject
 				string text = await service.SuggestScheduleAsync(DrugId, CatalogMedicineId, MedicineName);
 				ScheduleHint = ((text == null) ? "Choose the schedule from the pack label" : ("Suggested: " + text + ". Please choose to confirm."));
 			}
+			await LoadTaxDefaultsAsync(service);
 			decimal? num = await service.SuggestMrpAsync(DrugId, CatalogMedicineId);
 			if (num.HasValue && string.IsNullOrWhiteSpace(MrpText))
 			{
@@ -1026,7 +1028,7 @@ public sealed class AddStockViewModel : ObservableObject
 		TryAmount(FreeQuantityText, out var value4);
 		TryAmount(PackSizeText, out var value5);
 		TryAmount(GstText, out var value6);
-		return new AddStockInput(DrugId, CatalogMedicineId, MedicineName.Trim(), string.IsNullOrWhiteSpace(Composition) ? null : Composition.Trim(), string.IsNullOrWhiteSpace(Manufacturer) ? null : Manufacturer.Trim(), Schedule, BatchNo.Trim(), lastDay, value, value2, value3, value4, value5, value6, SelectedSupplier.Id, SupplierInvoiceNo.Trim(), DateOnly.FromDateTime(InvoiceDate.Value), string.IsNullOrWhiteSpace(Rack) ? null : Rack.Trim());
+		return new AddStockInput(DrugId, CatalogMedicineId, MedicineName.Trim(), string.IsNullOrWhiteSpace(Composition) ? null : Composition.Trim(), string.IsNullOrWhiteSpace(Manufacturer) ? null : Manufacturer.Trim(), Schedule, BatchNo.Trim(), lastDay, value, value2, value3, value4, value5, value6, SelectedSupplier.Id, SupplierInvoiceNo.Trim(), DateOnly.FromDateTime(InvoiceDate.Value), string.IsNullOrWhiteSpace(Rack) ? null : Rack.Trim(), EnteredHsn);
 	}
 
 	public static bool TryParseExpiry(string text, out DateOnly lastDay)

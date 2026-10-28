@@ -52,7 +52,11 @@
           <controls:FloatingField x:Name="Field_PackSize" Label="Pack size (units per pack)" Margin="0,0,0,10" ErrorText="{Binding PackSizeError}">
             <TextBox Text="{Binding PackSizeText, UpdateSourceTrigger=PropertyChanged}" />
           </controls:FloatingField>
-          <controls:FloatingField x:Name="Field_Gst" Label="GST %" Margin="0,0,0,10" ErrorText="{Binding GstError}">
+          <controls:FloatingField x:Name="Field_Hsn" Label="HSN code" Margin="0,0,0,10" HelperText="{Binding HsnHint}"
+                                  Visibility="{Binding IsNewProduct, Converter={StaticResource FieldBoolToVisibility}}">
+            <TextBox Text="{Binding HsnText, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="HSN code" />
+          </controls:FloatingField>
+          <controls:FloatingField x:Name="Field_Gst" Label="GST %" Margin="0,0,0,10" ErrorText="{Binding GstError}" HelperText="{Binding GstHint}">
             <TextBox Text="{Binding GstText, UpdateSourceTrigger=PropertyChanged}" />
           </controls:FloatingField>
           <DockPanel Margin="0,0,0,10">
