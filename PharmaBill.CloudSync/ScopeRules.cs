@@ -8,7 +8,7 @@ public static class ScopeRules
 {
     private static readonly HashSet<string> GlobalEntities = new(StringComparer.Ordinal)
     {
-        "Drug", "Supplier", "Customer", "CustomerLicence", "ScheduleOverride", "LicenceRecord"
+        "Drug", "Supplier", "Customer", "CustomerLicence", "CustomerNote", "ScheduleOverride", "LicenceRecord"
     };
 
     public static bool IsGlobal(string entity) => GlobalEntities.Contains(entity);

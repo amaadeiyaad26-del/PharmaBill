@@ -200,7 +200,7 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 	private AsyncRelayCommand? exportStatementCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand<CustomerAgeing?>? openWhatsAppReminderCommand;
+	private RelayCommand<DueRow?>? openWhatsAppReminderCommand;
 
 	private RelayCommand? autoFillOutstandingCommand;
 
@@ -360,6 +360,7 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 				OnPropertyChanging(nameof(PaymentMethod));
 				_paymentMethod = value;
 				OnPropertyChanged(nameof(PaymentMethod));
+				OnPropertyChanged(nameof(IsChequePayment));
 			}
 		}
 	}
@@ -745,11 +746,11 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand ExportStatementCommand => exportStatementCommand ?? (exportStatementCommand = new AsyncRelayCommand(ExportStatementAsync));
+	public IAsyncRelayCommand ExportStatementCommand => exportStatementCommand ?? (exportStatementCommand = new AsyncRelayCommand(ExportAccountStatementAsync));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IRelayCommand<CustomerAgeing?> OpenWhatsAppReminderCommand => openWhatsAppReminderCommand ?? (openWhatsAppReminderCommand = new RelayCommand<CustomerAgeing>(OpenWhatsAppReminder));
+	public IRelayCommand<DueRow?> OpenWhatsAppReminderCommand => openWhatsAppReminderCommand ?? (openWhatsAppReminderCommand = new RelayCommand<DueRow?>(OpenWhatsAppReminder));
 
 	public IRelayCommand AutoFillOutstandingCommand => autoFillOutstandingCommand ?? (autoFillOutstandingCommand = new RelayCommand(AutoFillOutstanding));
 
@@ -819,9 +820,9 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 
 	private async Task RecordReceiptAsync()
 	{
-		if (SelectedCustomer == null || !decimal.TryParse(ReceiptAmount, NumberStyles.Number, CultureInfo.CurrentCulture, out var result))
+		if (SelectedCustomer == null || !decimal.TryParse(ReceiptAmount, NumberStyles.Number, CultureInfo.CurrentCulture, out var result) || result <= 0m)
 		{
-			ErrorMessage = "Select a customer and enter a valid receipt amount.";
+			ReceiptError = SelectedCustomer == null ? "Select a customer first." : "Enter the amount received, for example 500.";
 			return;
 		}
 		try
@@ -829,13 +830,15 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 			using IServiceScope scope = _scopeFactory.CreateScope();
 			await scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>().RecordReceiptAsync(SelectedCustomer.Id, SelectedInvoice?.Id, result, PaymentMethod, ReceiptReference, ChequeNumber, ChequeDate.HasValue ? new DateOnly?(DateOnly.FromDateTime(ChequeDate.Value)) : ((DateOnly?)null), BankName, (_session.User ?? throw new UnauthorizedAccessException("Sign in before recording receipts.")).Id);
 			ReceiptAmount = string.Empty;
-			ErrorMessage = string.Empty;
-			StatusMessage = "Receipt saved and allocated.";
+			ReceiptReference = string.Empty;
+			ReceiptError = string.Empty;
+			StatusMessage = $"Payment of {MoneyFormat.Rupees(result)} received from {SelectedCustomer.Name}.";
 			await ReloadAsync();
+			await LoadAccountAsync(SelectedCustomer.Id);
 		}
 		catch (Exception ex) when ((ex is InvalidOperationException || ex is UnauthorizedAccessException) ? true : false)
 		{
-			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			ReceiptError = PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
 
@@ -871,51 +874,22 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 		}
 	}
 
-	private async Task ExportStatementAsync()
+	private void OpenWhatsAppReminder(DueRow? row)
 	{
-		if (SelectedCustomer == null)
+		if (row == null)
 		{
-			ErrorMessage = "Select a customer before exporting a statement.";
 			return;
 		}
-		string destination = _filePicker.PickExportDestination("pdf", "Statement-" + SelectedCustomer.Name);
-		if (destination != null)
+		if (!row.HasPhone)
 		{
-			IReadOnlyList<string>[] rows = ((IEnumerable<LedgerRow>)CustomerLedger).Select((Func<LedgerRow, IReadOnlyList<string>>)((LedgerRow row) => new _003C_003Ez__ReadOnlyArray<string>(new string[7]
-			{
-				(row.EntryAtUtc == DateTime.MinValue) ? "Opening balance" : row.EntryAtUtc.ToBusinessLocal().ToString("dd-MMM-yyyy"),
-				row.EntryType,
-				row.ReferenceNo ?? string.Empty,
-				row.Debit.ToString("0.00"),
-				row.Credit.ToString("0.00"),
-				row.Balance.ToString("0.00"),
-				row.Notes ?? string.Empty
-			}))).ToArray();
-			await _exports.ExportAsync(destination, "Party statement: " + SelectedCustomer.Name, new _003C_003Ez__ReadOnlyArray<string>(new string[7] { "Date", "Type", "Reference", "Debit", "Credit", "Balance", "Notes" }), rows);
-			StatusMessage = destination;
-			ErrorMessage = string.Empty;
-		}
-	}
-
-	private void OpenWhatsAppReminder(CustomerAgeing? customer)
-	{
-		if ((object)customer == null || string.IsNullOrWhiteSpace(customer.Phone))
-		{
-			ErrorMessage = "The selected party has no phone number for a WhatsApp reminder.";
+			SelectedDue = row;
+			AddPhoneCommand.Execute(null);
 			return;
 		}
-		string text = new string(customer.Phone.Where(char.IsDigit).ToArray());
-		if (text.Length < 8)
-		{
-			ErrorMessage = "The party phone number is not valid for a WhatsApp reminder.";
-			return;
-		}
-		string text2 = Uri.EscapeDataString($"Dear {customer.CustomerName}, our records show an outstanding balance of {MoneyFormat.Rupees(customer.Total)}. Please contact us to reconcile your account.");
-		Process.Start(new ProcessStartInfo("https://wa.me/" + text + "?text=" + text2)
-		{
-			UseShellExecute = true
-		});
-		ErrorMessage = string.Empty;
+		string digits = new string(row.Ageing.Phone!.Where(char.IsDigit).ToArray());
+		string text = Uri.EscapeDataString($"Dear {row.CustomerName}, our records show an outstanding balance of {MoneyFormat.Rupees(row.Total)}. Please contact us to settle your account.");
+		OpenUrl("https://wa.me/" + (digits.Length == 10 ? "91" + digits : digits) + "?text=" + text);
+		StatusMessage = "WhatsApp opened with a reminder for " + row.CustomerName + ".";
 	}
 
 	private async Task LoadCustomerAsync(Guid customerId)
@@ -971,11 +945,7 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		WholesaleAccountsService accounts = scope.ServiceProvider.GetRequiredService<WholesaleAccountsService>();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
-		Ageing.Clear();
-		foreach (CustomerAgeing item in await accounts.GetAgeingAsync(BusinessClock.Today, cancellationToken))
-		{
-			Ageing.Add(item);
-		}
+		await ReloadDuesAsync(cancellationToken);
 		CashBankBook.Clear();
 		foreach (CashBankBookRow item2 in await accounts.GetCashBankBookAsync(BusinessClock.Today.StartOfDayUtc(), BusinessClock.Today.AddDays(1).StartOfDayUtc(), cancellationToken))
 		{
@@ -1221,6 +1191,7 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 		{
 			_ = LoadCustomerAsync(value.Id);
 		}
+		OnCustomerSelectedForAccount(value);
 	}
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]

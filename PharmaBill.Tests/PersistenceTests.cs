@@ -98,9 +98,9 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_SupplierPaymentAllocations",
+            "_CustomerNotes",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
-        Assert.Equal(52, database.Context.Model.GetEntityTypes().Count());
+        Assert.Equal(53, database.Context.Model.GetEntityTypes().Count());
 
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using (var command = database.Connection.CreateCommand())

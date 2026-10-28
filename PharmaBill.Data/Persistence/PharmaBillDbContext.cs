@@ -94,6 +94,8 @@ public sealed class PharmaBillDbContext : DbContext
 
 	public DbSet<CustomerLedgerEntry> CustomerLedgerEntries => Set<CustomerLedgerEntry>();
 
+	public DbSet<CustomerNote> CustomerNotes => Set<CustomerNote>();
+
 	public DbSet<SupplierLedgerEntry> SupplierLedgerEntries => Set<SupplierLedgerEntry>();
 
 	public DbSet<SupplierPaymentAllocation> SupplierPaymentAllocations => Set<SupplierPaymentAllocation>();
@@ -207,6 +209,8 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<StockTransfer>().HasIndex((StockTransfer item) => item.TransferDate);
 		modelBuilder.Entity<StockTransferItem>().HasIndex((StockTransferItem item) => item.StockTransferId);
 		modelBuilder.Entity<CustomerLedgerEntry>().HasIndex((CustomerLedgerEntry item) => item.EntryAtUtc);
+		modelBuilder.Entity<CustomerNote>().HasIndex((CustomerNote item) => new { item.CustomerId, item.CreatedAtUtc });
+		modelBuilder.Entity<CustomerNote>().Property((CustomerNote item) => item.Text).HasMaxLength(2000);
 		modelBuilder.Entity<SupplierLedgerEntry>().HasIndex((SupplierLedgerEntry item) => item.EntryAtUtc);
 		modelBuilder.Entity<ReturnNote>().HasIndex((ReturnNote item) => item.ReturnNo);
 		modelBuilder.Entity<ReturnNote>().HasIndex((ReturnNote item) => item.ReturnAtUtc);

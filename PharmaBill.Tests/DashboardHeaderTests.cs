@@ -84,7 +84,11 @@ public sealed class DashboardHeaderTests
                 Assert.DoesNotContain(Descendants(host).OfType<Button>(), b => b.Content as string == "Sync Station" || (b.CommandParameter as string) == "Sync");
                 host.Close();
             }
-            Assert.DoesNotContain(trace.Lines, l => l.Contains("UpdateButton") || l.Contains("IsUpdateAvailable") || l.Contains("CheckForUpdatesCommand"));
+            // A real binding error on the update button (a wrong property, a failed conversion). WPF's "cannot find source"
+            // for RelativeSource AncestorType=Window is not one: it is reported, process-wide, while a template is built
+            // before it is in a window, and the binding resolves once it is (as asserted above). BindingErrorWatch skips it too.
+            Assert.DoesNotContain(trace.Lines, l => (l.Contains("UpdateButton") || l.Contains("IsUpdateAvailable") || l.Contains("CheckForUpdatesCommand"))
+                && !l.Contains("AncestorType='System.Windows.Window'", StringComparison.Ordinal));
             PresentationTraceSources.DataBindingSource.Listeners.Remove(trace);
         });
     }

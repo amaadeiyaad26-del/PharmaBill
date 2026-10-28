@@ -1358,77 +1358,343 @@
             <TabItem Header="{Binding CustomerAccountsTabHeader}">
               <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,8,0,0">
                 <StackPanel>
-                  <Border Padding="12" CornerRadius="8" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" Margin="0,0,0,12">
+                  <StackPanel.Resources>
+                    <Style x:Key="AccNum" TargetType="{x:Type TextBlock}">
+                      <Setter Property="HorizontalAlignment" Value="Right" />
+                      <Setter Property="Margin" Value="0,0,6,0" />
+                    </Style>
+                    <Style x:Key="AccCaption" TargetType="{x:Type TextBlock}">
+                      <Setter Property="FontSize" Value="11" />
+                      <Setter Property="FontWeight" Value="SemiBold" />
+                      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                    </Style>
+                    <Style x:Key="AccCard" TargetType="{x:Type Border}">
+                      <Setter Property="Padding" Value="16" />
+                      <Setter Property="CornerRadius" Value="10" />
+                      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+                      <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+                      <Setter Property="BorderThickness" Value="1" />
+                      <Setter Property="Margin" Value="0,0,0,12" />
+                    </Style>
+                    <Style x:Key="AccEmpty" TargetType="{x:Type TextBlock}">
+                      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                      <Setter Property="TextWrapping" Value="Wrap" />
+                      <Setter Property="Margin" Value="4,14" />
+                      <Setter Property="FontSize" Value="13" />
+                    </Style>
+                    <Style x:Key="AccAgeChip" TargetType="{x:Type Border}">
+                      <Setter Property="Padding" Value="10,6" />
+                      <Setter Property="Margin" Value="0,0,8,0" />
+                      <Setter Property="CornerRadius" Value="8" />
+                      <Setter Property="BorderThickness" Value="1" />
+                      <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+                      <Setter Property="MinWidth" Value="96" />
+                    </Style>
+                  </StackPanel.Resources>
+
+                  <!-- Customers with dues: selecting one opens their account below. -->
+                  <Border Style="{StaticResource AccCard}">
                     <StackPanel>
-                      <TextBlock Text="{Binding CustomerPaymentSectionTitle}" FontWeight="SemiBold" FontSize="15" />
-                      <WrapPanel Margin="0,10,0,0">
-                        <StackPanel Width="220" Margin="0,0,10,8">
-                          <TextBlock Text="{Binding CustomerPickerLabel}" FontSize="12" Margin="0,0,0,4" />
-                          <ComboBox DisplayMemberPath="Name" Padding="6" ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}" />
+                      <DockPanel Margin="0,0,0,8">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                          <TextBlock Text="Open any customer" Style="{StaticResource AccCaption}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                          <ComboBox Width="240" Padding="6" DisplayMemberPath="Name" ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}"
+                                    AutomationProperties.Name="Open customer account" />
                         </StackPanel>
-                        <StackPanel Width="180" Margin="0,0,10,8" Visibility="{Binding IsWholesaleMode, Converter={StaticResource BooleanToVisibilityConverter}}">
-                          <TextBlock Text="Invoice (optional)" FontSize="12" Margin="0,0,0,4" />
-                          <ComboBox DisplayMemberPath="InvoiceNo" Padding="6" ItemsSource="{Binding UnpaidInvoices}" SelectedItem="{Binding SelectedInvoice}" />
+                        <StackPanel>
+                          <TextBlock Text="Customers with dues" FontSize="15" FontWeight="SemiBold" />
+                          <TextBlock Text="Select a row to open the account." Style="{StaticResource AccCaption}" Margin="0,2,0,0" />
                         </StackPanel>
-                        <StackPanel Width="120" Margin="0,0,10,8">
-                          <TextBlock Text="Payment Mode" FontSize="12" Margin="0,0,0,4" />
-                          <ComboBox Padding="5" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" />
-                        </StackPanel>
-                        <StackPanel Width="120" Margin="0,0,10,8">
-                          <TextBlock Text="Amount (₹)" FontSize="12" Margin="0,0,0,4" />
-                          <TextBox Padding="6" Text="{Binding Path=ReceiptAmount, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
-                        <StackPanel Width="150" Margin="0,0,10,8">
-                          <TextBlock Text="Reference" FontSize="12" Margin="0,0,0,4" />
-                          <TextBox Padding="6" Text="{Binding Path=ReceiptReference, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
-                        <StackPanel Width="130" Margin="0,0,10,8">
-                          <TextBlock Text="Cheque No." FontSize="12" Margin="0,0,0,4" />
-                          <TextBox Padding="6" Text="{Binding Path=ChequeNumber, UpdateSourceTrigger=PropertyChanged}" />
-                        </StackPanel>
-                        <StackPanel Width="140" Margin="0,0,10,8">
-                          <TextBlock Text="Date" FontSize="12" Margin="0,0,0,4" />
-                          <DatePicker SelectedDate="{Binding ChequeDate}" />
-                        </StackPanel>
-                        <Button Height="36" Margin="0,18,0,8" Padding="14,6" Style="{StaticResource FrostedMintPillButton}" Command="{Binding RecordReceiptCommand}" Content="{Binding CustomerPaymentSaveLabel}" />
-                        <Button Content="Export statement PDF" Height="36" Margin="8,18,0,8" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding ExportStatementCommand}" />
-                      </WrapPanel>
+                      </DockPanel>
+                      <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" SelectionMode="Single" MaxHeight="230"
+                                ItemsSource="{Binding Dues}" SelectedItem="{Binding SelectedDue}" AutomationProperties.Name="Customers with dues"
+                                Visibility="{Binding HasDues, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <DataGrid.Resources>
+                          <controls:BindingProxy x:Key="AgeingProxy" Data="{Binding}" />
+                        </DataGrid.Resources>
+                        <DataGrid.Columns>
+                          <DataGridTextColumn Header="{Binding Data.AgeingPartyHeader, Source={StaticResource AgeingProxy}}" Binding="{Binding CustomerName, Mode=OneWay}" Width="*" MinWidth="160" />
+                          <DataGridTextColumn Header="0-30" Binding="{Binding Current0To30, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="80" ElementStyle="{StaticResource AccNum}" />
+                          <DataGridTextColumn Header="31-60" Binding="{Binding Days31To60, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="80" ElementStyle="{StaticResource AccNum}" />
+                          <DataGridTextColumn Header="61-90" Binding="{Binding Days61To90, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="80" ElementStyle="{StaticResource AccNum}" />
+                          <DataGridTextColumn Header="90+" Binding="{Binding Over90, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="80" ElementStyle="{StaticResource AccNum}" />
+                          <DataGridTextColumn Header="Total" Binding="{Binding Total, StringFormat=N2, Mode=OneWay}" Width="Auto" MinWidth="96" FontWeight="SemiBold" ElementStyle="{StaticResource AccNum}" />
+                          <DataGridTemplateColumn Header="Reminder" Width="Auto" MinWidth="110">
+                            <DataGridTemplateColumn.CellTemplate>
+                              <DataTemplate>
+                                <Button Content="WhatsApp" Padding="10,2" Margin="2" IsEnabled="{Binding HasPhone}" ToolTip="{Binding WhatsAppToolTip}" ToolTipService.ShowOnDisabled="True"
+                                        AutomationProperties.Name="{Binding CustomerName, StringFormat=WhatsApp reminder for {0}}"
+                                        Command="{Binding DataContext.OpenWhatsAppReminderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                              </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                          </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                      </DataGrid>
+                      <TextBlock Style="{StaticResource AccEmpty}" Text="No customer owes anything right now. Credit bills appear here with their ageing; use “Open any customer” to see a settled account."
+                                 Visibility="{Binding HasDues, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
                     </StackPanel>
                   </Border>
-                  <TextBlock Text="Account ledger" FontWeight="SemiBold" Margin="0,0,0,6" />
-                  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" MinHeight="160" MaxHeight="240" Margin="0,0,0,12" HeadersVisibility="Column" ItemsSource="{Binding CustomerLedger}">
-                    <DataGrid.Columns>
-                      <DataGridTextColumn Header="Date (UTC)" Width="Auto" MinWidth="140" Binding="{Binding EntryAtUtc, StringFormat='{}{0:dd-MMM-yyyy HH:mm}'}" />
-                      <DataGridTextColumn Header="Type" Width="Auto" MinWidth="120" Binding="{Binding EntryType}" />
-                      <DataGridTextColumn Header="Reference" Width="Auto" MinWidth="110" Binding="{Binding ReferenceNo}" />
-                      <DataGridTextColumn Header="Debit" Width="Auto" MinWidth="90" Binding="{Binding Debit, StringFormat=N2}" />
-                      <DataGridTextColumn Header="Credit" Width="Auto" MinWidth="90" Binding="{Binding Credit, StringFormat=N2}" />
-                      <DataGridTextColumn Header="Balance" Width="Auto" MinWidth="100" Binding="{Binding Balance, StringFormat=N2}" />
-                      <DataGridTextColumn Header="Notes" Width="*" MinWidth="120" Binding="{Binding Notes}" />
-                    </DataGrid.Columns>
-                  </DataGrid>
-                  <TextBlock Text="Outstanding / ageing" FontWeight="SemiBold" Margin="0,0,0,6" />
-                  <DataGrid AutoGenerateColumns="False" IsReadOnly="True" MinHeight="140" ItemsSource="{Binding Ageing}">
-                    <!-- Column headers are not in the visual tree, so they reach the page through a proxy, not RelativeSource. -->
-                    <DataGrid.Resources>
-                      <controls:BindingProxy x:Key="AgeingProxy" Data="{Binding}" />
-                    </DataGrid.Resources>
-                    <DataGrid.Columns>
-                      <DataGridTextColumn Header="{Binding Data.AgeingPartyHeader, Source={StaticResource AgeingProxy}}" Binding="{Binding CustomerName}" Width="*" MinWidth="140" />
-                      <DataGridTextColumn Header="0-30" Binding="{Binding Current0To30}" Width="Auto" MinWidth="70" />
-                      <DataGridTextColumn Header="31-60" Binding="{Binding Days31To60}" Width="Auto" MinWidth="70" />
-                      <DataGridTextColumn Header="61-90" Binding="{Binding Days61To90}" Width="Auto" MinWidth="70" />
-                      <DataGridTextColumn Header="90+" Binding="{Binding Over90}" Width="Auto" MinWidth="70" />
-                      <DataGridTextColumn Header="Total" Binding="{Binding Total}" Width="Auto" MinWidth="80" />
-                      <DataGridTemplateColumn Header="Reminder" Width="Auto" MinWidth="100">
-                        <DataGridTemplateColumn.CellTemplate>
-                          <DataTemplate>
-                            <Button Content="WhatsApp" Command="{Binding DataContext.OpenWhatsAppReminderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
-                          </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                      </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                  </DataGrid>
+
+                  <!-- Nothing selected yet. -->
+                  <Border Style="{StaticResource AccCard}" Visibility="{Binding HasNoAccount, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock Style="{StaticResource AccEmpty}" Margin="4" Text="Select a customer above to open their account: balance, ageing, every bill, payment and return, and notes." />
+                  </Border>
+
+                  <!-- The account. -->
+                  <Border Style="{StaticResource AccCard}" Visibility="{Binding HasAccount, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Customer account">
+                    <StackPanel>
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                          <TextBlock Text="{Binding AccountName}" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                          <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="{Binding PhoneText}" Foreground="{DynamicResource SecondaryTextBrush}" AutomationProperties.Name="Customer phone" />
+                            <TextBlock Text="  ·  " Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding CreditTermsText}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                          </StackPanel>
+                          <!-- Add / change the phone number right here. -->
+                          <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Visibility="{Binding IsAddingPhone, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBox Width="180" Padding="6" Text="{Binding NewPhone, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="New phone number" />
+                            <Button Content="Save phone" Margin="8,0,0,0" Padding="12,4" Style="{StaticResource PrimaryButton}" Command="{Binding SavePhoneCommand}" />
+                            <Button Content="Cancel" Margin="6,0,0,0" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding CancelPhoneCommand}" />
+                          </StackPanel>
+                          <TextBlock Text="{Binding PhoneError}" Foreground="#FFB42318" TextWrapping="Wrap" Margin="0,4,0,0" AutomationProperties.Name="Phone problem" />
+                          <!-- Ageing of what is owed. -->
+                          <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Border Style="{StaticResource AccAgeChip}">
+                              <StackPanel>
+                                <TextBlock Text="0-30 DAYS" Style="{StaticResource AccCaption}" />
+                                <TextBlock Text="{Binding Ageing0To30Text}" FontWeight="SemiBold" AutomationProperties.Name="Ageing 0-30" />
+                              </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource AccAgeChip}">
+                              <StackPanel>
+                                <TextBlock Text="31-60 DAYS" Style="{StaticResource AccCaption}" />
+                                <TextBlock Text="{Binding Ageing31To60Text}" FontWeight="SemiBold" AutomationProperties.Name="Ageing 31-60" />
+                              </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource AccAgeChip}">
+                              <StackPanel>
+                                <TextBlock Text="61-90 DAYS" Style="{StaticResource AccCaption}" />
+                                <TextBlock Text="{Binding Ageing61To90Text}" FontWeight="SemiBold" AutomationProperties.Name="Ageing 61-90" />
+                              </StackPanel>
+                            </Border>
+                            <Border AutomationProperties.Name="Ageing over 90 chip">
+                              <Border.Style>
+                                <Style TargetType="{x:Type Border}" BasedOn="{StaticResource AccAgeChip}">
+                                  <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasOver90}" Value="True">
+                                      <Setter Property="Background" Value="#FFFEF3F2" />
+                                      <Setter Property="BorderBrush" Value="#FFFECDCA" />
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </Border.Style>
+                              <StackPanel>
+                                <TextBlock Text="90+ DAYS" Style="{StaticResource AccCaption}" />
+                                <TextBlock Text="{Binding AgeingOver90Text}" FontWeight="SemiBold" AutomationProperties.Name="Ageing 90+" />
+                              </StackPanel>
+                            </Border>
+                          </StackPanel>
+                        </StackPanel>
+                        <!-- The headline: what this customer owes. -->
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" Margin="24,0,0,0">
+                          <TextBlock Text="{Binding OutstandingCaption}" Style="{StaticResource AccCaption}" HorizontalAlignment="Right" />
+                          <TextBlock Text="{Binding OutstandingText}" FontSize="36" FontWeight="Bold" HorizontalAlignment="Right" AutomationProperties.Name="Outstanding balance">
+                            <TextBlock.Style>
+                              <Style TargetType="{x:Type TextBlock}">
+                                <Setter Property="Foreground" Value="#FF067647" />
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsOwing}" Value="True">
+                                    <Setter Property="Foreground" Value="#FFB42318" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
+                          <TextBlock Text="{Binding CreditLimitText}" HorizontalAlignment="Right" Margin="0,2,0,0" AutomationProperties.Name="Credit limit"
+                                     Visibility="{Binding HasCreditLimit, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock.Style>
+                              <Style TargetType="{x:Type TextBlock}">
+                                <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsOverLimit}" Value="True">
+                                    <Setter Property="Foreground" Value="#FFB42318" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
+                        </StackPanel>
+                      </Grid>
+
+                      <!-- Actions, always in reach. -->
+                      <Border Margin="0,14,0,0" Padding="12" CornerRadius="8" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+                        <StackPanel>
+                          <WrapPanel>
+                            <StackPanel Width="120" Margin="0,0,10,6">
+                              <TextBlock Text="Amount (₹)" Style="{StaticResource AccCaption}" Margin="0,0,0,4" />
+                              <TextBox Padding="6" Text="{Binding ReceiptAmount, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Amount received" />
+                            </StackPanel>
+                            <StackPanel Width="120" Margin="0,0,10,6">
+                              <TextBlock Text="Payment mode" Style="{StaticResource AccCaption}" Margin="0,0,0,4" />
+                              <ComboBox Padding="5" ItemsSource="{Binding PaymentMethods}" SelectedItem="{Binding PaymentMethod}" AutomationProperties.Name="Payment mode" />
+                            </StackPanel>
+                            <StackPanel Width="150" Margin="0,0,10,6">
+                              <TextBlock Text="Reference (UPI / txn no.)" Style="{StaticResource AccCaption}" Margin="0,0,0,4" />
+                              <TextBox Padding="6" Text="{Binding ReceiptReference, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Payment reference" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding IsChequePayment, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <StackPanel Width="120" Margin="0,0,10,6">
+                                <TextBlock Text="Cheque no." Style="{StaticResource AccCaption}" Margin="0,0,0,4" />
+                                <TextBox Padding="6" Text="{Binding ChequeNumber, UpdateSourceTrigger=PropertyChanged}" />
+                              </StackPanel>
+                              <StackPanel Width="140" Margin="0,0,10,6">
+                                <TextBlock Text="Cheque date" Style="{StaticResource AccCaption}" Margin="0,0,0,4" />
+                                <DatePicker SelectedDate="{Binding ChequeDate}" />
+                              </StackPanel>
+                              <StackPanel Width="140" Margin="0,0,10,6">
+                                <TextBlock Text="Bank" Style="{StaticResource AccCaption}" Margin="0,0,0,4" />
+                                <TextBox Padding="6" Text="{Binding BankName, UpdateSourceTrigger=PropertyChanged}" />
+                              </StackPanel>
+                            </StackPanel>
+                            <Button Height="36" Margin="0,16,16,6" Padding="16,6" Style="{StaticResource PrimaryButton}" Command="{Binding RecordReceiptCommand}" Content="Receive Payment" />
+                            <Border Width="1" Margin="0,16,16,6" Background="{DynamicResource DividerBrush}" />
+                            <Button Content="Export statement PDF" Height="36" Margin="0,16,8,6" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding ExportStatementCommand}" />
+                            <Button Content="WhatsApp reminder" Height="36" Margin="0,16,8,6" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding SendReminderCommand}"
+                                    ToolTip="{Binding WhatsAppToolTip}" ToolTipService.ShowOnDisabled="True" />
+                            <Button Content="{Binding AddPhoneLabel}" Height="36" Margin="0,16,0,6" Padding="12,6" Style="{StaticResource SecondaryButton}" Command="{Binding AddPhoneCommand}"
+                                    AutomationProperties.Name="Add phone number" />
+                          </WrapPanel>
+                          <TextBlock Text="{Binding ReceiptError}" Foreground="#FFB42318" TextWrapping="Wrap" AutomationProperties.Name="Payment problem" />
+                        </StackPanel>
+                      </Border>
+
+                      <!-- The account itself. -->
+                      <TabControl Margin="0,14,0,0" MinHeight="300" AutomationProperties.Name="Account tabs">
+                        <TabItem Header="Ledger">
+                          <DockPanel Margin="0,8,0,0">
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                              <TextBlock Text="From" VerticalAlignment="Center" Margin="0,0,6,0" />
+                              <DatePicker Width="130" SelectedDate="{Binding AccountFrom}" AutomationProperties.Name="Ledger from" />
+                              <TextBlock Text="to" VerticalAlignment="Center" Margin="10,0,6,0" />
+                              <DatePicker Width="130" SelectedDate="{Binding AccountTo}" AutomationProperties.Name="Ledger to" />
+                              <Button Content="All dates" Margin="10,0,0,0" Padding="10,4" Style="{StaticResource SecondaryButton}" Command="{Binding ClearAccountRangeCommand}" />
+                              <TextBlock Text="Newest first · balance after each entry" Style="{StaticResource AccCaption}" VerticalAlignment="Center" Margin="14,0,0,0" />
+                            </StackPanel>
+                            <Grid>
+                              <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="360" ItemsSource="{Binding AccountLedger}"
+                                        AutomationProperties.Name="Account ledger" Visibility="{Binding HasLedgerRows, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <DataGrid.Columns>
+                                  <DataGridTextColumn Header="Date (IST)" Binding="{Binding DateText, Mode=OneWay}" Width="Auto" MinWidth="160" />
+                                  <DataGridTextColumn Header="Type" Binding="{Binding Kind, Mode=OneWay}" Width="Auto" MinWidth="100" />
+                                  <DataGridTextColumn Header="Reference" Binding="{Binding Reference, Mode=OneWay}" Width="Auto" MinWidth="120" />
+                                  <DataGridTextColumn Header="Notes" Binding="{Binding Notes, Mode=OneWay}" Width="*" MinWidth="140" />
+                                  <DataGridTextColumn Header="Debit" Binding="{Binding DebitText, Mode=OneWay}" Width="Auto" MinWidth="90" ElementStyle="{StaticResource AccNum}" />
+                                  <DataGridTextColumn Header="Credit" Binding="{Binding CreditText, Mode=OneWay}" Width="Auto" MinWidth="90" ElementStyle="{StaticResource AccNum}" />
+                                  <DataGridTextColumn Header="Balance" Binding="{Binding BalanceText, Mode=OneWay}" Width="Auto" MinWidth="100" FontWeight="SemiBold" ElementStyle="{StaticResource AccNum}" />
+                                </DataGrid.Columns>
+                              </DataGrid>
+                              <TextBlock Style="{StaticResource AccEmpty}" Text="{Binding LedgerEmptyText}" AutomationProperties.Name="Ledger empty"
+                                         Visibility="{Binding HasLedgerRows, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                            </Grid>
+                          </DockPanel>
+                        </TabItem>
+                        <TabItem Header="Bills">
+                          <StackPanel Margin="0,8,0,0">
+                            <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="360" ItemsSource="{Binding AccountBills}"
+                                      AutomationProperties.Name="Customer bills" Visibility="{Binding HasBills, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date (IST)" Binding="{Binding DateText, Mode=OneWay}" Width="Auto" MinWidth="160" />
+                                <DataGridTextColumn Header="Bill no." Binding="{Binding Number, Mode=OneWay}" Width="Auto" MinWidth="130" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Kind, Mode=OneWay}" Width="Auto" MinWidth="120" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status, Mode=OneWay}" Width="*" MinWidth="90" />
+                                <DataGridTextColumn Header="Total" Binding="{Binding TotalText, Mode=OneWay}" Width="Auto" MinWidth="90" ElementStyle="{StaticResource AccNum}" />
+                                <DataGridTextColumn Header="Paid" Binding="{Binding PaidText, Mode=OneWay}" Width="Auto" MinWidth="90" ElementStyle="{StaticResource AccNum}" />
+                                <DataGridTemplateColumn Header="" Width="Auto" MinWidth="170">
+                                  <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                      <StackPanel Orientation="Horizontal">
+                                        <Button Content="Open" Padding="10,2" Margin="2" AutomationProperties.Name="{Binding Number, StringFormat=Open {0}}"
+                                                Command="{Binding DataContext.OpenBillCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                                        <Button Content="Reprint" Padding="10,2" Margin="2" AutomationProperties.Name="{Binding Number, StringFormat=Reprint {0}}"
+                                                Command="{Binding DataContext.ReprintBillCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" />
+                                      </StackPanel>
+                                    </DataTemplate>
+                                  </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                              </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Style="{StaticResource AccEmpty}" Text="No bills for this customer yet. Bills raised to them, on credit or paid, are listed here to open or reprint."
+                                       Visibility="{Binding HasBills, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                            <TextBlock Text="{Binding BillMessage}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap" AutomationProperties.Name="Bill message" />
+                          </StackPanel>
+                        </TabItem>
+                        <TabItem Header="Payments">
+                          <Grid Margin="0,8,0,0">
+                            <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="360" ItemsSource="{Binding AccountPayments}"
+                                      AutomationProperties.Name="Customer payments" Visibility="{Binding HasPayments, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date (IST)" Binding="{Binding DateText, Mode=OneWay}" Width="Auto" MinWidth="160" />
+                                <DataGridTextColumn Header="Receipt no." Binding="{Binding ReceiptNo, Mode=OneWay}" Width="Auto" MinWidth="140" />
+                                <DataGridTextColumn Header="Mode" Binding="{Binding Mode, Mode=OneWay}" Width="Auto" MinWidth="80" />
+                                <DataGridTextColumn Header="Reference" Binding="{Binding Reference, Mode=OneWay}" Width="Auto" MinWidth="140" />
+                                <DataGridTextColumn Header="Notes" Binding="{Binding Notes, Mode=OneWay}" Width="*" MinWidth="140" />
+                                <DataGridTextColumn Header="Amount" Binding="{Binding AmountText, Mode=OneWay}" Width="Auto" MinWidth="100" FontWeight="SemiBold" ElementStyle="{StaticResource AccNum}" />
+                              </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Style="{StaticResource AccEmpty}" Text="No payments from this customer yet. Use Receive Payment above when they pay; it shows here with its mode and reference."
+                                       Visibility="{Binding HasPayments, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                          </Grid>
+                        </TabItem>
+                        <TabItem Header="Returns &amp; credit notes">
+                          <Grid Margin="0,8,0,0">
+                            <DataGrid AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="360" ItemsSource="{Binding AccountCredits}"
+                                      AutomationProperties.Name="Customer returns and credit notes" Visibility="{Binding HasCredits, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <DataGrid.Columns>
+                                <DataGridTextColumn Header="Date (IST)" Binding="{Binding DateText, Mode=OneWay}" Width="Auto" MinWidth="160" />
+                                <DataGridTextColumn Header="Type" Binding="{Binding Kind, Mode=OneWay}" Width="Auto" MinWidth="110" />
+                                <DataGridTextColumn Header="Reference" Binding="{Binding Reference, Mode=OneWay}" Width="Auto" MinWidth="130" />
+                                <DataGridTextColumn Header="Notes" Binding="{Binding Notes, Mode=OneWay}" Width="*" MinWidth="160" />
+                                <DataGridTextColumn Header="Credited" Binding="{Binding AmountText, Mode=OneWay}" Width="Auto" MinWidth="100" FontWeight="SemiBold" ElementStyle="{StaticResource AccNum}" />
+                              </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Style="{StaticResource AccEmpty}" Text="Nothing credited back to this customer. Returns, credit notes and cancelled bills appear here."
+                                       Visibility="{Binding HasCredits, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                          </Grid>
+                        </TabItem>
+                        <TabItem Header="Notes">
+                          <StackPanel Margin="0,8,0,0">
+                            <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="Add note" Margin="8,0,0,0" Padding="14,6" VerticalAlignment="Top" Style="{StaticResource PrimaryButton}" Command="{Binding AddNoteCommand}" />
+                              <TextBox MinHeight="56" Padding="8" TextWrapping="Wrap" AcceptsReturn="True" MaxLength="2000" Text="{Binding NewNoteText, UpdateSourceTrigger=PropertyChanged}"
+                                       AutomationProperties.Name="New note" ToolTip="For example: pays on the 5th of each month; call before 11 am." />
+                            </DockPanel>
+                            <TextBlock Text="{Binding NoteError}" Foreground="#FFB42318" Margin="0,4,0,0" AutomationProperties.Name="Note problem" />
+                            <ItemsControl ItemsSource="{Binding AccountNotes}" Margin="0,8,0,0" AutomationProperties.Name="Customer notes"
+                                          Visibility="{Binding HasNotes, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <Border Padding="10,8" Margin="0,0,0,6" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource DividerBrush}" Background="{DynamicResource WindowBackgroundBrush}">
+                                    <StackPanel>
+                                      <TextBlock Text="{Binding Heading}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                      <TextBlock Text="{Binding Text}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Style="{StaticResource AccEmpty}" Text="No notes yet. Keep anything the counter should know about this customer here: when they pay, who to call."
+                                       Visibility="{Binding HasNotes, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+                          </StackPanel>
+                        </TabItem>
+                      </TabControl>
+                    </StackPanel>
+                  </Border>
                 </StackPanel>
               </ScrollViewer>
             </TabItem>

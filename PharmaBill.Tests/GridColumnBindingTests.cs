@@ -47,7 +47,7 @@ public sealed class GridColumnBindingTests
             Descendants(host).OfType<TabItem>().Single(tab => Equals(tab.Header, page.CustomerAccountsTabHeader)).IsSelected = true;
             await Ui.SettleAsync();
 
-            DataGrid ageing = Descendants(host).OfType<DataGrid>().Single(candidate => candidate.ItemsSource == page.Ageing);
+            DataGrid ageing = Descendants(host).OfType<DataGrid>().Single(candidate => candidate.ItemsSource == page.Dues);
             Assert.False(string.IsNullOrWhiteSpace(page.AgeingPartyHeader));
             Assert.Equal(page.AgeingPartyHeader, ageing.Columns[0].Header);
             bindings.AssertNone();
