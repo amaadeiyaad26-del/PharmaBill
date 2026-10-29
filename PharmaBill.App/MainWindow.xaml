@@ -5043,7 +5043,12 @@
                     </StackPanel>
                     <StackPanel Grid.Column="2" Margin="0,0,6,0">
                       <TextBlock Style="{StaticResource EntryCaption}" Text="Expiry *" />
-                      <TextBox x:Name="PurchaseNewItemExpiry" Style="{StaticResource EntryBox}" Tag="MM/YYYY" Text="{Binding Path=NewItemExpiry, UpdateSourceTrigger=PropertyChanged}" LostFocus="PurchaseNewItemExpiry_LostFocus" ToolTip="Type 1026, 10/26, or 10-2026. The box formats to MM/YYYY when you leave it." />
+                      <TextBox x:Name="PurchaseNewItemExpiry" Style="{StaticResource EntryBox}" Tag="MM/YYYY" Text="{Binding Path=NewItemExpiry, UpdateSourceTrigger=PropertyChanged}" LostFocus="PurchaseNewItemExpiry_LostFocus" ToolTip="Type 1026, 10/26, or 10-2026. The box formats to MM/YYYY when you leave it. Instruments (HSN chapter 90) need none." />
+                      <CheckBox Margin="0,2,0,0" FontSize="10" AutomationProperties.Name="New item: no expiry printed on pack"
+                                IsChecked="{Binding NewItemNoExpiryPrinted}"
+                                ToolTip="Tick only when the pack genuinely shows no expiry date. The batch is then kept without one, on record as your choice.">
+                        <TextBlock Text="No expiry printed on pack" TextWrapping="Wrap" />
+                      </CheckBox>
                     </StackPanel>
                     <StackPanel Grid.Column="3" Margin="0,0,6,0">
                       <TextBlock Style="{StaticResource EntryCaption}" Text="Quantity *" TextTrimming="None" ToolTip="Quantity in packs. Defaults to 1." />
@@ -5268,11 +5273,25 @@
                         </DataTemplate>
                       </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTemplateColumn Header="Expiry" Width="100">
+                    <DataGridTemplateColumn Header="Expiry" Width="112">
                       <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                          <TextBox Style="{StaticResource PurchaseCellTextBox}" ToolTip="MM/yyyy or yyyy-MM-dd"
-                                   Text="{Binding Expiry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                          <StackPanel>
+                            <TextBox Style="{StaticResource PurchaseCellTextBox}" ToolTip="MM/yyyy or yyyy-MM-dd"
+                                     AutomationProperties.Name="Expiry"
+                                     Text="{Binding Expiry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <!-- Instruments (HSN chapter 90) do not expire; anything else needs a date or this deliberate tick. -->
+                            <TextBlock Text="Instrument: no expiry" FontSize="10" Margin="2,1,0,0"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       ToolTip="HSN chapter 90 instruments (thermometers, BP monitors, nebulisers, scales) need no expiry date."
+                                       Visibility="{Binding IsDurableInstrument, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <CheckBox Margin="2,2,0,0" FontSize="10" AutomationProperties.Name="No expiry printed on pack"
+                                      IsChecked="{Binding NoExpiryPrinted, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="Tick only when the pack genuinely shows no expiry date. The batch is then kept without one, on record as your choice."
+                                      Visibility="{Binding ShowNoExpiryTick, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <TextBlock Text="No expiry printed on pack" TextWrapping="Wrap" />
+                            </CheckBox>
+                          </StackPanel>
                         </DataTemplate>
                       </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

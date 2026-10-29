@@ -1,3 +1,4 @@
+using PharmaBill.Core.Inventory;
 using PharmaBill.Core.Gst;
 using PharmaBill.Core;
 using System.Linq.Expressions;
@@ -12,7 +13,7 @@ namespace PharmaBill.Data.Services;
 
 public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService entitlementService, StorageLocationService storageLocations, BranchService branchService, ILicenseRuntimeGuard licenseRuntimeGuard)
 {
-	private sealed record ValidatedLine(PurchaseLineInput Input, decimal BaseAmount, decimal TaxAmount, decimal LineTotal);
+	private sealed record ValidatedLine(PurchaseLineInput Input, decimal BaseAmount, decimal TaxAmount, decimal LineTotal, NoExpiryReason? NoExpiryReason);
 
 	public async Task<bool> IsDuplicateInvoiceAsync(Guid supplierId, string invoiceNo, CancellationToken cancellationToken = default(CancellationToken))
 	{
@@ -211,6 +212,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 						SupplierId = input.SupplierId,
 						BatchNo = batchNo,
 						ExpiryDate = inputLine.ExpiryDate,
+						NoExpiryReason = line.NoExpiryReason,
 						Quantity = 0m,
 						Mrp = inputLine.Mrp,
 						Ptr = inputLine.Rate,
@@ -225,6 +227,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				{
 					batch.SupplierId = input.SupplierId;
 					batch.ExpiryDate = inputLine.ExpiryDate;
+					batch.NoExpiryReason = line.NoExpiryReason;
 					batch.Mrp = inputLine.Mrp;
 					batch.Ptr = inputLine.Rate;
 					batch.PurchasePrice = inputLine.Rate;
@@ -251,6 +254,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					FreeQuantity = inputLine.FreeQuantity,
 					BatchNo = batchNo,
 					ExpiryDate = inputLine.ExpiryDate,
+					NoExpiryReason = line.NoExpiryReason,
 					Mrp = inputLine.Mrp,
 					Ptr = inputLine.Rate,
 					UnitPrice = inputLine.Rate,
@@ -496,7 +500,13 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 
 	private static ValidatedLine ValidateLine(PurchaseLineInput item, Drug drug)
 	{
-		if (string.IsNullOrWhiteSpace(item.BatchNo) || !item.ExpiryDate.HasValue || item.Quantity <= 0m || item.FreeQuantity < 0m || item.Mrp < 0m || item.Rate < 0m || item.GstRate < 0m || item.DiscountAmount < 0m || item.DiscountAmount > item.Quantity * item.Rate)
+		// No expiry only for a durable instrument (HSN chapter 90) or when the user ticked that the pack shows none.
+		NoExpiryReason? noExpiry = item.ExpiryDate.HasValue ? null : ExpiryRule.ReasonWithoutExpiry(drug.HsnCode, item.NoExpiryPrinted);
+		if (!item.ExpiryDate.HasValue && noExpiry == null)
+		{
+			throw new InvalidOperationException("Purchase line " + ExpiryRule.Missing(drug.Name));
+		}
+		if (string.IsNullOrWhiteSpace(item.BatchNo) || item.Quantity <= 0m || item.FreeQuantity < 0m || item.Mrp < 0m || item.Rate < 0m || item.GstRate < 0m || item.DiscountAmount < 0m || item.DiscountAmount > item.Quantity * item.Rate)
 		{
 			throw new InvalidOperationException("Purchase line for '" + drug.Name + "' has invalid batch, expiry, quantity, rate, GST, MRP or discount.");
 		}
@@ -504,7 +514,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 		{
 			throw new InvalidOperationException("Purchase line for '" + drug.Name + "': " + rateProblem);
 		}
-		if (item.ExpiryDate.Value < BusinessClock.Today)
+		if (item.ExpiryDate.HasValue && item.ExpiryDate.Value < BusinessClock.Today)
 		{
 			throw new InvalidOperationException("Expired batch " + item.BatchNo + " cannot be received into saleable stock.");
 		}
@@ -515,7 +525,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 		{
 			throw new InvalidOperationException("Purchase amount for '" + drug.Name + "' must equal quantity × rate less line discount.");
 		}
-		return new ValidatedLine(item, num, num2, lineTotal);
+		return new ValidatedLine(item, num, num2, lineTotal, noExpiry);
 	}
 
 	private async Task<CatalogInfo?> GetCatalogInfoAsync(Drug drug, CancellationToken cancellationToken)

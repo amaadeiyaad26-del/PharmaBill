@@ -17,6 +17,9 @@ public sealed class PurchaseItem : EntityBase
 
 	public DateOnly? ExpiryDate { get; set; }
 
+	/// <summary>Why there is no expiry date; set whenever <see cref="ExpiryDate"/> is null (see ExpiryRule).</summary>
+	public PharmaBill.Core.Inventory.NoExpiryReason? NoExpiryReason { get; set; }
+
 	public decimal? Mrp { get; set; }
 
 	public decimal? Ptr { get; set; }

@@ -36,12 +36,32 @@ public sealed class SaveChangesAuditInterceptor : SaveChangesInterceptor
 		return base.SavingChangesAsync(eventData, result, cancellationToken);
 	}
 
+	/// <summary>
+	/// A batch saved here without an expiry date must say why (ExpiryRule): a durable instrument, or "no expiry printed
+	/// on pack" ticked by the user. A blank expiry never reaches a batch by accident, where it would drop the batch out of
+	/// first-expiry-first-out and expiry alerts. Batches already stored without one are left as they are until edited.
+	/// </summary>
+	private static void RefuseBatchesWithoutExpiry(DbContext context)
+	{
+		foreach (EntityEntry<Batch> entry in context.ChangeTracker.Entries<Batch>())
+		{
+			bool expiryWritten = entry.State == EntityState.Added
+				|| (entry.State == EntityState.Modified && entry.Property(batch => batch.ExpiryDate).IsModified);
+			if (expiryWritten && !entry.Entity.IsDeleted && entry.Entity.ExpiryDate == null && entry.Entity.NoExpiryReason == null)
+			{
+				throw new InvalidOperationException(PharmaBill.Core.Inventory.ExpiryRule.Missing("Batch " + entry.Entity.BatchNo)
+					+ " Nothing was saved.");
+			}
+		}
+	}
+
 	private void StampAndRecordChanges(DbContext? context)
 	{
 		if (context == null || context is PharmaBillDbContext { IsApplyingSync: not false })
 		{
 			return;
 		}
+		RefuseBatchesWithoutExpiry(context);
 		EntityEntry<EntityBase>[] array = context.ChangeTracker.Entries<EntityBase>().Where((EntityEntry<EntityBase> entry) =>
 		{
 			EntityState state = entry.State;

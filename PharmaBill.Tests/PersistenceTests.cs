@@ -98,7 +98,7 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_CustomerNotes",
+            "_BatchNoExpiryReason",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
         Assert.Equal(53, database.Context.Model.GetEntityTypes().Count());
 

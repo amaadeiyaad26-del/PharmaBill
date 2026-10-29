@@ -282,6 +282,7 @@ public sealed partial class AddStockViewModel : ObservableObject
 				OnPropertyChanging(nameof(ExpiryText));
 				_expiryText = value;
 				OnPropertyChanged(nameof(ExpiryText));
+				OnExpiryRuleInputsChanged();
 			}
 		}
 	}
@@ -909,9 +910,13 @@ public sealed partial class AddStockViewModel : ObservableObject
 		BatchNoError = (string.IsNullOrWhiteSpace(BatchNo) ? "Batch no. is required" : string.Empty);
 		ExpiryError = string.Empty;
 		DateOnly lastDay;
-		if (string.IsNullOrWhiteSpace(ExpiryText))
+		if (MayHaveNoExpiry)
 		{
-			ExpiryError = "Expiry (month/year) is required";
+			// An instrument, or the user ticked that the pack shows no expiry.
+		}
+		else if (string.IsNullOrWhiteSpace(ExpiryText))
+		{
+			ExpiryError = "Expiry (month/year) is required. If the pack genuinely shows none, tick \"" + PharmaBill.Core.Inventory.ExpiryRule.NoExpiryPrintedLabel + "\"";
 		}
 		else if (!TryParseExpiry(ExpiryText, out lastDay))
 		{
@@ -1025,14 +1030,14 @@ public sealed partial class AddStockViewModel : ObservableObject
 
 	public AddStockInput BuildInput()
 	{
-		TryParseExpiry(ExpiryText, out var lastDay);
+		DateOnly? lastDay = !string.IsNullOrWhiteSpace(ExpiryText) && TryParseExpiry(ExpiryText, out DateOnly parsedExpiry) ? parsedExpiry : null;
 		TryAmount(MrpText, out var value);
 		TryAmount(PurchaseRateText, out var value2);
 		TryAmount(QuantityText, out var value3);
 		TryAmount(FreeQuantityText, out var value4);
 		TryAmount(PackSizeText, out var value5);
 		TryAmount(GstText, out var value6);
-		return new AddStockInput(DrugId, CatalogMedicineId, MedicineName.Trim(), string.IsNullOrWhiteSpace(Composition) ? null : Composition.Trim(), string.IsNullOrWhiteSpace(Manufacturer) ? null : Manufacturer.Trim(), Schedule, BatchNo.Trim(), lastDay, value, value2, value3, value4, value5, value6, SelectedSupplier.Id, SupplierInvoiceNo.Trim(), DateOnly.FromDateTime(InvoiceDate.Value), string.IsNullOrWhiteSpace(Rack) ? null : Rack.Trim(), EnteredHsn);
+		return new AddStockInput(DrugId, CatalogMedicineId, MedicineName.Trim(), string.IsNullOrWhiteSpace(Composition) ? null : Composition.Trim(), string.IsNullOrWhiteSpace(Manufacturer) ? null : Manufacturer.Trim(), Schedule, BatchNo.Trim(), lastDay, value, value2, value3, value4, value5, value6, SelectedSupplier.Id, SupplierInvoiceNo.Trim(), DateOnly.FromDateTime(InvoiceDate.Value), string.IsNullOrWhiteSpace(Rack) ? null : Rack.Trim(), EnteredHsn, NoExpiryPrinted: lastDay == null && NoExpiryPrinted);
 	}
 
 	public static bool TryParseExpiry(string text, out DateOnly lastDay)

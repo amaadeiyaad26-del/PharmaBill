@@ -31,7 +31,7 @@ public sealed class BackupAndReportsTests
             Directory.CreateDirectory(Path.Combine(root, "licences"));
             await File.WriteAllTextAsync(Path.Combine(root, "licences", "licence-copy.pdf"), "licence attachment");
             var drug = new Drug { Name = "Backup checksum medicine", HsnCode = "3004" };
-            var batch = new Batch { DrugId = drug.Id, BatchNo = "BK-1", Quantity = 7m, PurchasePrice = 12m };
+            var batch = new Batch { DrugId = drug.Id, BatchNo = "BK-1", ExpiryDate = new DateOnly(2030, 12, 31), Quantity = 7m, PurchasePrice = 12m };
             var customer = new Customer { Name = "Backup customer" };
             context.AddRange(drug, batch, customer);
             context.CustomerLicences.Add(new CustomerLicence

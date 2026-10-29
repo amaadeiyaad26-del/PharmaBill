@@ -1,3 +1,4 @@
+using PharmaBill.Core.Inventory;
 using PharmaBill.Core.Gst;
 using PharmaBill.App.Services;
 using PharmaBill.Data.Services;
@@ -29,9 +30,41 @@ public sealed partial class AddStockViewModel
 			if (SetProperty(ref _hsnText, value ?? string.Empty))
 			{
 				OnPropertyChanged(nameof(HsnHint));
+				OnExpiryRuleInputsChanged();
 			}
 		}
 	}
+
+	private string? _existingHsn;
+	private bool _noExpiryPrinted;
+
+	/// <summary>A durable instrument (HSN chapter 90): no expiry date is needed.</summary>
+	public bool IsDurableInstrument => ExpiryRule.IsDurableInstrument(IsNewProduct ? HsnText : _existingHsn);
+
+	/// <summary>The user ticked "No expiry printed on pack": the batch is kept without a date, on record as their choice.</summary>
+	public bool NoExpiryPrinted
+	{
+		get => _noExpiryPrinted;
+		set
+		{
+			if (SetProperty(ref _noExpiryPrinted, value))
+			{
+				OnExpiryRuleInputsChanged();
+			}
+		}
+	}
+
+	/// <summary>Offer the tick only while the expiry box is empty, and never for an instrument.</summary>
+	public bool ShowNoExpiryTick => !IsDurableInstrument && string.IsNullOrWhiteSpace(ExpiryText);
+
+	private void OnExpiryRuleInputsChanged()
+	{
+		OnPropertyChanged(nameof(IsDurableInstrument));
+		OnPropertyChanged(nameof(ShowNoExpiryTick));
+	}
+
+	/// <summary>An empty expiry box is accepted only for an instrument or with the tick set.</summary>
+	private bool MayHaveNoExpiry => string.IsNullOrWhiteSpace(ExpiryText) && (IsDurableInstrument || NoExpiryPrinted);
 
 	/// <summary>Why the HSN was chosen; cleared once the user types a different code.</summary>
 	public string HsnHint => _hsnHint.Length > 0 && _classifiedHsn != null && string.Equals(HsnText.Trim(), _classifiedHsn, StringComparison.OrdinalIgnoreCase) ? _hsnHint : string.Empty;
@@ -46,6 +79,8 @@ public sealed partial class AddStockViewModel
 	private async Task LoadTaxDefaultsAsync(AddStockService service)
 	{
 		IsNewProduct = await service.WouldCreateProductAsync(DrugId, CatalogMedicineId);
+		_existingHsn = IsNewProduct ? null : await service.ExistingHsnAsync(DrugId, CatalogMedicineId);
+		OnExpiryRuleInputsChanged();
 		if (IsNewProduct && HsnText.Trim().Length == 0 && await service.ClassifyHsnAsync(DrugId, CatalogMedicineId, MedicineName) is HsnSuggestion hsn)
 		{
 			_classifiedHsn = hsn.Code;

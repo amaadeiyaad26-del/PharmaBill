@@ -11,6 +11,9 @@ public sealed class Batch : EntityBase
 
 	public DateOnly? ExpiryDate { get; set; }
 
+	/// <summary>Why there is no expiry date; set whenever <see cref="ExpiryDate"/> is null (see ExpiryRule).</summary>
+	public PharmaBill.Core.Inventory.NoExpiryReason? NoExpiryReason { get; set; }
+
 	public decimal Quantity { get; set; }
 
 	public decimal PurchasePrice { get; set; }

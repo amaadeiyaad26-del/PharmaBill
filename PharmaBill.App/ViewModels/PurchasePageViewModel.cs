@@ -1194,6 +1194,22 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		}
 	}
 
+	private bool _newItemNoExpiryPrinted;
+
+	/// <summary>The add-item row's "No expiry printed on pack" tick: a deliberate choice, carried onto the line.</summary>
+	public bool NewItemNoExpiryPrinted
+	{
+		get => _newItemNoExpiryPrinted;
+		set
+		{
+			if (_newItemNoExpiryPrinted != value)
+			{
+				_newItemNoExpiryPrinted = value;
+				OnPropertyChanged(nameof(NewItemNoExpiryPrinted));
+			}
+		}
+	}
+
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
 	public string NewItemExpiry
@@ -2095,13 +2111,18 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			return;
 		}
 		NormalizeNewItemExpiry();
-		if (!AddStockViewModel.TryParseExpiry(NewItemExpiry, out var lastDay))
+		bool undated = string.IsNullOrWhiteSpace(NewItemExpiry)
+			&& (PharmaBill.Core.Inventory.ExpiryRule.IsDurableInstrument(NewItemHsn.Trim().Length > 0 ? NewItemHsn : drug.HsnCode) || NewItemNoExpiryPrinted);
+		DateOnly lastDay = default;
+		if (!undated && !AddStockViewModel.TryParseExpiry(NewItemExpiry, out lastDay))
 		{
-			NewItemError = "Expiry (month/year) is required, for example 08/2027";
+			NewItemError = string.IsNullOrWhiteSpace(NewItemExpiry)
+				? "Expiry (month/year) is required, for example 08/2027. If the pack genuinely shows none, tick \"" + PharmaBill.Core.Inventory.ExpiryRule.NoExpiryPrintedLabel + "\"."
+				: "Expiry (month/year) is required, for example 08/2027";
 			RequestFocus("NewItemExpiry");
 			return;
 		}
-		if (lastDay < BusinessClock.Today)
+		if (!undated && lastDay < BusinessClock.Today)
 		{
 			NewItemError = "This date has expired; expired stock cannot be purchased";
 			RequestFocus("NewItemExpiry");
@@ -2149,7 +2170,8 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		{
 			MedicineName = string.IsNullOrWhiteSpace(drug.Name) ? MedicineSearchText.Trim() : drug.Name.Trim(),
 			BatchNo = NewItemBatch.Trim(),
-			Expiry = lastDay.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+			Expiry = undated ? string.Empty : lastDay.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+			NoExpiryPrinted = undated && NewItemNoExpiryPrinted,
 			Quantity = result,
 			FreeQuantity = num,
 			Mrp = result2,
@@ -2208,7 +2230,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		NewItemDrug = drug;
 		ApplyImmediateDefaults(picker);
 		NewItemBatch = "COUNTER";
-		NewItemExpiry = BusinessClock.Now.Date.AddYears(1).ToString("MM/yyyy", CultureInfo.InvariantCulture);
+		NewItemExpiry = string.Empty;
 		NewItemQuantity = "1";
 		if (saved.Mrp is > 0m)
 		{
@@ -3878,6 +3900,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		NewItemDrug = null;
 		NewItemBatch = string.Empty;
 		NewItemExpiry = string.Empty;
+		NewItemNoExpiryPrinted = false;
 		NewItemQuantity = string.Empty;
 		NewItemFree = string.Empty;
 		NewItemMrp = string.Empty;
@@ -4746,7 +4769,9 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			string detail = invalid == null
 				? "Add at least one medicine line."
 				: $"Check '{invalid.MedicineName}': medicine, batch, expiry (e.g. 06/2027), quantity, and rate are required.";
-			ErrorMessage = "Complete each purchase line with a medicine, batch, expiry, quantity and purchase rate. " + detail;
+			ErrorMessage = invalid is { NeedsExpiryDecision: true, Drug: not null } && !string.IsNullOrWhiteSpace(invalid.BatchNo) && invalid.Quantity > 0m
+				? PharmaBill.Core.Inventory.ExpiryRule.Missing(invalid.MedicineName)
+				: "Complete each purchase line with a medicine, batch, expiry, quantity and purchase rate. " + detail;
 			confirmationService.Notify("Cannot Save Purchase Yet", ErrorMessage);
 			return;
 		}

@@ -91,7 +91,7 @@ public sealed class InventoryPurchaseTests
         {
             DrugId = drug.Id,
             SupplierId = supplier.Id,
-            BatchNo = "B-1",
+            BatchNo = "B-1", ExpiryDate = new DateOnly(2030, 12, 31),
             Quantity = 2m,
             PurchasePrice = 10m
         };
@@ -129,7 +129,7 @@ public sealed class InventoryPurchaseTests
         {
             DrugId = drug.Id,
             SupplierId = supplier.Id,
-            BatchNo = "H1-B1",
+            BatchNo = "H1-B1", ExpiryDate = new DateOnly(2030, 12, 31),
             Quantity = 5m,
             PurchasePrice = 10m
         };
@@ -168,7 +168,7 @@ public sealed class InventoryPurchaseTests
     {
         await using var database = await DatabaseTestContext.CreateAsync();
         var drug = new Drug { Name = "Verified medicine" };
-        var batch = new Batch { DrugId = drug.Id, BatchNo = "V-1", Quantity = 4m };
+        var batch = new Batch { DrugId = drug.Id, BatchNo = "V-1", ExpiryDate = new DateOnly(2030, 12, 31), Quantity = 4m };
         database.Context.AddRange(drug, batch);
         database.Context.StockMovements.Add(new StockMovement
         {

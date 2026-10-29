@@ -1,3 +1,4 @@
+using PharmaBill.Core.Inventory;
 using System.CodeDom.Compiler;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -33,8 +34,58 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 
 	public string? ValidationWarning { get; set; }
 
+	private string? _hsnCode;
+
+	private bool _noExpiryPrinted;
+
 	/// <summary>The HSN printed on the supplier's invoice line (scanned), used if this line creates a new medicine.</summary>
-	public string? HsnCode { get; set; }
+	public string? HsnCode
+	{
+		get => _hsnCode;
+		set
+		{
+			if (_hsnCode != value)
+			{
+				_hsnCode = value;
+				OnPropertyChanged(nameof(HsnCode));
+				OnExpiryRuleInputsChanged();
+			}
+		}
+	}
+
+	/// <summary>
+	/// The user ticked "No expiry printed on pack": a deliberate choice, recorded on the batch. Never assumed from a blank
+	/// expiry field, so a missing date cannot reach a batch by accident.
+	/// </summary>
+	public bool NoExpiryPrinted
+	{
+		get => _noExpiryPrinted;
+		set
+		{
+			if (_noExpiryPrinted != value)
+			{
+				_noExpiryPrinted = value;
+				OnPropertyChanged(nameof(NoExpiryPrinted));
+				OnExpiryRuleInputsChanged();
+			}
+		}
+	}
+
+	/// <summary>A durable instrument (HSN chapter 90): it has no expiry date and needs none.</summary>
+	public bool IsDurableInstrument => ExpiryRule.IsDurableInstrument(Drug?.HsnCode ?? HsnCode);
+
+	/// <summary>The expiry field is empty and nothing excuses it: the line cannot be saved until a date is typed or the tick is set.</summary>
+	public bool NeedsExpiryDecision => string.IsNullOrWhiteSpace(Expiry) && !IsDurableInstrument && !NoExpiryPrinted;
+
+	/// <summary>Offer the "No expiry printed on pack" tick: only while the field is empty, and never for an instrument.</summary>
+	public bool ShowNoExpiryTick => !IsDurableInstrument && string.IsNullOrWhiteSpace(Expiry);
+
+	private void OnExpiryRuleInputsChanged()
+	{
+		OnPropertyChanged(nameof(IsDurableInstrument));
+		OnPropertyChanged(nameof(NeedsExpiryDecision));
+		OnPropertyChanged(nameof(ShowNoExpiryTick));
+	}
 
 	public DateTime InwardDate { get; set; }
 
@@ -92,6 +143,7 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 				_medicineName = value?.Name?.Trim() ?? string.Empty;
 				OnPropertyChanged(nameof(Drug));
 				OnPropertyChanged(nameof(MedicineName));
+				OnExpiryRuleInputsChanged();
 			}
 		}
 	}
@@ -162,6 +214,7 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 				OnPropertyChanging(nameof(Expiry));
 				_expiry = value;
 				OnPropertyChanged(nameof(Expiry));
+				OnExpiryRuleInputsChanged();
 			}
 		}
 	}
@@ -306,15 +359,21 @@ public sealed class PurchaseLineDraft(Drug? drug) : ObservableObject
 	public bool TryCreateInput(out PurchaseLineInput input)
 	{
 		input = null!;
+		bool dated = TryParseExpiry(Expiry, out DateOnly result);
+		// No date is accepted only for an empty field on an instrument, or with the tick set; never for unreadable text.
+		bool undatedAllowed = string.IsNullOrWhiteSpace(Expiry) && (IsDurableInstrument || NoExpiryPrinted);
 		if (Drug == null
 			|| string.IsNullOrWhiteSpace(BatchNo)
 			|| Quantity <= 0m
-			|| !TryParseExpiry(Expiry, out DateOnly result))
+			|| (!dated && !undatedAllowed))
 		{
 			return false;
 		}
 
-		input = new PurchaseLineInput(Drug.Id, BatchNo.Trim(), result, Quantity, FreeQuantity, Mrp, Rate, GstRate, DiscountAmount, Amount, Rack);
+		input = new PurchaseLineInput(Drug.Id, BatchNo.Trim(), dated ? result : null, Quantity, FreeQuantity, Mrp, Rate, GstRate, DiscountAmount, Amount, Rack)
+		{
+			NoExpiryPrinted = !dated && NoExpiryPrinted
+		};
 		return true;
 	}
 

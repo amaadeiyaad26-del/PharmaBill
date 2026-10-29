@@ -98,7 +98,7 @@ public sealed class SyncProtocolTests
         await using var database = await DatabaseTestContext.CreateAsync();
         var drugId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        database.Context.Batches.Add(new Batch { Id = batchId, DrugId = drugId, BatchNo = "B-1" });
+        database.Context.Batches.Add(new Batch { Id = batchId, DrugId = drugId, BatchNo = "B-1", ExpiryDate = new DateOnly(2030, 12, 31) });
         database.Context.StockMovements.Add(new StockMovement
         {
             BatchId = batchId,
@@ -182,7 +182,7 @@ public sealed class SyncProtocolTests
         var serializer = new SyncPayloadSerializer();
         var batch = new Batch
         {
-            BatchNo = "B-1",
+            BatchNo = "B-1", ExpiryDate = new DateOnly(2030, 12, 31),
             Quantity = 50,
             Mrp = 12.34m,
             SyncState = SyncState.Pending

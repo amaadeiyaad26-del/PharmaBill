@@ -457,7 +457,7 @@ internal static class Ui
         ?? Descendants(button).OfType<TextBlock>().Select(t => t.Text).FirstOrDefault()
         ?? string.Empty;
 
-    private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+    internal static IEnumerable<DependencyObject> Descendants(DependencyObject root)
     {
         var pending = new Stack<DependencyObject>();
         pending.Push(root);

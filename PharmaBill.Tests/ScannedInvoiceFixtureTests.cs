@@ -235,15 +235,39 @@ public sealed class ScannedInvoiceFixtureTests
                 page.Lines.Select(line => (line.MedicineName, line.HsnCode, line.GstRate, line.Quantity, line.FreeQuantity, line.Rate)));
             Assert.Equal((bill.Taxable, bill.Cgst + bill.Sgst, bill.GrandTotal), (page.Subtotal, page.TaxTotal, page.GrandTotal));
 
-            // The bill prints no expiry for the thermometer ("-"); the screen asks for one, as for any line without it.
+            // The thermometer (HSN 9025, chapter 90) prints no expiry and needs none: the cell says so and offers no tick.
             PurchaseLineDraft thermometerLine = page.Lines.Single(line => line.MedicineName == "Digital Thermometer");
             Assert.Equal(string.Empty, thermometerLine.Expiry);
-            thermometerLine.Expiry = "12/2030";
+            Assert.True(thermometerLine.IsDurableInstrument);
+            Assert.Contains(Ui.Descendants(host).OfType<TextBlock>(), text => text.IsVisible && text.Text == "Instrument: no expiry" && text.DataContext == thermometerLine);
+            Assert.DoesNotContain(NoExpiryTicks(host), tick => tick.DataContext == thermometerLine);
             Assert.Equal(new DateTime(2026, 10, 26), page.InvoiceDate.Date);
+
+            // A dressing (HSN 3005) is not an instrument: with its expiry cleared, saving is refused and says what to do.
+            PurchaseLineDraft bandageLine = page.Lines.Single(line => line.MedicineName == "Cotton Bandage 10cm x 3m");
+            bandageLine.Expiry = string.Empty;
+            await Ui.SettleAsync();
+            await Ui.PressAsync(Ui.Button(host, "Transfer to Stock / F10"));
+            Assert.Contains("'Cotton Bandage 10cm x 3m' needs an expiry date", page.ErrorMessage);
+            Assert.Contains("No expiry printed on pack", page.ErrorMessage);
+            await using (PharmaBillDbContext none = database.OpenContext())
+            {
+                Assert.False(await none.PurchaseInvoices.AnyAsync(item => item.InvoiceNo == bill.InvoiceNo));
+            }
+
+            // The owner ticks "No expiry printed on pack" on that row: a deliberate choice, and now it saves.
+            CheckBox tick = NoExpiryTicks(host).Single(box => box.DataContext == bandageLine);
+            tick.IsChecked = true;
+            Assert.True(bandageLine.NoExpiryPrinted);
             await Ui.PressAsync(Ui.Button(host, "Transfer to Stock / F10"));
             Assert.Empty(prompt.Asked);
             Assert.True(page.ErrorMessage.Length == 0, page.ErrorMessage);
             await using PharmaBillDbContext check = database.OpenContext();
+            Dictionary<string, (DateOnly? Expiry, PharmaBill.Core.Inventory.NoExpiryReason? Reason)> batches = await check.Batches.AsNoTracking()
+                .ToDictionaryAsync(batch => batch.BatchNo, batch => (batch.ExpiryDate, batch.NoExpiryReason));
+            Assert.Equal((null, PharmaBill.Core.Inventory.NoExpiryReason.DurableInstrument), batches["DT9902"]);
+            Assert.Equal((null, PharmaBill.Core.Inventory.NoExpiryReason.NotPrintedOnPack), batches["CB4410"]);
+            Assert.Equal((new DateOnly(2028, 8, 31), null), batches["PC2409"]);
             PurchaseInvoice saved = await check.PurchaseInvoices.AsNoTracking().SingleAsync(item => item.InvoiceNo == bill.InvoiceNo);
             Assert.Equal((bill.Taxable, bill.Cgst + bill.Sgst, bill.GrandTotal), (saved.Subtotal, saved.TaxAmount, saved.TotalAmount));
             Drug thermometer = await check.Drugs.AsNoTracking().SingleAsync(drug => drug.Name == "Digital Thermometer");
@@ -251,6 +275,10 @@ public sealed class ScannedInvoiceFixtureTests
             host.Close();
         });
     }
+
+    private static List<CheckBox> NoExpiryTicks(DependencyObject root) =>
+        Ui.Descendants(root).OfType<CheckBox>()
+            .Where(box => box.IsVisible && System.Windows.Automation.AutomationProperties.GetName(box) == "No expiry printed on pack").ToList();
 
     [Fact]
     public void ThroughThePurchaseScreen_ABillThatDoesNotAddUp_IsRefused_AndNothingIsStaged()

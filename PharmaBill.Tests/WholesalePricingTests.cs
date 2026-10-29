@@ -40,7 +40,7 @@ public sealed class WholesalePricingTests
     {
         await using var database = await DatabaseTestContext.CreateAsync();
         var drug = new Drug { Name = "Rate medicine", Mrp = 100m };
-        var batch = new Batch { DrugId = drug.Id, BatchNo = "P-1", PurchasePrice = 50m, Ptr = 80m, Pts = 90m, Mrp = 100m };
+        var batch = new Batch { DrugId = drug.Id, BatchNo = "P-1", ExpiryDate = new DateOnly(2030, 12, 31), PurchasePrice = 50m, Ptr = 80m, Pts = 90m, Mrp = 100m };
         var customer = new Customer { Name = "Buyer", BuyerType = "Retailer", PriceCategory = "A" };
         database.Context.AddRange(drug, batch, customer);
         database.Context.CustomerCategoryPrices.Add(new CustomerCategoryPrice
@@ -84,7 +84,7 @@ public sealed class WholesalePricingTests
     {
         await using var database = await DatabaseTestContext.CreateAsync();
         var drug = new Drug { Name = "Price-capped medicine" };
-        var batch = new Batch { DrugId = drug.Id, BatchNo = "P-2", PurchasePrice = 10m, Mrp = 20m };
+        var batch = new Batch { DrugId = drug.Id, BatchNo = "P-2", ExpiryDate = new DateOnly(2030, 12, 31), PurchasePrice = 10m, Mrp = 20m };
         var customer = new Customer { Name = "Buyer", BuyerType = "Retailer", PriceCategory = "B" };
         database.Context.AddRange(drug, batch, customer);
         await database.Context.SaveChangesAsync();
@@ -108,7 +108,7 @@ public sealed class WholesalePricingTests
     {
         await using var database = await DatabaseTestContext.CreateAsync();
         var drug = new Drug { Name = "Audited rate medicine" };
-        var batch = new Batch { DrugId = drug.Id, BatchNo = "RATE-1", PurchasePrice = 10m, Mrp = 20m };
+        var batch = new Batch { DrugId = drug.Id, BatchNo = "RATE-1", ExpiryDate = new DateOnly(2030, 12, 31), PurchasePrice = 10m, Mrp = 20m };
         database.Context.AddRange(drug, batch);
         await database.Context.SaveChangesAsync();
         var service = new WholesalePricingService(new UnitOfWork(database.Context));

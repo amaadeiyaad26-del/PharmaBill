@@ -97,7 +97,7 @@ public sealed class DrugRecordsTests
             GenericName = "Alprazolam",
             CatalogMedicineId = medicine.Id
         };
-        var batch = new Batch { DrugId = drug.Id, BatchNo = "ALP-1", Quantity = 6m };
+        var batch = new Batch { DrugId = drug.Id, BatchNo = "ALP-1", ExpiryDate = new DateOnly(2030, 12, 31), Quantity = 6m };
         var patient = new Patient { Name = "Test Patient", Phone = "9876500000", Address = "Test Road" };
         var saleAt = new DateTime(2026, 9, 12, 10, 0, 0, DateTimeKind.Utc);
         var sale = new Sale
@@ -185,7 +185,7 @@ public sealed class DrugRecordsTests
         var context = database.Context;
         var user = new AppUser { UserName = "register-owner", DisplayName = "Owner", PasswordHash = "hash" };
         var drug = new Drug { Name = "Reference medicine" };
-        var batch = new Batch { DrugId = drug.Id, BatchNo = "REG-1", Quantity = 3m };
+        var batch = new Batch { DrugId = drug.Id, BatchNo = "REG-1", ExpiryDate = new DateOnly(2030, 12, 31), Quantity = 3m };
         var entry = new ScheduleRegisterEntry
         {
             RegisterType = "HABIT",

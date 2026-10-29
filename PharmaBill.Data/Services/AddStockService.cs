@@ -219,7 +219,7 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 		return (pack, form, refPrice, gst, hsn);
 	}
 
-	public async Task<bool> BatchExistsAsync(Guid? drugId, Guid? catalogMedicineId, Guid supplierId, string batchNo, DateOnly expiryDate, CancellationToken cancellationToken = default(CancellationToken))
+	public async Task<bool> BatchExistsAsync(Guid? drugId, Guid? catalogMedicineId, Guid supplierId, string batchNo, DateOnly? expiryDate, CancellationToken cancellationToken = default(CancellationToken))
 	{
 		Guid? guid = drugId ?? (await FindDrugIdAsync(catalogMedicineId, cancellationToken));
 		Guid? resolvedDrugId = guid;
@@ -316,7 +316,7 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 			bool merged = await context.Batches.AnyAsync((Batch batch2) => batch2.DrugId == drug.Id && batch2.SupplierId == input.SupplierId && batch2.BatchNo == batchNo && batch2.ExpiryDate == input.ExpiryDate, cancellationToken);
 			decimal num = Round(input.Quantity * input.PurchaseRate);
 			decimal num2 = Round(num * input.GstRate / 100m);
-			await purchaseService.SavePurchaseAsync(new SavePurchaseInput(input.SupplierId, input.SupplierInvoiceNo, input.InvoiceDate, num, 0m, num2, num + num2, new _003C_003Ez__ReadOnlySingleElementList<PurchaseLineInput>(new PurchaseLineInput(drug.Id, batchNo, input.ExpiryDate, input.Quantity, input.FreeQuantity, input.Mrp, input.PurchaseRate, input.GstRate, 0m, num, input.Rack))), actingUserId, role, cancellationToken);
+			await purchaseService.SavePurchaseAsync(new SavePurchaseInput(input.SupplierId, input.SupplierInvoiceNo, input.InvoiceDate, num, 0m, num2, num + num2, new _003C_003Ez__ReadOnlySingleElementList<PurchaseLineInput>(new PurchaseLineInput(drug.Id, batchNo, input.ExpiryDate, input.Quantity, input.FreeQuantity, input.Mrp, input.PurchaseRate, input.GstRate, 0m, num, input.Rack) { NoExpiryPrinted = input.NoExpiryPrinted })), actingUserId, role, cancellationToken);
 			await transaction.CommitAsync(cancellationToken);
 			if (!licenseRuntimeGuard.OnTransactionCommitted())
 			{
@@ -339,6 +339,15 @@ public sealed class AddStockService(IUnitOfWork unitOfWork, PurchaseService purc
 	/// <summary>The most recent GST rate recorded for this medicine or its salt, offered as "same as last time" (dated; never before the 2025 cut).</summary>
 	public Task<RememberedRate?> LastRecordedRateAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken)) =>
 		new ProductTaxService(unitOfWork.Context).LastRecordedRateAsync(drugId, catalogMedicineId, cancellationToken);
+
+	/// <summary>The HSN already on the medicine in the master; null for a new medicine or one without an HSN.</summary>
+	public async Task<string?> ExistingHsnAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default)
+	{
+		Guid? id = drugId ?? await FindDrugIdAsync(catalogMedicineId, cancellationToken);
+		return id.HasValue
+			? await unitOfWork.Context.Drugs.AsNoTracking().Where(drug => drug.Id == id.Value).Select(drug => drug.HsnCode).FirstOrDefaultAsync(cancellationToken)
+			: null;
+	}
 
 	public async Task<bool> WouldCreateProductAsync(Guid? drugId, Guid? catalogMedicineId, CancellationToken cancellationToken = default(CancellationToken))
 	{

@@ -217,6 +217,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<decimal?>("Mrp")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("NoExpiryReason")
+                        .HasColumnType("INTEGER");
+
                     b.Property<decimal?>("Ptr")
                         .HasColumnType("decimal(18,2)");
 
@@ -1569,6 +1572,9 @@ namespace PharmaBill.Data.Migrations
 
                     b.Property<decimal?>("Mrp")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("NoExpiryReason")
+                        .HasColumnType("INTEGER");
 
                     b.Property<decimal?>("Ptr")
                         .HasColumnType("decimal(18,2)");
