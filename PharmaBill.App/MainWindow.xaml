@@ -550,23 +550,40 @@
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:ReportsPageViewModel}}" DataType="{x:Type vm:ReportsPageViewModel}">
         <DockPanel Margin="16" behaviors:ReportedWidth.IsEnabled="True" behaviors:ReportedWidth.Width="{Binding ScreenWidth, Mode=OneWayToSource}">
           <TextBlock DockPanel.Dock="Top" Text="Reports &amp; Daily MIS" FontSize="24" FontWeight="SemiBold" Foreground="#0D4A2B" Margin="0,0,0,12" />
-          <!-- The report types down the right, grouped; choosing one runs it for the period already set. An icon strip when narrow. -->
-          <Border DockPanel.Dock="Right" Margin="12,0,0,0" CornerRadius="10" Background="{DynamicResource CardBackgroundBrush}"
-                  BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" AutomationProperties.Name="Report types">
+          <!-- The report types down the right as cards, grouped by colour; choosing one runs it for the period already set.
+               Narrows (animated) to an icon strip that keeps the group colours. -->
+          <Border DockPanel.Dock="Right" Margin="14,0,0,0" CornerRadius="12" Background="{DynamicResource WindowBackgroundBrush}"
+                  BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" Width="264" AutomationProperties.Name="Report types">
             <Border.Style>
               <Style TargetType="{x:Type Border}">
-                <Setter Property="Width" Value="252" />
                 <Setter Property="Padding" Value="10" />
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding IsReportPanelCompact}" Value="True">
-                    <Setter Property="Width" Value="84" />
                     <Setter Property="Padding" Value="6" />
+                    <DataTrigger.EnterActions>
+                      <BeginStoryboard>
+                        <Storyboard>
+                          <DoubleAnimation Storyboard.TargetProperty="Width" To="84" Duration="0:0:0.22">
+                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+                          </DoubleAnimation>
+                        </Storyboard>
+                      </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                      <BeginStoryboard>
+                        <Storyboard>
+                          <DoubleAnimation Storyboard.TargetProperty="Width" To="264" Duration="0:0:0.22">
+                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
+                          </DoubleAnimation>
+                        </Storyboard>
+                      </BeginStoryboard>
+                    </DataTrigger.ExitActions>
                   </DataTrigger>
                 </Style.Triggers>
               </Style>
             </Border.Style>
             <DockPanel>
-              <DockPanel DockPanel.Dock="Top" Margin="2,0,0,8">
+              <DockPanel DockPanel.Dock="Top" Margin="4,0,0,10">
                 <Button DockPanel.Dock="Right" Width="28" Height="28" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand"
                         Command="{Binding ToggleReportPanelCommand}" ToolTip="{Binding ReportPanelToggleTip}" AutomationProperties.Name="Collapse or expand report types">
                   <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -597,38 +614,39 @@
                     </Style.Triggers>
                   </Style>
                 </ScrollViewer.Style>
-                <ItemsControl ItemsSource="{Binding ReportGroups}" Focusable="False">
+                <ItemsControl ItemsSource="{Binding ReportGroups}" Focusable="False" Margin="2,0,2,0">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <StackPanel Margin="0,0,0,10">
-                        <StackPanel Orientation="Horizontal" Margin="2,0,0,4"
-                                    Visibility="{Binding DataContext.IsReportPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BooleanToVisibilityConverter}}">
-                          <Border Width="6" Height="6" CornerRadius="3" Background="{Binding Accent}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                          <TextBlock Text="{Binding Heading}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" />
-                        </StackPanel>
-                        <Border Height="2" Margin="10,0,10,6" CornerRadius="1" Background="{Binding Accent}" Opacity="0.55"
-                                Visibility="{Binding DataContext.IsReportPanelCompact, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      <StackPanel Margin="0,0,0,14">
+                        <!-- Group heading: small capitals in the group's colour, a thin rule beneath. -->
+                        <TextBlock Text="{Binding Caps}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding Accent}" Margin="2,0,0,0"
+                                   Visibility="{Binding DataContext.IsReportPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <Border Height="1" Margin="2,4,2,8" Background="{Binding Accent}" Opacity="0.35" />
                         <ItemsControl ItemsSource="{Binding Items}" Focusable="False">
                           <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                              <Button Style="{StaticResource ReportPanelButton}" Margin="0,0,0,2"
+                              <Button Style="{StaticResource ReportPanelButton}" Margin="0,0,0,6"
                                       Command="{Binding DataContext.SelectReportCommand, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}}"
                                       CommandParameter="{Binding}" ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
                                 <Grid>
-                                  <!-- Full: icon and name. -->
+                                  <!-- Full: the icon in its group's colour, and the name. -->
                                   <Grid Visibility="{Binding DataContext.IsReportPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Grid.ColumnDefinitions>
-                                      <ColumnDefinition Width="26" />
+                                      <ColumnDefinition Width="Auto" />
                                       <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{Binding Accent}" VerticalAlignment="Center" />
+                                    <Border Width="32" Height="32" CornerRadius="8" Background="{Binding Tint}" VerticalAlignment="Center" Margin="0,0,10,0">
+                                      <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
                                   </Grid>
-                                  <!-- Icon strip: icon over a short name. -->
+                                  <!-- Icon strip: the coloured icon over a short name. -->
                                   <StackPanel HorizontalAlignment="Center"
                                               Visibility="{Binding DataContext.IsReportPanelCompact, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Accent}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="{Binding ShortLabel}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,2,0,0" />
+                                    <Border Width="30" Height="30" CornerRadius="8" Background="{Binding Tint}" HorizontalAlignment="Center">
+                                      <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="{Binding ShortLabel}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,3,0,0" />
                                   </StackPanel>
                                 </Grid>
                               </Button>
@@ -643,177 +661,107 @@
             </DockPanel>
           </Border>
           <StackPanel DockPanel.Dock="Top">
-            <Border Background="#FFFFFFFF" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,0,12">
-              <UIElement.Effect>
-                <DropShadowEffect BlurRadius="6" ShadowDepth="1" Opacity="0.06" Color="#FF000000" />
-              </UIElement.Effect>
+            <!-- One card for every control: filters and actions on one band, periods on the next. -->
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="12" Padding="14,12" Margin="0,0,0,10">
               <StackPanel>
-                <DockPanel Margin="0,0,0,4" LastChildFill="True">
-                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,8">
-                    <Button Margin="0,0,8,0" ToolTip="Reload report data" AutomationProperties.Name="Refresh report" Style="{StaticResource ReportRefreshButton}" Command="{Binding RefreshCommand}">
+                <DockPanel LastChildFill="True">
+                  <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,0,0,0">
+                    <Button Margin="0,0,8,0" ToolTip="Run the report again" AutomationProperties.Name="Refresh report" Style="{StaticResource ReportPrimaryActionButton}" Command="{Binding RefreshCommand}">
                       <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72C;" FontSize="13" Margin="0,0,7,0" VerticalAlignment="Center" />
                         <TextBlock Text="Refresh" VerticalAlignment="Center" />
                       </StackPanel>
                     </Button>
-                    <Button Margin="0,0,8,0" ToolTip="Export PDF" AutomationProperties.Name="PDF" Style="{StaticResource ReportPdfButton}" Command="{Binding ExportPdfCommand}">
+                    <Button Margin="0,0,8,0" ToolTip="Export this report as a PDF" AutomationProperties.Name="PDF" Style="{StaticResource ReportActionButton}" Command="{Binding ExportPdfCommand}">
                       <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A5;" FontSize="13" Margin="0,0,7,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
                         <TextBlock Text="PDF" VerticalAlignment="Center" />
                       </StackPanel>
                     </Button>
-                    <Button ToolTip="Excel" AutomationProperties.Name="Excel" Style="{StaticResource ReportExcelButton}" Command="{Binding ExportExcelCommand}">
+                    <Button ToolTip="Export this report to Excel" AutomationProperties.Name="Excel" Style="{StaticResource ReportActionButton}" Command="{Binding ExportExcelCommand}">
                       <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE9F9;" FontSize="13" Margin="0,0,7,0" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
                         <TextBlock Text="Excel" VerticalAlignment="Center" />
                       </StackPanel>
                     </Button>
                   </StackPanel>
-                  <WrapPanel>
-                    <ComboBox Width="200" Margin="0,0,8,8" DisplayMemberPath="DisplayName" ToolTip="Current branch only, or consolidated network summary when peer snapshots exist" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding BranchFilterChoices}" SelectedItem="{Binding SelectedBranchFilter}" />
-                    <ComboBox Width="130" Margin="0,0,8,8" SelectedValuePath="Number" DisplayMemberPath="Name" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding Months}" SelectedValue="{Binding SelectedMonth}" />
-                    <ComboBox Width="90" Margin="0,0,8,8" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
-                    <Button Margin="0,0,8,8" ToolTip="Previous month" AutomationProperties.Name="Previous month" Style="{StaticResource ReportNavOutlineButton}" Command="{Binding PreviousMonthCommand}">
-                      <StackPanel Orientation="Horizontal">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Previous" VerticalAlignment="Center" />
-                      </StackPanel>
+                  <WrapPanel VerticalAlignment="Center">
+                    <ComboBox Width="200" Height="34" Margin="0,0,8,0" DisplayMemberPath="DisplayName" ToolTip="Current branch only, or consolidated network summary when peer snapshots exist" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding BranchFilterChoices}" SelectedItem="{Binding SelectedBranchFilter}" />
+                    <ComboBox Width="120" Height="34" Margin="0,0,8,0" SelectedValuePath="Number" DisplayMemberPath="Name" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding Months}" SelectedValue="{Binding SelectedMonth}" />
+                    <ComboBox Width="84" Height="34" Margin="0,0,8,0" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
+                    <Button Margin="0,0,6,0" MinWidth="0" Width="34" Padding="0" ToolTip="Previous month" AutomationProperties.Name="Previous month" Style="{StaticResource ReportActionButton}" Command="{Binding PreviousMonthCommand}">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE76B;" FontSize="12" />
                     </Button>
-                    <Button Margin="0,0,8,8" ToolTip="Next month" AutomationProperties.Name="Next month" Style="{StaticResource ReportNavOutlineButton}" Command="{Binding NextMonthCommand}" IsEnabled="{Binding CanNavigateNext}">
-                      <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Next" VerticalAlignment="Center" />
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="" Margin="6,0,0,0" VerticalAlignment="Center" />
-                      </StackPanel>
+                    <Button Margin="0,0,8,0" MinWidth="0" Width="34" Padding="0" ToolTip="Next month" AutomationProperties.Name="Next month" Style="{StaticResource ReportActionButton}" Command="{Binding NextMonthCommand}" IsEnabled="{Binding CanNavigateNext}">
+                      <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE76C;" FontSize="12" />
                     </Button>
+                    <StackPanel Orientation="Horizontal" Visibility="{Binding ShowDimensionFilter, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      <TextBlock VerticalAlignment="Center" Margin="4,0,8,0" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding DimensionFilterLabel}" />
+                      <ComboBox Width="220" Height="34" IsEditable="True" ToolTip="Filter to one party / batch / brand / manufacturer, or All for aggregated subtotals" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding DimensionFilterChoices}" Text="{Binding SelectedDimensionFilter, UpdateSourceTrigger=LostFocus}" SelectedItem="{Binding SelectedDimensionFilter, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
                   </WrapPanel>
                 </DockPanel>
-                <WrapPanel Margin="0,0,0,0" Visibility="{Binding ShowDimensionFilter, Converter={StaticResource BooleanToVisibilityConverter}}">
-                  <TextBlock VerticalAlignment="Center" Margin="0,0,8,8" FontWeight="SemiBold" Foreground="#FF475569" Text="{Binding DimensionFilterLabel}" />
-                  <ComboBox Width="280" Margin="0,0,8,8" IsEditable="True" ToolTip="Filter to one party / batch / brand / manufacturer, or All for aggregated subtotals" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding DimensionFilterChoices}" Text="{Binding SelectedDimensionFilter, UpdateSourceTrigger=LostFocus}" SelectedItem="{Binding SelectedDimensionFilter, UpdateSourceTrigger=PropertyChanged}" />
-                </WrapPanel>
-                <WrapPanel Margin="0,4,0,0">
-                  <Button Content="Today" CommandParameter="Today" Command="{Binding SelectQuickPeriodCommand}">
-                    <FrameworkElement.Style>
-                      <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
-                        <Style.Triggers>
-                          <DataTrigger Value="Today" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
-                            <Setter Property="UIElement.Effect">
-                              <Setter.Value>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.22" Color="#FF1D4ED8" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </FrameworkElement.Style>
-                  </Button>
-                  <Button Content="This month" CommandParameter="This month" Command="{Binding SelectQuickPeriodCommand}">
-                    <FrameworkElement.Style>
-                      <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
-                        <Style.Triggers>
-                          <DataTrigger Value="This month" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
-                            <Setter Property="UIElement.Effect">
-                              <Setter.Value>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.22" Color="#FF1D4ED8" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </FrameworkElement.Style>
-                  </Button>
-                  <Button Content="Last month" CommandParameter="Last month" Command="{Binding SelectQuickPeriodCommand}">
-                    <FrameworkElement.Style>
-                      <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
-                        <Style.Triggers>
-                          <DataTrigger Value="Last month" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
-                            <Setter Property="UIElement.Effect">
-                              <Setter.Value>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.22" Color="#FF1D4ED8" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </FrameworkElement.Style>
-                  </Button>
-                  <Button Content="Last 3 months" CommandParameter="Last 3 months" Command="{Binding SelectQuickPeriodCommand}">
-                    <FrameworkElement.Style>
-                      <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
-                        <Style.Triggers>
-                          <DataTrigger Value="Last 3 months" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
-                            <Setter Property="UIElement.Effect">
-                              <Setter.Value>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.22" Color="#FF1D4ED8" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </FrameworkElement.Style>
-                  </Button>
-                  <Button Content="This year" CommandParameter="This year" Command="{Binding SelectQuickPeriodCommand}">
-                    <FrameworkElement.Style>
-                      <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
-                        <Style.Triggers>
-                          <DataTrigger Value="This year" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
-                            <Setter Property="UIElement.Effect">
-                              <Setter.Value>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.22" Color="#FF1D4ED8" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </FrameworkElement.Style>
-                  </Button>
-                  <Button Content="Active window (retention)" CommandParameter="Active window" ToolTip="Query the full active retention window using indexed InvoiceDate / SaleAtUtc filters" Command="{Binding SelectQuickPeriodCommand}">
-                    <FrameworkElement.Style>
-                      <Style TargetType="{x:Type Button}" BasedOn="{StaticResource ReportPeriodChipButton}">
-                        <Style.Triggers>
-                          <DataTrigger Value="Active window" Binding="{Binding SelectedQuickPeriod}">
-                            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="#FFFFFFFF" />
-                            <Setter Property="UIElement.Effect">
-                              <Setter.Value>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.22" Color="#FF1D4ED8" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </FrameworkElement.Style>
-                  </Button>
-                  <TextBlock Text="Custom:" VerticalAlignment="Center" Margin="8,0,6,6" Foreground="#FF475569" FontWeight="SemiBold" />
-                  <DatePicker Height="36" Margin="0,0,6,6" VerticalContentAlignment="Center" SelectedDate="{Binding FromDate}" />
-                  <TextBlock Text="to" VerticalAlignment="Center" Margin="0,0,6,6" Foreground="#FF64748B" />
-                  <DatePicker Height="36" Margin="0,0,8,6" VerticalContentAlignment="Center" SelectedDate="{Binding ToDate}" />
-                  <Button Margin="0,0,0,6" Content="Run custom period" AutomationProperties.Name="Run custom period" Style="{StaticResource ReportRunPeriodButton}" Command="{Binding RunCustomPeriodCommand}" />
+                <Border Height="1" Background="{DynamicResource DividerBrush}" Margin="0,12,0,10" />
+                <!-- The periods on one row; Custom opens its date range beside them. -->
+                <WrapPanel>
+                  <ItemsControl ItemsSource="{Binding PeriodChips}" Focusable="False" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Button Style="{StaticResource ReportPeriodChip}" Content="{Binding Label}" AutomationProperties.Name="{Binding Label}"
+                                Command="{Binding DataContext.SelectQuickPeriodCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding Key}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,0,0" AutomationProperties.Name="Custom period"
+                              Visibility="{Binding IsCustomPeriod, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <DatePicker Height="34" Width="136" VerticalContentAlignment="Center" SelectedDate="{Binding FromDate}" AutomationProperties.Name="From date" />
+                    <TextBlock Text="to" VerticalAlignment="Center" Margin="8,0" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <DatePicker Height="34" Width="136" VerticalContentAlignment="Center" SelectedDate="{Binding ToDate}" AutomationProperties.Name="To date" />
+                    <Button Margin="8,0,0,0" MinWidth="0" Content="Apply" AutomationProperties.Name="Run custom period" Style="{StaticResource ReportPrimaryActionButton}" Command="{Binding RunCustomPeriodCommand}" />
+                  </StackPanel>
                 </WrapPanel>
               </StackPanel>
             </Border>
-            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4" Text="{Binding PeriodLabel}" />
-            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" />
-            <TextBlock Foreground="{DynamicResource AccentBrush}" Margin="0,0,0,8" Text="{Binding StatusMessage}" />
+            <!-- What the grid shows, on one line: report, dates, branch; the row count to the right. -->
+            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="10" Padding="14,8" Margin="0,0,0,8" AutomationProperties.Name="Report summary">
+              <DockPanel>
+                <Border DockPanel.Dock="Right" CornerRadius="10" Padding="10,2" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding SummaryRows}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" />
+                </Border>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding StatusMessage}" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" VerticalAlignment="Center" Margin="12,0" TextTrimming="CharacterEllipsis" MaxWidth="420" />
+                <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                  <Run Text="{Binding SummaryReport, Mode=OneWay}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}" />
+                  <Run Text="   " />
+                  <Run Text="{Binding SummaryRange, Mode=OneWay}" FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <Run Text="  ·  " FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" />
+                  <Run Text="{Binding SummaryBranch, Mode=OneWay}" FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}" />
+                </TextBlock>
+              </DockPanel>
+            </Border>
+            <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Text="{Binding ErrorMessage}" Margin="2,0,0,6">
+              <TextBlock.Style>
+                <Style TargetType="{x:Type TextBlock}">
+                  <Style.Triggers>
+                    <Trigger Property="Text" Value="">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                    </Trigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
           </StackPanel>
           <Grid>
-            <DataGrid AutoGenerateColumns="True" IsReadOnly="True" CanUserAddRows="False" FrozenColumnCount="1" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding Table}" Visibility="{Binding ShowEmptyReportState, Converter={StaticResource InverseBooleanToVisibilityConverter}}" AutoGeneratingColumn="ReportsGrid_AutoGeneratingColumn">
+            <!-- Columns size to their content; the leading Date / Invoice / Item Name columns stay in view when scrolling sideways. -->
+            <DataGrid AutoGenerateColumns="True" IsReadOnly="True" CanUserAddRows="False" ColumnWidth="Auto" MinColumnWidth="64"
+                      HorizontalScrollBarVisibility="Auto" EnableRowVirtualization="True" EnableColumnVirtualization="False"
+                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ItemsSource="{Binding Table}"
+                      Visibility="{Binding ShowEmptyReportState, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                      AutoGeneratingColumn="ReportsGrid_AutoGeneratingColumn" AutoGeneratedColumns="ReportsGrid_AutoGeneratedColumns">
             </DataGrid>
             <Border Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1" CornerRadius="10" Visibility="{Binding ShowEmptyReportState, Converter={StaticResource BooleanToVisibilityConverter}}">
               <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">

@@ -380,6 +380,7 @@ public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 				OnPropertyChanging(nameof(SelectedQuickPeriod));
 				_selectedQuickPeriod = value;
 				OnPropertyChanged(nameof(SelectedQuickPeriod));
+				MarkSelectedPeriod();
 			}
 		}
 	}
@@ -503,6 +504,7 @@ public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 		SelectedReport = ReportChoices[0];
 		_suppressReportChangeRefresh = false;
 		SelectedDimensionFilter = "All";
+		MarkSelectedPeriod();
 	}
 
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -596,10 +598,12 @@ public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 				dataTable.Rows.Add(list.ToArray());
 			}
 			Table = dataTable.DefaultView;
+			SetSummary(from, to, reportTo, lookAhead, reportTable);
 			PeriodLabel = lookAhead
 				? $"{from:yyyy-MM-dd} to {to:yyyy-MM-dd}, expiring up to {reportTo:yyyy-MM-dd} · {reportTable.Title}"
 				: $"{from:yyyy-MM-dd} to {to:yyyy-MM-dd} · {reportTable.Title}";
-			StatusMessage = $"{reportTable.Rows.Count} row(s).";
+			// The row count is in the summary strip; the status line is kept for exports and other notices.
+			StatusMessage = string.Empty;
 			ErrorMessage = string.Empty;
 		}
 		catch (Exception ex)
@@ -634,6 +638,11 @@ public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task SelectQuickPeriodAsync(string period)
 	{
+		if (period == CustomPeriod)
+		{
+			SelectedQuickPeriod = CustomPeriod;
+			return;
+		}
 		DateTime today = BusinessClock.Now.Date;
 		switch (period)
 		{
@@ -672,7 +681,7 @@ public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task RunCustomPeriodAsync()
 	{
-		SelectedQuickPeriod = string.Empty;
+		SelectedQuickPeriod = CustomPeriod;
 		await RefreshWithFiltersAsync();
 	}
 

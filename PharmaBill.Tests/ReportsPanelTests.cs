@@ -189,7 +189,34 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
             // Narrowed by the user: an icon strip, and the results keep the width.
             await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && AutomationProperties.GetName(b) == "Collapse or expand report types"));
             Assert.True(page.IsReportPanelCompact);
-            Assert.Equal(84, Ui.Named<Border>(host, "Report types").ActualWidth, 0);
+            Border panel = Ui.Named<Border>(host, "Report types");
+            // The width animates down to the strip rather than snapping.
+            await Ui.UntilAsync(() => Math.Abs(panel.ActualWidth - 84) < 0.5, "the panel to narrow");
+
+            // Custom opens its date range beside the chips; Apply runs it and keeps Custom chosen.
+            StackPanel custom = Ui.Named<StackPanel>(host, "Custom period", visibleOnly: false);
+            Assert.False(custom.IsVisible);
+            await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && b.DataContext is PeriodChip { Key: "Custom" }));
+            await Ui.SettleAsync();
+            Assert.True(custom.IsVisible);
+            page.FromDate = new DateTime(2026, 10, 5);
+            await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && AutomationProperties.GetName(b) == "Run custom period"));
+            await Ui.UntilAsync(() => page.SummaryRange.StartsWith("5 Oct 2026"), "the custom period to run");
+            Assert.True(page.PeriodChips.Single(chip => chip.Key == "Custom").IsSelected);
+            Assert.True(custom.IsVisible);
+
+            // The summary strip: report, dates, branch and rows on one line.
+            await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && b.DataContext is ReportPanelItem { Name: "Sales Summary (General)" }));
+            await Ui.UntilAsync(() => page.SummaryReport == "Sales Summary (General)", "the summary");
+            Assert.Equal("Current branch only", page.SummaryBranch);
+            Assert.EndsWith("rows", page.SummaryRows);
+            Assert.True(Ui.Named<Border>(host, "Report summary").IsVisible);
+
+            // Date, Invoice and Item Name stay in view when the grid scrolls sideways.
+            await Ui.SettleAsync();
+            DataGrid grid = Ui.Single<DataGrid>(host, g => g.ItemsSource == page.Table);
+            Assert.Equal(4, grid.FrozenColumnCount);
+            Assert.Equal("Item Name", grid.Columns.OrderBy(column => column.DisplayIndex).ElementAt(3).Header);
             host.Close();
         });
     }
@@ -213,7 +240,8 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
             host.Content = new ContentControl { Content = page, ContentTemplate = (DataTemplate)mainWindow.Resources[new DataTemplateKey(typeof(ReportsPageViewModel))], Resources = mainWindow.Resources };
             await Ui.SettleAsync();
             Assert.True(page.IsReportPanelCompact);
-            Assert.Equal(84, Ui.Named<Border>(host, "Report types").ActualWidth, 0);
+            Border panel = Ui.Named<Border>(host, "Report types");
+            await Ui.UntilAsync(() => Math.Abs(panel.ActualWidth - 84) < 0.5, "the panel to narrow");
             host.Close();
         });
     }

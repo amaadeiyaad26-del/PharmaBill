@@ -1406,34 +1406,39 @@
       </Setter.Value>
     </Setter>
   </Style>
-  <!-- A report in the Reports panel (DataContext: ReportPanelItem). Its group's colour marks it: a bar that grows in when
-       it is the report shown, and a faint tint with a slight nudge on hover. -->
+  <!-- A report card in the Reports panel (DataContext: ReportPanelItem). On hover it lifts a little and brightens with its
+       group's colour; when it is the report shown, an accent bar slides in from the left and the card fills with a soft
+       tint of that colour. Every change eases over about 150-200 ms; nothing jumps. -->
   <Style x:Key="ReportPanelButton" TargetType="{x:Type Button}">
     <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="MinHeight" Value="48" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="FrameworkElement.Cursor" Value="Hand" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type Button}">
           <Grid>
-            <Border Name="FocusRing" CornerRadius="9" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
-            <Border Name="Face" CornerRadius="7" BorderThickness="1" BorderBrush="#00FFFFFF" Background="{TemplateBinding Background}">
+            <Border Name="FocusRing" CornerRadius="12" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Card" CornerRadius="10" BorderThickness="1" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}">
+              <Border.Effect>
+                <DropShadowEffect BlurRadius="6" ShadowDepth="1" Direction="270" Opacity="0.06" Color="#FF0F172A" />
+              </Border.Effect>
+              <Border.RenderTransform>
+                <TranslateTransform Y="0" />
+              </Border.RenderTransform>
               <Grid>
-                <Border Name="Tint" CornerRadius="7" Background="{Binding Accent}" Opacity="0" />
-                <Border Name="Bar" Width="3" HorizontalAlignment="Left" Margin="0,7" CornerRadius="2" Background="{Binding Accent}" RenderTransformOrigin="0.5,0.5">
+                <Border Name="Glow" CornerRadius="10" Background="{Binding Tint}" Opacity="0" />
+                <Border Name="Fill" CornerRadius="10" Background="{Binding Tint}" Opacity="0" />
+                <Border Name="Edge" CornerRadius="10" BorderThickness="1" BorderBrush="{Binding Accent}" Opacity="0" Margin="-1" />
+                <Border Name="Bar" Width="4" HorizontalAlignment="Left" CornerRadius="10,0,0,10" Background="{Binding Accent}" Opacity="0">
                   <Border.RenderTransform>
-                    <ScaleTransform ScaleY="0" />
+                    <TranslateTransform X="-4" />
                   </Border.RenderTransform>
                 </Border>
-                <ContentPresenter Name="Content" Margin="10,6,8,6" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True">
-                  <ContentPresenter.RenderTransform>
-                    <TranslateTransform X="0" />
-                  </ContentPresenter.RenderTransform>
-                </ContentPresenter>
+                <ContentPresenter Name="Content" Margin="12,8,10,8" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True" />
               </Grid>
             </Border>
           </Grid>
@@ -1442,31 +1447,40 @@
               <Trigger.EnterActions>
                 <BeginStoryboard>
                   <Storyboard>
-                    <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity" To="0.07" Duration="0:0:0.14" />
-                    <DoubleAnimation Storyboard.TargetName="Content" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="2" Duration="0:0:0.14" />
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="-2" Duration="0:0:0.15">
+                      <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)" To="0.14" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.BlurRadius)" To="12" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" To="0.5" Duration="0:0:0.15" />
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.EnterActions>
               <Trigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
-                    <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18" />
-                    <DoubleAnimation Storyboard.TargetName="Content" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.18" />
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="0" Duration="0:0:0.15">
+                      <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.Opacity)" To="0.06" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="(UIElement.Effect).(DropShadowEffect.BlurRadius)" To="6" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.15" />
                   </Storyboard>
                 </BeginStoryboard>
               </Trigger.ExitActions>
             </Trigger>
             <DataTrigger Binding="{Binding IsSelected}" Value="True">
-              <Setter TargetName="Face" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-              <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
               <Setter TargetName="Content" Property="TextElement.FontWeight" Value="SemiBold" />
               <DataTrigger.EnterActions>
                 <BeginStoryboard>
                   <Storyboard>
-                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.2">
-                      <DoubleAnimation.EasingFunction>
-                        <CubicEase EasingMode="EaseOut" />
-                      </DoubleAnimation.EasingFunction>
+                    <DoubleAnimation Storyboard.TargetName="Fill" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.2">
+                      <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                    <DoubleAnimation Storyboard.TargetName="Edge" Storyboard.TargetProperty="Opacity" To="0.45" Duration="0:0:0.2" />
+                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12" />
+                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.22">
+                      <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
                     </DoubleAnimation>
                   </Storyboard>
                 </BeginStoryboard>
@@ -1474,11 +1488,101 @@
               <DataTrigger.ExitActions>
                 <BeginStoryboard>
                   <Storyboard>
-                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0" Duration="0:0:0.15" />
+                    <DoubleAnimation Storyboard.TargetName="Fill" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18" />
+                    <DoubleAnimation Storyboard.TargetName="Edge" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18" />
+                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18" />
+                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="-4" Duration="0:0:0.18" />
                   </Storyboard>
                 </BeginStoryboard>
               </DataTrigger.ExitActions>
             </DataTrigger>
+            <Trigger Property="UIElement.IsKeyboardFocused" Value="True">
+              <Setter TargetName="FocusRing" Property="Border.BorderBrush" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Card" Property="UIElement.Opacity" Value="0.92" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <!-- Refresh, PDF and Excel on the Reports screen: one set, same size, icon and label. The primary action in the
+       app's accent; the others quiet outlines. -->
+  <Style x:Key="ReportActionButton" TargetType="{x:Type Button}">
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="MinWidth" Value="92" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Grid>
+            <Border Name="FocusRing" CornerRadius="10" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="UIElement.IsKeyboardFocused" Value="True">
+              <Setter TargetName="FocusRing" Property="Border.BorderBrush" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.88" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.45" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="UIElement.IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <Style x:Key="ReportPrimaryActionButton" TargetType="{x:Type Button}" BasedOn="{StaticResource ReportActionButton}">
+    <Setter Property="Foreground" Value="#FFFFFFFF" />
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Style.Triggers>
+      <Trigger Property="UIElement.IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+  <!-- A quick-period chip (DataContext: PeriodChip): quiet until chosen, then a soft accent fill. -->
+  <Style x:Key="ReportPeriodChip" TargetType="{x:Type Button}">
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Grid>
+            <Border Name="FocusRing" CornerRadius="17" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="15" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
             <Trigger Property="UIElement.IsKeyboardFocused" Value="True">
               <Setter TargetName="FocusRing" Property="Border.BorderBrush" Value="{DynamicResource AccentBrush}" />
             </Trigger>
@@ -1489,5 +1593,16 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+    <Style.Triggers>
+      <Trigger Property="UIElement.IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+      </Trigger>
+      <DataTrigger Binding="{Binding IsSelected}" Value="True">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+      </DataTrigger>
+    </Style.Triggers>
   </Style>
 </ResourceDictionary>
