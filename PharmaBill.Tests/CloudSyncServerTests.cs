@@ -14,6 +14,7 @@ using Xunit;
 
 namespace PharmaBill.Tests;
 
+[Collection(RunsAlone.Name)]
 public sealed class CloudSyncServerTests : IAsyncDisposable
 {
     private const string AdminKey = "test-admin-key";

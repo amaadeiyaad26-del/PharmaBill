@@ -16,11 +16,15 @@ public partial class FirstRunWizardViewModel : ObservableObject
     private readonly IFilePickerService _filePicker;
     private readonly RecoveryCodeStore _recoveryCodeStore;
 
+    private readonly CountersInUse? _counters;
+
     public FirstRunWizardViewModel(
         PharmacySetupService setupService,
         IFilePickerService filePicker,
-        RecoveryCodeStore recoveryCodeStore)
+        RecoveryCodeStore recoveryCodeStore,
+        CountersInUse? counters = null)
     {
+        _counters = counters;
         _setupService = setupService;
         _filePicker = filePicker;
         _recoveryCodeStore = recoveryCodeStore;
@@ -236,6 +240,10 @@ public partial class FirstRunWizardViewModel : ObservableObject
                 Role = UserRole.Owner,
                 IdleLockMinutes = idleMinutes
             };
+            if (_counters != null && !_counters.ConfirmProceed("Setting up the pharmacy", "A new pharmacy starts on a new, empty database; the counters would be billing into the one being replaced."))
+            {
+                return;
+            }
             RecoveryCode = await _recoveryCodeStore.CreateAsync();
             try
             {

@@ -186,6 +186,11 @@ public sealed class TerminalServer(IServiceScopeFactory scopeFactory, TerminalDe
 		{
 			await WriteErrorAsync(http, StatusCodes.Status403Forbidden, PharmaBill.Core.UserMessage.Of(exception));
 		}
+		catch (PharmaBill.Data.Persistence.DatabaseUnavailableException exception)
+		{
+			// The server is restoring a backup or setting up a store: the counter is told so, and nothing was saved.
+			await WriteErrorAsync(http, StatusCodes.Status503ServiceUnavailable, exception.Message, TerminalErrorCodes.DatabaseUnavailable);
+		}
 		catch (RecordLockedException exception)
 		{
 			// Older than the record-lock period: the terminal asks for an admin unlock and sends it with the retry.

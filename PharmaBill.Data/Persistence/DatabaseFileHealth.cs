@@ -95,7 +95,7 @@ public static class DatabaseFileHealth
 	/// </summary>
 	public static string Quarantine(string databasePath, string reason, DateTime? now = null)
 	{
-		SqliteConnection.ClearAllPools();
+		DatabaseMaintenance.ClearPools(databasePath);
 		string stamp = (now ?? DateTime.Now).ToString("yyyyMMdd-HHmmss");
 		string target = databasePath + "." + reason + "-" + stamp;
 		for (int attempt = 2; File.Exists(target); attempt++)

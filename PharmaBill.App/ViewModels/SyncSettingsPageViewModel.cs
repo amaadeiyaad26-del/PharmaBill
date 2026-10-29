@@ -1565,8 +1565,11 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 	[ExcludeFromCodeCoverage]
 	public IAsyncRelayCommand<bool> ResolveConflictCommand => resolveConflictCommand ?? (resolveConflictCommand = new AsyncRelayCommand<bool>(ResolveConflictAsync));
 
-	public SyncSettingsPageViewModel(IServiceScopeFactory scopeFactory, DatabaseDeviceId localDevice, CurrentSession session, IFilePickerService filePicker, IConfirmationService confirmation, SyncFolderExchangeService folderSync, CloudSyncService cloudSync, LocalSyncServer localSync, ZeroConfigSyncCoordinator zeroConfig, GoogleDriveSyncService googleDrive, CloudOAuthClientStore oauthClients, BranchNetworkSyncService branchNetwork, CloudAutoBackupPreferencesStore autoBackupPreferences, DevicesViewModel devices)
+	private readonly CountersInUse? _counters;
+
+	public SyncSettingsPageViewModel(IServiceScopeFactory scopeFactory, DatabaseDeviceId localDevice, CurrentSession session, IFilePickerService filePicker, IConfirmationService confirmation, SyncFolderExchangeService folderSync, CloudSyncService cloudSync, LocalSyncServer localSync, ZeroConfigSyncCoordinator zeroConfig, GoogleDriveSyncService googleDrive, CloudOAuthClientStore oauthClients, BranchNetworkSyncService branchNetwork, CloudAutoBackupPreferencesStore autoBackupPreferences, DevicesViewModel devices, CountersInUse? counters = null)
 	{
+		_counters = counters;
 		DevicesPanel = devices;
 		_scopeFactory = scopeFactory;
 		_localDevice = localDevice;
@@ -1894,7 +1897,9 @@ public class SyncSettingsPageViewModel : ObservableObject, ILoadablePage
 
 	private async Task DownloadGoogleDriveBackupAsync()
 	{
-		if (IsGoogleDriveBusy || !_confirmation.Confirm("This replaces the local Pharma Remit database with the latest cloud backup. A safety backup is created first.", "Download & restore from Google Drive?"))
+		if (IsGoogleDriveBusy
+			|| (_counters != null && !_counters.ConfirmProceed("Restoring the cloud backup", "Every bill those counters saved since the backup was made will be replaced by the backup's records."))
+			|| !_confirmation.Confirm("This replaces the local Pharma Remit database with the latest cloud backup. A safety backup is created first.", "Download & restore from Google Drive?"))
 		{
 			return;
 		}

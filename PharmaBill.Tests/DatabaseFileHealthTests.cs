@@ -7,6 +7,7 @@ using Xunit;
 
 namespace PharmaBill.Tests;
 
+[Collection(RunsAlone.Name)]
 public sealed class DatabaseFileHealthTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"PharmaBill.DbHealth.{Guid.NewGuid():N}");

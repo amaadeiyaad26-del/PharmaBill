@@ -141,6 +141,9 @@ public sealed class TerminalSessions
 
 	public void ClearFailedSignIns(Guid deviceId) => _failures.TryRemove(deviceId, out _);
 
+	/// <summary>Everyone signed in at a terminal right now (live sessions only).</summary>
+	public IReadOnlyList<TerminalSession> SignedIn() => _sessions.Values.Where(IsLive).OrderBy(session => session.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+
 	public static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
 	private static bool IsLive(TerminalSession session)

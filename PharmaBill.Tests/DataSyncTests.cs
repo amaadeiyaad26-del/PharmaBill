@@ -18,6 +18,7 @@ namespace PharmaBill.Tests;
 
 // Backup & Sync: local backup and PC migration, and device and cloud sync, as two tabs of one screen, built from the
 // real Backup and Sync pages (shown inside Settings > Data & Maintenance; the routing is in MergedScreenRoutesTests).
+[Collection(RunsAlone.Name)]
 public sealed class DataSyncTests
 {
     [Fact]

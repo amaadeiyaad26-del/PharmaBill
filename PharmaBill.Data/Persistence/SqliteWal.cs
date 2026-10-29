@@ -20,6 +20,8 @@ public static class SqliteWal
 
 	public static void Apply(DbConnection connection)
 	{
+		// Counted as work in flight until it closes, so a restore waits for it (see DatabaseMaintenance).
+		DatabaseMaintenance.Track(connection);
 		using DbCommand command = connection.CreateCommand();
 		command.CommandText = Pragmas;
 		command.ExecuteNonQuery();
@@ -27,6 +29,7 @@ public static class SqliteWal
 
 	public static async Task ApplyAsync(DbConnection connection, CancellationToken cancellationToken = default)
 	{
+		DatabaseMaintenance.Track(connection);
 		await using DbCommand command = connection.CreateCommand();
 		command.CommandText = Pragmas;
 		await command.ExecuteNonQueryAsync(cancellationToken);
@@ -56,6 +59,19 @@ public static class SqliteWal
 public sealed class SqliteWalInterceptor : DbConnectionInterceptor
 {
 	public static readonly SqliteWalInterceptor Instance = new();
+
+	// Before opening: never to a missing file (that would create an empty database), never while it is being replaced.
+	public override InterceptionResult ConnectionOpening(DbConnection connection, ConnectionEventData eventData, InterceptionResult result)
+	{
+		DatabaseMaintenance.BeforeOpen(connection.DataSource);
+		return result;
+	}
+
+	public override ValueTask<InterceptionResult> ConnectionOpeningAsync(DbConnection connection, ConnectionEventData eventData, InterceptionResult result, CancellationToken cancellationToken = default)
+	{
+		DatabaseMaintenance.BeforeOpen(connection.DataSource);
+		return ValueTask.FromResult(result);
+	}
 
 	public override void ConnectionOpened(DbConnection connection, ConnectionEndEventData eventData) => SqliteWal.Apply(connection);
 

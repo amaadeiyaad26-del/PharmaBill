@@ -45,12 +45,29 @@ public sealed class DbInitializer(
 		EnsureDatabaseDirectory();
 
 		// 0) CHECK THE FILE before EF opens it (SQLite Error 26 used to crash startup here).
-		CheckDatabaseFile();
+		bool movedAside = CheckDatabaseFile();
+
+		// A database is only ever created here, deliberately: on the first run, for a new store, or after a damaged or
+		// empty file was archived above. Where one existed before and is now missing, startup stops and says so; an empty
+		// database is never put in its place (the shop would open to an empty system while its data is elsewhere).
+		string? databasePath = DatabasePath();
+		if (databasePath != null && !File.Exists(databasePath))
+		{
+			if (DatabaseCreation.WasCreatedBefore(databasePath) && !movedAside)
+			{
+				throw new DatabaseMissingException(databasePath);
+			}
+			CreateEmptyDatabase();
+		}
 
 		// 1) CREATE / MIGRATE SCHEMA — must run before any PharmacyProfiles / AppUsers query.
 		// Migrations are the only thing that changes the schema. A failed migration throws
 		// DatabaseMigrationException and startup stops; nothing patches columns or tables behind them.
 		await EnsureCoreSchemaAsync(cancellationToken);
+		if (databasePath != null)
+		{
+			DatabaseCreation.Mark(databasePath);
+		}
 
 		// Store buyer-type synonyms (Wholesaler, Stockist…) as Distributor, with an audit entry per remap.
 		try
@@ -173,13 +190,38 @@ public sealed class DbInitializer(
 	/// Only when the file cannot even be archived (held open elsewhere) does startup stop, with
 	/// <see cref="DatabaseUnreadableException"/>, so the recovery screen can explain it.
 	/// </summary>
-	private void CheckDatabaseFile()
+	private string? DatabasePath()
 	{
 		string? connectionString = context.Database.GetConnectionString();
 		if (string.IsNullOrWhiteSpace(connectionString))
 		{
-			return;
+			return null;
 		}
+		string dataSource = new SqliteConnectionStringBuilder(connectionString).DataSource;
+		return string.IsNullOrWhiteSpace(dataSource) || dataSource == ":memory:" ? null : Path.GetFullPath(dataSource);
+	}
+
+	// The one place a database file is created: encrypted with the key, then migrated by EF.
+	private void CreateEmptyDatabase()
+	{
+		var builder = new SqliteConnectionStringBuilder(context.Database.GetConnectionString()) { Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false };
+		using var connection = new SqliteConnection(builder.ToString());
+		connection.Open();
+		using SqliteCommand command = connection.CreateCommand();
+		// In WAL mode from the start, as every connection sets it: EF's read-only existence check cannot switch it later.
+		command.CommandText = "CREATE TABLE __pharma_remit_created (x INTEGER); DROP TABLE __pharma_remit_created; " + SqliteWal.Pragmas;
+		command.ExecuteNonQuery();
+	}
+
+	/// <summary>True when the file was moved aside (empty or unreadable), so a fresh database may take its place.</summary>
+	private bool CheckDatabaseFile()
+	{
+		string? connectionString = context.Database.GetConnectionString();
+		if (string.IsNullOrWhiteSpace(connectionString))
+		{
+			return false;
+		}
+		bool movedAside = false;
 
 		DatabaseFileCheck check = DatabaseFileHealth.Inspect(connectionString);
 		switch (check.State)
@@ -190,6 +232,7 @@ public sealed class DbInitializer(
 				try
 				{
 					LastQuarantinedEmptyDatabase = DatabaseFileHealth.Quarantine(path, "empty");
+					movedAside = true;
 				}
 				catch (IOException) when (new FileInfo(path).Length == 0)
 				{
@@ -211,6 +254,7 @@ public sealed class DbInitializer(
 				{
 					// The key file was missing at startup, so the archived file almost certainly needs the original key.
 					LastArchivedUnreadableDatabase = DatabaseFileHealth.Quarantine(path, newKey ? "key-mismatch" : "unreadable");
+					movedAside = true;
 				}
 				catch (IOException ex)
 				{
@@ -220,6 +264,7 @@ public sealed class DbInitializer(
 				break;
 			}
 		}
+		return movedAside;
 	}
 
 	private void EnsureDatabaseDirectory()

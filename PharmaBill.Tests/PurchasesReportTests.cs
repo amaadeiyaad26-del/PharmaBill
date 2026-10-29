@@ -20,6 +20,7 @@ namespace PharmaBill.Tests;
 
 // The Purchases (invoices) report: each supplier bill with its payment status, amounts and branch, and the supplier's own
 // attached bill opened from its row; the export carries the same columns.
+[Collection(RunsAlone.Name)]
 public sealed class PurchasesReportTests : IDisposable
 {
     private const string Supplier = "Kashmir Pharma Distributors";

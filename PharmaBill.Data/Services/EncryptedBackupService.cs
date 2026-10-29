@@ -322,8 +322,20 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 	private async Task ReplaceApplicationDataAsync(string stagedDatabase, string stagedDirectory, byte[] newKey, CancellationToken cancellationToken)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
-		// Nothing in the background may open the database while its file is moved aside and replaced.
-		using IDisposable maintenance = await DatabaseMaintenance.HoldAsync(cancellationToken);
+		// This service's own connection first, so the wait below is only for other work (counters, screens, sync).
+		DbConnection ownConnection = context.Database.GetDbConnection();
+		if (ownConnection.State != ConnectionState.Closed)
+		{
+			await ownConnection.CloseAsync();
+		}
+		// Nothing may use the database while its file is moved aside and replaced: new work is refused, work in flight
+		// finishes first, and only this database's pooled connections are closed.
+		await DatabaseMaintenance.RunExclusiveAsync(storage.DatabasePath, "a backup is being restored",
+			() => ReplaceFilesAsync(stagedDatabase, stagedDirectory, newKey), cancellationToken);
+	}
+
+	private async Task ReplaceFilesAsync(string stagedDatabase, string stagedDirectory, byte[] newKey)
+	{
 		byte[] oldKey = keyProvider.GetOrCreateKey();
 		string rollbackDirectory = Path.Combine(Path.GetTempPath(), $"PharmaBill.Rollback.{Guid.NewGuid():N}");
 		Directory.CreateDirectory(rollbackDirectory);
@@ -337,8 +349,6 @@ public sealed class EncryptedBackupService(PharmaBillDbContext context, Database
 			{
 				await liveConnection.CloseAsync();
 			}
-			// Pooled SQLite connections keep the database file open and block the move below.
-			SqliteConnection.ClearAllPools();
 			string[] array = new string[2] { "prescriptions", "licences" };
 			foreach (string path in array)
 			{

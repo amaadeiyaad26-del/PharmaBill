@@ -13,6 +13,7 @@ namespace PharmaBill.Tests;
 
 // The "Invoice details" window opened from Reports & Daily MIS: Print, Save as PDF and Export pressed in the real window,
 // for a retail bill and a wholesale invoice.
+[Collection(RunsAlone.Name)]
 public sealed class InvoiceDetailWindowTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"PharmaBill.InvoiceDetail.{Guid.NewGuid():N}");

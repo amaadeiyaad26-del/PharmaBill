@@ -99,6 +99,29 @@ public sealed class TerminalServerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task WhileABackupIsRestored_CountersAreToldToTryAgain_AndNothingIsSaved()
+    {
+        var (counter, secret) = _devices.Register("Counter 1");
+        using HttpClient client = Client(counter.Id, secret);
+        await SignInAsync(client, "clerk", "2222");
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("shop")).StatusCode);
+
+        string database = new DatabaseStorageOptions(Path.Combine(_root, "data-root")).DatabasePath;
+        await DatabaseMaintenance.RunExclusiveAsync(database, "a backup is being restored", async () =>
+        {
+            HttpResponseMessage response = await client.GetAsync("shop");
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            TerminalError error = (await response.Content.ReadFromJsonAsync<TerminalError>(Json))!;
+            Assert.Equal(TerminalErrorCodes.DatabaseUnavailable, error.Code);
+            Assert.Contains("a backup is being restored", error.Error);
+            Assert.Contains("try again", error.Error);
+        });
+
+        // Released: the same counter carries on.
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("shop")).StatusCode);
+    }
+
+    [Fact]
     public async Task Connection_IsEncrypted_AndPinnedToThisServer()
     {
         var (counter, secret) = _devices.Register("Counter 1");

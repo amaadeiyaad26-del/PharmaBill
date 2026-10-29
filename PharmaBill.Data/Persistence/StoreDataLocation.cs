@@ -324,7 +324,7 @@ public static class StoreDataLocation
 			// In WAL mode the latest changes can still be in pharmabill.db-wal: fold them into the database files, so
 			// each copied database is complete on its own.
 			CheckpointDatabases(source);
-			SqliteConnection.ClearAllPools();
+			ClearPoolsUnder(source);
 			files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
 				.Where(file => !IsLocalOnly(Path.GetRelativePath(source, file)))
 				.ToList();
@@ -437,7 +437,7 @@ public static class StoreDataLocation
 			transaction.Commit();
 		}
 
-		SqliteConnection.ClearAllPools();
+		ClearPoolsUnder(target);
 	}
 
 	private static bool ColumnExists(SqliteConnection connection, SqliteTransaction transaction, string table, string column)
@@ -487,7 +487,20 @@ public static class StoreDataLocation
 			}
 		}
 
-		SqliteConnection.ClearAllPools();
+		ClearPoolsUnder(target);
+	}
+
+	// Only the pools of the databases in this folder, never every pool in the process.
+	private static void ClearPoolsUnder(string root)
+	{
+		if (!Directory.Exists(root))
+		{
+			return;
+		}
+		foreach (string database in Directory.EnumerateFiles(root, AppDataPaths.DatabaseFileName, SearchOption.AllDirectories))
+		{
+			DatabaseMaintenance.ClearPools(database);
+		}
 	}
 
 	/// <summary>Stays with this PC, not with the records: the pointer itself, logs, and licence/trial state.</summary>

@@ -15,6 +15,7 @@ namespace PharmaBill.Tests;
 /// PHARMABILL_PERF_DB_DIR points at a folder containing pharmabill.db and data\database.key.
 /// Optional: PHARMABILL_PERF_OUT (report path), PHARMABILL_PERF_LABEL (heading).
 /// </summary>
+[Collection(RunsAlone.Name)]
 public sealed class RealCatalogueSearchBenchmark
 {
     private static readonly string[] Queries = ["p", "pa", "para", "paracetamol", "alpraz"];

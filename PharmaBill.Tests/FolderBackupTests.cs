@@ -10,6 +10,7 @@ using Xunit;
 
 namespace PharmaBill.Tests;
 
+[Collection(RunsAlone.Name)]
 public sealed class FolderBackupTests
 {
     private const string Password = "shop-backup-pass-2026";

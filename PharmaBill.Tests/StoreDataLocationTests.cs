@@ -5,6 +5,7 @@ using Xunit;
 
 namespace PharmaBill.Tests;
 
+[Collection(RunsAlone.Name)]
 public sealed class StoreDataLocationTests : IDisposable
 {
     private readonly string _sandbox = Path.Combine(Path.GetTempPath(), $"PharmaBill.DataLocation.{Guid.NewGuid():N}");

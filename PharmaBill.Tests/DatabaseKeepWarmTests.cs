@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Reflection;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -93,10 +93,10 @@ public sealed class DatabaseKeepWarmTests : IDisposable
         Assert.False(File.Exists(_storage.DatabasePath));
 
         await ShopDatabaseAsync();
-        using (await DatabaseMaintenance.HoldAsync())
+        await DatabaseMaintenance.RunExclusiveAsync(_storage.DatabasePath, "a backup is being restored", async () =>
         {
             Assert.False(await keepWarm.TouchAsync());
-        }
+        });
         Assert.True(await keepWarm.TouchAsync());
     }
 

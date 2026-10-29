@@ -69,8 +69,11 @@ public class BackupPageViewModel : ObservableObject, ILoadablePage
 
 	private string _errorMessage = string.Empty;
 
-	public BackupPageViewModel(BackupSettingsStore settingsStore, FolderBackupService folderBackup, UsbBackupService usbBackup, UsbBackupSettingsStore usbSettings, IFilePickerService filePicker, IConfirmationService confirmationService, CurrentSession session)
+	private readonly CountersInUse? _counters;
+
+	public BackupPageViewModel(BackupSettingsStore settingsStore, FolderBackupService folderBackup, UsbBackupService usbBackup, UsbBackupSettingsStore usbSettings, IFilePickerService filePicker, IConfirmationService confirmationService, CurrentSession session, CountersInUse? counters = null)
 	{
+		_counters = counters;
 		_settingsStore = settingsStore;
 		_folderBackup = folderBackup;
 		_usbBackup = usbBackup;
@@ -488,6 +491,11 @@ public class BackupPageViewModel : ObservableObject, ILoadablePage
 	private async Task RestoreBackupAsync()
 	{
 		string? path = _filePicker.PickBackupFile();
+		// Counters signed in to this server: the owner sees who before anything else.
+		if (path != null && _counters != null && !_counters.ConfirmProceed("Restoring a backup", "Every bill those counters saved since the backup was made will be replaced by the backup's records."))
+		{
+			return;
+		}
 		if (path == null || !_confirmationService.Confirm("Restore replaces every bill, stock entry and register record on this PC with the ones in the backup. A safety backup of the current data is taken first. Pharma Remit closes when the restore finishes. Continue?", "Restore backup"))
 		{
 			return;

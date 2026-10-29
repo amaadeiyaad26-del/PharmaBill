@@ -129,6 +129,7 @@ public partial class App : Application
 				services.AddSingleton<CurrentSession>();
 				services.AddSingleton<IUserSessionService, UserSessionService>();
 				services.AddSingleton<IConfirmationService, ConfirmationService>();
+				services.AddSingleton<CountersInUse>();
 				services.AddSingleton<IPromptService, PromptService>();
 				services.AddSingleton<IAddStockDialogService, AddStockDialogService>();
 				services.AddSingleton<IQuickAddMedicineDialog, QuickAddMedicineDialog>();
@@ -263,6 +264,25 @@ public partial class App : Application
 				_loginWindow = null;
 				ScheduleBackgroundUpdateCheck();
 			}, Shutdown);
+		}
+		catch (Exception ex) when (FindInner<PharmaBill.Data.Persistence.DatabaseMissingException>(ex) is { } missing)
+		{
+			// The database existed here before and is now missing. Nothing was created in its place: the shop must never
+			// open to an empty system while its records are elsewhere. Starting afresh is the owner's explicit choice.
+			Log.Error(ex, "The pharmacy database at {Path} is missing; nothing was created in its place.", missing.DatabasePath);
+			MessageBoxResult choice = MessageBox.Show(
+				"Pharma Remit's database is missing." + Environment.NewLine + Environment.NewLine
+				+ "It should be at: " + missing.DatabasePath + Environment.NewLine
+				+ "Nothing was created in its place, so no records were overwritten." + Environment.NewLine + Environment.NewLine
+				+ "If the file was moved or a drive is not connected, put it back and start Pharma Remit again. Otherwise restore it from a backup." + Environment.NewLine + Environment.NewLine
+				+ "Choose Yes only if you deliberately want to start a NEW, EMPTY database here (your old records will not be in it). Choose No to close.",
+				"Pharmacy database missing", MessageBoxButton.YesNo, MessageBoxImage.Error, MessageBoxResult.No);
+			if (choice == MessageBoxResult.Yes)
+			{
+				PharmaBill.Data.Persistence.DatabaseCreation.Forget(missing.DatabasePath);
+				MessageBox.Show("Start Pharma Remit again to create the new, empty database.", "Pharmacy database missing", MessageBoxButton.OK, MessageBoxImage.Information);
+			}
+			Shutdown(-1);
 		}
 		catch (Exception ex) when (FindInner<PharmaBill.Data.Persistence.DatabaseUnreadableException>(ex) is { } unreadable)
 		{

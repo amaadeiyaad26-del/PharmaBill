@@ -11,6 +11,7 @@ using Xunit;
 
 namespace PharmaBill.Tests;
 
+[Collection(RunsAlone.Name)]
 public sealed class RegisterRecordedByTests
 {
     private const string MigrationBeforeRecordedBy = "20261021095025_PharmacyLogo";

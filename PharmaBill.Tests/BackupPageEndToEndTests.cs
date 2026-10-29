@@ -15,6 +15,7 @@ namespace PharmaBill.Tests;
 
 // The Backup page the way a shopkeeper uses it: type the password into the real password boxes, save it, choose a
 // folder, back up, lose the records, restore from the file, and get every bill, stock line and register entry back.
+[Collection(RunsAlone.Name)]
 public sealed class BackupPageEndToEndTests
 {
     private const string Password = "Srinagar-2026";
@@ -104,6 +105,15 @@ public sealed class BackupPageEndToEndTests
                 SqliteConnection.ClearAllPools();
                 Directory.Delete(data, recursive: true);
                 Directory.CreateDirectory(storage.DataDirectory);
+                // Created deliberately, as start-up does: opening a missing file never creates one.
+                using (var create = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = storage.DatabasePath, Pooling = false,
+                    Password = Convert.ToHexString(new DatabaseEncryptionKeyProvider(storage.KeyPath).GetOrCreateKey()) }.ToString()))
+                {
+                    create.Open();
+                    using SqliteCommand wal = create.CreateCommand();
+                    wal.CommandText = SqliteWal.Pragmas;
+                    wal.ExecuteNonQuery();
+                }
                 await using (var empty = FolderBackupTests.OpenContext(storage))
                 {
                     // Start-up initialises each database file once per process, so build this fresh one directly.

@@ -184,11 +184,15 @@ public partial class InitialSetupViewModel : ObservableObject
 
 	public event EventHandler? SetupCompleted;
 
+	private readonly CountersInUse? _counters;
+
 	public InitialSetupViewModel(
 		PharmacySetupService setupService,
 		RecoveryCodeStore recoveryCodeStore,
-		RegistrationNotificationService registrationNotifications)
+		RegistrationNotificationService registrationNotifications,
+		CountersInUse? counters = null)
 	{
+		_counters = counters;
 		_setupService = setupService;
 		_recoveryCodeStore = recoveryCodeStore;
 		_registrationNotifications = registrationNotifications;
@@ -292,6 +296,10 @@ public partial class InitialSetupViewModel : ObservableObject
 				ProviderSubjectId = NullIfWhiteSpace(SocialSubjectId ?? string.Empty),
 			};
 
+			if (_counters != null && !_counters.ConfirmProceed("Setting up the pharmacy", "A new pharmacy starts on a new, empty database; the counters would be billing into the one being replaced."))
+			{
+				return;
+			}
 			RecoveryCode = await _recoveryCodeStore.CreateAsync();
 			try
 			{

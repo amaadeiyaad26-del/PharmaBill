@@ -99,4 +99,7 @@ public static class TerminalErrorCodes
 	public const string WrongSignIn = "wrong-sign-in";
 
 	public const string Locked = "locked";
+
+	/// <summary>The server's database is being replaced (a restore, a new store) or is missing: try again shortly.</summary>
+	public const string DatabaseUnavailable = "database-unavailable";
 }

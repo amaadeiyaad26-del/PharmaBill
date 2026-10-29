@@ -117,7 +117,9 @@ public static class AppDataPaths
 
 		try
 		{
-			if (File.Exists(databasePath) && new FileInfo(databasePath).Length == 0)
+			// Only before a database was ever made here. Afterwards DbInitializer moves an empty file aside itself and
+			// says so; doing it here would make the file look missing, and startup would then refuse to go on.
+			if (File.Exists(databasePath) && new FileInfo(databasePath).Length == 0 && !DatabaseCreation.WasCreatedBefore(databasePath))
 			{
 				// Moved aside, never deleted (it holds no records); migrations then create a fresh database.
 				DatabaseFileHealth.Quarantine(databasePath, "empty");
@@ -128,8 +130,9 @@ public static class AppDataPaths
 			// Best effort; DbInitializer checks the file again before opening it.
 		}
 
-		if (File.Exists(databasePath))
+		if (File.Exists(databasePath) || DatabaseCreation.WasCreatedBefore(databasePath))
 		{
+			// Present, or it existed here before and is missing: DbInitializer reports that, nothing is put in its place.
 			return;
 		}
 

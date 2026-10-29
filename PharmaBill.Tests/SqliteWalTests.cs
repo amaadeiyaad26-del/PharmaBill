@@ -11,6 +11,7 @@ namespace PharmaBill.Tests;
 // The shop's database runs in write-ahead-log mode, so a bill saved on one counter never blocks another. New changes
 // sit in pharmabill.db-wal until a checkpoint: backups must still contain them, and a restore must not let SQLite
 // replay an old log onto the restored database.
+[Collection(RunsAlone.Name)]
 public sealed class SqliteWalTests
 {
     private const string Password = "Srinagar-2026";

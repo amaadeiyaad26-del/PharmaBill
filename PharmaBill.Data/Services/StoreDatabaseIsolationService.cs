@@ -32,12 +32,14 @@ public sealed class StoreDatabaseIsolationService(
 
 	public async Task PrepareFreshStoreAsync(string storeSlug, CancellationToken cancellationToken = default)
 	{
-		using (await DatabaseMaintenance.HoldAsync(cancellationToken).ConfigureAwait(false))
+		await DatabaseMaintenance.RunExclusiveAsync(storageOptions.DatabasePath, "a new pharmacy is being set up", () =>
 		{
-			SqliteConnection.ClearAllPools();
 			activeStore.SetActiveStore(storeSlug);
 			DeleteDatabaseFiles(storageOptions.DatabasePath);
-		}
+			// Deliberately a new, empty database for this store.
+			DatabaseCreation.Forget(storageOptions.DatabasePath);
+			return Task.CompletedTask;
+		}, cancellationToken).ConfigureAwait(false);
 
 		using IServiceScope scope = scopeFactory.CreateScope();
 		await scope.ServiceProvider.GetRequiredService<DbInitializer>()
@@ -64,10 +66,10 @@ public sealed class StoreDatabaseIsolationService(
 		}
 		catch (IOException)
 		{
-			// Retry once after clearing pools — common when a previous scope just closed.
+			// Retry once after closing this database's idle pooled connections (a previous scope may just have closed).
 			try
 			{
-				SqliteConnection.ClearAllPools();
+				DatabaseMaintenance.ClearPools(path);
 				if (File.Exists(path))
 				{
 					File.Delete(path);

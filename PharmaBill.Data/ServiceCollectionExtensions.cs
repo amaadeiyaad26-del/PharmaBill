@@ -42,7 +42,8 @@ public static class ServiceCollectionExtensions
 			string connectionString = new SqliteConnectionStringBuilder
 			{
 				DataSource = storage.DatabasePath,
-				Mode = SqliteOpenMode.ReadWriteCreate,
+				// ReadWrite, not ReadWriteCreate: only DbInitializer creates a database, and only deliberately.
+				Mode = SqliteOpenMode.ReadWrite,
 				Password = Convert.ToHexString(keyProvider.GetOrCreateKey())
 			}.ToString();
 			// PendingModelChangesWarning is deliberately NOT suppressed: model drift without a migration must fail loudly.
