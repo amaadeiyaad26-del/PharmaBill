@@ -43,6 +43,24 @@ public sealed class PrescriptionReviewRow : ObservableObject
 
 	public string MatchText => _matchedName ?? "Not in your stock yet";
 
+	private string _counterExpiry = string.Empty;
+
+	private bool _counterNoExpiryPrinted;
+
+	/// <summary>Expiry from the pack for a counter item (MM/YY). Never invented: typed, or the tick says the pack has none.</summary>
+	public string CounterExpiry
+	{
+		get => _counterExpiry;
+		set => SetProperty(ref _counterExpiry, value ?? string.Empty);
+	}
+
+	/// <summary>"No expiry printed on pack" for this counter item.</summary>
+	public bool CounterNoExpiryPrinted
+	{
+		get => _counterNoExpiryPrinted;
+		set => SetProperty(ref _counterNoExpiryPrinted, value);
+	}
+
 	public string QuantityText
 	{
 		get

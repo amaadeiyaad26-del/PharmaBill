@@ -1,3 +1,4 @@
+using PharmaBill.Core.Inventory;
 using PharmaBill.Core;
 using System.Collections.ObjectModel;
 using System.Windows;
@@ -104,7 +105,8 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		List<PrescriptionReviewRow> unmatched = Rows.Where((PrescriptionReviewRow row) => row.Include && row.IsUnmatched).ToList();
 		if (unmatched.Count > 0)
 		{
-			bool? choice = Ask(
+			// Asked once: after "Add as counter items", pressing Add to Bill again goes straight on.
+			bool? choice = _counterItemsChosen ? false : Ask(
 				"Some medicines are not in your stock yet. Find them in stock or add them to stock first? Or add them to the bill as counter items now?",
 				"Medicines not in stock",
 				"Find or add to stock first",
@@ -120,6 +122,7 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 				return false;
 			}
 
+			_counterItemsChosen = true;
 			if (!await CreateCounterItemsAsync(unmatched))
 			{
 				return false;
@@ -239,14 +242,36 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		}
 	}
 
+	private bool _counterItemsChosen;
+
+	/// <summary>Asks the window to put the cursor in this row's expiry box (the customer is waiting: no dialog).</summary>
+	public Action<PrescriptionReviewRow>? FocusCounterExpiry { get; set; }
+
 	private async Task<bool> CreateCounterItemsAsync(IReadOnlyList<PrescriptionReviewRow> rows)
 	{
-		DateTime expiryMonth = BusinessClock.Now.Date.AddYears(1);
-		DateOnly expiry = new DateOnly(expiryMonth.Year, expiryMonth.Month, DateTime.DaysInMonth(expiryMonth.Year, expiryMonth.Month));
+		// Every counter item needs the expiry from its pack, or the tick that the pack shows none. Nothing is invented.
+		foreach (PrescriptionReviewRow row in rows)
+		{
+			bool typed = row.CounterExpiry.Trim().Length > 0;
+			if (typed && ExpiryRule.TryParseTyped(row.CounterExpiry, out _))
+			{
+				continue;
+			}
+			if (!typed && row.CounterNoExpiryPrinted)
+			{
+				continue;
+			}
+			ErrorMessage = typed
+				? row.PrescribedName + ": type the expiry as MM/YY, for example 10/27."
+				: row.PrescribedName + ": type the expiry from the pack (MM/YY), or tick \"" + ExpiryRule.NoExpiryPrintedLabel + "\".";
+			FocusCounterExpiry?.Invoke(row);
+			return false;
+		}
 		foreach (PrescriptionReviewRow row in rows)
 		{
 			decimal quantity = row.Quantity > 0m ? row.Quantity : 1m;
-			OpeningStockDraft draft = new OpeningStockDraft(row.PrescribedName, "OPENING", expiry, 0m, 0m, quantity);
+			DateOnly? expiry = ExpiryRule.TryParseTyped(row.CounterExpiry, out DateOnly parsed) ? parsed : null;
+			OpeningStockDraft draft = new OpeningStockDraft(row.PrescribedName, "OPENING", expiry, 0m, 0m, quantity, NoExpiryPrinted: expiry == null && row.CounterNoExpiryPrinted);
 			try
 			{
 				RetailStockChoice? choice = await SaveOpeningAsync(draft, row.LinkedDrugId, row.LinkedCatalogMedicineId);
@@ -311,7 +336,8 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 			supplierId,
 			"RX" + Guid.NewGuid().ToString("N")[..12],
 			BusinessClock.Today,
-			null));
+			null,
+			NoExpiryPrinted: draft.Expiry == null && draft.NoExpiryPrinted));
 		if (input == null)
 		{
 			throw new InvalidOperationException(draft.BrandName + " is a new medicine and needs its HSN code and GST rate. Stock was not added.");
@@ -344,8 +370,15 @@ public sealed class PrescriptionReviewViewModel : ObservableObject
 		return supplier.Id;
 	}
 
+	/// <summary>Replaces the choice window (tests); null shows the window.</summary>
+	public Func<string, string, string, string, bool?>? AskChoice { get; set; }
+
 	private bool? Ask(string message, string title, string acceptLabel, string alternateLabel)
 	{
+		if (AskChoice != null)
+		{
+			return AskChoice(message, title, acceptLabel, alternateLabel);
+		}
 		bool? choice = null;
 		Window window = new Window
 		{

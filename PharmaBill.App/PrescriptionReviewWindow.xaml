@@ -51,6 +51,13 @@
                   <Button Content="Add to stock" Height="28" Padding="8,2" Margin="6,0,0,0" FontSize="13"
                           Command="{Binding DataContext.InwardCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                           CommandParameter="{Binding}" />
+                  <TextBlock Text="Exp" VerticalAlignment="Center" Margin="12,0,4,0" FontSize="13" />
+                  <TextBox x:Name="CounterExpiryBox" Width="64" Height="28" FontSize="13" VerticalContentAlignment="Center"
+                           AutomationProperties.Name="Counter item expiry" ToolTip="Expiry from the pack: MM/YY, for example 10/27"
+                           Text="{Binding CounterExpiry, UpdateSourceTrigger=PropertyChanged}" />
+                  <CheckBox Content="No expiry printed on pack" VerticalAlignment="Center" Margin="8,0,0,0" FontSize="12"
+                            AutomationProperties.Name="Counter item: no expiry printed on pack"
+                            IsChecked="{Binding CounterNoExpiryPrinted, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
               </StackPanel>
             </DataTemplate>

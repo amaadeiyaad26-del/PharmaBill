@@ -14,7 +14,40 @@ public partial class PrescriptionReviewWindow : Window
 		InitializeComponent();
 		_viewModel = viewModel;
 		viewModel.OwnerWindow = this;
+		viewModel.FocusCounterExpiry = FocusCounterExpiry;
 		DataContext = viewModel;
+	}
+
+	/// <summary>Puts the cursor in that row's expiry box, text selected, so the date is typed straight away.</summary>
+	private void FocusCounterExpiry(PrescriptionReviewRow row)
+	{
+		Dispatcher.BeginInvoke(() =>
+		{
+			TextBox? box = FindExpiryBox(this, row);
+			if (box != null)
+			{
+				box.Focus();
+				Keyboard.Focus(box);
+				box.SelectAll();
+			}
+		}, System.Windows.Threading.DispatcherPriority.Input);
+	}
+
+	internal static TextBox? FindExpiryBox(DependencyObject root, PrescriptionReviewRow row)
+	{
+		for (int index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); index++)
+		{
+			DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(root, index);
+			if (child is TextBox { Name: "CounterExpiryBox" } box && box.DataContext == row)
+			{
+				return box;
+			}
+			if (FindExpiryBox(child, row) is TextBox found)
+			{
+				return found;
+			}
+		}
+		return null;
 	}
 
 	private void ConfigureGemini_Click(object sender, RoutedEventArgs e)

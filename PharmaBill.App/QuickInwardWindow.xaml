@@ -19,8 +19,11 @@
     <TextBlock Text="Batch Number *" FontWeight="SemiBold" Margin="0,0,0,4" />
     <TextBox x:Name="BatchNoBox" Padding="10,8" Margin="0,0,0,10" BorderBrush="{DynamicResource FieldBorderBrush}" />
 
-    <TextBlock Text="Expiry Date (MM/YYYY) *" FontWeight="SemiBold" Margin="0,0,0,4" />
-    <TextBox x:Name="ExpiryBox" Padding="10,8" Margin="0,0,0,10" ToolTip="Example: 08/2027" BorderBrush="{DynamicResource FieldBorderBrush}" />
+    <TextBlock Text="Expiry (MM/YY) *" FontWeight="SemiBold" Margin="0,0,0,4" />
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+      <TextBox x:Name="ExpiryBox" Width="120" Padding="10,8" ToolTip="From the pack: 10/27, 1027 or 10/2027" BorderBrush="{DynamicResource FieldBorderBrush}" />
+      <CheckBox x:Name="NoExpiryBox" Content="No expiry printed on pack" VerticalAlignment="Center" Margin="12,0,0,0" />
+    </StackPanel>
 
     <UniformGrid Columns="2" Margin="0,0,0,4">
       <StackPanel Margin="0,0,8,10">

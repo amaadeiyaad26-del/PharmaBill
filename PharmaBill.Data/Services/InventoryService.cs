@@ -48,7 +48,7 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 				decimal totalStock = valueOrDefault.Sum((Batch batch) => movementQuantities.GetValueOrDefault(batch.Id));
 				string manufacturer = (drug.CatalogMedicineId.HasValue ? manufacturers.GetValueOrDefault(drug.CatalogMedicineId.Value) : null);
 				return new StockDrugRow(drug.Id, drug.Name, drug.Schedule, manufacturer, valueOrDefault.Select((Batch batch) => (!batch.SupplierId.HasValue) ? null : suppliers.GetValueOrDefault(batch.SupplierId.Value)).FirstOrDefault((string name) => name != null), totalStock, drug.ReorderLevel, (from batch in valueOrDefault.OrderBy((Batch batch) => batch.ExpiryDate ?? DateOnly.MaxValue).ThenBy((Batch batch) => batch.BatchNo, StringComparer.OrdinalIgnoreCase)
-					select new StockBatchRow(batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp.GetValueOrDefault(), batch.Ptr, batch.PurchasePrice, movementQuantities.GetValueOrDefault(batch.Id), batch.Rack, batch.IsBanned, batch.BanReason)).ToArray(), drug.IsBanned);
+					select new StockBatchRow(batch.Id, batch.BatchNo, batch.ExpiryDate, batch.Mrp.GetValueOrDefault(), batch.Ptr, batch.PurchasePrice, movementQuantities.GetValueOrDefault(batch.Id), batch.Rack, batch.IsBanned, batch.BanReason, batch.NoExpiryReason ?? (batch.ExpiryDate == null && ExpiryRule.IsDurableInstrument(drug.HsnCode) ? NoExpiryReason.DurableInstrument : null))).ToArray(), drug.IsBanned);
 			})
 			where string.IsNullOrWhiteSpace(schedule) || string.Equals(row.Schedule, schedule, StringComparison.OrdinalIgnoreCase)
 			where string.IsNullOrWhiteSpace(company) || (row.Manufacturer?.Contains(company, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -153,6 +153,35 @@ public sealed class InventoryService(PharmaBillDbContext context, IUnitOfWork un
 		}, cancellationToken);
 		await unitOfWork.SaveChangesAsync(cancellationToken);
 		await transaction.CommitAsync(cancellationToken);
+	}
+
+	/// <summary>
+	/// Gives a batch its expiry date, or records why it has none: an instrument (HSN chapter 90), or the user ticked that
+	/// the pack shows none. Anything else needs a date. Audited.
+	/// </summary>
+	public async Task<NoExpiryReason?> SetBatchExpiryAsync(Guid batchId, DateOnly? expiry, bool noExpiryPrinted, Guid userId, CancellationToken cancellationToken = default)
+	{
+		Batch batch = await context.Batches.SingleOrDefaultAsync(item => item.Id == batchId, cancellationToken)
+			?? throw new InvalidOperationException("That batch no longer exists.");
+		Drug? drug = await context.Drugs.AsNoTracking().SingleOrDefaultAsync(item => item.Id == batch.DrugId, cancellationToken);
+		NoExpiryReason? reason = expiry.HasValue ? null : ExpiryRule.ReasonWithoutExpiry(drug?.HsnCode, noExpiryPrinted);
+		if (!expiry.HasValue && reason == null)
+		{
+			throw new InvalidOperationException(ExpiryRule.Missing("Batch " + batch.BatchNo));
+		}
+		string before = batch.ExpiryDate?.ToString("MM/yyyy") ?? "none";
+		batch.ExpiryDate = expiry;
+		batch.NoExpiryReason = reason;
+		context.AuditLogs.Add(new AuditLog
+		{
+			UserId = userId,
+			Action = "BatchExpirySet",
+			EntityName = "Batch",
+			EntityId = batch.Id,
+			Details = "Expiry " + before + " -> " + (expiry?.ToString("MM/yyyy") ?? "none (" + reason + ")")
+		});
+		await context.SaveChangesAsync(cancellationToken);
+		return reason;
 	}
 
 	public async Task<IReadOnlyList<ExpiredBatchRow>> GetExpiredBatchesAsync(CancellationToken cancellationToken = default(CancellationToken))

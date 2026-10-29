@@ -103,7 +103,37 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 	public ObservableCollection<StockVerificationLineViewModel> VerificationItems { get; } = new ObservableCollection<StockVerificationLineViewModel>();
 
-	public string[] StatusOptions { get; } = new string[10] { "All", "In stock", "Shortage", "Near expiry", "Missing MRP", "Critical", "Expired", "Dump Stock", "Banned", "Valuation" };
+	public string[] StatusOptions { get; } = new string[11] { "All", "In stock", "Shortage", "Near expiry", "Missing MRP", "Critical", "Expired", "No expiry", "Dump Stock", "Banned", "Valuation" };
+
+	public const string FilterNoExpiry = "No expiry";
+
+	private int _batchesNeedingExpiry;
+
+	/// <summary>Batches with stock that have no expiry date and no recorded reason (older ones, or ones that came through sync).</summary>
+	public int BatchesNeedingExpiry
+	{
+		get => _batchesNeedingExpiry;
+		private set
+		{
+			if (_batchesNeedingExpiry != value)
+			{
+				_batchesNeedingExpiry = value;
+				OnPropertyChanged(nameof(BatchesNeedingExpiry));
+				OnPropertyChanged(nameof(HasBatchesNeedingExpiry));
+				OnPropertyChanged(nameof(NeedsExpiryBanner));
+			}
+		}
+	}
+
+	public bool HasBatchesNeedingExpiry => BatchesNeedingExpiry > 0;
+
+	public string NeedsExpiryBanner => BatchesNeedingExpiry == 1
+		? "1 batch in stock has no expiry date. First-expiry-first-out and expiry alerts cannot place it until it has one."
+		: BatchesNeedingExpiry + " batches in stock have no expiry date. First-expiry-first-out and expiry alerts cannot place them until they have one.";
+
+	private CommunityToolkit.Mvvm.Input.RelayCommand? showNoExpiryCommand;
+
+	public CommunityToolkit.Mvvm.Input.IRelayCommand ShowNoExpiryCommand => showNoExpiryCommand ??= new CommunityToolkit.Mvvm.Input.RelayCommand(() => ShowStatus(FilterNoExpiry));
 
 	public string ValuationSummaryText { get; private set; } = string.Empty;
 
@@ -549,6 +579,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			}
 
 			OnPropertyChanged(nameof(ValuationSummaryText));
+			BatchesNeedingExpiry = Items.Sum(drug => drug.Batches.Count(batch => batch.NeedsExpiry && batch.Quantity > 0m));
 			ApplyFilters();
 			UpdateKpis();
 			ErrorMessage = string.Empty;
@@ -583,7 +614,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 
 					if (MatchesStatusFilter(StatusFilter, item, batch2))
 					{
-						list.Add(new StockRowViewModel(item.DrugId, item.DrugName, item.Schedule, batch2, status, item.ReorderLevel, item.TotalStock, CommitMrp));
+						list.Add(new StockRowViewModel(item.DrugId, item.DrugName, item.Schedule, batch2, status, item.ReorderLevel, item.TotalStock, CommitMrp, CommitExpiryAsync));
 					}
 				}
 			}
@@ -617,6 +648,10 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 		if (drug.IsBanned || batch.IsBanned)
 		{
 			return "Banned";
+		}
+		if (batch.NeedsExpiry)
+		{
+			return FilterNoExpiry;
 		}
 
 		return batch.ExpiryBand switch
@@ -1194,6 +1229,7 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 			"Near expiry" => batch.IsNearExpiry,
 			"Critical" => batch.ExpiryBand == BatchExpiryStatus.Critical && !(batch.ExpiryDate < BusinessClock.Today),
 			"Expired" => batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < BusinessClock.Today,
+			FilterNoExpiry => batch.NeedsExpiry,
 			"Missing MRP" => batch.Mrp <= 0m,
 			"Dump Stock" => true,
 			"Banned" => drug.IsBanned || batch.IsBanned,
@@ -1231,6 +1267,35 @@ public sealed class StockPageViewModel(IServiceScopeFactory scopeFactory, Curren
 	private static bool IsShortageStatus(string? status)
 	{
 		return NormalizeStatus(status) == "Shortage";
+	}
+
+	/// <summary>Saves a date (or the "no expiry printed on pack" choice) for a batch that had none.</summary>
+	private async Task<bool> CommitExpiryAsync(StockRowViewModel row, DateOnly? expiry, bool noExpiryPrinted)
+	{
+		try
+		{
+			using IServiceScope scope = scopeFactory.CreateScope();
+			Guid userId = currentSession.User?.Id ?? throw new UnauthorizedAccessException("Sign in first.");
+			PharmaBill.Core.Inventory.NoExpiryReason? reason = await scope.ServiceProvider.GetRequiredService<InventoryService>().SetBatchExpiryAsync(row.BatchId, expiry, noExpiryPrinted, userId);
+			StockBatchRow saved = row.Batch with { ExpiryDate = expiry, NoExpiryReason = reason };
+			for (int index = 0; index < Items.Count; index++)
+			{
+				if (Items[index].DrugId == row.DrugId)
+				{
+					Items[index] = Items[index] with { Batches = Items[index].Batches.Select(batch => batch.BatchId == row.BatchId ? saved : batch).ToArray() };
+				}
+			}
+			row.RememberSavedBatch(saved);
+			BatchesNeedingExpiry = Items.Sum(drug => drug.Batches.Count(batch => batch.NeedsExpiry && batch.Quantity > 0m));
+			StatusMessage = "Expiry saved for " + row.Medicine + " · batch " + row.BatchNo + ".";
+			ErrorMessage = string.Empty;
+			return true;
+		}
+		catch (Exception ex)
+		{
+			ErrorMessage = PharmaBill.Core.UserMessage.Of(ex);
+			return false;
+		}
 	}
 
 	private async void CommitMrp(StockRowViewModel row)

@@ -1922,7 +1922,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				PurchaseLineDraft line = new PurchaseLineDraft(drug)
 				{
 					BatchNo = string.Empty,
-					Expiry = BusinessClock.Now.Date.AddMonths(12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+					Expiry = string.Empty,
 					Quantity = item.SuggestedOrderQty,
 					FreeQuantity = 0m,
 					Mrp = (item.LastMrp ?? drug.Mrp.GetValueOrDefault()),

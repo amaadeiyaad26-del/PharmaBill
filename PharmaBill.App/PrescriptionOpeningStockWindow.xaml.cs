@@ -13,8 +13,9 @@ public partial class PrescriptionOpeningStockWindow : Window
 	{
 		InitializeComponent();
 		BrandBox.Text = brandName?.Trim() ?? string.Empty;
-		DateTime expiry = BusinessClock.Now.Date.AddYears(1);
-		ExpiryBox.Text = expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+		// Never a made-up date: the expiry comes from the pack, or the tick says the pack shows none.
+		ExpiryBox.Text = string.Empty;
+		Loaded += (_, _) => ExpiryBox.Focus();
 		QtyBox.Text = (quantity > 0m ? quantity : 1m).ToString("0.##", CultureInfo.CurrentCulture);
 		MrpBox.Text = "0";
 		RateBox.Text = "0";
@@ -39,9 +40,20 @@ public partial class PrescriptionOpeningStockWindow : Window
 			return;
 		}
 
-		if (!TryParseExpiry(ExpiryBox.Text, out DateOnly expiry))
+		DateOnly? expiry = null;
+		if (ExpiryBox.Text.Trim().Length > 0)
 		{
-			StatusText.Text = "Enter expiry as MM/YYYY.";
+			if (!PharmaBill.Core.Inventory.ExpiryRule.TryParseTyped(ExpiryBox.Text, out DateOnly parsed))
+			{
+				StatusText.Text = "Type the expiry as MM/YY, for example 10/27.";
+				ExpiryBox.Focus();
+				return;
+			}
+			expiry = parsed;
+		}
+		else if (NoExpiryBox.IsChecked != true)
+		{
+			StatusText.Text = "Type the expiry from the pack (MM/YY), or tick \"No expiry printed on pack\".";
 			ExpiryBox.Focus();
 			return;
 		}
@@ -67,21 +79,8 @@ public partial class PrescriptionOpeningStockWindow : Window
 			return;
 		}
 
-		Draft = new OpeningStockDraft(brand, batch, expiry, mrp, rate, quantity);
+		Draft = new OpeningStockDraft(brand, batch, expiry, mrp, rate, quantity, NoExpiryPrinted: expiry == null && NoExpiryBox.IsChecked == true);
 		DialogResult = true;
-	}
-
-	private static bool TryParseExpiry(string? text, out DateOnly expiry)
-	{
-		expiry = default;
-		string raw = (text ?? string.Empty).Trim();
-		if (!DateTime.TryParseExact(raw, new[] { "MM/yyyy", "M/yyyy", "MM/yy", "M/yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsed))
-		{
-			return false;
-		}
-
-		expiry = new DateOnly(parsed.Year, parsed.Month, DateTime.DaysInMonth(parsed.Year, parsed.Month));
-		return true;
 	}
 
 	private static bool TryAmount(string? text, out decimal value)

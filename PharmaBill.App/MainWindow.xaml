@@ -4342,6 +4342,14 @@
               <Button Content="Clear filters" Height="48" MinWidth="110" Margin="0,0,8,8" Style="{StaticResource SecondaryButton}" Command="{Binding ClearFiltersCommand}" ToolTip="Reset the name, batch, schedule and status filters." />
               <Button Content="Refresh" Height="48" MinWidth="100" Margin="0,0,0,8" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload the stock grid from the local database." />
             </WrapPanel>
+            <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,8"
+                    AutomationProperties.Name="Batches with no expiry"
+                    Visibility="{Binding HasBatchesNeedingExpiry, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Show them" Style="{StaticResource SecondaryButton}" MinWidth="100" Command="{Binding ShowNoExpiryCommand}" />
+                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FF93370D" Text="{Binding NeedsExpiryBanner}" />
+              </DockPanel>
+            </Border>
             <Border Style="{StaticResource SectionCardLift}" Padding="8" Margin="0,0,0,14">
             <Grid Height="320" Margin="0,0,0,14">
               <DataGrid AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}">
@@ -4358,6 +4366,10 @@
                       </DataTrigger>
                       <DataTrigger Value="Near expiry" Binding="{Binding Status, Mode=OneWay}">
                         <Setter Property="Background" Value="#FFFFEAD5" />
+                        <Setter Property="TextElement.Foreground" Value="#FF93370D" />
+                      </DataTrigger>
+                      <DataTrigger Value="No expiry" Binding="{Binding Status, Mode=OneWay}">
+                        <Setter Property="Background" Value="#FFFFFAEB" />
                         <Setter Property="TextElement.Foreground" Value="#FF93370D" />
                       </DataTrigger>
                       <DataTrigger Value="Shortage" Binding="{Binding Status, Mode=OneWay}">
@@ -4380,7 +4392,26 @@
                   <DataGridTextColumn Header="Medicine" Width="*" IsReadOnly="True" Binding="{Binding Medicine, Mode=OneWay}" />
                   <DataGridTextColumn Header="Schedule" Width="85" IsReadOnly="True" Binding="{Binding Schedule, Mode=OneWay}" />
                   <DataGridTextColumn Header="Batch" Width="120" IsReadOnly="True" Binding="{Binding BatchNo, Mode=OneWay}" />
-                  <DataGridTextColumn Header="Expiry" Width="90" IsReadOnly="True" Binding="{Binding ExpiryDate, Mode=OneWay, StringFormat=MM/yyyy}" />
+                  <DataGridTemplateColumn Header="Expiry" Width="170" IsReadOnly="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel Margin="4,2">
+                          <TextBlock Text="{Binding ExpiryLabel}" VerticalAlignment="Center" />
+                          <!-- No date and no reason: give it one here, from the pack, or say the pack shows none. -->
+                          <StackPanel Visibility="{Binding NeedsExpiry, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                              <TextBox Width="62" Tag="MM/YY" AutomationProperties.Name="Batch expiry" ToolTip="Expiry from the pack: MM/YY, for example 10/27"
+                                       Text="{Binding ExpiryEditText, UpdateSourceTrigger=PropertyChanged}" />
+                              <Button Content="Save" Margin="4,0,0,0" Padding="8,0" Command="{Binding SaveExpiryCommand}" />
+                            </StackPanel>
+                            <CheckBox Margin="0,2,0,0" FontSize="11" AutomationProperties.Name="Batch: no expiry printed on pack"
+                                      Content="No expiry printed on pack" IsChecked="{Binding NoExpiryTick}" />
+                            <TextBlock Text="{Binding ExpiryError}" Foreground="#FFB42318" FontSize="11" TextWrapping="Wrap" />
+                          </StackPanel>
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
                   <DataGridTemplateColumn Header="MRP" Width="160" IsReadOnly="False">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>

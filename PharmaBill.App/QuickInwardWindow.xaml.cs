@@ -79,10 +79,9 @@ public partial class QuickInwardWindow : Window
 
 		if (!string.IsNullOrWhiteSpace(defaultBatchNo))
 		{
-			DateTime expiry = BusinessClock.Now.Date.AddYears(1);
-			ExpiryBox.Text = expiry.ToString("MM/yyyy", CultureInfo.InvariantCulture);
+			// Never a made-up date: the cursor waits in Expiry for the date on the pack (or the tick).
+			ExpiryBox.Text = string.Empty;
 			ExpiryBox.Focus();
-			ExpiryBox.SelectAll();
 		}
 		else
 		{
@@ -133,9 +132,19 @@ public partial class QuickInwardWindow : Window
 				return;
 			}
 
-			if (!TryParseExpiry(ExpiryBox.Text, out DateOnly expiry))
+			DateOnly? expiry = null;
+			if (ExpiryBox.Text.Trim().Length > 0)
 			{
-				StatusText.Text = "Enter expiry as MM/YYYY (e.g. 08/2027).";
+				if (!PharmaBill.Core.Inventory.ExpiryRule.TryParseTyped(ExpiryBox.Text, out DateOnly parsed))
+				{
+					StatusText.Text = "Type the expiry as MM/YY, for example 10/27.";
+					return;
+				}
+				expiry = parsed;
+			}
+			else if (NoExpiryBox.IsChecked != true)
+			{
+				StatusText.Text = "Type the expiry from the pack (MM/YY), or tick \"No expiry printed on pack\".";
 				return;
 			}
 
@@ -200,7 +209,8 @@ public partial class QuickInwardWindow : Window
 				supplierId,
 				"QI-" + BusinessClock.UtcNow.ToString("yyyyMMddHHmmss"),
 				BusinessClock.Today,
-				null));
+				null,
+				NoExpiryPrinted: expiry == null && NoExpiryBox.IsChecked == true));
 			if (input == null)
 			{
 				StatusText.Text = _medicineName + " is a new medicine and needs its HSN code and GST rate. Stock was not added.";
@@ -251,19 +261,6 @@ public partial class QuickInwardWindow : Window
 		context.Suppliers.Add(supplier);
 		await context.SaveChangesAsync();
 		return supplier.Id;
-	}
-
-	private static bool TryParseExpiry(string? text, out DateOnly expiry)
-	{
-		expiry = default;
-		string raw = (text ?? string.Empty).Trim();
-		if (DateTime.TryParseExact(raw, new[] { "MM/yyyy", "M/yyyy", "MM/yy", "M/yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dt))
-		{
-			expiry = new DateOnly(dt.Year, dt.Month, DateTime.DaysInMonth(dt.Year, dt.Month));
-			return true;
-		}
-
-		return false;
 	}
 
 	private static bool TryAmount(string? text, out decimal value)

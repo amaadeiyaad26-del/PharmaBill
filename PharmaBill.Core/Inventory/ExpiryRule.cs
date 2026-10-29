@@ -32,6 +32,33 @@ public static class ExpiryRule
 		: noExpiryPrintedTicked ? NoExpiryReason.NotPrintedOnPack
 		: null;
 
+	/// <summary>
+	/// An expiry as typed at the counter: MM/YY, MMYY, M/YY, MM-YY, MM.YY or MM/YYYY. The month's last day, as packs
+	/// print only month and year.
+	/// </summary>
+	public static bool TryParseTyped(string? text, out DateOnly expiry)
+	{
+		expiry = default;
+		string raw = (text ?? string.Empty).Trim();
+		System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(raw, @"^(\d{1,2})\s*[/\-.]?\s*(\d{2}|\d{4})$");
+		if (!match.Success || (match.Groups[1].Value.Length == 1 && raw.Length == 3 && !raw.Contains('/') && !raw.Contains('-') && !raw.Contains('.')))
+		{
+			return false;
+		}
+		int month = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+		int year = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+		if (year < 100)
+		{
+			year += 2000;
+		}
+		if (month is < 1 or > 12 || year is < 2000 or > 2099)
+		{
+			return false;
+		}
+		expiry = new DateOnly(year, month, DateTime.DaysInMonth(year, month));
+		return true;
+	}
+
 	public static string Missing(string item) =>
 		"'" + item + "' needs an expiry date. If the pack genuinely shows none, tick \"" + NoExpiryPrintedLabel + "\" on that line.";
 }
