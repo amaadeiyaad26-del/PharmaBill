@@ -135,7 +135,6 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
             ReportPanelItem[] items = page.ReportGroups.SelectMany(group => group.Items).ToArray();
             Assert.Equal(page.ReportChoices.Select(choice => choice.Name).OrderBy(name => name), items.Select(item => item.Name).OrderBy(name => name));
             Assert.Equal(["Sales", "Purchases & suppliers", "Stock & product", "Profit & accounts", "Compliance & people"], page.ReportGroups.Select(group => group.Heading).ToArray());
-            Assert.True(page.IsReportPanelExpanded);
             Assert.True(Assert.Single(items, item => item.IsSelected).Choice == page.SelectedReport);
 
             List<string> empty = new List<string>();
@@ -186,12 +185,9 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
 
             Assert.True(empty.Count == 0, "Reports that ran but showed no data: " + string.Join(", ", empty));
 
-            // Narrowed by the user: an icon strip, and the results keep the width.
-            await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && AutomationProperties.GetName(b) == "Collapse or expand report types"));
-            Assert.True(page.IsReportPanelCompact);
-            Border panel = Ui.Named<Border>(host, "Report types");
-            // The width animates down to the strip rather than snapping.
-            await Ui.UntilAsync(() => Math.Abs(panel.ActualWidth - 84) < 0.5, "the panel to narrow");
+            // No way to collapse the panel: it is always open at its full width.
+            Assert.DoesNotContain(Ui.Descendants(host).OfType<Button>(), b => AutomationProperties.GetName(b) == "Collapse or expand report types");
+            Assert.Equal(264, Ui.Named<Border>(host, "Report types").ActualWidth, 0);
 
             // Custom opens its date range beside the chips; Apply runs it and keeps Custom chosen.
             StackPanel custom = Ui.Named<StackPanel>(host, "Custom period", visibleOnly: false);
@@ -222,7 +218,7 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
-    public void OnASmallWindow_ThePanelStartsAsAnIconStrip()
+    public void OnASmallWindow_ThePanelStaysOpen_AndThePeriodArrowsStayTogether()
     {
         Ui.Run(async () =>
         {
@@ -239,9 +235,19 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
             host.Show();
             host.Content = new ContentControl { Content = page, ContentTemplate = (DataTemplate)mainWindow.Resources[new DataTemplateKey(typeof(ReportsPageViewModel))], Resources = mainWindow.Resources };
             await Ui.SettleAsync();
-            Assert.True(page.IsReportPanelCompact);
-            Border panel = Ui.Named<Border>(host, "Report types");
-            await Ui.UntilAsync(() => Math.Abs(panel.ActualWidth - 84) < 0.5, "the panel to narrow");
+            // Full width and every report name showing; the results grid takes what is left, and scrolls.
+            Assert.Equal(264, Ui.Named<Border>(host, "Report types").ActualWidth, 0);
+            Assert.All(page.ReportGroups.SelectMany(group => group.Items), item =>
+                Assert.Contains(Ui.Descendants(host).OfType<TextBlock>(), text => text.IsVisible && text.Text == item.Name));
+
+            // Previous and Next sit side by side, on the same line as the month and year.
+            Button previous = Ui.Single<Button>(host, b => b.IsVisible && AutomationProperties.GetName(b) == "Previous month");
+            Button next = Ui.Single<Button>(host, b => b.IsVisible && AutomationProperties.GetName(b) == "Next month");
+            ComboBox year = Ui.Single<ComboBox>(host, box => box.IsVisible && box.ItemsSource == page.Years);
+            Point p = previous.TranslatePoint(new Point(0, 0), host), n = next.TranslatePoint(new Point(0, 0), host), y = year.TranslatePoint(new Point(0, 0), host);
+            Assert.Equal(p.Y, n.Y, 1);
+            Assert.InRange(Math.Abs(y.Y - p.Y), 0, 4); // the same line (the box and the buttons differ by a pixel)
+            Assert.InRange(n.X - (p.X + previous.ActualWidth), 0, 12);
             host.Close();
         });
     }

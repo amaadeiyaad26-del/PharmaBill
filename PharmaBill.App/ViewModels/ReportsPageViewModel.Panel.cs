@@ -48,16 +48,10 @@ public sealed class PeriodChip(string key, string label) : ObservableObject
 }
 
 // The report types down the right of Reports & Daily MIS, grouped, every one a button. Choosing one runs it at once for
-// the period, branch and filter already set (as choosing it from the old dropdown did). The panel narrows to an icon
-// strip on a small window, or when the user narrows it, so the results grid keeps its width.
+// the period, branch and filter already set (as choosing it from the old dropdown did). The panel is always open at its
+// full width: on a narrow window the results grid scrolls instead.
 public partial class ReportsPageViewModel
 {
-	/// <summary>Below this width of the Reports screen the panel starts as an icon strip.</summary>
-	public const double ReportPanelCompactBelow = 1150;
-
-	private double _screenWidth;
-	private bool? _reportPanelChoice;
-	private RelayCommand? _toggleReportPanelCommand;
 	private RelayCommand<ReportPanelItem>? _selectReportCommand;
 	private IReadOnlyList<ReportPanelGroup>? _reportGroups;
 
@@ -184,36 +178,4 @@ public partial class ReportsPageViewModel
 		}
 	}
 
-	/// <summary>The Reports screen's width, reported by the view as it changes.</summary>
-	public double ScreenWidth
-	{
-		get => _screenWidth;
-		set
-		{
-			if (SetProperty(ref _screenWidth, value))
-			{
-				NotifyReportPanelLayout();
-			}
-		}
-	}
-
-	/// <summary>An icon strip: the user narrowed it, or (until they choose) the screen is small.</summary>
-	public bool IsReportPanelCompact => _reportPanelChoice ?? (ScreenWidth > 0 && ScreenWidth < ReportPanelCompactBelow);
-
-	public bool IsReportPanelExpanded => !IsReportPanelCompact;
-
-	public string ReportPanelToggleTip => IsReportPanelCompact ? "Show the report names" : "Narrow the report list to icons to give the results more room";
-
-	public IRelayCommand ToggleReportPanelCommand => _toggleReportPanelCommand ??= new RelayCommand(() =>
-	{
-		_reportPanelChoice = !IsReportPanelCompact;
-		NotifyReportPanelLayout();
-	});
-
-	private void NotifyReportPanelLayout()
-	{
-		OnPropertyChanged(nameof(IsReportPanelCompact));
-		OnPropertyChanged(nameof(IsReportPanelExpanded));
-		OnPropertyChanged(nameof(ReportPanelToggleTip));
-	}
 }

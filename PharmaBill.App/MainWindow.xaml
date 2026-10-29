@@ -548,79 +548,23 @@
         </DockPanel>
       </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:ReportsPageViewModel}}" DataType="{x:Type vm:ReportsPageViewModel}">
-        <DockPanel Margin="16" behaviors:ReportedWidth.IsEnabled="True" behaviors:ReportedWidth.Width="{Binding ScreenWidth, Mode=OneWayToSource}">
+        <DockPanel Margin="16">
           <TextBlock DockPanel.Dock="Top" Text="Reports &amp; Daily MIS" FontSize="24" FontWeight="SemiBold" Foreground="#0D4A2B" Margin="0,0,0,12" />
           <!-- The report types down the right as cards, grouped by colour; choosing one runs it for the period already set.
-               Narrows (animated) to an icon strip that keeps the group colours. -->
+               Always open at full width. -->
           <Border DockPanel.Dock="Right" Margin="14,0,0,0" CornerRadius="12" Background="{DynamicResource WindowBackgroundBrush}"
-                  BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" Width="264" AutomationProperties.Name="Report types">
-            <Border.Style>
-              <Style TargetType="{x:Type Border}">
-                <Setter Property="Padding" Value="10" />
-                <Style.Triggers>
-                  <DataTrigger Binding="{Binding IsReportPanelCompact}" Value="True">
-                    <Setter Property="Padding" Value="6" />
-                    <DataTrigger.EnterActions>
-                      <BeginStoryboard>
-                        <Storyboard>
-                          <DoubleAnimation Storyboard.TargetProperty="Width" To="84" Duration="0:0:0.22">
-                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
-                          </DoubleAnimation>
-                        </Storyboard>
-                      </BeginStoryboard>
-                    </DataTrigger.EnterActions>
-                    <DataTrigger.ExitActions>
-                      <BeginStoryboard>
-                        <Storyboard>
-                          <DoubleAnimation Storyboard.TargetProperty="Width" To="264" Duration="0:0:0.22">
-                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut" /></DoubleAnimation.EasingFunction>
-                          </DoubleAnimation>
-                        </Storyboard>
-                      </BeginStoryboard>
-                    </DataTrigger.ExitActions>
-                  </DataTrigger>
-                </Style.Triggers>
-              </Style>
-            </Border.Style>
+                  BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" Width="264" Padding="10" AutomationProperties.Name="Report types">
             <DockPanel>
               <DockPanel DockPanel.Dock="Top" Margin="4,0,0,10">
-                <Button DockPanel.Dock="Right" Width="28" Height="28" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand"
-                        Command="{Binding ToggleReportPanelCommand}" ToolTip="{Binding ReportPanelToggleTip}" AutomationProperties.Name="Collapse or expand report types">
-                  <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock.Style>
-                      <Style TargetType="{x:Type TextBlock}">
-                        <Setter Property="Text" Value="&#xE76C;" />
-                        <Style.Triggers>
-                          <DataTrigger Binding="{Binding IsReportPanelCompact}" Value="True">
-                            <Setter Property="Text" Value="&#xE76B;" />
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </TextBlock.Style>
-                  </TextBlock>
-                </Button>
-                <TextBlock Text="Reports" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
-                           Visibility="{Binding IsReportPanelExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <TextBlock Text="Reports" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
               </DockPanel>
-              <ScrollViewer HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                <ScrollViewer.Style>
-                  <!-- The icon strip is too narrow to give width to a scroll bar: it scrolls with the wheel. -->
-                  <Style TargetType="{x:Type ScrollViewer}">
-                    <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding IsReportPanelCompact}" Value="True">
-                        <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </ScrollViewer.Style>
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Focusable="False">
                 <ItemsControl ItemsSource="{Binding ReportGroups}" Focusable="False" Margin="2,0,2,0">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <StackPanel Margin="0,0,0,14">
                         <!-- Group heading: small capitals in the group's colour, a thin rule beneath. -->
-                        <TextBlock Text="{Binding Caps}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding Accent}" Margin="2,0,0,0"
-                                   Visibility="{Binding DataContext.IsReportPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="{Binding Caps}" FontSize="10.5" FontWeight="SemiBold" Foreground="{Binding Accent}" Margin="2,0,0,0" />
                         <Border Height="1" Margin="2,4,2,8" Background="{Binding Accent}" Opacity="0.35" />
                         <ItemsControl ItemsSource="{Binding Items}" Focusable="False">
                           <ItemsControl.ItemTemplate>
@@ -629,25 +573,14 @@
                                       Command="{Binding DataContext.SelectReportCommand, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}}"
                                       CommandParameter="{Binding}" ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
                                 <Grid>
-                                  <!-- Full: the icon in its group's colour, and the name. -->
-                                  <Grid Visibility="{Binding DataContext.IsReportPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Grid.ColumnDefinitions>
-                                      <ColumnDefinition Width="Auto" />
-                                      <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Border Width="32" Height="32" CornerRadius="8" Background="{Binding Tint}" VerticalAlignment="Center" Margin="0,0,10,0">
-                                      <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                  </Grid>
-                                  <!-- Icon strip: the coloured icon over a short name. -->
-                                  <StackPanel HorizontalAlignment="Center"
-                                              Visibility="{Binding DataContext.IsReportPanelCompact, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <Border Width="30" Height="30" CornerRadius="8" Background="{Binding Tint}" HorizontalAlignment="Center">
-                                      <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Text="{Binding ShortLabel}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,3,0,0" />
-                                  </StackPanel>
+                                  <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                  </Grid.ColumnDefinitions>
+                                  <Border Width="32" Height="32" CornerRadius="8" Background="{Binding Tint}" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="17" Foreground="{Binding Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                  </Border>
+                                  <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center" />
                                 </Grid>
                               </Button>
                             </DataTemplate>
@@ -687,6 +620,8 @@
                   </StackPanel>
                   <WrapPanel VerticalAlignment="Center">
                     <ComboBox Width="200" Height="34" Margin="0,0,8,0" DisplayMemberPath="DisplayName" ToolTip="Current branch only, or consolidated network summary when peer snapshots exist" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding BranchFilterChoices}" SelectedItem="{Binding SelectedBranchFilter}" />
+                    <!-- Month, year and the < > pair stay together on one line. -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
                     <ComboBox Width="120" Height="34" Margin="0,0,8,0" SelectedValuePath="Number" DisplayMemberPath="Name" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding Months}" SelectedValue="{Binding SelectedMonth}" />
                     <ComboBox Width="84" Height="34" Margin="0,0,8,0" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear}" />
                     <Button Margin="0,0,6,0" MinWidth="0" Width="34" Padding="0" ToolTip="Previous month" AutomationProperties.Name="Previous month" Style="{StaticResource ReportActionButton}" Command="{Binding PreviousMonthCommand}">
@@ -695,6 +630,7 @@
                     <Button Margin="0,0,8,0" MinWidth="0" Width="34" Padding="0" ToolTip="Next month" AutomationProperties.Name="Next month" Style="{StaticResource ReportActionButton}" Command="{Binding NextMonthCommand}" IsEnabled="{Binding CanNavigateNext}">
                       <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE76C;" FontSize="12" />
                     </Button>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" Visibility="{Binding ShowDimensionFilter, Converter={StaticResource BooleanToVisibilityConverter}}">
                       <TextBlock VerticalAlignment="Center" Margin="4,0,8,0" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding DimensionFilterLabel}" />
                       <ComboBox Width="220" Height="34" IsEditable="True" ToolTip="Filter to one party / batch / brand / manufacturer, or All for aggregated subtotals" Style="{StaticResource ReportToolbarComboBox}" ItemsSource="{Binding DimensionFilterChoices}" Text="{Binding SelectedDimensionFilter, UpdateSourceTrigger=LostFocus}" SelectedItem="{Binding SelectedDimensionFilter, UpdateSourceTrigger=PropertyChanged}" />
