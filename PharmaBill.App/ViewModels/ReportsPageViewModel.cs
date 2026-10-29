@@ -13,7 +13,7 @@ using PharmaBill.Data.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-public class ReportsPageViewModel : ObservableObject, ILoadablePage
+public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 {
 	private readonly IServiceScopeFactory _scopeFactory;
 
@@ -571,8 +571,12 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 			ClampToActiveRetentionWindow();
 			DateOnly from = DateOnly.FromDateTime(FromDate);
 			DateOnly to = DateOnly.FromDateTime(ToDate);
+			// Expiry looks ahead: what expires in the period and in the 90 days after it (the near-expiry window). The
+			// period can never end after today, so without this the report could only list stock already expired.
+			bool lookAhead = SelectedReport.Kind == ReportKind.Expiry;
+			DateOnly reportTo = lookAhead ? to.AddDays(PharmaBill.Core.Inventory.BatchExpiryStatuses.WarningDays) : to;
 			using IServiceScope scope = _scopeFactory.CreateScope();
-			ReportTable reportTable = await scope.ServiceProvider.GetRequiredService<ReportsDashboardService>().GetReportAsync(SelectedReport.Kind, from, to, SelectedBranchFilter.Scope, ShowDimensionFilter ? SelectedDimensionFilter : null, cancellationToken);
+			ReportTable reportTable = await scope.ServiceProvider.GetRequiredService<ReportsDashboardService>().GetReportAsync(SelectedReport.Kind, from, reportTo, SelectedBranchFilter.Scope, ShowDimensionFilter ? SelectedDimensionFilter : null, cancellationToken);
 			DataTable dataTable = new DataTable(reportTable.Title);
 			foreach (string column in reportTable.Columns)
 			{
@@ -592,7 +596,9 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 				dataTable.Rows.Add(list.ToArray());
 			}
 			Table = dataTable.DefaultView;
-			PeriodLabel = $"{from:yyyy-MM-dd} to {to:yyyy-MM-dd} · {reportTable.Title}";
+			PeriodLabel = lookAhead
+				? $"{from:yyyy-MM-dd} to {to:yyyy-MM-dd}, expiring up to {reportTo:yyyy-MM-dd} · {reportTable.Title}"
+				: $"{from:yyyy-MM-dd} to {to:yyyy-MM-dd} · {reportTable.Title}";
 			StatusMessage = $"{reportTable.Rows.Count} row(s).";
 			ErrorMessage = string.Empty;
 		}
@@ -871,6 +877,7 @@ public class ReportsPageViewModel : ObservableObject, ILoadablePage
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	private void OnSelectedReportChanged(ReportChoice value)
 	{
+		MarkSelectedReport(value);
 		ShowDimensionFilter = ReportsDashboardService.UsesDimensionFilter(value.Kind);
 		DimensionFilterLabel = ReportsDashboardService.DimensionFilterLabel(value.Kind);
 		if (!_suppressReportChangeRefresh)

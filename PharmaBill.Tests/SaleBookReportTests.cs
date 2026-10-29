@@ -45,8 +45,7 @@ public sealed class SaleBookReportTests
 
             foreach (string report in new[] { "Sale Book (daily)", "Sale Book (monthly)" })
             {
-                ComboBox reports = Ui.Single<ComboBox>(host, box => box.ItemsSource == page.ReportChoices);
-                reports.SelectedItem = page.ReportChoices.Single(choice => choice.Name == report);
+                await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && b.DataContext is ReportPanelItem && System.Windows.Automation.AutomationProperties.GetName(b) == report));
                 await Ui.UntilAsync(() => page.PeriodLabel.EndsWith(report), report + " to load");
 
                 DataGrid grid = Ui.Single<DataGrid>(host, g => g.ItemsSource == page.Table);

@@ -1406,4 +1406,88 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <!-- A report in the Reports panel (DataContext: ReportPanelItem). Its group's colour marks it: a bar that grows in when
+       it is the report shown, and a faint tint with a slight nudge on hover. -->
+  <Style x:Key="ReportPanelButton" TargetType="{x:Type Button}">
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="FrameworkElement.Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="{x:Type Button}">
+          <Grid>
+            <Border Name="FocusRing" CornerRadius="9" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
+            <Border Name="Face" CornerRadius="7" BorderThickness="1" BorderBrush="#00FFFFFF" Background="{TemplateBinding Background}">
+              <Grid>
+                <Border Name="Tint" CornerRadius="7" Background="{Binding Accent}" Opacity="0" />
+                <Border Name="Bar" Width="3" HorizontalAlignment="Left" Margin="0,7" CornerRadius="2" Background="{Binding Accent}" RenderTransformOrigin="0.5,0.5">
+                  <Border.RenderTransform>
+                    <ScaleTransform ScaleY="0" />
+                  </Border.RenderTransform>
+                </Border>
+                <ContentPresenter Name="Content" Margin="10,6,8,6" VerticalAlignment="Center" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" RecognizesAccessKey="True">
+                  <ContentPresenter.RenderTransform>
+                    <TranslateTransform X="0" />
+                  </ContentPresenter.RenderTransform>
+                </ContentPresenter>
+              </Grid>
+            </Border>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="UIElement.IsMouseOver" Value="True">
+              <Trigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity" To="0.07" Duration="0:0:0.14" />
+                    <DoubleAnimation Storyboard.TargetName="Content" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="2" Duration="0:0:0.14" />
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.EnterActions>
+              <Trigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18" />
+                    <DoubleAnimation Storyboard.TargetName="Content" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.18" />
+                  </Storyboard>
+                </BeginStoryboard>
+              </Trigger.ExitActions>
+            </Trigger>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+              <Setter TargetName="Face" Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+              <Setter TargetName="Face" Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+              <Setter TargetName="Content" Property="TextElement.FontWeight" Value="SemiBold" />
+              <DataTrigger.EnterActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.2">
+                      <DoubleAnimation.EasingFunction>
+                        <CubicEase EasingMode="EaseOut" />
+                      </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                  </Storyboard>
+                </BeginStoryboard>
+              </DataTrigger.EnterActions>
+              <DataTrigger.ExitActions>
+                <BeginStoryboard>
+                  <Storyboard>
+                    <DoubleAnimation Storyboard.TargetName="Bar" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0" Duration="0:0:0.15" />
+                  </Storyboard>
+                </BeginStoryboard>
+              </DataTrigger.ExitActions>
+            </DataTrigger>
+            <Trigger Property="UIElement.IsKeyboardFocused" Value="True">
+              <Setter TargetName="FocusRing" Property="Border.BorderBrush" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.88" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
 </ResourceDictionary>

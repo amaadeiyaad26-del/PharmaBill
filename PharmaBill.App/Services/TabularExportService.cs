@@ -50,7 +50,7 @@ public sealed class TabularExportService
 	private static void ExportExcel(string path, string title, IReadOnlyList<string> columns, IReadOnlyList<IReadOnlyList<string>> rows)
 	{
 		using XLWorkbook xLWorkbook = new XLWorkbook();
-		IXLWorksheet iXLWorksheet = xLWorkbook.Worksheets.Add((title.Length > 31) ? title.Substring(0, 31) : title);
+		IXLWorksheet iXLWorksheet = xLWorkbook.Worksheets.Add(SheetName(title));
 		for (int i = 0; i < columns.Count; i++)
 		{
 			iXLWorksheet.Cell(1, i + 1).Value = columns[i];
@@ -115,5 +115,19 @@ public sealed class TabularExportService
 	private static void AppendCsvRow(StringBuilder builder, IEnumerable<string> values)
 	{
 		builder.AppendLine(string.Join(',', values.Select((string value) => "\"" + (value ?? string.Empty).Replace("\"", "\"\"", StringComparison.Ordinal) + "\"")));
+	}
+
+	/// <summary>
+	/// Excel refuses / \ ? * : [ ] in a sheet name and more than 31 characters ("Customer / Party-wise Sales" failed). The
+	/// tab gets a safe version of the title; the file name and the PDF keep it whole.
+	/// </summary>
+	internal static string SheetName(string title)
+	{
+		string safe = string.Concat((title ?? string.Empty).Select(c => @"/\?*:[]".Contains(c) ? '-' : c)).Trim().Trim('\'');
+		if (safe.Length == 0)
+		{
+			safe = "Report";
+		}
+		return safe.Length > 31 ? safe[..31].TrimEnd() : safe;
 	}
 }

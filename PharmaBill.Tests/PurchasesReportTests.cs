@@ -77,8 +77,7 @@ public sealed class PurchasesReportTests : IDisposable
             host.Content = new ContentControl { Content = page, ContentTemplate = (DataTemplate)mainWindow.Resources[new DataTemplateKey(typeof(ReportsPageViewModel))], Resources = mainWindow.Resources };
             await Ui.SettleAsync();
 
-            ComboBox reports = Ui.Single<ComboBox>(host, box => box.ItemsSource == page.ReportChoices);
-            reports.SelectedItem = page.ReportChoices.Single(choice => choice.Name == "Purchases (invoices)");
+            await Ui.PressAsync(Ui.Single<Button>(host, b => b.IsVisible && b.DataContext is ReportPanelItem && System.Windows.Automation.AutomationProperties.GetName(b) == "Purchases (invoices)"));
             await Ui.UntilAsync(() => page.PeriodLabel.EndsWith("Purchases"), "the purchases report to load");
             DataGrid grid = Ui.Single<DataGrid>(host, g => g.ItemsSource == page.Table);
             Assert.Equal(ReportsDashboardService.PurchaseColumns, grid.Columns.Select(column => column.Header.ToString()).ToArray());
