@@ -1925,11 +1925,13 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 		using IServiceScope scope = scopeFactory.CreateScope();
 		InvoiceDocumentExtractor extractor = scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>();
 		RetailBillingService billing = scope.ServiceProvider.GetRequiredService<RetailBillingService>();
+		List<string> readBy = new List<string>();
 		foreach (string path in files)
 		{
 			try
 			{
 				ExtractedPurchaseInvoice invoice = await extractor.ExtractAsync(path);
+				readBy.Add(invoice.ReadBy + ".");
 				foreach (ExtractedPurchaseLine item in invoice.Items)
 				{
 					IReadOnlyList<RetailStockChoice> matches = await billing.SearchStockAsync(item.ItemName);
@@ -1951,7 +1953,7 @@ public sealed partial class RetailBillingViewModel(IServiceScopeFactory scopeFac
 			}
 		}
 
-		StatusMessage = added + " order line(s) added to the bill.";
+		StatusMessage = added + " order line(s) added to the bill. " + string.Join(" ", readBy.Distinct());
 		ErrorMessage = missed.Count == 0 ? string.Empty : "Not in stock: " + string.Join(", ", missed.Distinct(StringComparer.OrdinalIgnoreCase));
 	}
 

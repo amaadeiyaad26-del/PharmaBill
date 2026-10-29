@@ -3028,22 +3028,10 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				bill.FilePath = workingPath;
 				using IServiceScope scope = scopeFactory.CreateScope();
 				InvoiceDocumentExtractor extractor = scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>();
-				ExtractedPurchaseInvoice extracted;
-				try
-				{
-					// Gemini vision first (reads multi-column tables); falls back to local OCR inside ExtractAsync.
-					extracted = await extractor.ExtractAsync(workingPath).ConfigureAwait(false);
-				}
-				catch (Exception remoteError) when (remoteError is not OperationCanceledException)
-				{
-					System.Diagnostics.Debug.WriteLine("Phone bill extract failed, forcing local OCR: " + remoteError);
-					Dispatch(() =>
-					{
-						StatusMessage = "Online AI failed (" + remoteError.Message + "). Trying offline OCR...";
-						PhoneListenStatus = StatusMessage;
-					});
-					extracted = await extractor.ExtractLocalAsync(workingPath).ConfigureAwait(false);
-				}
+				// Gemini first, else this PC; only a reading that matches the bill's printed totals comes back, and it says
+				// which reader produced it and why.
+				ExtractedPurchaseInvoice extracted = await extractor.ExtractCheckedAsync(workingPath).ConfigureAwait(false);
+				Dispatch(() => PhoneListenStatus = extracted.ReadBy);
 
 				Debug.WriteLine($"Phone bill: extracted {extracted.Items.Count} row(s) via PC extractor.");
 				foreach (ExtractedPurchaseLine item in extracted.Items)
@@ -4026,11 +4014,13 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			string? previewPath = null;
 			ExtractedPurchaseInvoice? header = null;
 			List<string> problems = new List<string>();
+			List<string> readBy = new List<string>();
 			foreach (string path in files)
 			{
 				try
 				{
-					ExtractedPurchaseInvoice extracted = await extractor.ExtractAsync(path);
+					ExtractedPurchaseInvoice extracted = await extractor.ExtractCheckedAsync(path);
+					readBy.Add((files.Count > 1 ? Path.GetFileName(path) + ": " : string.Empty) + extracted.ReadBy + ".");
 					previewPath ??= path;
 					header ??= extracted;
 					StageExtractedItems(extracted);
@@ -4082,9 +4072,9 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				? (unmatched == 0 ? string.Empty : unmatched + " line(s) are not in the medicine master. Match or add those medicines before saving.")
 				: string.Join(" ", problems);
 			StatusMessage = extractedCount == 0
-				? "No invoice rows were extracted."
-				: extractedCount + " line(s) are on the purchase grid. Taxable Rs. " + taxable.ToString("N2", CultureInfo.InvariantCulture) + ", grand total Rs. " + grand.ToString("N2", CultureInfo.InvariantCulture) + ". Review the rows, then press Transfer to Stock (F10 or Ctrl+S).";
-			ImportStatus = extractedCount == 0 ? ErrorMessage : "Read " + files.Count + " file(s) into the purchase table.";
+				? "No invoice rows were loaded."
+				: extractedCount + " line(s) are on the purchase grid. Taxable Rs. " + taxable.ToString("N2", CultureInfo.InvariantCulture) + ", grand total Rs. " + grand.ToString("N2", CultureInfo.InvariantCulture) + ". " + string.Join(" ", readBy) + " Review the rows, then press Transfer to Stock (F10 or Ctrl+S).";
+			ImportStatus = extractedCount == 0 ? ErrorMessage : string.Join(" ", readBy);
 			return extractedCount > 0;
 		}
 		finally
@@ -4213,7 +4203,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			await ImportCoreAsync(path);
 			if (string.IsNullOrWhiteSpace(ImportStatus) || ImportStatus == "Reading the bill...")
 			{
-				ImportStatus = (ErrorMessage.Length > 0 && Lines.Count == 0 && ReturnLines.Count == 0 && StagedItems.Count == 0) ? ErrorMessage : "Read by: Gemini";
+				ImportStatus = ErrorMessage;
 			}
 		}
 		finally
@@ -4227,19 +4217,8 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 		try
 		{
 			using IServiceScope scope = scopeFactory.CreateScope();
-			ExtractedPurchaseInvoice extracted;
-			try
-			{
-				extracted = await scope.ServiceProvider.GetRequiredService<GeminiPurchaseImportService>().ExtractAsync(path);
-				Debug.WriteLine($"Purchase import: Gemini path returned {extracted.Items.Count} extracted item(s) for '{path}'.");
-			}
-			catch (Exception remoteError) when (remoteError is not OperationCanceledException)
-			{
-				extracted = await scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>().ExtractLocalAsync(path);
-				Debug.WriteLine($"Purchase import: local OCR path returned {extracted.Items.Count} extracted item(s) for '{path}'. Gemini fallback reason: {remoteError.Message}");
-				ImportStatus = "Gemini was unavailable. The invoice was read on this PC.";
-				StatusMessage = GeminiGenerateContent.UserMessageFor(remoteError) + ". The rows were read locally. Review them before transferring to stock.";
-			}
+			ExtractedPurchaseInvoice extracted = await scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>().ExtractCheckedAsync(path);
+			ImportStatus = extracted.ReadBy + ".";
 			if (extracted.DocumentType == "PURCHASE_RETURN")
 			{
 				_importedExpectedGrandTotal = null;
@@ -4291,17 +4270,11 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 			discardStagedItemsCommand?.NotifyCanExecuteChanged();
 			_importedExpectedGrandTotal = extracted.GrandTotal;
 			BillTotalMatches = false;
-			bool readLocally = ImportStatus.StartsWith("Gemini was unavailable", StringComparison.Ordinal);
-			BillTotalCheck = readLocally
-				? $"Read {StagedItems.Count} lines on this PC. Bill total on the invoice: {extracted.GrandTotal:F2}. Review them, then transfer to stock."
-				: $"Gemini read {StagedItems.Count} lines. Bill total on the invoice: {extracted.GrandTotal:F2}. Apply them, then check the purchase total.";
+			BillTotalCheck = $"{StagedItems.Count} lines read; they match the bill's printed total of {extracted.GrandTotal:F2}. {extracted.ReadBy}.";
 			ErrorMessage = unmatched == 0 ? string.Empty : unmatched + " staged line(s) are not in the medicine master. Edit or delete them after applying.";
-			if (!readLocally)
-			{
-				StatusMessage = SelectedSupplier == null
-					? "Review the staged lines beside the invoice, then apply them. Extracted supplier: " + extracted.Supplier + "."
-					: "Review the staged lines beside the invoice, then apply them to the purchase bill.";
-			}
+			StatusMessage = SelectedSupplier == null
+				? "Review the staged lines beside the invoice, then apply them. Extracted supplier: " + extracted.Supplier + "."
+				: "Review the staged lines beside the invoice, then apply them to the purchase bill.";
 		}
 		catch (Exception ex)
 		{
@@ -4312,6 +4285,10 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 
 	private static string FriendlyInvoiceReadError(Exception ex)
 	{
+		if (ex is InvoiceNotReconciledException)
+		{
+			return ex.Message;
+		}
 		string message = PharmaBill.Core.UserMessage.Of(ex) ?? string.Empty;
 		if (message.Contains('{') || message.Contains("NOT_FOUND", StringComparison.OrdinalIgnoreCase) || message.Contains("models/gemini", StringComparison.OrdinalIgnoreCase) || message.Length > 220)
 		{

@@ -1546,11 +1546,13 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 		InvoiceDocumentExtractor extractor = scope.ServiceProvider.GetRequiredService<InvoiceDocumentExtractor>();
 		int added = 0;
 		List<string> missed = new List<string>();
+		List<string> readBy = new List<string>();
 		foreach (string path in files)
 		{
 			try
 			{
 				ExtractedPurchaseInvoice invoice = await extractor.ExtractAsync(path);
+				readBy.Add(invoice.ReadBy + ".");
 				foreach (ExtractedPurchaseLine item in invoice.Items)
 				{
 					WholesaleStockChoice? choice = StockChoices
@@ -1579,7 +1581,7 @@ public class WholesaleBillingPageViewModel : ObservableObject, ILoadablePage
 			}
 		}
 
-		StatusMessage = added + " order line(s) added to the wholesale bill.";
+		StatusMessage = added + " order line(s) added to the wholesale bill. " + string.Join(" ", readBy.Distinct());
 		ErrorMessage = missed.Count == 0 ? string.Empty : "Not in stock: " + string.Join(", ", missed.Distinct(StringComparer.OrdinalIgnoreCase));
 	}
 

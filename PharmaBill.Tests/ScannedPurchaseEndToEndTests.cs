@@ -58,14 +58,14 @@ public sealed class ScannedPurchaseEndToEndTests
                 M/s {supplier.Name}
                 Invoice No.: MIX/2026/0042
                 Date: 20/10/2026
-                Product HSN Batch Exp Qty Rate GST Amount
-                Zentrix 250 Tablet 30042019 ZTX2501 06/27 10 40.00 12% 400.00
-                Paracetamol Tablets IP 500 mg 30049099 PCT2407 06/27 20 18.00 5% 360.00
+                Product                        HSN       Batch    Exp    Qty   Rate    GST   Amount
+                Zentrix 250 Tablet             30042019  ZTX2501  06/27  10    40.00   12%   400.00
+                Paracetamol Tablets IP 500 mg  30049099  PCT2407  06/27  20    18.00   5%    360.00
                 Taxable value
                 Rs. 760.00
                 CGST @ 2.5% SGST @ 2.5% CGST @ 6% SGST @ 6%
                 Grand total
-                Rs. 822.00
+                Rs. 826.00
                 """;
 
             var prompt = new NeverAsked();
@@ -86,12 +86,12 @@ public sealed class ScannedPurchaseEndToEndTests
                 .AddScoped<ProductTaxService>()
                 .AddSingleton<IPromptService>(prompt)
                 // Gemini is not registered: the screen reads the photo on this PC, as it does when Gemini is unavailable.
-                .AddSingleton(_ => new InvoiceDocumentExtractor(null!, null!, new InvoiceOcr(invoiceText)))
+                .AddSingleton(_ => new InvoiceDocumentExtractor(null!, null!, new LaidOutOcr(invoiceText)))
                 .BuildServiceProvider();
             var session = new CurrentSession();
             session.SignIn(catalog.Admin);
             var page = new PurchasePageViewModel(services.GetRequiredService<IServiceScopeFactory>(), session, null!, new BackupPageEndToEndTests.AlwaysYes(),
-                null!, prompt, null!, null!, null!, new InvoiceOcr(invoiceText), null!);
+                null!, prompt, null!, null!, null!, new LaidOutOcr(invoiceText), null!);
             await page.LoadAsync();
 
             var mainWindow = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
@@ -131,7 +131,7 @@ public sealed class ScannedPurchaseEndToEndTests
         });
     }
 
-    private static void WritePhoto(string path)
+    internal static void WritePhoto(string path)
     {
         var bitmap = new RenderTargetBitmap(64, 64, 96, 96, PixelFormats.Pbgra32);
         var visual = new DrawingVisual();

@@ -60,20 +60,17 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 								+ "documentType (PURCHASE_INVOICE or PURCHASE_RETURN),\n"
 								+ "supplier, invoiceNo, invoiceDate (YYYY-MM-DD),\n"
 								+ "items (array of objects with: itemName, hsn, batch, expiry (MM/YYYY), quantity, free, mrp, rate, gst, amount),\n"
-								+ "subtotal, grandTotal.\n"
+								+ "taxableValue, cgst, sgst, igst, roundOff, grandTotal: each EXACTLY as printed in the bill's totals, or null when the bill does not print it. Never calculate them yourself.\n"
 								+ "HEADER RULES:\n"
-								+ "- supplier = text under 'Seller (Wholesaler)' ONLY (e.g. 'M/s Example Pharma Distributors'). "
+								+ "- supplier = the distributor issuing the bill (its name at the top, or under 'Seller'). "
 								+ "NEVER use Buyer (Retailer), filenames, camera ids, or device ids.\n"
 								+ "- invoiceNo = value after 'Invoice No.:' or 'Bill No.'.\n"
 								+ "- invoiceDate = YYYY-MM-DD near Invoice No.\n"
 								+ "TABLE RULES (critical):\n"
-								+ "- Read EVERY medicine row between the Product table header and 'Taxable value'.\n"
-								+ "- Typical demo / wholesaler bills have exactly 6 medicines — extract ALL of them when present:\n"
-								+ "  Paracetamol, Amoxicillin+Clavulanic Acid, Pantoprazole, Cetirizine, Azithromycin, Metformin.\n"
+								+ "- Read EVERY item row of the table, in order, once each: medicines and other goods (bandages, devices) alike.\n"
 								+ "- NEVER confuse dosage strength (500 mg, 125 mg, 40 mg, 10 mg) with Qty.\n"
-								+ "- Qty is the integer pack/quantity column AFTER Mfg/Exp (e.g. 20, 100, 60, 80, 50, 100).\n"
-								+ "- Rate is the Rate (Rs.) column (e.g. 180.00, 145.00). Amount = Qty × Rate when readable.\n"
-								+ "- Batch codes look like PCT2407, AMC2512, PAN2509, CET2601, AZI2603, MET2511.\n"
+								+ "- Qty is the Qty column on that row; free/scheme quantity goes in free, never in qty.\n"
+								+ "- rate is the Rate column and amount the Amount column on that row, each exactly as printed. Never copy one column's value into another.\n"
 								+ "- Mfg/Exp composites '07/25 - 06/27': expiry = SECOND date as MM/YYYY (06/2027).\n"
 								+ "- hsn = the HSN code printed on THAT row (digits only, e.g. 3004 or 30049099), or empty if the row shows none. Never copy one row's HSN to another.\n"
 								+ "- gst = the TOTAL GST % printed on THAT row (CGST + SGST, or IGST), e.g. 5, 12 or 18. Never the CGST half alone, never one rate for the whole bill; 0 if the row shows none.\n"
@@ -180,9 +177,17 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 						string invoiceDate = ReadString(root, "invoiceDate", "billDate", "date")
 							?? BusinessClock.Now.Date.ToString("yyyy-MM-dd");
 						string documentType = ReadString(root, "documentType", "type") ?? "PURCHASE_INVOICE";
-						decimal subtotal = ReadDecimal(root, "subtotal", "taxable") ?? flexibleLines.Sum(ComputeAmount);
-						decimal grand = ReadDecimal(root, "grandTotal", "total", "netAmount") ?? subtotal;
-						return new ExtractedPurchaseInvoice(documentType, supplier, invoiceNo, invoiceDate, flexibleLines, subtotal, grand);
+						// The totals as printed on the bill, kept apart from the lines so the lines can be checked against them.
+						var printed = new InvoicePrintedTotals(
+							ReadDecimal(root, "taxableValue", "taxable", "subtotal"),
+							ReadDecimal(root, "cgst"),
+							ReadDecimal(root, "sgst", "utgst"),
+							ReadDecimal(root, "igst"),
+							ReadDecimal(root, "roundOff", "rounding"),
+							ReadDecimal(root, "grandTotal", "netAmount"));
+						decimal subtotal = printed.Taxable ?? flexibleLines.Sum(ComputeAmount);
+						decimal grand = printed.GrandTotal ?? subtotal;
+						return new ExtractedPurchaseInvoice(documentType, supplier, invoiceNo, invoiceDate, flexibleLines, subtotal, grand) { Printed = printed };
 					}
 				}
 
@@ -389,7 +394,7 @@ public sealed class GeminiPurchaseImportService(HttpClient httpClient, GeminiApi
 			subtotal = invoice.Subtotal;
 		}
 
-		return new ExtractedPurchaseInvoice(documentType, supplier, invoiceNo, invoiceDate, items, subtotal, grand);
+		return new ExtractedPurchaseInvoice(documentType, supplier, invoiceNo, invoiceDate, items, subtotal, grand) { Printed = invoice.Printed };
 	}
 
 	private static decimal ComputeAmount(ExtractedPurchaseLine item)

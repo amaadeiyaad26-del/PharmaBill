@@ -30,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\docs\test-vectors\*.json" Link="test-vectors\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

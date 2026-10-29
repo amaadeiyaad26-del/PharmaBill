@@ -6,4 +6,10 @@ public sealed record ExtractedPurchaseLine(string ItemName, string Batch, string
 
 	/// <summary>The HSN code printed on this invoice line, when the scan read one.</summary>
 	public string? HsnCode { get; init; }
+
+	/// <summary>The manufacturer printed with this line, when the bill shows one.</summary>
+	public string? Manufacturer { get; init; }
+
+	/// <summary>The pack printed on this line (e.g. 10x10), when the bill shows one.</summary>
+	public string? Pack { get; init; }
 }

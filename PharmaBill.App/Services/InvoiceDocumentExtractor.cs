@@ -13,88 +13,161 @@ using Windows.Storage.Streams;
 namespace PharmaBill.App.Services;
 
 /// <summary>
-/// Reads one or more distributor invoices from PDF text, rendered pages, or images.
-/// Gemini is used when a key is saved. Otherwise the local text and Windows OCR path is used.
+/// Reads distributor invoices from PDFs or images. Gemini is tried first when a key is saved; otherwise, or when it
+/// fails, the bill is read on this PC column by column. Every result says which reader produced it and why, and the
+/// checked path used for purchases only returns a reading that agrees with the totals printed on the bill.
 /// </summary>
 public sealed class InvoiceDocumentExtractor(GeminiPurchaseImportService gemini, GeminiApiKeyStore apiKeys, IOcrTextRecognizer ocr)
 {
-	public Task<ExtractedPurchaseInvoice> ExtractAsync(string path, CancellationToken cancellationToken = default)
+	/// <summary>
+	/// For a purchase: the first reading (Gemini, then this PC's column reader, then its text reader) that matches the
+	/// bill's printed taxable value, GST and grand total. When none does, <see cref="InvoiceNotReconciledException"/>
+	/// says what did not match; nothing half-read is ever returned.
+	/// </summary>
+	public async Task<ExtractedPurchaseInvoice> ExtractCheckedAsync(string path, CancellationToken cancellationToken = default)
 	{
-		return ExtractAsync(path, allowGemini: true, cancellationToken);
+		(string workingPath, bool isPdf) = await PrepareAsync(path, cancellationToken);
+		string why;
+		if (HasGeminiKey())
+		{
+			try
+			{
+				ExtractedPurchaseInvoice remote = await gemini.ExtractAsync(workingPath, cancellationToken);
+				IReadOnlyList<string> problems = InvoiceReconciliation.Problems(remote);
+				if (problems.Count == 0)
+				{
+					return WithReadBy(remote, "Read online by Gemini; it matches the bill's printed totals");
+				}
+				why = "Gemini's reading did not match the bill's printed totals (" + problems[0] + ")";
+			}
+			catch (Exception remoteError) when (remoteError is not OperationCanceledException)
+			{
+				why = GeminiFailure(remoteError);
+			}
+		}
+		else
+		{
+			why = "no Gemini key is saved";
+		}
+
+		string readBy = "Read on this PC because " + why;
+		IReadOnlyList<(string How, ExtractedPurchaseInvoice Invoice)> readings = await ReadLocallyAsync(workingPath, isPdf, columnsOnly: true, cancellationToken);
+		IReadOnlyList<string>? firstProblems = null;
+		foreach ((string how, ExtractedPurchaseInvoice invoice) in readings)
+		{
+			IReadOnlyList<string> problems = InvoiceReconciliation.Problems(invoice);
+			if (problems.Count == 0)
+			{
+				return WithReadBy(invoice, readBy + "; " + how + ", and it matches the bill's printed totals");
+			}
+			firstProblems ??= problems;
+		}
+
+		throw new InvoiceNotReconciledException(InvoiceReconciliation.Refusal(
+			firstProblems ?? ["no item table with column headings (Product, Qty, Rate, Amount...) was found on the bill"], readBy));
 	}
 
-	public Task<ExtractedPurchaseInvoice> ExtractLocalAsync(string path, CancellationToken cancellationToken = default)
+	/// <summary>
+	/// For lists without printed totals (an order to bill from): Gemini when a key is saved, else this PC. Not checked
+	/// against totals, but always says which reader was used and why.
+	/// </summary>
+	public async Task<ExtractedPurchaseInvoice> ExtractAsync(string path, CancellationToken cancellationToken = default)
 	{
-		return ExtractAsync(path, allowGemini: false, cancellationToken);
+		(string workingPath, bool isPdf) = await PrepareAsync(path, cancellationToken);
+		string why;
+		if (HasGeminiKey())
+		{
+			try
+			{
+				return WithReadBy(await gemini.ExtractAsync(workingPath, cancellationToken), "Read online by Gemini");
+			}
+			catch (Exception remoteError) when (remoteError is not OperationCanceledException)
+			{
+				why = GeminiFailure(remoteError);
+			}
+		}
+		else
+		{
+			why = "no Gemini key is saved";
+		}
+
+		IReadOnlyList<(string How, ExtractedPurchaseInvoice Invoice)> readings = await ReadLocallyAsync(workingPath, isPdf, columnsOnly: false, cancellationToken);
+		if (readings.Count == 0)
+		{
+			throw new InvalidDataException("No item rows could be read from '" + Path.GetFileName(path) + "' on this PC (" + why + ").");
+		}
+		return WithReadBy(readings[0].Invoice, "Read on this PC because " + why + "; " + readings[0].How);
 	}
 
-	private async Task<ExtractedPurchaseInvoice> ExtractAsync(string path, bool allowGemini, CancellationToken cancellationToken)
+	private static string GeminiFailure(Exception error)
+	{
+		if (error is System.Net.Http.HttpRequestException { StatusCode: System.Net.HttpStatusCode status })
+		{
+			int code = (int)status;
+			string busy = code is 503 or 429 ? ", Google's service was busy" : string.Empty;
+			return "Gemini did not answer (HTTP " + code + busy + ")";
+		}
+		return "Gemini could not read it (" + GeminiGenerateContent.UserMessageFor(error) + ")";
+	}
+
+	// A new record keeps the per-line discounts the parsers recorded against the old one.
+	private static ExtractedPurchaseInvoice WithReadBy(ExtractedPurchaseInvoice invoice, string readBy)
+	{
+		ExtractedPurchaseInvoice copy = invoice with { ReadBy = readBy };
+		if (InvoiceTextParserCache.Discounts.TryGetValue(invoice, out List<decimal>? discounts))
+		{
+			InvoiceTextParserCache.Discounts.AddOrUpdate(copy, discounts);
+		}
+		return copy;
+	}
+
+	private static async Task<(string Path, bool IsPdf)> PrepareAsync(string path, CancellationToken cancellationToken)
 	{
 		if (!File.Exists(path))
 		{
 			throw new FileNotFoundException("The invoice file could not be found.", path);
 		}
-
-		string workingPath = path;
-		string extension = Path.GetExtension(path);
-		bool isPdf = extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
-		if (!isPdf)
-		{
-			workingPath = await InvoiceImageNormalizer.EnsureSupportedAsync(path, cancellationToken);
-		}
-
-		// Phone camera photos and scanned invoices: prefer Gemini vision when a key is configured.
-		if (allowGemini && HasGeminiKey())
-		{
-			try
-			{
-				System.Diagnostics.Debug.WriteLine("Invoice OCR: Gemini vision key present — sending image bytes from " + workingPath);
-				ExtractedPurchaseInvoice remote = await gemini.ExtractAsync(workingPath, cancellationToken);
-				System.Diagnostics.Debug.WriteLine("Invoice OCR: Gemini returned " + remote.Items.Count + " line(s).");
-				return remote;
-			}
-			catch (Exception remoteError) when (remoteError is not OperationCanceledException)
-			{
-				System.Diagnostics.Debug.WriteLine("Invoice OCR: Gemini failed, falling back to local OCR. " + remoteError);
-				try
-				{
-					return await ExtractLocalCoreAsync(workingPath, isPdf, cancellationToken);
-				}
-				catch (Exception localError) when (localError is not OperationCanceledException)
-				{
-					throw new InvalidOperationException(
-						"This invoice could not be read online or on this PC. Gemini: " + remoteError.Message
-						+ " Local: " + localError.Message,
-						remoteError);
-				}
-			}
-		}
-
-		if (allowGemini)
-		{
-			System.Diagnostics.Debug.WriteLine("Invoice OCR: no Gemini API key — using local Windows OCR / PDF text.");
-		}
-
-		return await ExtractLocalCoreAsync(workingPath, isPdf, cancellationToken);
+		bool isPdf = Path.GetExtension(path).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+		return (isPdf ? path : await InvoiceImageNormalizer.EnsureSupportedAsync(path, cancellationToken), isPdf);
 	}
 
-	private async Task<ExtractedPurchaseInvoice> ExtractLocalCoreAsync(string path, bool isPdf, CancellationToken cancellationToken)
+	/// <summary>
+	/// The readings this PC can make: the item table read by its columns. A list with no column table (an order) may
+	/// also be read line by line as text; a purchase bill never is (<paramref name="columnsOnly"/>).
+	/// </summary>
+	private async Task<IReadOnlyList<(string How, ExtractedPurchaseInvoice Invoice)>> ReadLocallyAsync(string path, bool isPdf, bool columnsOnly, CancellationToken cancellationToken)
 	{
-		byte[]? imageBytes = isPdf ? null : await File.ReadAllBytesAsync(path, cancellationToken);
-		string text = isPdf
+		(IReadOnlyList<OcrWordPosition> words, string text, string source) = isPdf
 			? await ReadPdfAsync(path, cancellationToken)
-			: await ocr.RecognizeAsync(imageBytes!, cancellationToken);
-		if (!isPdf)
+			: await ReadImageAsync(path, cancellationToken);
+		string name = Path.GetFileNameWithoutExtension(path);
+		List<(string, ExtractedPurchaseInvoice)> readings = new List<(string, ExtractedPurchaseInvoice)>();
+		ExtractedPurchaseInvoice? table = InvoiceTextParser.ReadTable(words, name);
+		if (table != null)
 		{
-			IReadOnlyList<OcrWordPosition> words = await ocr.RecognizeWordsAsync(imageBytes!, cancellationToken);
-			ExtractedPurchaseInvoice positioned = InvoiceTextParser.ParsePositioned(words, text, Path.GetFileNameWithoutExtension(path));
-			if (positioned.Items.Count > 0)
-			{
-				return positioned;
-			}
+			readings.Add(("the item table was read column by column from " + source, table));
 		}
+		if (columnsOnly)
+		{
+			return readings;
+		}
+		try
+		{
+			readings.Add(("the rows were read from " + source + " as lines of text", InvoiceTextParser.Parse(text, name)));
+		}
+		catch (InvalidDataException) when (readings.Count > 0)
+		{
+			// The column reading stands on its own.
+		}
+		return readings;
+	}
 
-		return InvoiceTextParser.Parse(text, Path.GetFileNameWithoutExtension(path));
+	private async Task<(IReadOnlyList<OcrWordPosition> Words, string Text, string Source)> ReadImageAsync(string path, CancellationToken cancellationToken)
+	{
+		byte[] image = await File.ReadAllBytesAsync(path, cancellationToken);
+		string text = await ocr.RecognizeAsync(image, cancellationToken);
+		IReadOnlyList<OcrWordPosition> words = await ocr.RecognizeWordsAsync(image, cancellationToken);
+		return (words, text, "the image by Windows OCR");
 	}
 
 	private bool HasGeminiKey()
@@ -109,16 +182,36 @@ public sealed class InvoiceDocumentExtractor(GeminiPurchaseImportService gemini,
 		}
 	}
 
-	private async Task<string> ReadPdfAsync(string path, CancellationToken cancellationToken)
+	private async Task<(IReadOnlyList<OcrWordPosition> Words, string Text, string Source)> ReadPdfAsync(string path, CancellationToken cancellationToken)
 	{
 		string embedded = ReadEmbeddedText(path);
 		if (embedded.Count(char.IsLetterOrDigit) >= 80)
 		{
-			return embedded;
+			return (ReadEmbeddedWords(path), embedded, "the PDF's text");
 		}
 
-		string rendered = await RenderAndRecognizeAsync(path, cancellationToken);
-		return string.IsNullOrWhiteSpace(rendered) ? embedded : rendered;
+		(IReadOnlyList<OcrWordPosition> words, string rendered) = await RenderAndRecognizeAsync(path, cancellationToken);
+		return string.IsNullOrWhiteSpace(rendered)
+			? (ReadEmbeddedWords(path), embedded, "the PDF's text")
+			: (words, rendered, "the scanned PDF by Windows OCR");
+	}
+
+	/// <summary>Every word of the PDF with its position, top of the first page first (Y grows down, pages stacked).</summary>
+	internal static IReadOnlyList<OcrWordPosition> ReadEmbeddedWords(string path)
+	{
+		List<OcrWordPosition> words = new List<OcrWordPosition>();
+		using UglyToad.PdfPig.PdfDocument document = UglyToad.PdfPig.PdfDocument.Open(path);
+		double offset = 0;
+		foreach (UglyToad.PdfPig.Content.Page page in document.GetPages())
+		{
+			foreach (UglyToad.PdfPig.Content.Word word in page.GetWords())
+			{
+				UglyToad.PdfPig.Core.PdfRectangle box = word.BoundingBox;
+				words.Add(new OcrWordPosition(word.Text, box.Left, offset + page.Height - box.Top, box.Width, box.Height));
+			}
+			offset += page.Height + 100;
+		}
+		return words;
 	}
 
 	internal static string ReadEmbeddedText(string path)
@@ -215,14 +308,16 @@ public sealed class InvoiceDocumentExtractor(GeminiPurchaseImportService gemini,
 
 	private readonly record struct PlacedWord(string Text, double Left, double MidY);
 
-	private async Task<string> RenderAndRecognizeAsync(string path, CancellationToken cancellationToken)
+	private async Task<(IReadOnlyList<OcrWordPosition> Words, string Text)> RenderAndRecognizeAsync(string path, CancellationToken cancellationToken)
 	{
 		StringBuilder builder = new StringBuilder();
+		List<OcrWordPosition> words = new List<OcrWordPosition>();
 		try
 		{
 			StorageFile file = await StorageFile.GetFileFromPathAsync(path);
 			global::Windows.Data.Pdf.PdfDocument pdf = await global::Windows.Data.Pdf.PdfDocument.LoadFromFileAsync(file);
 			uint pages = Math.Min(pdf.PageCount, 6);
+			double offset = 0;
 			for (uint index = 0; index < pages; index++)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
@@ -234,34 +329,29 @@ public sealed class InvoiceDocumentExtractor(GeminiPurchaseImportService gemini,
 				using Stream net = stream.AsStreamForRead();
 				using MemoryStream memory = new MemoryStream();
 				await net.CopyToAsync(memory, cancellationToken);
-				string pageText = await ocr.RecognizeAsync(memory.ToArray(), cancellationToken);
+				byte[] image = memory.ToArray();
+				string pageText = await ocr.RecognizeAsync(image, cancellationToken);
 				if (!string.IsNullOrWhiteSpace(pageText))
 				{
 					builder.AppendLine(pageText);
 				}
+				IReadOnlyList<OcrWordPosition> pageWords = await ocr.RecognizeWordsAsync(image, cancellationToken);
+				words.AddRange(pageWords.Select(word => word with { Y = word.Y + offset }));
+				offset += (pageWords.Count == 0 ? 0 : pageWords.Max(word => word.Y + word.Height)) + 200;
 			}
 		}
 		catch (Exception ex) when (ex is not OperationCanceledException)
 		{
-			builder.AppendLine(ex.Message);
+			// The PDF could not be rendered here; the caller then reports that nothing could be read.
+			System.Diagnostics.Debug.WriteLine("Invoice PDF render failed: " + ex.Message);
 		}
 
-		return builder.ToString();
+		return (words, builder.ToString());
 	}
 }
 
-public static class InvoiceTextParser
+public static partial class InvoiceTextParser
 {
-	private sealed record PositionedColumns(
-		double Product,
-		double Batch,
-		double Expiry,
-		double Quantity,
-		double Rate,
-		double Amount,
-		double? Manufacturer,
-		double? Pack);
-
 	/// <summary>Mfg/Exp composites: 07/25 - 06/27, OCR bullets (07/26 • 06/27), 07/25/06/27.</summary>
 	private static readonly Regex RangePattern = new Regex(
 		@"\b(0?[1-9]|1[0-2])\s*[/\-.]\s*(\d{2}|\d{4})\s*[-–—/•·.]\s*(0?[1-9]|1[0-2])\s*[/\-.]?\s*(\d{2}|\d{4})\b",
@@ -302,249 +392,6 @@ public static class InvoiceTextParser
 
 	public static bool HasCompositeOrExpiryDate(string text) =>
 		RangePattern.IsMatch(text) || LabeledExpPattern.IsMatch(text) || SingleExpiryPattern.IsMatch(text);
-
-	public static ExtractedPurchaseInvoice ParsePositioned(
-		IReadOnlyList<OcrWordPosition> words,
-		string? rawText,
-		string fallbackName)
-	{
-		ArgumentNullException.ThrowIfNull(words);
-		if (!TryFindPositionedColumns(words, out PositionedColumns columns, out double headerY))
-		{
-			return Parse(rawText, fallbackName);
-		}
-
-		List<OcrWordPosition> usableWords = words
-			.Where(word => word.Y > headerY)
-			.ToList();
-		double? footerY = GroupPositionedLines(usableWords)
-			.Where(line => line.Text.Contains("taxable value", StringComparison.OrdinalIgnoreCase)
-				|| line.Text.Contains("cgst", StringComparison.OrdinalIgnoreCase)
-				|| line.Text.Contains("sgst", StringComparison.OrdinalIgnoreCase)
-				|| line.Text.Contains("grand total", StringComparison.OrdinalIgnoreCase)
-				|| line.Text.Contains("amount in words", StringComparison.OrdinalIgnoreCase))
-			.Select(line => (double?)line.Y)
-			.OrderBy(value => value)
-			.FirstOrDefault();
-		if (footerY.HasValue)
-		{
-			usableWords = usableWords.Where(word => word.Y + word.Height / 2 < footerY.Value - 8).ToList();
-		}
-
-		List<(int Number, double Y)> serials = usableWords
-			.Where(word => word.X + word.Width / 2 < columns.Product - 4)
-			.Select(word => (word.Text.Trim(), Y: word.Y + word.Height / 2))
-			.Where(value => int.TryParse(value.Item1, NumberStyles.None, CultureInfo.InvariantCulture, out int number)
-				&& number is >= 1 and <= 99)
-			.Select(value => (int.Parse(value.Item1, CultureInfo.InvariantCulture), value.Y))
-			.OrderBy(value => value.Y)
-			.ToList();
-		List<(int Number, double Y)> orderedSerials = new List<(int Number, double Y)>();
-		int expectedSerial = 1;
-		foreach ((int number, double y) in serials)
-		{
-			if (number == expectedSerial)
-			{
-				orderedSerials.Add((number, y));
-				expectedSerial++;
-			}
-		}
-
-		if (orderedSerials.Count == 0)
-		{
-			return Parse(rawText, fallbackName);
-		}
-
-		List<ExtractedPurchaseLine> items = new List<ExtractedPurchaseLine>();
-		foreach (int index in Enumerable.Range(0, orderedSerials.Count))
-		{
-			double startY = index == 0
-				? orderedSerials[index].Y - 30
-				: (orderedSerials[index - 1].Y + orderedSerials[index].Y) / 2;
-			double endY = index + 1 < orderedSerials.Count
-				? (orderedSerials[index].Y + orderedSerials[index + 1].Y) / 2
-				: double.MaxValue;
-			List<OcrWordPosition> row = usableWords
-				.Where(word =>
-				{
-					double centerY = word.Y + word.Height / 2;
-					return centerY >= startY && centerY < endY;
-				})
-				.ToList();
-
-			string itemName = JoinColumn(row, columns.Product, columns.Manufacturer ?? columns.Pack ?? columns.Batch);
-			if (string.IsNullOrWhiteSpace(itemName) || !RecognizedMedicinePattern.IsMatch(itemName))
-			{
-				continue;
-			}
-
-			string batch = ExtractPositionedBatch(row, columns);
-			string expiry = ExtractExpiry(JoinColumn(row, columns.Expiry, columns.Quantity));
-			decimal quantity = ExtractPositionedNumber(row, columns.Quantity, columns.Rate, wholeNumbersOnly: true);
-			decimal rate = ExtractPositionedNumber(row, columns.Rate, columns.Amount, wholeNumbersOnly: false);
-			decimal amount = ExtractPositionedNumber(row, columns.Amount, null, wholeNumbersOnly: false);
-			string? warning = quantity > 0m && rate > 0m && amount > 0m
-				&& Math.Abs(decimal.Round(quantity * rate, 2, MidpointRounding.AwayFromZero) - amount) > 0.01m
-				? "Quantity x rate does not equal amount."
-				: null;
-
-			items.Add(new ExtractedPurchaseLine(
-				NormalizeMedicineName(itemName),
-				string.IsNullOrWhiteSpace(batch) ? "NA" : batch,
-				expiry,
-				quantity,
-				0m,
-				0m,
-				rate,
-				0m,
-				amount)
-			{
-				ValidationWarning = warning
-			});
-		}
-
-		if (items.Count == 0)
-		{
-			return Parse(rawText, fallbackName);
-		}
-
-		ExtractedPurchaseInvoice metadata = Parse(rawText, fallbackName);
-		// Each line's own HSN and GST from its row, as in Parse.
-		items = InvoiceLineTax.Attach(items, (rawText ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), rawText);
-		return new ExtractedPurchaseInvoice(
-			metadata.DocumentType,
-			metadata.Supplier,
-			metadata.InvoiceNo,
-			metadata.InvoiceDate,
-			items,
-			items.Sum(item => item.Amount),
-			metadata.GrandTotal);
-	}
-
-	private static bool TryFindPositionedColumns(
-		IReadOnlyList<OcrWordPosition> words,
-		out PositionedColumns columns,
-		out double headerY)
-	{
-		List<OcrWordPosition> candidates = words
-			.Where(word => !string.IsNullOrWhiteSpace(word.Text))
-			.OrderBy(word => word.Y)
-			.ToList();
-		OcrWordPosition? product = candidates.FirstOrDefault(word => word.Text.Equals("Product", StringComparison.OrdinalIgnoreCase));
-		OcrWordPosition? batch = candidates.FirstOrDefault(word => word.Text.StartsWith("Batch", StringComparison.OrdinalIgnoreCase));
-		OcrWordPosition? expiry = candidates.FirstOrDefault(word => word.Text.Equals("Mfg", StringComparison.OrdinalIgnoreCase)
-			|| word.Text.Equals("Exp", StringComparison.OrdinalIgnoreCase));
-		OcrWordPosition? quantity = candidates.FirstOrDefault(word => word.Text.Equals("Qty", StringComparison.OrdinalIgnoreCase));
-		OcrWordPosition? rate = candidates.FirstOrDefault(word => word.Text.Equals("Rate", StringComparison.OrdinalIgnoreCase));
-		OcrWordPosition? amount = candidates.FirstOrDefault(word => word.Text.Equals("Amount", StringComparison.OrdinalIgnoreCase));
-		if (product == null || batch == null || expiry == null || quantity == null || rate == null || amount == null)
-		{
-			columns = null!;
-			headerY = 0;
-			return false;
-		}
-
-		OcrWordPosition? manufacturer = candidates.FirstOrDefault(word => word.Text.StartsWith("Manufact", StringComparison.OrdinalIgnoreCase));
-		OcrWordPosition? pack = candidates.FirstOrDefault(word => word.Text.StartsWith("Pack", StringComparison.OrdinalIgnoreCase));
-		columns = new PositionedColumns(
-			product.X,
-			batch.X,
-			expiry.X,
-			quantity.X,
-			rate.X,
-			amount.X,
-			manufacturer == null ? null : manufacturer.X,
-			pack == null ? null : pack.X);
-		headerY = new[] { product, batch, expiry, quantity, rate, amount }
-			.Min(word => word.Y);
-		return columns.Product < columns.Batch
-			&& columns.Batch < columns.Expiry
-			&& columns.Expiry < columns.Quantity
-			&& columns.Quantity < columns.Rate
-			&& columns.Rate < columns.Amount;
-	}
-
-	private static string ExtractPositionedBatch(IEnumerable<OcrWordPosition> row, PositionedColumns columns)
-	{
-		string value = JoinColumn(row, columns.Batch, columns.Expiry);
-		string compact = Regex.Replace(value, @"\s+", string.Empty);
-		return TryExtractPlausibleBatch(compact, out string batch) ? batch : compact.Trim();
-	}
-
-	private static decimal ExtractPositionedNumber(
-		IEnumerable<OcrWordPosition> row,
-		double start,
-		double? end,
-		bool wholeNumbersOnly)
-	{
-		List<string> values = row
-			.Where(word =>
-			{
-				double center = Center(word);
-				return center >= start && (!end.HasValue || center < end.Value);
-			})
-			.OrderBy(word => word.X)
-			.Select(word => word.Text.Replace(",", string.Empty).Trim())
-			.ToList();
-		
-		string combined = string.Concat(values);
-		if (values.Count > 1
-			&& decimal.TryParse(combined, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal combinedValue)
-			&& (!wholeNumbersOnly || combinedValue == decimal.Truncate(combinedValue)))
-		{
-			return combinedValue;
-		}
-
-		foreach (string value in values)
-		{
-			if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal parsed)
-				&& (!wholeNumbersOnly || parsed == decimal.Truncate(parsed)))
-			{
-				return parsed;
-			}
-		}
-
-		return 0m;
-	}
-
-	private static string JoinColumn(IEnumerable<OcrWordPosition> row, double start, double end)
-	{
-		return string.Join(
-			' ',
-			row.Where(word => Center(word) >= start && Center(word) < end)
-				.OrderBy(word => word.X)
-				.Select(word => word.Text.Trim()));
-	}
-
-	private static double Center(OcrWordPosition word) => word.X + word.Width / 2;
-
-	private static IEnumerable<(double Y, string Text)> GroupPositionedLines(IEnumerable<OcrWordPosition> words)
-	{
-		List<OcrWordPosition> ordered = words.OrderBy(word => word.Y).ThenBy(word => word.X).ToList();
-		List<OcrWordPosition> current = new List<OcrWordPosition>();
-		double lineY = 0;
-		foreach (OcrWordPosition word in ordered)
-		{
-			double centerY = word.Y + word.Height / 2;
-			if (current.Count > 0 && Math.Abs(centerY - lineY) > 8)
-			{
-				yield return (lineY, string.Join(' ', current.OrderBy(item => item.X).Select(item => item.Text)));
-				current.Clear();
-			}
-
-			if (current.Count == 0)
-			{
-				lineY = centerY;
-			}
-
-			current.Add(word);
-		}
-
-		if (current.Count > 0)
-		{
-			yield return (lineY, string.Join(' ', current.OrderBy(item => item.X).Select(item => item.Text)));
-		}
-	}
 
 	public static ExtractedPurchaseInvoice Parse(string? text, string fallbackName)
 	{
@@ -692,7 +539,10 @@ public static class InvoiceTextParser
 		decimal computed = items.Sum(item => item.Amount > 0m ? item.Amount : decimal.Round(item.Quantity * item.Rate, 2, MidpointRounding.AwayFromZero));
 		decimal subtotal = FindLabeledAmount(lines, "Taxable value") ?? computed;
 		decimal grand = FindLabeledAmount(lines, "Grand total") ?? decimal.Round(subtotal + (subtotal * gst / 100m), 2, MidpointRounding.AwayFromZero);
-		ExtractedPurchaseInvoice invoice = new ExtractedPurchaseInvoice("PURCHASE_INVOICE", supplier, invoiceNo, invoiceDate, items, subtotal, grand);
+		ExtractedPurchaseInvoice invoice = new ExtractedPurchaseInvoice("PURCHASE_INVOICE", supplier, invoiceNo, invoiceDate, items, subtotal, grand)
+		{
+			Printed = FindPrintedTotals(lines)
+		};
 		InvoiceTextParserCache.Discounts.Add(invoice, discounts);
 		return invoice;
 	}

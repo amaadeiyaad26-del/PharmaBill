@@ -1,0 +1,19 @@
+{
+  "note": "Fictional test invoice (see the footer of the PDF). Values copied from the printed bill; every reading of the PDF must give exactly these.",
+  "supplier": "EXAMPLE PHARMA DISTRIBUTORS",
+  "invoiceNo": "EPD/26-27/00418",
+  "invoiceDate": "2026-10-26",
+  "taxable": 11450.00,
+  "cgst": 522.50,
+  "sgst": 522.50,
+  "roundOff": 0.00,
+  "grandTotal": 12495.00,
+  "lines": [
+    { "name": "Paracetamol 650mg Tablet", "manufacturer": "Alkem", "pack": "10x10", "hsn": "3004", "batch": "PC2409", "expiry": "08/2028", "qty": 10, "free": 1, "rate": 180.00, "amount": 1800.00, "gst": 5 },
+    { "name": "Azithromycin 500mg Tablet", "manufacturer": "Cipla", "pack": "1x3", "hsn": "3004", "batch": "AZ5512", "expiry": "11/2027", "qty": 50, "free": 0, "rate": 62.50, "amount": 3125.00, "gst": 5 },
+    { "name": "Alprazolam 0.5mg Tab", "manufacturer": "Torrent", "pack": "1x10", "hsn": "3004", "batch": "ALP221", "expiry": "03/2028", "qty": 25, "free": 0, "rate": 27.00, "amount": 675.00, "gst": 5 },
+    { "name": "Betadine Gargle 100ml", "manufacturer": "Win-Medicare", "pack": "1x1", "hsn": "3004", "batch": "BG8801", "expiry": "06/2028", "qty": 24, "free": 0, "rate": 148.00, "amount": 3552.00, "gst": 12 },
+    { "name": "Cotton Bandage 10cm x 3m", "manufacturer": "Datt", "pack": "1x1", "hsn": "3005", "batch": "CB4410", "expiry": "12/2029", "qty": 30, "free": 2, "rate": 41.60, "amount": 1248.00, "gst": 12 },
+    { "name": "Digital Thermometer", "manufacturer": "Dr Morepen", "pack": "1x1", "hsn": "9025", "batch": "DT9902", "expiry": "", "qty": 5, "free": 0, "rate": 210.00, "amount": 1050.00, "gst": 18 }
+  ]
+}
