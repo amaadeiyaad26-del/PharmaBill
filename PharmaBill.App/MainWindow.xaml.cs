@@ -1132,14 +1132,6 @@ public partial class MainWindow : Window
 		}
 	}
 
-	private void InvoiceToolsButton_Click(object sender, RoutedEventArgs e)
-	{
-		if (sender is FrameworkElement { ContextMenu: { } menu } button)
-		{
-			menu.PlacementTarget = button;
-			menu.IsOpen = true;
-		}
-	}
 
 	private void PurchaseNewItemExpiry_LostFocus(object sender, RoutedEventArgs e)
 	{

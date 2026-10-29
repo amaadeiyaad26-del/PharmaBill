@@ -4548,7 +4548,8 @@
           <!-- Stretch to ContentControl so Row * receives remaining window height for the inward grid. -->
           <ScrollViewer VerticalScrollBarVisibility="Auto">
           <Grid Margin="16,12" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                AllowDrop="True" DragEnter="PurchaseDocument_DragEnter" Drop="PurchaseDocument_Drop">
+                AllowDrop="True" DragEnter="PurchaseDocument_DragEnter" Drop="PurchaseDocument_Drop"
+                behaviors:ReportedWidth.IsEnabled="True" behaviors:ReportedWidth.Width="{Binding ScreenWidth, Mode=OneWayToSource}">
           <Grid.InputBindings>
             <KeyBinding Key="F2" Command="{Binding NewBillCommand}" />
             <KeyBinding Key="D2" Modifiers="Control" Command="{Binding NewBillCommand}" />
@@ -4589,9 +4590,139 @@
             <RowDefinition Height="*" MinHeight="180" />
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
+          <!-- The title and add-item rows span the full width, as before. The invoice tools sit down the right of the purchase
+               lines (an icon strip when narrow), and the lines take the rest. -->
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="560" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <Border Grid.Column="1" Grid.Row="2" Grid.RowSpan="2" Margin="12,2,0,0" CornerRadius="10" VerticalAlignment="Stretch"
+                  Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1"
+                  AutomationProperties.Name="Invoice tools">
+            <Border.Style>
+              <Style TargetType="{x:Type Border}">
+                <Setter Property="Width" Value="256" />
+                <Setter Property="Padding" Value="10" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsToolsPanelCompact}" Value="True">
+                    <Setter Property="Width" Value="84" />
+                    <Setter Property="Padding" Value="6" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Border.Style>
+            <DockPanel LastChildFill="False">
+              <!-- Header: the panel's name, and narrowing it to icons or opening it out. -->
+              <DockPanel DockPanel.Dock="Top" Margin="2,0,0,8">
+                <Button DockPanel.Dock="Right" Width="28" Height="28" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                        Command="{Binding ToggleToolsPanelCommand}" ToolTip="{Binding ToolsPanelToggleTip}" AutomationProperties.Name="Collapse or expand invoice tools">
+                  <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                      <Style TargetType="{x:Type TextBlock}">
+                        <Setter Property="Text" Value="&#xE76C;" />
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsToolsPanelCompact}" Value="True">
+                            <Setter Property="Text" Value="&#xE76B;" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                </Button>
+                <TextBlock Text="Invoice tools" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Visibility="{Binding IsToolsPanelExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" />
+              </DockPanel>
+              <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding ToolGroups}" Focusable="False">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <StackPanel Margin="0,0,0,10">
+                      <TextBlock Text="{Binding Heading}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" Margin="2,0,0,6"
+                                 Visibility="{Binding DataContext.IsToolsPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      <Border Height="1" Margin="4,0,4,6" Background="{DynamicResource DividerBrush}"
+                              Visibility="{Binding DataContext.IsToolsPanelCompact, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                      <ItemsControl ItemsSource="{Binding Tools}" Focusable="False">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate>
+                            <StackPanel Margin="0,0,0,6">
+                              <Button Style="{StaticResource ToolPanelButton}" Command="{Binding Command}" IsEnabled="{Binding CanRun}"
+                                      ToolTip="{Binding ToolTip}" ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="{Binding AutomationName}"
+                                      behaviors:HoverTickSound.Enabled="True">
+                                <Grid>
+                                  <!-- Full: icon, name, shortcut. -->
+                                  <Grid Visibility="{Binding DataContext.IsToolsPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                      <ColumnDefinition Width="28" />
+                                      <ColumnDefinition Width="*" />
+                                      <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Icon}" FontSize="17" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Label}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <Border Grid.Column="2" Margin="6,0,0,0" Padding="5,1" CornerRadius="4" VerticalAlignment="Center"
+                                            Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+                                      <TextBlock Text="{Binding Shortcut}" FontSize="10.5" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    </Border>
+                                  </Grid>
+                                  <!-- Icon strip: icon over a short name. -->
+                                  <StackPanel HorizontalAlignment="Center"
+                                              Visibility="{Binding DataContext.IsToolsPanelCompact, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding Icon}" FontSize="17" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding ShortLabel}" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                  </StackPanel>
+                                </Grid>
+                              </Button>
+                              <!-- Why it cannot run now, in words, not only in the tooltip. -->
+                              <TextBlock Text="{Binding Reason}" FontSize="11" Foreground="#FFB54708" TextWrapping="Wrap" Margin="4,3,0,0">
+                                <TextBlock.Style>
+                                  <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                      <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                          <Condition Binding="{Binding HasReason}" Value="True" />
+                                          <Condition Binding="{Binding DataContext.IsToolsPanelExpanded, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                      </MultiDataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </TextBlock.Style>
+                              </TextBlock>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <!-- A scanner or camera was not found: look again after plugging one in. -->
+              <Button DockPanel.Dock="Top" HorizontalAlignment="Left" Margin="4,0,0,0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                      Command="{Binding CheckDevicesCommand}" AutomationProperties.Name="Check devices">
+                <Button.Style>
+                  <Style TargetType="{x:Type Button}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <MultiDataTrigger>
+                        <MultiDataTrigger.Conditions>
+                          <Condition Binding="{Binding HasMissingDevice}" Value="True" />
+                          <Condition Binding="{Binding IsToolsPanelExpanded}" Value="True" />
+                        </MultiDataTrigger.Conditions>
+                        <Setter Property="Visibility" Value="Visible" />
+                      </MultiDataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Button.Style>
+                <Button.Template>
+                  <ControlTemplate TargetType="{x:Type Button}">
+                    <TextBlock Text="↻ Check devices" Foreground="{DynamicResource AccentBrush}" FontWeight="SemiBold" FontSize="12" TextDecorations="Underline" />
+                  </ControlTemplate>
+                </Button.Template>
+              </Button>
+            </DockPanel>
+          </Border>
 
-          <!-- Row 0: Title + Invoice Tools menu + status -->
-          <DockPanel Grid.Row="0" Margin="0,0,0,4" LastChildFill="True">
+          <!-- Row 0: Title + status (full width) -->
+          <DockPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,4" LastChildFill="True">
             <!-- The three steps of an inward entry, always in view. -->
             <Border DockPanel.Dock="Bottom" Margin="0,6,0,2" Padding="10,6" CornerRadius="8" Background="#FFF0FDFA" BorderBrush="#FF99F6E4" BorderThickness="1" AutomationProperties.Name="Purchase steps">
               <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="#FF115E59">
@@ -4603,77 +4734,6 @@
                 <TextBlock Text="Purchases" FontSize="20" FontWeight="SemiBold" />
                 <TextBlock Text="Inward supplier bills into stock" FontSize="11.5" Foreground="{DynamicResource SecondaryTextBrush}" />
               </StackPanel>
-              <Button x:Name="InvoiceToolsButton" Content="⚡ Invoice Tools ▾" VerticalAlignment="Center" Click="InvoiceToolsButton_Click"
-                      ToolTip="Import, scan, and attach distributor invoices"
-                      Foreground="White" FontWeight="SemiBold" FontSize="13" Padding="14,0" Height="32" Cursor="Hand">
-                <Button.Template>
-                  <ControlTemplate TargetType="{x:Type Button}">
-                    <Border x:Name="Chrome" CornerRadius="6" BorderThickness="1" BorderBrush="#115E59" Padding="{TemplateBinding Padding}">
-                      <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                          <GradientStop Color="#0D9488" Offset="0" />
-                          <GradientStop Color="#0F766E" Offset="1" />
-                        </LinearGradientBrush>
-                      </Border.Background>
-                      <Border.Effect>
-                        <DropShadowEffect Color="#000000" BlurRadius="6" ShadowDepth="2" Opacity="0.25" />
-                      </Border.Effect>
-                      <ContentPresenter x:Name="Presenter" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                      <Trigger Property="IsMouseOver" Value="True">
-                        <Setter TargetName="Chrome" Property="Background">
-                          <Setter.Value>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                              <GradientStop Color="#14B8A6" Offset="0" />
-                              <GradientStop Color="#0D9488" Offset="1" />
-                            </LinearGradientBrush>
-                          </Setter.Value>
-                        </Setter>
-                      </Trigger>
-                      <Trigger Property="IsPressed" Value="True">
-                        <Setter TargetName="Chrome" Property="Background">
-                          <Setter.Value>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                              <GradientStop Color="#0B5F58" Offset="0" />
-                              <GradientStop Color="#0F766E" Offset="1" />
-                            </LinearGradientBrush>
-                          </Setter.Value>
-                        </Setter>
-                        <Setter TargetName="Chrome" Property="Effect">
-                          <Setter.Value>
-                            <DropShadowEffect Color="#000000" BlurRadius="2" ShadowDepth="0" Opacity="0.35" />
-                          </Setter.Value>
-                        </Setter>
-                        <Setter TargetName="Presenter" Property="Margin" Value="0,1,0,0" />
-                      </Trigger>
-                      <Trigger Property="IsKeyboardFocused" Value="True">
-                        <Setter TargetName="Chrome" Property="BorderBrush" Value="#99F6E4" />
-                      </Trigger>
-                    </ControlTemplate.Triggers>
-                  </ControlTemplate>
-                </Button.Template>
-                <Button.ContextMenu>
-                  <ContextMenu Placement="Bottom">
-                  <MenuItem Header="📄 Extract from Invoice (PDF/Img)" Command="{Binding ExtractInvoicesCommand}" InputGestureText="Ctrl+Shift+E"
-                            ToolTip="Read one or more distributor invoice PDFs or images into the purchase table." />
-                  <MenuItem Header="📷 Scan with Webcam" Command="{Binding ScanInvoiceCommand}" InputGestureText="F7"
-                            ToolTip="Capture the supplier invoice from a USB document camera or webcam. Shortcut: F7" />
-                  <MenuItem Header="🖨 Handheld / USB Scanner" Command="{Binding ScanPurchaseWithHandheldScannerCommand}" InputGestureText="Ctrl+Alt+S"
-                            ToolTip="Scan Purchase Invoice via Handheld / USB Scanner (Ctrl + Alt + S)"
-                            AutomationProperties.Name="Scan purchase invoice with handheld scanner" />
-                  <MenuItem Header="📱 Scan via Phone App" Command="{Binding ScanViaPhoneCommand}" InputGestureText="Ctrl+Shift+P"
-                            ToolTip="Pair an Android phone on this Wi-Fi network and receive scanned distributor bills live." />
-                  <Separator />
-                  <MenuItem Header="📁 Load CSV / Excel" Command="{Binding LoadSpreadsheetCommand}" InputGestureText="Ctrl+Shift+L"
-                            ToolTip="Import purchase items and batches from a distributor Excel or CSV file." />
-                  <MenuItem Header="📂 Invoices History" Command="{Binding ShowInvoiceHistoryCommand}" InputGestureText="Ctrl+Shift+H"
-                            ToolTip="Browse saved purchase bills by supplier and date, and open the attached invoice." />
-                  <MenuItem Header="Attach file" Command="{Binding AttachInvoiceFileCommand}" InputGestureText="Ctrl+Shift+A"
-                            ToolTip="Attach an invoice photo or PDF already saved on this PC" />
-                  </ContextMenu>
-                </Button.ContextMenu>
-              </Button>
             </StackPanel>
             <StackPanel VerticalAlignment="Center">
               <TextBlock Foreground="#FF027A48" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="12.5" Text="{Binding StatusMessage}">
@@ -4705,7 +4765,7 @@
           </DockPanel>
 
           <!-- Row 1: Compact supplier card + optional workflow panels (collapsed when idle) -->
-          <StackPanel Grid.Row="1" Margin="0,0,0,4">
+          <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,0,0,4">
             <Border Padding="8,6" CornerRadius="8" Background="#FFF8FAFC" BorderBrush="#FFE2E8F0" BorderThickness="1"
                     behaviors:KeyNavigationBehavior.Enabled="True">
               <Border.Resources>
@@ -5283,7 +5343,7 @@
                     </DataGridTemplateColumn>
                   </DataGrid.Columns>
                 </DataGrid>
-                <TextBlock Text="No items yet. Use Invoice Tools ▾, add an item (F4), or load CSV / Excel." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" IsHitTestVisible="False">
+                <TextBlock Text="No items yet. Use the invoice tools on the right, add an item (F4), or load CSV / Excel (Ctrl+Shift+L)." HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}" IsHitTestVisible="False">
                   <FrameworkElement.Style>
                     <Style TargetType="{x:Type TextBlock}">
                       <Setter Property="Visibility" Value="Collapsed" />

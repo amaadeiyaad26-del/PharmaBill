@@ -811,6 +811,7 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 				OnPropertyChanging(nameof(IsImporting));
 				_isImporting = value;
 				OnPropertyChanged(nameof(IsImporting));
+				NotifyToolStates();
 			}
 		}
 	}
@@ -1786,6 +1787,8 @@ public sealed partial class PurchasePageViewModel(IServiceScopeFactory scopeFact
 	public async Task LoadAsync(CancellationToken cancellationToken = default(CancellationToken))
 	{
 		EnsureLinePaging();
+		// The invoice tools say up front which devices are missing; looking does not hold up the page.
+		DeviceCheck = CheckDevicesAsync();
 		using IServiceScope scope = scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		Suppliers.Clear();
