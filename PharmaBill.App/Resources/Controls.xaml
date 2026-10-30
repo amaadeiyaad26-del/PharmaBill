@@ -1287,7 +1287,7 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
   <!-- The update button in the dashboards' headers. Quiet while there is nothing to install; Tag = True (an update
-       is waiting) turns it bright orange with a slow pulsing glow. The icon is part of the template. -->
+       is waiting) gives it a soft orange tint and a download icon. No animation: it never competes with billing. -->
   <Style x:Key="UpdateHeaderButton" TargetType="{x:Type Button}">
     <Setter Property="Foreground" Value="#FF475569" />
     <Setter Property="Background" Value="#CCFFFFFF" />
@@ -1302,11 +1302,6 @@
       <Setter.Value>
         <ControlTemplate TargetType="{x:Type Button}">
           <Grid>
-            <Border Name="Glow" CornerRadius="10" Background="#FFF97316" Opacity="0" IsHitTestVisible="False">
-              <Border.Effect>
-                <DropShadowEffect Color="#FFF97316" ShadowDepth="0" BlurRadius="18" Opacity="0.85" />
-              </Border.Effect>
-            </Border>
             <Border Name="FocusRing" CornerRadius="10" BorderThickness="2" Margin="-2" BorderBrush="#00FFFFFF" />
             <Border Name="Face" CornerRadius="10" BorderThickness="{TemplateBinding Control.BorderThickness}" BorderBrush="{TemplateBinding Control.BorderBrush}" Background="{TemplateBinding Control.Background}" Padding="{TemplateBinding Control.Padding}">
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -1324,20 +1319,6 @@
                 <sys:Boolean>True</sys:Boolean>
               </Trigger.Value>
               <Setter TargetName="Icon" Property="TextBlock.Text" Value="&#xE896;" />
-              <Trigger.EnterActions>
-                <BeginStoryboard Name="UpdatePulse">
-                  <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                    <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" From="0.35" To="1" Duration="0:0:1.1">
-                      <DoubleAnimation.EasingFunction>
-                        <SineEase EasingMode="EaseInOut" />
-                      </DoubleAnimation.EasingFunction>
-                    </DoubleAnimation>
-                  </Storyboard>
-                </BeginStoryboard>
-              </Trigger.EnterActions>
-              <Trigger.ExitActions>
-                <RemoveStoryboard BeginStoryboardName="UpdatePulse" />
-              </Trigger.ExitActions>
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Face" Property="UIElement.Opacity" Value="0.92" />
@@ -1355,16 +1336,9 @@
         <Setter Property="Foreground" Value="#FF1E293B" />
       </Trigger>
       <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
-        <Setter Property="Foreground" Value="#FFFFFFFF" />
-        <Setter Property="BorderBrush" Value="#FFEA580C" />
-        <Setter Property="Background">
-          <Setter.Value>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-              <GradientStop Color="#FFFB923C" Offset="0" />
-              <GradientStop Color="#FFEA580C" Offset="1" />
-            </LinearGradientBrush>
-          </Setter.Value>
-        </Setter>
+        <Setter Property="Foreground" Value="#FF9A3412" />
+        <Setter Property="BorderBrush" Value="#FFFDBA74" />
+        <Setter Property="Background" Value="#FFFFF7ED" />
       </DataTrigger>
     </Style.Triggers>
   </Style>

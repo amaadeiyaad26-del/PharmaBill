@@ -43,7 +43,7 @@ public static class UserManualContent
 			new GuideBlock(GuideBlockKind.Bullet, "Enter payment and transport/vehicle fields when goods move (e-way readiness). IRN/e-way numbers are entered manually."),
 			new GuideBlock(GuideBlockKind.Tip, "Credit ledger", "Track outstanding and dunning from wholesale accounts / reconciliation screens. Corrections use credit notes or cancellations with reason — invoices stay append-only.")
 		})),
-		new UserManualChapter("sync", "Mobile Sync (Port 5055) & QR Pairing", "sync android mobile port 5055 qr mdns wifi firewall google drive", new _003C_003Ez__ReadOnlyArray<GuideBlock>(new GuideBlock[7]
+		new UserManualChapter("sync", "Mobile Sync (Port 5055) & QR Pairing", "sync android mobile port 5055 qr mdns wifi firewall", new _003C_003Ez__ReadOnlyArray<GuideBlock>(new GuideBlock[7]
 		{
 			new GuideBlock(GuideBlockKind.Heading, "LAN Sync Station"),
 			new GuideBlock(GuideBlockKind.Paragraph, "Windows advertises _pharmabill-sync._tcp on the local network. Default TCP port is 5055. Keep PC and Android on the same Wi-Fi (avoid guest/client isolation)."),
@@ -51,7 +51,7 @@ public static class UserManualContent
 			new GuideBlock(GuideBlockKind.Bullet, "Note the PC Wi-Fi IP and Port 5055."),
 			new GuideBlock(GuideBlockKind.Bullet, "On Android, scan the QR code (or wait for mDNS discovery)."),
 			new GuideBlock(GuideBlockKind.Bullet, "Use 1-tap sync after stock counts or mobile sales."),
-			new GuideBlock(GuideBlockKind.Warning, "Firewall", "Allow Pharma Remit on Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. If LAN is blocked, encrypted change logs can fall back to Google Drive PharmaBill_Sync.")
+			new GuideBlock(GuideBlockKind.Warning, "Firewall", "Allow Pharma Remit on Private networks, or run scripts/allow-firewall-port5055.ps1 as Administrator. If LAN is blocked, use a shared sync folder or Export to Folder instead.")
 		})),
 		new UserManualChapter("reports", "Reports & GST Summaries (Party, B.No, Brand-wise)", "reports gst party brand bill number summary sales purchase stock", new _003C_003Ez__ReadOnlyArray<GuideBlock>(new GuideBlock[6]
 		{

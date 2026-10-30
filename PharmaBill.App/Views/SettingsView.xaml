@@ -749,7 +749,7 @@
                       <Setter Property="Content" Value="Check for updates" />
                       <Style.Triggers>
                         <DataTrigger Value="True" Binding="{Binding IsCheckingForUpdates}">
-                          <Setter Property="Content" Value="Checkingâ€¦" />
+                          <Setter Property="Content" Value="Checking…" />
                           <Setter Property="IsEnabled" Value="False" />
                         </DataTrigger>
                       </Style.Triggers>
@@ -784,6 +784,10 @@
                 </FrameworkElement.Style>
               </Button>
               <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" Text="{Binding UpdateStatus}" />
+              <Button HorizontalAlignment="Left" Margin="0,8,0,0" Padding="12,7" Style="{StaticResource PrimaryButton}"
+                      Content="{Binding UpdateDownloadButtonText}" AutomationProperties.Name="{Binding UpdateDownloadButtonText}"
+                      Visibility="{Binding IsUpdateDownloadAvailable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                      Command="{Binding OpenUpdateDownloadCommand}" />
               <TextBox IsReadOnly="True" TextWrapping="Wrap" MaxHeight="180" VerticalScrollBarVisibility="Auto" Padding="7" Margin="0,8,0,0" Visibility="{Binding IsReleaseNotesVisible, Converter={StaticResource BooleanToVisibilityConverter}}" Text="{Binding ReleaseNotesText, Mode=OneWay}" />
             </StackPanel>
           </Border>

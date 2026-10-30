@@ -23,7 +23,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Company>PharmaBill</Company>
+    <Company Condition="'$(Company)' == ''">PharmaBill</Company>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd'))</BuildDateUtc>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -65,6 +65,16 @@
       <_Parameter1>BuildDateUtc</_Parameter1>
       <_Parameter2>$(BuildDateUtc)</_Parameter2>
     </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Microsoft Store licensing and Store updates: compiled into the Store edition only. The Local Market edition
+       licenses offline and reads its updates from pharmaremit.com. -->
+  <ItemGroup Condition="'$(Edition)' != 'Store'">
+    <Compile Remove="Services\StoreUpdateService.cs" />
+    <Compile Remove="Services\StoreLicenseService.cs" />
+    <Compile Remove="Services\IStoreLicenseService.cs" />
+    <Compile Remove="Services\StoreSubscriptionProvider.cs" />
+    <Compile Remove="Services\StoreLicenseSnapshot.cs" />
   </ItemGroup>
 
   <ItemGroup>

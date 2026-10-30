@@ -124,8 +124,6 @@ public partial class MainWindowViewModel : ObservableObject
 
 	private ActiveBillingDeskMode _activeBillingDeskMode;
 
-	private bool _criticalUpdateDialogShown;
-
 	private DateTime _shiftStartedLocal = BusinessClock.Now;
 
 	private CancellationTokenSource? _welcomeDismissCts;
@@ -177,12 +175,6 @@ public partial class MainWindowViewModel : ObservableObject
 	private bool _showUsbBackupReminder;
 
 	private string _backupReminderText = string.Empty;
-
-	private bool _showUpdateBanner;
-
-	private bool _isCriticalUpdateRequired;
-
-	private string _updateBannerText = string.Empty;
 
 	private string _barcodeToastMessage = string.Empty;
 
@@ -258,12 +250,6 @@ public partial class MainWindowViewModel : ObservableObject
 	private RelayCommand<string?>? navigateCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private AsyncRelayCommand? updateNowCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	private RelayCommand? remindUpdateTomorrowCommand;
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	private RelayCommand? selectRetailDeskModeCommand;
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -323,8 +309,6 @@ public partial class MainWindowViewModel : ObservableObject
 	public bool IsWholesaleDeskActive => _activeBillingDeskMode == ActiveBillingDeskMode.Wholesale;
 
 	public bool IsCombinedDeskActive => _activeBillingDeskMode == ActiveBillingDeskMode.Combined;
-
-	public bool CanRemindUpdateTomorrow => !IsCriticalUpdateRequired;
 
 	public bool HasBarcodeToast => !string.IsNullOrWhiteSpace(BarcodeToastMessage);
 
@@ -872,66 +856,6 @@ public partial class MainWindowViewModel : ObservableObject
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public bool ShowUpdateBanner
-	{
-		get
-		{
-			return _showUpdateBanner;
-		}
-		set
-		{
-			if (!EqualityComparer<bool>.Default.Equals(_showUpdateBanner, value))
-			{
-				OnPropertyChanging(nameof(ShowUpdateBanner));
-				_showUpdateBanner = value;
-				OnPropertyChanged(nameof(ShowUpdateBanner));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public bool IsCriticalUpdateRequired
-	{
-		get
-		{
-			return _isCriticalUpdateRequired;
-		}
-		set
-		{
-			if (!EqualityComparer<bool>.Default.Equals(_isCriticalUpdateRequired, value))
-			{
-				OnPropertyChanging(nameof(IsCriticalUpdateRequired));
-				OnPropertyChanging(nameof(CanRemindUpdateTomorrow));
-				_isCriticalUpdateRequired = value;
-				OnPropertyChanged(nameof(IsCriticalUpdateRequired));
-				OnPropertyChanged(nameof(CanRemindUpdateTomorrow));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public string UpdateBannerText
-	{
-		get
-		{
-			return _updateBannerText;
-		}
-		[MemberNotNull("_updateBannerText")]
-		set
-		{
-			if (!EqualityComparer<string>.Default.Equals(_updateBannerText, value))
-			{
-				OnPropertyChanging(nameof(UpdateBannerText));
-				_updateBannerText = value;
-				OnPropertyChanged(nameof(UpdateBannerText));
-			}
-		}
-	}
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
 	public string BarcodeToastMessage
 	{
 		get
@@ -1252,14 +1176,6 @@ public partial class MainWindowViewModel : ObservableObject
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
 	[ExcludeFromCodeCoverage]
-	public IAsyncRelayCommand UpdateNowCommand => updateNowCommand ?? (updateNowCommand = new AsyncRelayCommand(UpdateNowAsync));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
-	public IRelayCommand RemindUpdateTomorrowCommand => remindUpdateTomorrowCommand ?? (remindUpdateTomorrowCommand = new RelayCommand(RemindUpdateTomorrow));
-
-	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
-	[ExcludeFromCodeCoverage]
 	public IRelayCommand SelectRetailDeskModeCommand => selectRetailDeskModeCommand ?? (selectRetailDeskModeCommand = new RelayCommand(SelectRetailDeskMode));
 
 	[GeneratedCode("CommunityToolkit.Mvvm.SourceGenerators.RelayCommandGenerator", "8.4.0.0")]
@@ -1568,12 +1484,7 @@ public partial class MainWindowViewModel : ObservableObject
 		EntitlementStatus entitlementStatus = ((trialStatus == "EXPIRED") ? EntitlementStatus.EXPIRED : ((!(trialStatus == "GRACE OFFLINE")) ? EntitlementStatus.SUBSCRIBED : EntitlementStatus.GRACE_OFFLINE));
 		EntitlementStatus status = entitlementStatus;
 		WelcomeStatusLine = WelcomeGreeting.BuildStatusLine(status);
-		if (PharmaBill.Data.Persistence.DbInitializer.LastArchivedUnreadableDatabase is string archived)
-		{
-			// Non-blocking: the app has started on a fresh database; say where the old one went so records are not presumed lost.
-			WelcomeStatusLine = "The previous database could not be opened and was archived as " + System.IO.Path.GetFileName(archived) + " in the data folder. Contact support to recover its records.";
-		}
-		else if (PharmaBill.Data.Persistence.DbInitializer.LastCatalogHsnPass is { AlreadyRun: false, Examined: > 0 } hsnPass)
+		if (PharmaBill.Data.Persistence.DbInitializer.LastCatalogHsnPass is { AlreadyRun: false, Examined: > 0 } hsnPass)
 		{
 			// Shown once, on the launch the one-time HSN pass ran.
 			WelcomeStatusLine = hsnPass.Summary;
@@ -2135,26 +2046,13 @@ public partial class MainWindowViewModel : ObservableObject
 			return;
 		}
 
-		bool flag = IsCriticalUpdateRequired;
-		if (flag)
+		// Choosing the screen already open refreshes it.
+		if (resolvedKey == _navigationService.CurrentSectionKey && CurrentPage is HubPageViewModel openHub)
 		{
-			bool flag2 = ((resolvedKey == "Billing" || resolvedKey == "WholesaleBilling") ? true : false);
-			flag = flag2;
+			_ = openHub.LoadAsync();
 		}
-		if (flag)
-		{
-			_ = PromptCriticalUpdateAsync();
-		}
-		else
-		{
-			// Choosing the screen already open refreshes it.
-			if (resolvedKey == _navigationService.CurrentSectionKey && CurrentPage is HubPageViewModel openHub)
-			{
-				_ = openHub.LoadAsync();
-			}
 
-			_navigationService.Navigate(resolvedKey);
-		}
+		_navigationService.Navigate(resolvedKey);
 	}
 
 	// Patients belong to the retail desk; the wholesale desk lists buyers instead. Never show a patient screen on the wholesale desk.
@@ -2343,36 +2241,11 @@ public partial class MainWindowViewModel : ObservableObject
 		});
 	}
 
+	// A background or manual check's answer only changes the header indicator on the dashboards: nothing pops up, and
+	// nothing appears over the billing screen.
 	private void ApplyUpdateAvailability(AppUpdateAvailability result)
 	{
-		IsCriticalUpdateRequired = result.IsUpdateAvailable && result.IsCritical;
 		ShowUpdateButton(result);
-		UpdateBannerText = result.StatusMessage;
-		ShowUpdateBanner = result.IsUpdateAvailable && (IsCriticalUpdateRequired || !_appUpdates.IsSnoozed());
-		if (IsCriticalUpdateRequired && !_criticalUpdateDialogShown)
-		{
-			_ = PromptCriticalUpdateAsync();
-		}
-	}
-
-	private async Task PromptCriticalUpdateAsync()
-	{
-		_criticalUpdateDialogShown = true;
-		ShowUpdateBanner = true;
-		string message = (string.IsNullOrWhiteSpace(UpdateBannerText) ? "A critical Pharma Remit update is required before billing can continue." : UpdateBannerText);
-		Window owner = Application.Current?.MainWindow;
-		CriticalUpdateWindow criticalUpdateWindow = new CriticalUpdateWindow(message)
-		{
-			Owner = owner
-		};
-		if (criticalUpdateWindow.ShowDialog() == true && criticalUpdateWindow.UpdateRequested)
-		{
-			await UpdateNowAsync();
-		}
-		else
-		{
-			Application.Current?.Shutdown();
-		}
 	}
 
 	private async Task UpdateNowAsync()
@@ -2385,17 +2258,6 @@ public partial class MainWindowViewModel : ObservableObject
 		{
 			_confirmationService.NotifyError("Update", "Could not start the update: " + PharmaBill.Core.UserMessage.Of(ex));
 		}
-	}
-
-	private void RemindUpdateTomorrow()
-	{
-		if (IsCriticalUpdateRequired)
-		{
-			_ = PromptCriticalUpdateAsync();
-			return;
-		}
-		_appUpdates.RemindTomorrow();
-		ShowUpdateBanner = false;
 	}
 
 	private void SelectRetailDeskMode()

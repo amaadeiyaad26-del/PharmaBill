@@ -23,8 +23,8 @@ public sealed class DbInitializer(
 	/// <summary>Where the last empty database file was moved this process, for the startup log. Null when none was.</summary>
 	public static string? LastQuarantinedEmptyDatabase { get; private set; }
 
-	/// <summary>Where an unreadable database was archived this process, so startup can tell the user. Null when none was.</summary>
-	public static string? LastArchivedUnreadableDatabase { get; private set; }
+	/// <summary>The copy made before the last schema upgrade this process, for the startup log. Null when none was needed.</summary>
+	public static string? LastPreMigrationCopy { get; private set; }
 
 	// Databases already initialised in this process. Startup paths (hosted service, login window, store switch)
 	// may all ask; migrations and data tidy-ups must run once per database file per launch.
@@ -170,8 +170,28 @@ public sealed class DbInitializer(
 	private async Task EnsureCoreSchemaAsync(CancellationToken cancellationToken)
 	{
 		List<string> pending = (await context.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
+		List<string> appliedBefore = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
+		string databasePath = DatabasePath() ?? storageOptions.DatabasePath;
+
+		// An existing database whose schema is about to change: a complete copy first, beside it. No copy, no upgrade.
+		string? safeCopy = null;
+		if (pending.Count > 0 && DatabasePath() != null && (appliedBefore.Count > 0 || await TableExistsAsync("PharmacyProfiles", cancellationToken)))
+		{
+			await context.Database.CloseConnectionAsync();
+			try
+			{
+				safeCopy = PreMigrationCopy.Create(context.Database.GetConnectionString()!, appliedBefore.LastOrDefault());
+				LastPreMigrationCopy = safeCopy;
+			}
+			catch (Exception ex)
+			{
+				throw new DatabaseMigrationException(pending[0], databasePath, new IOException("A copy of the database could not be made before updating it, so the update did not start. " + ex.Message, ex));
+			}
+		}
+
 		try
 		{
+			// Each migration runs in its own transaction; one that throws is rolled back by EF.
 			await context.Database.MigrateAsync(cancellationToken);
 		}
 		catch (Exception ex)
@@ -186,7 +206,22 @@ public sealed class DbInitializer(
 				applied = new HashSet<string>(StringComparer.Ordinal);
 			}
 			string failed = pending.FirstOrDefault(id => !applied.Contains(id)) ?? "(unknown)";
-			throw new DatabaseMigrationException(failed, storageOptions.DatabasePath, ex);
+			if (safeCopy == null)
+			{
+				throw new DatabaseMigrationException(failed, databasePath, ex);
+			}
+
+			// Earlier migrations in this run may have committed: put the whole database back as it was before the upgrade.
+			await context.Database.CloseConnectionAsync();
+			try
+			{
+				PreMigrationCopy.Restore(safeCopy, databasePath, context.Database.GetConnectionString()!);
+			}
+			catch (Exception restoreError)
+			{
+				throw new DatabaseMigrationException(failed, databasePath, new AggregateException(ex, restoreError), safeCopy, restored: false);
+			}
+			throw new DatabaseMigrationException(failed, databasePath, ex, safeCopy, restored: true);
 		}
 
 		if (!await TableExistsAsync("PharmacyProfiles", cancellationToken))
@@ -197,13 +232,6 @@ public sealed class DbInitializer(
 		}
 	}
 
-	/// <summary>
-	/// A file that provably holds no records (0 bytes or only zeros) is moved aside. A non-empty file that will not
-	/// open (damaged, or encrypted with a different key) is archived next to itself as ".key-mismatch-&lt;time&gt;" or
-	/// ".unreadable-&lt;time&gt;", never deleted. Either way the migrations then create a fresh database so the app starts.
-	/// Only when the file cannot even be archived (held open elsewhere) does startup stop, with
-	/// <see cref="DatabaseUnreadableException"/>, so the recovery screen can explain it.
-	/// </summary>
 	private string? DatabasePath()
 	{
 		string? connectionString = context.Database.GetConnectionString();
@@ -227,7 +255,11 @@ public sealed class DbInitializer(
 		command.ExecuteNonQuery();
 	}
 
-	/// <summary>True when the file was moved aside (empty or unreadable), so a fresh database may take its place.</summary>
+	/// <summary>
+	/// A file that provably holds no records (0 bytes or only zeros) is moved aside, and true is returned so a fresh
+	/// database may take its place. A file with content that will not open (damaged, or encrypted with a different key)
+	/// stops startup with <see cref="DatabaseUnreadableException"/>; it is left exactly as it is.
+	/// </summary>
 	private bool CheckDatabaseFile()
 	{
 		string? connectionString = context.Database.GetConnectionString();
@@ -263,19 +295,9 @@ public sealed class DbInitializer(
 			case DatabaseFileState.Unreadable:
 			{
 				string path = new SqliteConnectionStringBuilder(connectionString).DataSource;
-				bool newKey = keyProvider?.CreatedNewKey == true;
-				try
-				{
-					// The key file was missing at startup, so the archived file almost certainly needs the original key.
-					LastArchivedUnreadableDatabase = DatabaseFileHealth.Quarantine(path, newKey ? "key-mismatch" : "unreadable");
-					movedAside = true;
-				}
-				catch (IOException ex)
-				{
-					throw new DatabaseUnreadableException(path, check.Detail + " It could not be archived: " + ex.Message, newKey, check.IsUnencryptedSqlite);
-				}
-
-				break;
+				// It holds content, so it is never moved or replaced automatically, and no empty database is created in its
+				// place: startup stops and the recovery screen explains it. Starting afresh is the owner's explicit choice there.
+				throw new DatabaseUnreadableException(path, check.Detail, keyProvider?.CreatedNewKey == true, check.IsUnencryptedSqlite);
 			}
 		}
 		return movedAside;
@@ -292,19 +314,30 @@ public sealed class DbInitializer(
 	private async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken)
 	{
 		DbConnection connection = context.Database.GetDbConnection();
-		if (connection.State != ConnectionState.Open)
+		bool openedHere = connection.State != ConnectionState.Open;
+		if (openedHere)
 		{
 			await connection.OpenAsync(cancellationToken);
 			// Opened here, not through EF: give it the same WAL settings as every other connection.
 			await SqliteWal.ApplyAsync(connection, cancellationToken);
 		}
 
-		await using DbCommand command = connection.CreateCommand();
-		command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name LIMIT 1;";
-		DbParameter parameter = command.CreateParameter();
-		parameter.ParameterName = "$name";
-		parameter.Value = tableName;
-		command.Parameters.Add(parameter);
-		return await command.ExecuteScalarAsync(cancellationToken) != null;
+		try
+		{
+			await using DbCommand command = connection.CreateCommand();
+			command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name LIMIT 1;";
+			DbParameter parameter = command.CreateParameter();
+			parameter.ParameterName = "$name";
+			parameter.Value = tableName;
+			command.Parameters.Add(parameter);
+			return await command.ExecuteScalarAsync(cancellationToken) != null;
+		}
+		finally
+		{
+			if (openedHere)
+			{
+				await connection.CloseAsync();
+			}
+		}
 	}
 }

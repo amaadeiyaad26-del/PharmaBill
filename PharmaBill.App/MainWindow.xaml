@@ -18,13 +18,8 @@
           <DockPanel DockPanel.Dock="Top" Margin="0,0,0,16" LastChildFill="True">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="16,0,0,0">
             <Button Content="Refresh" Height="40" Padding="14,8" Margin="0,4,4,4" behaviors:HoverTickSound.Enabled="True" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" ToolTip="Reload today's sales, stock alerts, and outstanding balances." />
-            <!-- Microsoft Store updates: quiet "Check for Updates", bright and pulsing when a new version is waiting. -->
-            <Button Height="40" Margin="4,4,0,4" Style="{StaticResource UpdateHeaderButton}" behaviors:HoverTickSound.Enabled="True"
-                    Content="{Binding DataContext.UpdateButtonText, RelativeSource={RelativeSource AncestorType=Window}}"
-                    Tag="{Binding DataContext.IsUpdateAvailable, RelativeSource={RelativeSource AncestorType=Window}}"
-                    ToolTip="{Binding DataContext.UpdateButtonToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
-                    AutomationProperties.HelpText="{Binding DataContext.UpdateButtonToolTip, RelativeSource={RelativeSource AncestorType=Window}}"
-                    Command="{Binding DataContext.CheckForUpdatesCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <!-- Updates: a quiet indicator; an available update shows its details on click (see UpdateIndicator). -->
+            <controls:UpdateIndicator Margin="4,4,0,4" VerticalAlignment="Center" />
             <Button Content="{Binding LicenseBadgeText}"
                     Height="40"
                     Margin="8,4,0,4"
@@ -6249,18 +6244,6 @@
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0">
-          <Border Background="#FFEFF6FF" BorderBrush="#FF93C5FD" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="{Binding ShowUpdateBanner, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <DockPanel>
-              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                <Button Content="Update Now" Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,8,0" Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" AutomationProperties.Name="Update Now" Command="{Binding UpdateNowCommand}" />
-                <Button Content="Remind Me Tomorrow" Style="{StaticResource SecondaryButton}" Height="32" AutomationProperties.Name="Remind Me Tomorrow update" Command="{Binding RemindUpdateTomorrowCommand}" IsEnabled="{Binding CanRemindUpdateTomorrow}" />
-              </StackPanel>
-              <StackPanel Orientation="Horizontal">
-                <TextBlock FontFamily="Segoe MDL2 Assets" Text="" FontSize="16" Foreground="{DynamicResource AccentHoverBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="#FF1E3A8A" FontWeight="SemiBold" Text="{Binding UpdateBannerText}" />
-              </StackPanel>
-            </DockPanel>
-          </Border>
           <Border Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12" Visibility="{Binding ShowAnnualLicenseWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
             <DockPanel>
               <Button DockPanel.Dock="Right" Content="Renew" MinWidth="88" Height="32" Margin="12,0,0,0" Style="{StaticResource PrimaryButton}" Command="{Binding OpenRenewLicenseCommand}" />

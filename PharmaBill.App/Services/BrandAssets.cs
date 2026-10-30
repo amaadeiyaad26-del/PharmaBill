@@ -21,10 +21,6 @@ public static class BrandAssets
 
 	public const string AndroidPlayStoreUrl = "https://play.google.com/store/search?q=PharmaBill%20SAER&c=apps";
 
-	public const string ReleaseManifestUrl = "https://raw.githubusercontent.com/SAER-PharmaBill/PharmaBill/main/docs/release-manifest.json";
-
-	public const string ReleaseDownloadUrl = "https://github.com/SAER-PharmaBill/PharmaBill/releases/latest";
-
 	public const string MicrosoftStoreProductId = "";
 
 	public const string BrandIconPackUri = "pack://application:,,,/PharmaBill.App;component/Resources/logo_final_3d.png";

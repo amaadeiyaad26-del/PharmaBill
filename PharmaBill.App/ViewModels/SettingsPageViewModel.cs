@@ -3291,6 +3291,23 @@ public partial class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 		}
 	}
 
+	private bool _isUpdateDownloadAvailable;
+
+	/// <summary>The last "Check for updates" found a newer version: the download (or Store) button shows.</summary>
+	public bool IsUpdateDownloadAvailable
+	{
+		get => _isUpdateDownloadAvailable;
+		private set => SetProperty(ref _isUpdateDownloadAvailable, value);
+	}
+
+	public string UpdateDownloadButtonText => AppEdition.Current == Edition.Store ? "Install from the Microsoft Store" : "Open download page";
+
+	private AsyncRelayCommand? openUpdateDownloadCommand;
+
+	public IAsyncRelayCommand OpenUpdateDownloadCommand => openUpdateDownloadCommand ??= new AsyncRelayCommand(() => _appUpdates.LaunchUpdateAsync());
+
+	// Help / About: always asks now (not limited to once a day) and says one of three things: on the latest version,
+	// a newer version is available, or the update server could not be reached.
 	private async Task CheckForUpdatesAsync()
 	{
 		if (IsCheckingForUpdates)
@@ -3298,25 +3315,17 @@ public partial class SettingsPageViewModel : SectionPageViewModel, ILoadablePage
 			return;
 		}
 		IsCheckingForUpdates = true;
+		IsUpdateDownloadAvailable = false;
 		UpdateStatus = "Checking…";
 		try
 		{
-			AppUpdateAvailability appUpdateAvailability = await _appUpdates.CheckForUpdatesAsync(force: true);
-			SettingsPageViewModel settingsPageViewModel = this;
-			string updateStatus;
-			if (appUpdateAvailability.IsUpdateAvailable)
-			{
-				updateStatus = appUpdateAvailability.StatusMessage + " Use Update Now on the banner, or open the download link.";
-			}
-			else
-			{
-				updateStatus = (string.IsNullOrWhiteSpace(appUpdateAvailability.StatusMessage) ? "Up to date ✓" : appUpdateAvailability.StatusMessage);
-			}
-			settingsPageViewModel.UpdateStatus = updateStatus;
+			AppUpdateAvailability result = await _appUpdates.CheckForUpdatesAsync(force: true);
+			UpdateStatus = result.StatusMessage;
+			IsUpdateDownloadAvailable = result.IsUpdateAvailable;
 		}
 		catch (Exception ex)
 		{
-			UpdateStatus = "Could not check for updates: " + PharmaBill.Core.UserMessage.Of(ex);
+			UpdateStatus = "Could not reach the update server: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 		finally
 		{

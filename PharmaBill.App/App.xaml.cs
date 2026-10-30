@@ -199,7 +199,12 @@ public partial class App : Application
 				services.AddSingleton<IUserManualDialogService, UserManualDialogService>();
 				services.AddSingleton<UpdateCheckPreferencesStore>();
 				services.AddSingleton<UiSoundPreferencesStore>();
-				services.AddSingleton<IAppUpdateService, AppUpdateService>();
+#if STORE_EDITION
+				services.AddSingleton<IAppUpdateService, StoreUpdateService>();
+#else
+				// Local Market edition: the update file on pharmaremit.com.
+				services.AddSingleton<IAppUpdateService, WebsiteUpdateService>();
+#endif
 				services.AddSingleton<RegistrationNotificationService>();
 				services.AddSingleton<AppVersionInfo>();
 				services.AddSingleton<SensitiveAccessService>();
@@ -282,6 +287,14 @@ public partial class App : Application
 				PharmaBill.Data.Persistence.DatabaseCreation.Forget(missing.DatabasePath);
 				MessageBox.Show("Start Pharma Remit again to create the new, empty database.", "Pharmacy database missing", MessageBoxButton.OK, MessageBoxImage.Information);
 			}
+			Shutdown(-1);
+		}
+		catch (Exception ex) when (FindInner<PharmaBill.Data.Persistence.DatabaseMigrationException>(ex) is { } failedUpgrade)
+		{
+			// The upgrade did not complete. The database is as it was before it (put back from the pre-migration copy),
+			// and the app does not open on a half-upgraded database or a new empty one.
+			Log.Fatal(ex, "Database upgrade failed at {Migration}; restored: {Restored}; copy: {Copy}.", failedUpgrade.MigrationId, failedUpgrade.Restored, failedUpgrade.SafeCopyPath);
+			MessageBox.Show(failedUpgrade.PharmacistMessage, "Pharma Remit: your data is safe", MessageBoxButton.OK, MessageBoxImage.Warning);
 			Shutdown(-1);
 		}
 		catch (Exception ex) when (FindInner<PharmaBill.Data.Persistence.DatabaseUnreadableException>(ex) is { } unreadable)

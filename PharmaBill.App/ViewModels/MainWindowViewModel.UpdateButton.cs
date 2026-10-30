@@ -3,22 +3,31 @@ using PharmaBill.App.Services;
 
 namespace PharmaBill.App.ViewModels;
 
-// The update button in both dashboards' headers: quiet ("Check for Updates") until the Microsoft Store (or, for the
-// Local Market edition, the release feed) has a newer version, then bright ("Update Available"). Clicking it checks
-// now, or, when an update is waiting, opens the Store's install flow. Every click says what happened in the toast at
-// the top of the page, so a check that finds nothing never looks like a dead button.
+// The update indicator in both dashboards' headers: a quiet "Check for Updates" until a newer version is known, then
+// "Update available". It only ever appears on the dashboards: nothing about updates pops up by itself or appears over
+// the billing screen. Local Market edition: clicking it shows what the new version is (version, date, notes, size) with
+// one button that opens the download page in the browser; the × hides it until a later version. Store edition: clicking
+// it opens the Store's install flow.
 public partial class MainWindowViewModel
 {
 	private const string CheckLabel = "Check for Updates";
 
 	private bool _isUpdateAvailable;
 	private bool _isCheckingForUpdates;
+	private bool _isUpdateDetailsOpen;
+	private PublishedRelease? _availableRelease;
 	private string _updateButtonText = CheckLabel;
-	private string _updateButtonToolTip = "Ask the Microsoft Store whether a newer version of Pharma Remit is available";
+	private string _updateButtonToolTip = DefaultToolTip;
 	private AsyncRelayCommand? checkForUpdatesCommand;
+	private RelayCommand? dismissUpdateCommand;
+	private RelayCommand? openUpdateDownloadCommand;
 	private Action<string>? _openUri;
 
-	/// <summary>A newer version is waiting: the header button turns bright.</summary>
+	private static string DefaultToolTip => AppEdition.Current == Edition.Store
+		? "Ask the Microsoft Store whether a newer version of Pharma Remit is available"
+		: "Ask pharmaremit.com whether a newer version of Pharma Remit is available";
+
+	/// <summary>A newer version is waiting (and was not dismissed): the header indicator turns bright.</summary>
 	public bool IsUpdateAvailable
 	{
 		get => _isUpdateAvailable;
@@ -30,6 +39,29 @@ public partial class MainWindowViewModel
 		get => _isCheckingForUpdates;
 		private set => SetProperty(ref _isCheckingForUpdates, value);
 	}
+
+	/// <summary>The details card under the indicator (Local Market edition). Closes when the user clicks elsewhere.</summary>
+	public bool IsUpdateDetailsOpen
+	{
+		get => _isUpdateDetailsOpen;
+		set => SetProperty(ref _isUpdateDetailsOpen, value);
+	}
+
+	/// <summary>The newer release the details card describes; null when there is none.</summary>
+	public PublishedRelease? AvailableRelease
+	{
+		get => _availableRelease;
+		private set
+		{
+			if (SetProperty(ref _availableRelease, value))
+			{
+				OnPropertyChanged(nameof(CanDismissUpdate));
+			}
+		}
+	}
+
+	/// <summary>The × beside the indicator: only for a website release (the Store reports no version to remember).</summary>
+	public bool CanDismissUpdate => AvailableRelease != null && IsUpdateAvailable;
 
 	public string UpdateButtonText
 	{
@@ -45,7 +77,11 @@ public partial class MainWindowViewModel
 
 	public IAsyncRelayCommand CheckForUpdatesCommand => checkForUpdatesCommand ??= new AsyncRelayCommand(CheckForUpdatesFromButtonAsync);
 
-	/// <summary>Opens a Microsoft Store link. Tests replace it so no Store window opens during a run.</summary>
+	public IRelayCommand DismissUpdateCommand => dismissUpdateCommand ??= new RelayCommand(DismissUpdate);
+
+	public IRelayCommand OpenUpdateDownloadCommand => openUpdateDownloadCommand ??= new RelayCommand(OpenUpdateDownload);
+
+	/// <summary>Opens a link (Store page or download page). Tests replace it so nothing opens during a run.</summary>
 	internal Action<string> OpenUri
 	{
 		get => _openUri ?? OpenWithShell;
@@ -56,7 +92,12 @@ public partial class MainWindowViewModel
 	{
 		if (IsUpdateAvailable)
 		{
-			ShowItemQuickToast(AppEdition.Current == Edition.Store ? "Opening the Microsoft Store update…" : "Starting the update…");
+			if (AvailableRelease != null)
+			{
+				IsUpdateDetailsOpen = true;
+				return;
+			}
+			ShowItemQuickToast("Opening the Microsoft Store update…");
 			await UpdateNowAsync();
 			return;
 		}
@@ -81,6 +122,38 @@ public partial class MainWindowViewModel
 		{
 			OpenStorePage(outcome.OpenUri);
 		}
+		if (AvailableRelease != null && IsUpdateAvailable)
+		{
+			IsUpdateDetailsOpen = true;
+		}
+	}
+
+	private void DismissUpdate()
+	{
+		if (AvailableRelease is PublishedRelease release)
+		{
+			_appUpdates.Dismiss(release.Version);
+		}
+		IsUpdateDetailsOpen = false;
+		ShowUpdateButton(_appUpdates.LastResult);
+	}
+
+	// The one way to get the update: the download page, in the default browser. Nothing is downloaded or run here.
+	private void OpenUpdateDownload()
+	{
+		if (AvailableRelease is not PublishedRelease release || !UpdateFeed.IsSafeDownloadUrl(release.DownloadUrl))
+		{
+			return;
+		}
+		IsUpdateDetailsOpen = false;
+		try
+		{
+			OpenUri(release.DownloadUrl);
+		}
+		catch (Exception ex)
+		{
+			_confirmationService.NotifyError("Update", "Could not open the download page: " + PharmaBill.Core.UserMessage.Of(ex));
+		}
 	}
 
 	/// <summary>What a click on "Check for Updates" tells the user, and which Store page it opens, once the check is done.</summary>
@@ -90,7 +163,9 @@ public partial class MainWindowViewModel
 	{
 		if (result is { IsUpdateAvailable: true })
 		{
-			return new UpdateClickOutcome("A new version is available. Click Update Available to install it.", null);
+			return new UpdateClickOutcome(edition == Edition.Store
+				? "A new version is available. Click Update Available to install it."
+				: result.StatusMessage, null);
 		}
 		if (edition == Edition.Store)
 		{
@@ -105,9 +180,9 @@ public partial class MainWindowViewModel
 		// The Local Market edition is not installed from the Store: never send it there (that would install a second copy).
 		if (result == null || result.Channel == UpdateChannel.None)
 		{
-			return new UpdateClickOutcome(result?.StatusMessage ?? "Could not check for updates. Pharma Remit stays fully usable offline.", null);
+			return new UpdateClickOutcome(result?.StatusMessage ?? "Could not reach the update server. Pharma Remit works fully offline.", null);
 		}
-		return new UpdateClickOutcome($"Pharma Remit is up to date (version {result.CurrentVersion}).", null);
+		return new UpdateClickOutcome($"You're on the latest version of Pharma Remit ({result.CurrentVersion}).", null);
 	}
 
 	private void OpenStorePage(string uri)
@@ -125,20 +200,30 @@ public partial class MainWindowViewModel
 	private static void OpenWithShell(string uri) =>
 		System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
 
-	// Called with every update result (startup check, background checks, the button).
+	// Called with every update result (startup check, background checks, the button). A background check that could not
+	// reach the server changes nothing on screen.
 	private void ShowUpdateButton(AppUpdateAvailability? result)
 	{
-		IsUpdateAvailable = result?.IsUpdateAvailable == true;
-		if (IsUpdateAvailable)
+		bool available = result?.IsUpdateAvailable == true
+			&& !(result.Release is PublishedRelease dismissed && _appUpdates.IsDismissed(dismissed.Version));
+		IsUpdateAvailable = available;
+		AvailableRelease = available ? result!.Release : null;
+		OnPropertyChanged(nameof(CanDismissUpdate));
+		if (!available)
 		{
-			UpdateButtonText = "Update Available";
-			UpdateButtonToolTip = result!.StatusMessage;
+			IsUpdateDetailsOpen = false;
+		}
+		if (available)
+		{
+			UpdateButtonText = result!.Release is PublishedRelease release ? "Update available · " + release.Version : "Update Available";
+			UpdateButtonToolTip = result.StatusMessage;
 			return;
 		}
-		// "Up to date" only after a real answer; offline, or with nothing to ask, it stays an invitation to check.
-		UpdateButtonText = result is { WasChecked: true } && result.Channel != UpdateChannel.None
+		// "Up to date" only after a real answer; offline, with nothing to ask, or with a newer version the user hid, it
+		// stays an invitation to check.
+		UpdateButtonText = result is { WasChecked: true, IsUpdateAvailable: false } && result.Channel != UpdateChannel.None
 			? "Up to date ✓"
 			: CheckLabel;
-		UpdateButtonToolTip = result?.StatusMessage ?? "Ask the Microsoft Store whether a newer version of Pharma Remit is available";
+		UpdateButtonToolTip = result?.StatusMessage ?? DefaultToolTip;
 	}
 }

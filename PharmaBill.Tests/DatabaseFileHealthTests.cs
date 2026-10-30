@@ -121,56 +121,41 @@ public sealed class DatabaseFileHealthTests : IDisposable
     }
 
     [Fact]
-    public async Task Initializer_UnreadableFile_IsArchivedUnchanged_AndAFreshDatabaseIsCreated()
+    public async Task Initializer_UnreadableFile_StopsStartup_AndLeavesTheFileExactlyAsItWas()
     {
         byte[] garbage = RandomNumberGenerator.GetBytes(8192);
         WriteFile(garbage);
 
         await using (PharmaBillDbContext context = CreateContext())
         {
-            await CreateInitializer(context).InitializeAsync();
-            Assert.True(await context.PharmacyProfiles.CountAsync() >= 0);
+            DatabaseUnreadableException error = await Assert.ThrowsAsync<DatabaseUnreadableException>(() => CreateInitializer(context).InitializeAsync());
+            Assert.Equal(DbPath, error.DatabasePath);
         }
 
-        string archived = Assert.Single(Directory.GetFiles(Path.GetDirectoryName(DbPath)!, "pharmabill.db.unreadable-*"));
-        Assert.Equal(garbage, File.ReadAllBytes(archived));
-        Assert.Equal(archived, DbInitializer.LastArchivedUnreadableDatabase);
-        Assert.Equal(DatabaseFileState.Readable, DatabaseFileHealth.Inspect(ConnectionString()).State);
+        // No empty database in its place, nothing archived: the recovery screen decides, with the owner.
+        Assert.Equal(garbage, File.ReadAllBytes(DbPath));
+        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(DbPath)!, "pharmabill.db*"));
     }
 
     [Fact]
-    public async Task Initializer_DatabaseEncryptedWithAnotherKey_IsArchived_AndStillOpensWithThatKey()
+    public async Task Initializer_DatabaseEncryptedWithAnotherKey_StopsStartup_AndStillOpensWithThatKey()
     {
         string otherKey = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
         CreateEncryptedDatabase(otherKey);
 
         await using (PharmaBillDbContext context = CreateContext())
         {
-            await CreateInitializer(context).InitializeAsync();
+            await Assert.ThrowsAsync<DatabaseUnreadableException>(() => CreateInitializer(context).InitializeAsync());
         }
 
-        // The archived file is the original, intact: with its own key the records are still there.
-        string archived = Assert.Single(Directory.GetFiles(Path.GetDirectoryName(DbPath)!, "pharmabill.db.unreadable-*"));
-        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = archived, Pooling = false, Password = otherKey }.ToString());
+        // The file is untouched where it was: with its own key the records are still there.
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = DbPath, Pooling = false, Password = otherKey }.ToString());
         connection.Open();
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT Name FROM Records;";
         Assert.Equal("kept", command.ExecuteScalar());
     }
 
-    [Fact]
-    public async Task Initializer_UnreadableFileThatCannotBeArchived_StopsWithARecoverableError()
-    {
-        byte[] garbage = RandomNumberGenerator.GetBytes(8192);
-        WriteFile(garbage);
-        using FileStream heldOpen = new FileStream(DbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-
-        await using PharmaBillDbContext context = CreateContext();
-        DatabaseUnreadableException error = await Assert.ThrowsAsync<DatabaseUnreadableException>(() => CreateInitializer(context).InitializeAsync());
-
-        Assert.Contains("could not be archived", error.Message);
-        Assert.Equal(DbPath, error.DatabasePath);
-    }
     private void WriteFile(byte[] content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(DbPath)!);

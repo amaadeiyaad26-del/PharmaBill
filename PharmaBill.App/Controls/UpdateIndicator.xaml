@@ -1,0 +1,72 @@
+<UserControl x:Class="PharmaBill.App.Controls.UpdateIndicator"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:PharmaBill.App.Behaviors">
+  <!-- The dashboards' update indicator: quiet "Check for Updates", or "Update available · 1.0.13" with a × to hide it.
+       Clicking an available update opens the card below it (version, date, notes, size, one button that opens the
+       download page in the browser). Never shown on its own over any other screen. -->
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+  </UserControl.Resources>
+  <Grid x:Name="Root" DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+    <StackPanel Orientation="Horizontal">
+      <Button x:Name="IndicatorButton" Height="40" Style="{StaticResource UpdateHeaderButton}" behaviors:HoverTickSound.Enabled="True"
+              Content="{Binding UpdateButtonText}"
+              Tag="{Binding IsUpdateAvailable}"
+              ToolTip="{Binding UpdateButtonToolTip}"
+              AutomationProperties.Name="{Binding UpdateButtonText}"
+              AutomationProperties.HelpText="{Binding UpdateButtonToolTip}"
+              Command="{Binding CheckForUpdatesCommand}" />
+      <Button Content="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="10" Width="26" Height="26" Margin="4,0,0,0" Padding="0"
+              VerticalAlignment="Center" Cursor="Hand" Background="Transparent" BorderThickness="0" Foreground="#FF9A3412"
+              ToolTip="Hide until a later version" AutomationProperties.Name="Hide update notice"
+              Visibility="{Binding CanDismissUpdate, Converter={StaticResource BooleanToVisibilityConverter}}"
+              Command="{Binding DismissUpdateCommand}" />
+    </StackPanel>
+    <Popup PlacementTarget="{Binding ElementName=IndicatorButton}" Placement="Bottom" VerticalOffset="6" StaysOpen="False"
+           AllowsTransparency="True" PopupAnimation="Fade"
+           IsOpen="{Binding IsUpdateDetailsOpen, Mode=TwoWay}">
+      <Border Width="400" Margin="8" Padding="18,16" CornerRadius="12" Background="White" BorderBrush="#FFE2E8F0" BorderThickness="1"
+              AutomationProperties.Name="Update details">
+        <Border.Effect>
+          <DropShadowEffect ShadowDepth="2" BlurRadius="16" Opacity="0.18" />
+        </Border.Effect>
+        <StackPanel DataContext="{Binding AvailableRelease}">
+          <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#FF0F172A" Text="{Binding Version, StringFormat=Pharma Remit {0}}" />
+          <TextBlock Margin="0,4,0,0" Foreground="#FF475569" FontSize="12.5">
+            <TextBlock.Text>
+              <MultiBinding StringFormat="Released {0} · {1} download">
+                <Binding Path="ReleasedText" />
+                <Binding Path="SizeText" />
+              </MultiBinding>
+            </TextBlock.Text>
+          </TextBlock>
+          <TextBlock Margin="0,14,0,6" Text="What's new" FontWeight="SemiBold" Foreground="#FF0F172A" />
+          <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Notes}" AutomationProperties.Name="Release notes">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel Margin="0,0,0,4">
+                    <TextBlock DockPanel.Dock="Left" Text="•" Margin="0,0,8,0" Foreground="#FF64748B" />
+                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="#FF334155" />
+                  </DockPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <TextBlock Margin="0,12,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#FF64748B"
+                     Text="The download opens in your browser. Install it when no bill is open: your records stay where they are, and a copy of the database is made before it is updated." />
+          <TextBox Margin="0,8,0,0" IsReadOnly="True" BorderThickness="0" Background="Transparent" FontSize="11" Foreground="#FF94A3B8"
+                   TextWrapping="Wrap" AutomationProperties.Name="Installer SHA-256"
+                   Text="{Binding Sha256, Mode=OneWay, StringFormat=SHA-256 {0}}" />
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0"
+                      DataContext="{Binding DataContext, ElementName=Root}">
+            <Button Content="Close" Style="{StaticResource SecondaryButton}" Height="34" Padding="14,0" Margin="0,0,8,0" Click="Close_Click" />
+            <Button Content="Open download page" Style="{StaticResource PrimaryButton}" Height="34" Padding="14,0"
+                    AutomationProperties.Name="Open download page" Command="{Binding OpenUpdateDownloadCommand}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

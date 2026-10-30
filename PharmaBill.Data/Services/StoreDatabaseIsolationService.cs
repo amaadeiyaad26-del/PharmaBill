@@ -35,7 +35,7 @@ public sealed class StoreDatabaseIsolationService(
 		await DatabaseMaintenance.RunExclusiveAsync(storageOptions.DatabasePath, "a new pharmacy is being set up", () =>
 		{
 			activeStore.SetActiveStore(storeSlug);
-			DeleteDatabaseFiles(storageOptions.DatabasePath);
+			SetAsideExistingDatabase(storageOptions.DatabasePath);
 			// Deliberately a new, empty database for this store.
 			DatabaseCreation.Forget(storageOptions.DatabasePath);
 			return Task.CompletedTask;
@@ -47,36 +47,39 @@ public sealed class StoreDatabaseIsolationService(
 			.ConfigureAwait(false);
 	}
 
-	public static void DeleteDatabaseFiles(string databasePath)
+	/// <summary>
+	/// A database already at the new store's path is never deleted: it is renamed beside itself to
+	/// "pharmabill.db.set-aside-&lt;time&gt;" (with its -wal / -shm files), so its records can still be recovered.
+	/// If it cannot be renamed, setup stops and nothing is changed.
+	/// </summary>
+	public static string? SetAsideExistingDatabase(string databasePath)
 	{
-		TryDelete(databasePath);
-		TryDelete(databasePath + "-wal");
-		TryDelete(databasePath + "-shm");
-		TryDelete(databasePath + "-journal");
-	}
-
-	private static void TryDelete(string path)
-	{
+		if (!File.Exists(databasePath))
+		{
+			foreach (string suffix in new[] { "-wal", "-shm", "-journal" })
+			{
+				if (File.Exists(databasePath + suffix))
+				{
+					DatabaseFileHealth.Quarantine(databasePath + suffix, "orphan");
+				}
+			}
+			return null;
+		}
 		try
 		{
-			if (File.Exists(path))
-			{
-				File.Delete(path);
-			}
+			return DatabaseFileHealth.Quarantine(databasePath, "set-aside");
 		}
 		catch (IOException)
 		{
 			// Retry once after closing this database's idle pooled connections (a previous scope may just have closed).
+			DatabaseMaintenance.ClearPools(databasePath);
 			try
 			{
-				DatabaseMaintenance.ClearPools(path);
-				if (File.Exists(path))
-				{
-					File.Delete(path);
-				}
+				return DatabaseFileHealth.Quarantine(databasePath, "set-aside");
 			}
-			catch
+			catch (IOException ex)
 			{
+				throw new InvalidOperationException("A database already exists at " + databasePath + " and could not be set aside, so the new pharmacy was not set up. Close other programs using it and try again. Nothing was changed. " + ex.Message, ex);
 			}
 		}
 	}

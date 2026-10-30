@@ -31,7 +31,7 @@ public static class AppEdition
 	/// <summary>Opens the Microsoft Store's Downloads and updates page, which updates this app.</summary>
 	public const string StoreUpdatesUri = "ms-windows-store://downloadsandupdates";
 
-	public static string ProductName(Edition edition) => edition == Edition.Store ? "Pharma Remit" : "Pharma Remit Local Market";
+	public static string ProductName(Edition edition) => "Pharma Remit";
 
 	/// <summary>The Store edition shows a "Microsoft Store edition" badge in About; the Local Market edition shows none.</summary>
 	public static bool ShowsStoreBadge(Edition edition) => edition == Edition.Store;

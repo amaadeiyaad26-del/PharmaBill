@@ -25,13 +25,13 @@ public sealed class UpdateCheckPreferencesStore
 		{
 			if (!File.Exists(_path))
 			{
-				return new UpdateCheckPreferences(null, null, null);
+				return new UpdateCheckPreferences(null);
 			}
-			return JsonSerializer.Deserialize<UpdateCheckPreferences>(File.ReadAllText(_path), JsonOptions) ?? new UpdateCheckPreferences(null, null, null);
+			return JsonSerializer.Deserialize<UpdateCheckPreferences>(File.ReadAllText(_path), JsonOptions) ?? new UpdateCheckPreferences(null);
 		}
 		catch
 		{
-			return new UpdateCheckPreferences(null, null, null);
+			return new UpdateCheckPreferences(null);
 		}
 	}
 

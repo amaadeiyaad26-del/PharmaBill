@@ -27,9 +27,9 @@ internal sealed class DatabaseInitializationHostedService(
 				logger.LogWarning("The database file was empty (no records) and was moved to {Moved}; a fresh database was created.", moved);
 			}
 
-			if (DbInitializer.LastArchivedUnreadableDatabase is string archived)
+			if (DbInitializer.LastPreMigrationCopy is string copy)
 			{
-				logger.LogError("The database could not be opened (damaged or a different encryption key). It was archived unchanged at {Archived} and a fresh database was created. Its records can be recovered with the original database.key.", archived);
+				logger.LogInformation("The database was copied to {Copy} before its schema was upgraded.", copy);
 			}
 		}
 		catch (Exception ex)

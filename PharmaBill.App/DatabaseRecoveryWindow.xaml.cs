@@ -64,6 +64,8 @@ public partial class DatabaseRecoveryWindow : Window
 		try
 		{
 			string moved = DatabaseFileHealth.Quarantine(_problem.DatabasePath, "unreadable");
+			// The owner's explicit choice: the next start may create a new, empty database here.
+			DatabaseCreation.Forget(_problem.DatabasePath);
 			StartFreshButton.IsEnabled = false;
 			ConfirmFreshBox.IsEnabled = false;
 			ResultText.Text = "The file was renamed to " + moved + ". Open Pharma Remit again to start with a new empty database.";

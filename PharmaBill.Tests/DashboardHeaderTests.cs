@@ -17,9 +17,10 @@ using Xunit;
 
 namespace PharmaBill.Tests;
 
-// The top of the Retail and Wholesale dashboards: the update button sits where "Reports & Daily MIS" was (Reports is
-// the large card on the dashboard now); quiet while there is nothing to install, bright and pulsing when an update is
-// waiting. The Sync Station shortcut is gone from the header (Sync itself stays in the sidebar and Settings).
+// The top of the Retail and Wholesale dashboards: the update indicator sits where "Reports & Daily MIS" was (Reports is
+// the large card on the dashboard now); quiet while there is nothing to install, a soft orange tint (never animated)
+// when an update is waiting. The Sync Station shortcut is gone from the header (Sync itself stays in the sidebar and
+// Settings).
 public sealed class DashboardHeaderTests
 {
     [Fact]
@@ -55,22 +56,20 @@ public sealed class DashboardHeaderTests
                 Assert.True(update.Command != null, $"command not bound ({binding?.Status}): " + string.Join(" | ", trace.Lines.Where(l => l.Contains("CheckForUpdatesCommand")).Take(3)));
                 Assert.Equal(false, update.Tag);
                 Assert.IsNotType<LinearGradientBrush>(update.Background);
-                var glow = (FrameworkElement)update.Template.FindName("Glow", update);
-                Assert.Equal(0, glow.Opacity);
+                // Quiet in every state: no glow, no animation in the template.
+                Assert.Null(update.Template.FindName("Glow", update));
                 Assert.Equal(shell.UpdateButtonToolTip, update.ToolTip);
                 await Ui.PressAsync(update);
                 Assert.Equal(1, shell.Presses);
 
-                // An update arrives: the same button turns bright orange, glows, and opens the Store's install flow.
+                // An update arrives: the same button takes a soft orange tint and a download icon, and still answers.
                 shell.ShowAvailable();
                 await Ui.SettleAsync();
                 Assert.Same(update, Ui.Button(host, "Update Available"));
                 Assert.Equal(true, update.Tag);
-                var bright = Assert.IsType<LinearGradientBrush>(update.Background);
-                Assert.Equal(Color.FromRgb(0xEA, 0x58, 0x0C), bright.GradientStops[^1].Color);
-                Assert.Equal(Colors.White, ((SolidColorBrush)update.Foreground).Color);
+                Assert.Equal(Color.FromRgb(0xFF, 0xF7, 0xED), ((SolidColorBrush)update.Background).Color);
+                Assert.Equal(Color.FromRgb(0x9A, 0x34, 0x12), ((SolidColorBrush)update.Foreground).Color);
                 Assert.Equal(0xE896, (int)((TextBlock)update.Template.FindName("Icon", update)).Text[0]);
-                await Ui.UntilAsync(() => glow.Opacity > 0.3, "the update glow to pulse", seconds: 5);
                 await Ui.PressAsync(update);
                 Assert.Equal(2, shell.Presses);
 
@@ -123,7 +122,7 @@ public sealed class DashboardHeaderTests
     public void AfterCheck_SaysWhatHappened_AndOpensTheStoreOnlyForTheStoreEdition()
     {
         var upToDate = new AppUpdateAvailability(false, "1.4.0", "1.4.0", false, UpdateChannel.MicrosoftStore, "ms-windows-store://pdp/?ProductId=X", "Up to date ✓");
-        var unpackaged = AppUpdateService.StoreEditionResult("1.4.0");
+        var unpackaged = AppUpdateAvailability.StoreHandlesUpdates("1.4.0");
         var failed = new AppUpdateAvailability(false, "1.4.0", "1.4.0", false, UpdateChannel.None, null, "Could not check for updates (offline or unreachable). You can keep using Pharma Remit.");
         var available = new AppUpdateAvailability(true, "1.4.0", "1.5.0", false, UpdateChannel.MicrosoftStore, "ms-windows-store://pdp/?ProductId=X", "New version");
 
@@ -137,8 +136,10 @@ public sealed class DashboardHeaderTests
         // The Local Market edition never goes to the Store; a failed check says so instead of staying silent.
         Assert.Equal(new(failed.StatusMessage, null), MainWindowViewModel.AfterCheck(Edition.LocalMarket, failed));
         Assert.Null(MainWindowViewModel.AfterCheck(Edition.LocalMarket, null).OpenUri);
-        var feedUpToDate = upToDate with { Channel = UpdateChannel.RemoteManifest, DownloadOrStoreUrl = null };
-        Assert.Equal(new("Pharma Remit is up to date (version 1.4.0).", null), MainWindowViewModel.AfterCheck(Edition.LocalMarket, feedUpToDate));
+        var feedUpToDate = upToDate with { Channel = UpdateChannel.Website, DownloadOrStoreUrl = null };
+        Assert.Equal(new("You're on the latest version of Pharma Remit (1.4.0).", null), MainWindowViewModel.AfterCheck(Edition.LocalMarket, feedUpToDate));
+        var feedAvailable = available with { Channel = UpdateChannel.Website, StatusMessage = "A newer version of Pharma Remit is available: 1.5.0" };
+        Assert.Equal(new(feedAvailable.StatusMessage, null), MainWindowViewModel.AfterCheck(Edition.LocalMarket, feedAvailable));
     }
 
     // The real main window view-model behind the real dashboard button: a click runs a forced check, shows the result
@@ -179,10 +180,76 @@ public sealed class DashboardHeaderTests
             await Ui.PressAsync(Ui.Button(host, "Check for Updates"));
             Button bright = Ui.Button(host, "Update Available");
             Assert.Equal(true, bright.Tag);
-            Assert.Contains("Update Available", vm.BarcodeToastMessage);
+            Assert.Contains(AppEdition.Current == Edition.Store ? "Update Available" : "is available", vm.BarcodeToastMessage);
             await Ui.PressAsync(bright);
             Assert.Equal(1, updates.Launches);
             Assert.Equal([true, true], updates.Forced);
+            host.Close();
+        });
+    }
+
+    // Local Market edition: the website has a newer version. The indicator shows it quietly; a click opens the card with
+    // version, date, notes and size; its one button opens the download page in the browser (nothing is downloaded here);
+    // the x hides it until a later version.
+    [Fact]
+    public void WebsiteUpdate_ShowsItsDetails_OpensTheDownloadPage_AndCanBeHidden()
+    {
+        Ui.Run(async () =>
+        {
+            var window = new PharmaBill.App.MainWindow(null!, null!, null!, null!, new BindingSafetyTests.NullScannerService());
+            BindingSafetyTests.Retire(window);
+            var retailTemplate = (DataTemplate)window.Resources[new DataTemplateKey(typeof(DashboardPageViewModel))];
+
+            var updates = new FakeUpdates();
+            var vm = (MainWindowViewModel)RuntimeHelpers.GetUninitializedObject(typeof(MainWindowViewModel));
+            Set(vm, "_appUpdates", updates);
+            Set(vm, "_logger", Microsoft.Extensions.Logging.Abstractions.NullLogger<MainWindowViewModel>.Instance);
+            Set(vm, "_confirmationService", new BackupPageEndToEndTests.AlwaysYes());
+            Set(vm, "_updateButtonText", "Check for Updates");
+            var opened = new List<string>();
+            vm.OpenUri = opened.Add;
+
+            var host = new Window { DataContext = vm, Width = 1366, Height = 768 };
+            Ui.Prepare(host);
+            host.Show();
+            host.Content = new ContentControl { Content = RuntimeHelpers.GetUninitializedObject(typeof(DashboardPageViewModel)), ContentTemplate = retailTemplate, Resources = window.Resources };
+            await Ui.SettleAsync();
+
+            var release = new PublishedRelease("1.0.13", new DateOnly(2026, 11, 5), "https://pharmaremit.com/download/PharmaRemit_Setup_1.0.13.0.exe",
+                79_253_601, new string('a', 64), "1.0.10", ["Faster stock search", "GSTR-1 includes credit notes"]);
+            updates.Next = new AppUpdateAvailability(true, "1.0.12.0", "1.0.13", false, UpdateChannel.Website, release.DownloadUrl,
+                "A newer version of Pharma Remit is available: 1.0.13, released 5 Nov 2026 (75.6 MB download).", Release: release);
+
+            // The background check finds it: the label changes, nothing opens by itself.
+            await vm.CheckForAppUpdatesAsync();
+            await Ui.SettleAsync();
+            Button indicator = Ui.Button(host, "Update available · 1.0.13");
+            Assert.False(vm.IsUpdateDetailsOpen);
+            Assert.Empty(opened);
+
+            // A click shows the details.
+            await Ui.PressAsync(indicator);
+            await Ui.SettleAsync();
+            Assert.True(vm.IsUpdateDetailsOpen);
+            Popup card = Descendants(host).OfType<Popup>().Single(popup => popup.IsOpen);
+            string[] texts = Descendants(card.Child).OfType<TextBlock>().Select(text => text.Text).ToArray();
+            Assert.Contains("Pharma Remit 1.0.13", texts);
+            Assert.Contains("Released 5 Nov 2026 · 75.6 MB download", texts);
+            Assert.Contains("Faster stock search", texts);
+            Assert.Contains("GSTR-1 includes credit notes", texts);
+
+            // Its one button opens the download page in the browser.
+            Button download = Descendants(card.Child).OfType<Button>().Single(button => AutomationProperties.GetName(button) == "Open download page");
+            await Ui.PressAsync(download);
+            Assert.Equal([release.DownloadUrl], opened);
+            Assert.False(vm.IsUpdateDetailsOpen);
+            Assert.Equal(0, updates.Launches);
+
+            // The x hides it until a later version.
+            await Ui.PressAsync(Ui.Named<Button>(host, "Hide update notice"));
+            Assert.Equal(["1.0.13"], updates.Dismissed);
+            Assert.False(vm.IsUpdateAvailable);
+            Assert.NotNull(Ui.Button(host, "Check for Updates"));
             host.Close();
         });
     }
@@ -212,9 +279,11 @@ public sealed class DashboardHeaderTests
             return Task.CompletedTask;
         }
 
-        public void RemindTomorrow() { }
+        public List<string> Dismissed { get; } = [];
 
-        public bool IsSnoozed() => false;
+        public void Dismiss(string version) => Dismissed.Add(version);
+
+        public bool IsDismissed(string version) => Dismissed.Contains(version);
     }
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
@@ -256,6 +325,17 @@ public sealed class DashboardHeaderShell : ObservableObject
     public bool IsUpdateAvailable { get => _isUpdateAvailable; private set => SetProperty(ref _isUpdateAvailable, value); }
 
     public string UpdateButtonToolTip { get => _updateButtonToolTip; private set => SetProperty(ref _updateButtonToolTip, value); }
+
+    // The rest of what the update indicator binds to, as the main window's view-model has it.
+    public bool CanDismissUpdate => false;
+
+    public bool IsUpdateDetailsOpen { get; set; }
+
+    public PublishedRelease? AvailableRelease => null;
+
+    public System.Windows.Input.ICommand DismissUpdateCommand { get; } = new RelayCommand(() => { });
+
+    public System.Windows.Input.ICommand OpenUpdateDownloadCommand { get; } = new RelayCommand(() => { });
 
     public void ShowAvailable()
     {

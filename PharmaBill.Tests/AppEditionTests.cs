@@ -16,7 +16,7 @@ public sealed class AppEditionTests
 
     [Theory]
     [InlineData(Edition.Store, "Pharma Remit", true, false)]
-    [InlineData(Edition.LocalMarket, "Pharma Remit Local Market", false, true)]
+    [InlineData(Edition.LocalMarket, "Pharma Remit", false, true)]
     public void EditionDifferences(Edition edition, string productName, bool storeBadge, bool releaseFeed)
     {
         Assert.Equal(productName, AppEdition.ProductName(edition));
@@ -34,7 +34,7 @@ public sealed class AppEditionTests
     [Fact]
     public void StoreEditionUpdateCheck_PointsToTheStoreAndNeverToTheInstaller()
     {
-        AppUpdateAvailability result = AppUpdateService.StoreEditionResult("1.0.4.0");
+        AppUpdateAvailability result = AppUpdateAvailability.StoreHandlesUpdates("1.0.4.0");
 
         Assert.False(result.IsUpdateAvailable);
         Assert.Equal(UpdateChannel.MicrosoftStore, result.Channel);

@@ -1,11 +1,15 @@
 <Project>
-  <!-- Local Market edition: USB and direct installer, packaged by build-installer.ps1 (Inno Setup). -->
+  <!-- Local Market edition: direct download from our website and USB, packaged by build-installer.ps1 (Inno Setup).
+       One version, four parts, everywhere: the assembly, the file, the About screen (informational version) and the
+       installer all read 1.0.12.0. -->
   <PropertyGroup>
     <EditionConstant>LOCAL_MARKET_EDITION</EditionConstant>
-    <Product>Pharma Remit Local Market</Product>
-    <AssemblyTitle>Pharma Remit Local Market</AssemblyTitle>
-    <Version>1.0.10</Version>
-    <AssemblyVersion>1.0.10.0</AssemblyVersion>
-    <FileVersion>1.0.10.0</FileVersion>
+    <Product>Pharma Remit</Product>
+    <AssemblyTitle>Pharma Remit</AssemblyTitle>
+    <Company>S.A.E.R Soft</Company>
+    <Copyright>Copyright (C) 2026 S.A.E.R Soft</Copyright>
+    <Version>1.0.12.0</Version>
+    <AssemblyVersion>1.0.12.0</AssemblyVersion>
+    <FileVersion>1.0.12.0</FileVersion>
   </PropertyGroup>
 </Project>
