@@ -981,9 +981,14 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 			TotalAmount = creditTotal,
 			Reason = reason.Trim(),
 			Notes = $"Credit note against invoice {sale.InvoiceNo}; restocked={restock}.",
-			ClientRequestId = clientRequestId
+			ClientRequestId = clientRequestId,
+			ReturnDate = BusinessClock.Today
 		};
+		// What the note says is recorded on it now, from the bill it credits (see ReturnNoteRecording).
+		await ReturnNoteRecording.RecordSaleNoteAsync(unitOfWork.Context, note, sale, cancellationToken);
 		unitOfWork.Context.ReturnNotes.Add(note);
+		Guid[] returnedDrugIds = processed.Select(entry => entry.SaleItem.DrugId).Distinct().ToArray();
+		Dictionary<Guid, Drug> returnedDrugs = await unitOfWork.Context.Drugs.AsNoTracking().Where(drug => returnedDrugIds.Contains(drug.Id)).ToDictionaryAsync(drug => drug.Id, cancellationToken);
 		decimal restockedQuantity = 0m;
 		foreach (var item in processed)
 		{
@@ -997,6 +1002,7 @@ public sealed class RetailBillingService(IUnitOfWork unitOfWork, NumberSeriesSer
 				CreditAmount = item.CreditAmount,
 				Restocked = restock
 			};
+			ReturnNoteRecording.RecordSaleLine(entity, item.SaleItem, returnedDrugs.GetValueOrDefault(item.SaleItem.DrugId), item.Batch);
 			unitOfWork.Context.SaleReturnItems.Add(entity);
 			if (restock)
 			{

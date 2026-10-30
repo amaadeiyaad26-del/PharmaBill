@@ -376,6 +376,8 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				ReturnDate = returnDate,
 				Reason = reason.Trim()
 			};
+			// The supplier and pharmacy, and the supply type, recorded on the note now (see ReturnNoteRecording).
+			await ReturnNoteRecording.RecordPurchaseReturnAsync(unitOfWork.Context, purchaseReturn, supplier, cancellationToken);
 			unitOfWork.Context.PurchaseReturns.Add(purchaseReturn);
 			foreach (PurchaseReturnLineInput line in lines)
 			{
@@ -385,7 +387,7 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 				purchaseReturn.TotalAmount += num;
 				batch2.Quantity = onHandByBatch[batch2.Id] - line.Quantity;
 				onHandByBatch[batch2.Id] = batch2.Quantity;
-				unitOfWork.Context.PurchaseReturnItems.Add(new PurchaseReturnItem
+				PurchaseReturnItem returnLine = new PurchaseReturnItem
 				{
 					PurchaseReturnId = purchaseReturn.Id,
 					BatchId = batch2.Id,
@@ -393,7 +395,10 @@ public sealed class PurchaseService(IUnitOfWork unitOfWork, IEntitlementService 
 					Quantity = line.Quantity,
 					UnitPrice = purchasePrice,
 					LineTotal = num
-				});
+				};
+				Drug returnedDrug = await unitOfWork.Context.Drugs.AsNoTracking().SingleAsync((Drug item) => item.Id == batch2.DrugId, cancellationToken);
+				ReturnNoteRecording.RecordPurchaseLine(returnLine, await ReturnNoteRecording.PurchaseOfAsync(unitOfWork.Context, batch2.Id, cancellationToken), returnedDrug, batch2, purchaseReturn.IsInterState == true);
+				unitOfWork.Context.PurchaseReturnItems.Add(returnLine);
 				unitOfWork.Context.StockMovements.Add(new StockMovement
 				{
 					BatchId = batch2.Id,

@@ -98,7 +98,7 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_BatchNoExpiryReason",
+            "_RecordCreditDebitNoteValues",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
         Assert.Equal(53, database.Context.Model.GetEntityTypes().Count());
 

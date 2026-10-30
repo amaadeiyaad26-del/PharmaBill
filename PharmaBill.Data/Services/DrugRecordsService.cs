@@ -231,7 +231,15 @@ public sealed class DrugRecordsService(IServiceScopeFactory scopeFactory)
 					obj5 = null;
 				}
 				Prescription prescription2 = (Prescription)obj5;
-				movements.Add(new DrugRecordsMovement(returnItem.DrugId, returnItem.BatchId, returnNote?.ReturnAtUtc ?? query.StartUtc, "Sale return", returnNote?.ReturnNo ?? string.Empty, patient2?.Name ?? string.Empty, patient2?.Address ?? string.Empty, patient2?.Phone ?? string.Empty, prescription2?.PrescriberName ?? string.Empty, prescription2?.PrescriberRegistrationNumber ?? string.Empty, batchMap[returnItem.BatchId].BatchNo, returnItem.Quantity, returnItem.Restocked ? returnItem.Quantity : 0m, returnItem.Quantity, patient2?.Id));
+				// The patient, doctor and batch as recorded on the credit note, not as the patient record reads today.
+				BuyerSnapshot? recordedBuyer = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(returnNote?.BuyerSnapshotJson);
+				movements.Add(new DrugRecordsMovement(returnItem.DrugId, returnItem.BatchId, returnNote?.ReturnAtUtc ?? query.StartUtc, "Sale return", returnNote?.ReturnNo ?? string.Empty,
+					returnNote?.BuyerLegalName ?? recordedBuyer?.Name ?? string.Empty,
+					returnNote?.BuyerAddress ?? recordedBuyer?.Address ?? string.Empty,
+					recordedBuyer?.Phone ?? string.Empty,
+					recordedBuyer?.PrescriberName ?? string.Empty,
+					recordedBuyer?.PrescriberRegistrationNumber ?? string.Empty,
+					returnItem.BatchNo ?? string.Empty, returnItem.Quantity, returnItem.Restocked ? returnItem.Quantity : 0m, returnItem.Quantity, patient2?.Id));
 			}
 		}
 		Guid[] purchaseInvoiceIds = (from item in purchaseTypes
@@ -258,7 +266,23 @@ public sealed class DrugRecordsService(IServiceScopeFactory scopeFactory)
 			PurchaseInvoice purchaseInvoice = (flag2 ? purchaseInvoices.GetValueOrDefault(stockMovement2.ReferenceId ?? Guid.Empty) : null);
 			PurchaseReturn purchaseReturn = (flag2 ? null : purchaseReturns.GetValueOrDefault(stockMovement2.ReferenceId ?? Guid.Empty));
 			Guid? guid2 = ((purchaseInvoice != null) ? new Guid?(purchaseInvoice.SupplierId) : purchaseReturn?.SupplierId);
-			movements.Add(new DrugRecordsMovement(stockMovement2.DrugId, stockMovement2.BatchId, stockMovement2.MovementAtUtc, flag2 ? "Purchase" : "Purchase return", purchaseInvoice?.InvoiceNo ?? purchaseReturn?.ReturnNo ?? stockMovement2.Notes ?? string.Empty, guid2.HasValue ? (dictionary2.GetValueOrDefault(guid2.Value)?.Name ?? string.Empty) : string.Empty, guid2.HasValue ? (dictionary2.GetValueOrDefault(guid2.Value)?.Address ?? string.Empty) : string.Empty, guid2.HasValue ? (dictionary2.GetValueOrDefault(guid2.Value)?.Phone ?? string.Empty) : string.Empty, string.Empty, string.Empty, batchMap[stockMovement2.BatchId].BatchNo, stockMovement2.QuantityChange));
+			string partyName, partyAddress, partyPhone;
+			if (purchaseReturn != null)
+			{
+				// A purchase return names the supplier as recorded on the debit note, not as the supplier record reads today.
+				SellerSnapshot? recordedSupplier = TaxDocumentSnapshot.Deserialize<SellerSnapshot>(purchaseReturn.SellerSnapshotJson);
+				partyName = purchaseReturn.SellerLegalName ?? recordedSupplier?.Name ?? string.Empty;
+				partyAddress = purchaseReturn.SellerAddress ?? recordedSupplier?.Address ?? string.Empty;
+				partyPhone = recordedSupplier?.Phone ?? string.Empty;
+			}
+			else
+			{
+				Supplier? supplierRecord = guid2.HasValue ? dictionary2.GetValueOrDefault(guid2.Value) : null;
+				partyName = supplierRecord?.Name ?? string.Empty;
+				partyAddress = supplierRecord?.Address ?? string.Empty;
+				partyPhone = supplierRecord?.Phone ?? string.Empty;
+			}
+			movements.Add(new DrugRecordsMovement(stockMovement2.DrugId, stockMovement2.BatchId, stockMovement2.MovementAtUtc, flag2 ? "Purchase" : "Purchase return", purchaseInvoice?.InvoiceNo ?? purchaseReturn?.ReturnNo ?? stockMovement2.Notes ?? string.Empty, partyName, partyAddress, partyPhone, string.Empty, string.Empty, batchMap[stockMovement2.BatchId].BatchNo, stockMovement2.QuantityChange));
 		}
 		IReadOnlyList<DrugRecordsRow> rows;
 		DrugRecordsSummary summary;

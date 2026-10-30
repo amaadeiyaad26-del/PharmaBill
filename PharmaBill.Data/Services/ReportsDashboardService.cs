@@ -833,23 +833,32 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 	/// <summary>Every purchase return posted in the period, one row per return, with the supplier and reason.</summary>
 	private async Task<ReportTable> PurchaseReturnBookAsync(DateOnly from, DateOnly to, CancellationToken token)
 	{
+		// Every value as recorded on the debit note when it was saved; nothing is read from the supplier or product master.
 		List<PurchaseReturn> returns = await context.PurchaseReturns.AsNoTracking()
 			.Where(item => item.ReturnDate >= from && item.ReturnDate <= to)
 			.OrderBy(item => item.ReturnDate)
 			.ThenBy(item => item.ReturnNo)
 			.ToListAsync(token);
-		Dictionary<Guid, string> suppliers = await context.Suppliers.AsNoTracking().ToDictionaryAsync(item => item.Id, item => item.Name, token);
+		Guid[] ids = returns.Select(item => item.Id).ToArray();
+		Dictionary<Guid, (decimal Taxable, decimal Gst)> tax = (await context.PurchaseReturnItems.AsNoTracking()
+				.Where(item => ids.Contains(item.PurchaseReturnId))
+				.Select(item => new { item.PurchaseReturnId, Taxable = item.TaxableAmount ?? item.LineTotal, Gst = (item.CgstAmount ?? 0m) + (item.SgstAmount ?? 0m) + (item.IgstAmount ?? 0m) })
+				.ToListAsync(token))
+			.GroupBy(item => item.PurchaseReturnId)
+			.ToDictionary(group => group.Key, group => (group.Sum(item => item.Taxable), group.Sum(item => item.Gst)));
 		List<IReadOnlyList<string>> rows = returns
 			.Select(item => (IReadOnlyList<string>)new[]
 			{
 				item.ReturnDate.ToString("yyyy-MM-dd"),
 				item.ReturnNo,
-				suppliers.GetValueOrDefault(item.SupplierId, string.Empty),
+				item.SellerLegalName ?? string.Empty,
 				item.Reason,
+				Format(tax.GetValueOrDefault(item.Id).Taxable),
+				Format(tax.GetValueOrDefault(item.Id).Gst),
 				Format(item.TotalAmount)
 			})
 			.ToList();
-		return new ReportTable("Purchase return book", new[] { "Date", "Return no", "Supplier", "Reason", "Amount" }, rows);
+		return new ReportTable("Purchase return book", new[] { "Date", "Return no", "Supplier", "Reason", "Taxable", "GST", "Amount" }, rows);
 	}
 
 	/// <summary>Cash and bank movements in the period: money received from customers and counter sales, and paid to suppliers, by mode.</summary>
@@ -947,28 +956,50 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 		return new ReportTable("Party balances as of " + asOf.ToString("dd-MMM-yyyy"), new[] { "Type", "Party", "Balance", "Side" }, rows);
 	}
 
+	/// <summary>A credit note's recorded document date; for one not yet backfilled, the day it was saved.</summary>
+	private static DateOnly DocumentDate(ReturnNote note) => note.ReturnDate ?? note.ReturnAtUtc.ToBusinessDate();
+
 	/// <summary>Credit notes issued against retail and wholesale sales in the period.</summary>
 	private async Task<ReportTable> SaleReturnBookAsync(DateOnly from, DateOnly to, CancellationToken token)
 	{
-		(DateTime StartUtc, DateTime EndUtc) bounds = GetUtcBounds(from, to);
-		List<ReturnNote> notes = await context.ReturnNotes.AsNoTracking()
-			.Where(item => (item.SourceType == "Sale" || item.SourceType == "WholesaleCreditNote")
-				&& item.ReturnAtUtc >= bounds.StartUtc && item.ReturnAtUtc < bounds.EndUtc)
-			.OrderBy(item => item.ReturnAtUtc)
-			.ToListAsync(token);
+		// Every value as recorded on the credit note when it was saved; nothing is read from the party or product master.
+		// The period is the note's own document date (a wholesale note may be dated before the day it was entered).
+		(DateTime StartUtc, DateTime EndUtc) bounds = GetUtcBounds(from.AddDays(-31), to.AddDays(31));
+		List<ReturnNote> notes = (await context.ReturnNotes.AsNoTracking()
+				.Where(item => (item.SourceType == "Sale" || item.SourceType == "WholesaleCreditNote")
+					&& item.ReturnAtUtc >= bounds.StartUtc && item.ReturnAtUtc < bounds.EndUtc)
+				.ToListAsync(token))
+			.Where(item => DocumentDate(item) >= from && DocumentDate(item) <= to)
+			.OrderBy(item => DocumentDate(item))
+			.ThenBy(item => item.ReturnNo)
+			.ToList();
+		Guid[] ids = notes.Select(item => item.Id).ToArray();
+		var lines = (await context.SaleReturnItems.AsNoTracking()
+				.Where(item => ids.Contains(item.ReturnNoteId))
+				.Select(item => new { item.ReturnNoteId, Taxable = item.TaxableAmount ?? 0m, Gst = (item.CgstAmount ?? 0m) + (item.SgstAmount ?? 0m) + (item.IgstAmount ?? 0m) })
+				.ToListAsync(token))
+			.Concat(await context.WholesaleReturnItems.AsNoTracking()
+				.Where(item => ids.Contains(item.ReturnNoteId))
+				.Select(item => new { item.ReturnNoteId, Taxable = item.TaxableAmount ?? 0m, Gst = (item.CgstAmount ?? 0m) + (item.SgstAmount ?? 0m) + (item.IgstAmount ?? 0m) })
+				.ToListAsync(token))
+			.GroupBy(item => item.ReturnNoteId)
+			.ToDictionary(group => group.Key, group => (Taxable: group.Sum(item => item.Taxable), Gst: group.Sum(item => item.Gst)));
 		List<IReadOnlyList<string>> rows = notes
 			.Select(item => (IReadOnlyList<string>)new[]
 			{
-				item.ReturnAtUtc.ToBusinessLocal().ToString("yyyy-MM-dd"),
+				DocumentDate(item).ToString("yyyy-MM-dd"),
 				item.ReturnNo,
 				item.SourceType == "Sale" ? "Retail" : "Wholesale",
+				item.BuyerLegalName ?? string.Empty,
 				item.Reason,
+				Format(lines.GetValueOrDefault(item.Id).Taxable),
+				Format(lines.GetValueOrDefault(item.Id).Gst),
 				Format(item.TotalAmount)
 			})
 			.ToList();
-		decimal total = notes.Sum(item => item.TotalAmount);
-		rows.Add(new[] { string.Empty, string.Empty, string.Empty, "Total credit notes", Format(total) });
-		return new ReportTable("Sale return book", new[] { "Date", "Credit note no", "Type", "Reason", "Amount" }, rows);
+		rows.Add(new[] { string.Empty, string.Empty, string.Empty, string.Empty, "Total credit notes",
+			Format(notes.Sum(item => lines.GetValueOrDefault(item.Id).Taxable)), Format(notes.Sum(item => lines.GetValueOrDefault(item.Id).Gst)), Format(notes.Sum(item => item.TotalAmount)) });
+		return new ReportTable("Sale return book", new[] { "Date", "Credit note no", "Type", "Party", "Reason", "Taxable", "GST", "Amount" }, rows);
 	}
 
 	private async Task<ReportTable> ProfitAsync(DateOnly from, DateOnly to, CancellationToken token)

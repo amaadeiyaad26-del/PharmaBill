@@ -60,8 +60,11 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 				ReturnAtUtc = BusinessClock.UtcNow,
 				TotalAmount = creditTotal,
 				Reason = reason.Trim(),
-				Notes = "Against invoice " + invoice.InvoiceNo + "; quarantined returns remain outside saleable stock."
+				Notes = "Against invoice " + invoice.InvoiceNo + "; quarantined returns remain outside saleable stock.",
+				ReturnDate = returnDate
 			};
+			// What the note says is recorded on it now, from the invoice it credits (see ReturnNoteRecording).
+			await ReturnNoteRecording.RecordWholesaleNoteAsync(context, note, invoice, cancellationToken);
 			context.ReturnNotes.Add(note);
 			WholesaleCreditLineInput[] array2 = grouped;
 			foreach (WholesaleCreditLineInput line2 in array2)
@@ -80,6 +83,8 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 					Restocked = line2.Restock,
 					Quarantined = !line2.Restock
 				};
+				Drug? drug = await context.Drugs.AsNoTracking().FirstOrDefaultAsync(item => item.Id == invoiceLine.DrugId, cancellationToken);
+				ReturnNoteRecording.RecordWholesaleLine(entity, invoiceLine, drug, batch);
 				context.WholesaleReturnItems.Add(entity);
 				if (line2.Restock)
 				{
@@ -159,8 +164,11 @@ public sealed class WholesaleReturnsService(IUnitOfWork unitOfWork, IEntitlement
 				SourceId = customer.Id,
 				ReturnAtUtc = BusinessClock.UtcNow,
 				TotalAmount = RoundMoney(amount),
-				Reason = reason.Trim()
+				Reason = reason.Trim(),
+				ReturnDate = date
 			};
+			// The customer and pharmacy as they are now, recorded on the note (see ReturnNoteRecording).
+			await ReturnNoteRecording.RecordDebitNoteAsync(context, note, customer, cancellationToken);
 			context.ReturnNotes.Add(note);
 			context.CustomerLedgerEntries.Add(new CustomerLedgerEntry
 			{

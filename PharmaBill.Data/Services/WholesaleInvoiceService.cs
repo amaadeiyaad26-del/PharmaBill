@@ -492,8 +492,10 @@ public sealed class WholesaleInvoiceService(IUnitOfWork unitOfWork, NumberSeries
 			ReturnAtUtc = BusinessClock.UtcNow,
 			TotalAmount = invoice.TotalAmount,
 			Reason = reason.Trim(),
-			Notes = "Cancellation correction; original invoice number retained: " + invoice.InvoiceNo
+			Notes = "Cancellation correction; original invoice number retained: " + invoice.InvoiceNo,
+			ReturnDate = BusinessClock.Today
 		};
+		await ReturnNoteRecording.RecordWholesaleNoteAsync(context, correction, invoice, cancellationToken);
 		context.ReturnNotes.Add(correction);
 		foreach (WholesaleInvoiceItem line in lines)
 		{

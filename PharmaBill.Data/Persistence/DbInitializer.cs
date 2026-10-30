@@ -17,6 +17,9 @@ public sealed class DbInitializer(
 	/// <summary>What the one-time HSN pass did on the last database initialised this process, for the startup log.</summary>
 	public static Services.CatalogHsnPassResult? LastCatalogHsnPass { get; private set; }
 
+	/// <summary>What the credit/debit note backfill filled on the last database initialised this process, for the startup log.</summary>
+	public static ReturnNoteBackfillResult? LastReturnNoteBackfill { get; private set; }
+
 	/// <summary>Where the last empty database file was moved this process, for the startup log. Null when none was.</summary>
 	public static string? LastQuarantinedEmptyDatabase { get; private set; }
 
@@ -83,6 +86,17 @@ public sealed class DbInitializer(
 		try
 		{
 			LastCatalogHsnPass = await new Services.CatalogHsnPass(context).RunOnceAsync(cancellationToken: cancellationToken);
+		}
+		catch (Exception)
+		{
+			// Retried on the next launch.
+		}
+
+		// Credit and debit notes saved before their values were recorded (or synced from an older version): copy them from
+		// the invoice each adjusts, or flag them as filled from master data. Rows already recorded are left alone.
+		try
+		{
+			LastReturnNoteBackfill = await ReturnNoteValuesBackfill.RunAsync(context, cancellationToken);
 		}
 		catch (Exception)
 		{

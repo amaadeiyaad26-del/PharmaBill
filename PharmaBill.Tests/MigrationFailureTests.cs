@@ -20,9 +20,9 @@ public sealed class MigrationFailureTests
 
         Assert.Equal(latest, error.MigrationId);
         Assert.Contains("Database upgrade failed at migration '" + latest + "'", error.Message);
-        // SQLite's own reason is passed on. The latest migration (BatchNoExpiryReason) adds a column; one that creates
-        // a table reports "already exists" instead.
-        Assert.Contains("duplicate column name: NoExpiryReason", error.Message, StringComparison.OrdinalIgnoreCase);
+        // SQLite's own reason is passed on. The latest migration (RecordCreditDebitNoteValues) adds columns, the first being
+        // WholesaleReturnItems.BatchExpiry; one that creates a table reports "already exists" instead.
+        Assert.Contains("duplicate column name: BatchExpiry", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(latest, await database.Context.Database.GetPendingMigrationsAsync());
     }
 

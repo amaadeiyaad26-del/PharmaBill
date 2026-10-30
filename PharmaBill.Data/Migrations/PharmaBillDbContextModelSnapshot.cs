@@ -1607,6 +1607,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BuyerSnapshotJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -1621,6 +1624,12 @@ namespace PharmaBill.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool?>("IsInterState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PharmacyStateCode")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1630,6 +1639,21 @@ namespace PharmaBill.Data.Migrations
 
                     b.Property<string>("ReturnNo")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SellerAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SellerGstin")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SellerLegalName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SellerSnapshotJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SellerStateCode")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("SupplierId")
@@ -1643,6 +1667,9 @@ namespace PharmaBill.Data.Migrations
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ValuesBackfilled")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -1659,14 +1686,26 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly?>("BatchExpiry")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("BatchId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("BatchNo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("CgstAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("DeviceId")
                         .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("DrugId")
                         .HasColumnType("TEXT");
@@ -1676,8 +1715,17 @@ namespace PharmaBill.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("HsnCode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("IgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("LineTotal")
                         .HasColumnType("decimal(18,2)");
@@ -1688,14 +1736,29 @@ namespace PharmaBill.Data.Migrations
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("SgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SyncState")
                         .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("TaxRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ValuesBackfilled")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -1906,6 +1969,21 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BuyerAddress")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuyerGstin")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuyerLegalName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuyerSnapshotJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BuyerStateCode")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("ClientRequestId")
                         .HasColumnType("TEXT");
 
@@ -1923,7 +2001,13 @@ namespace PharmaBill.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool?>("IsInterState")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyStateCode")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Reason")
@@ -1933,8 +2017,14 @@ namespace PharmaBill.Data.Migrations
                     b.Property<DateTime>("ReturnAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly?>("ReturnDate")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ReturnNo")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SellerSnapshotJson")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("SourceId")
@@ -1952,6 +2042,9 @@ namespace PharmaBill.Data.Migrations
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ValuesBackfilled")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -2141,8 +2234,17 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly?>("BatchExpiry")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("BatchId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("BatchNo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("CgstAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
@@ -2153,6 +2255,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("DeviceId")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid>("DrugId")
                         .HasColumnType("TEXT");
 
@@ -2161,8 +2266,17 @@ namespace PharmaBill.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("HsnCode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("IgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,2)");
@@ -2176,11 +2290,29 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("SaleItemId")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal?>("SgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SyncState")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal?>("TaxRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ValuesBackfilled")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -3258,8 +3390,17 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateOnly?>("BatchExpiry")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("BatchId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("BatchNo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("CgstAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
@@ -3270,6 +3411,9 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("DeviceId")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid>("DrugId")
                         .HasColumnType("TEXT");
 
@@ -3278,8 +3422,17 @@ namespace PharmaBill.Data.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("HsnCode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("IgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemName")
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("Quantity")
                         .HasColumnType("decimal(18,2)");
@@ -3293,11 +3446,29 @@ namespace PharmaBill.Data.Migrations
                     b.Property<Guid>("ReturnNoteId")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal?>("SgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int>("SyncState")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal?>("TaxRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TaxableAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("UnitPrice")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ValuesBackfilled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<Guid>("WholesaleInvoiceItemId")
                         .HasColumnType("TEXT");

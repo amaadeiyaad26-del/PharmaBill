@@ -24,14 +24,17 @@ public sealed class PurchaseReturnDocumentService(IServiceScopeFactory scopeFact
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		PurchaseReturn purchaseReturn = await context.PurchaseReturns.AsNoTracking().SingleOrDefaultAsync(item => item.Id == purchaseReturnId, cancellationToken)
 			?? throw new InvalidOperationException("Purchase return was not found.");
-		Supplier supplier = await context.Suppliers.AsNoTracking().SingleAsync(item => item.Id == purchaseReturn.SupplierId, cancellationToken);
-		PharmacyProfile profile = await context.PharmacyProfiles.AsNoTracking().SingleAsync(cancellationToken);
-		var lines = await (from line in context.PurchaseReturnItems.AsNoTracking()
-			join drug in context.Drugs.AsNoTracking() on line.DrugId equals drug.Id
-			join batch in context.Batches.AsNoTracking() on line.BatchId equals batch.Id
-			where line.PurchaseReturnId == purchaseReturn.Id
-			select new { drug.Name, batch.BatchNo, batch.ExpiryDate, line.Quantity, line.UnitPrice, line.LineTotal })
-			.ToListAsync(cancellationToken);
+		// Every value as recorded on the debit note when it was saved: the supplier, the pharmacy and each line. Nothing is
+		// read from the supplier, pharmacy or product master, so the note prints as it was issued.
+		SellerSnapshot supplier = TaxDocumentSnapshot.Deserialize<SellerSnapshot>(purchaseReturn.SellerSnapshotJson)
+			?? throw new InvalidOperationException("This purchase return has no recorded details yet. Restart Pharma Remit once to fill them, then try again.");
+		BuyerSnapshot profile = TaxDocumentSnapshot.Deserialize<BuyerSnapshot>(purchaseReturn.BuyerSnapshotJson) ?? new BuyerSnapshot();
+		var lines = (await context.PurchaseReturnItems.AsNoTracking()
+				.Where(line => line.PurchaseReturnId == purchaseReturn.Id)
+				.OrderBy(line => line.CreatedAtUtc)
+				.ToListAsync(cancellationToken))
+			.Select(line => new { Name = line.ItemName ?? string.Empty, BatchNo = line.BatchNo ?? string.Empty, ExpiryDate = line.BatchExpiry, line.Quantity, line.UnitPrice, line.LineTotal, line.HsnCode, line.TaxRate, Gst = (line.CgstAmount ?? 0m) + (line.SgstAmount ?? 0m) + (line.IgstAmount ?? 0m) })
+			.ToList();
 
 		string folder = Path.Combine(AppDataPaths.RootDirectory, "purchase-returns");
 		Directory.CreateDirectory(folder);
@@ -117,7 +120,9 @@ public sealed class PurchaseReturnDocumentService(IServiceScopeFactory scopeFact
 			});
 		}).GeneratePdf(path);
 
-		return new PurchaseReturnNote(path, purchaseReturn.ReturnNo, supplier.Name, supplier.Phone, supplier.Email, purchaseReturn.TotalAmount);
+		// Where to send it is today's contact address, not a value printed on the note.
+		string? email = await context.Suppliers.AsNoTracking().Where(item => item.Id == purchaseReturn.SupplierId).Select(item => item.Email).FirstOrDefaultAsync(cancellationToken);
+		return new PurchaseReturnNote(path, purchaseReturn.ReturnNo, supplier.Name, supplier.Phone, email, purchaseReturn.TotalAmount);
 	}
 
 	/// <summary>Opens the PDF with its default print action.</summary>
