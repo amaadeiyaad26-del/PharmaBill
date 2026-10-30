@@ -2036,6 +2036,9 @@
           </TabControl>
         </DockPanel>
       </DataTemplate>
+      <DataTemplate x:Key="{DataTemplateKey {x:Type vm:ExpiryReturnsPageViewModel}}" DataType="{x:Type vm:ExpiryReturnsPageViewModel}">
+        <views:ExpiryReturnsView />
+      </DataTemplate>
       <DataTemplate x:Key="{DataTemplateKey {x:Type vm:WholesaleReturnsPageViewModel}}" DataType="{x:Type vm:WholesaleReturnsPageViewModel}">
         <DockPanel Margin="18">
           <StackPanel DockPanel.Dock="Top">
@@ -3024,6 +3027,20 @@
                   <TextBox Padding="6" Text="{Binding Path=DrugLicenceNumber, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
               </Grid>
+              <!-- Expiry returns: this supplier's window and stated policy (blank days follow the pharmacy's default). -->
+              <TextBlock Margin="3,12,3,2" FontWeight="SemiBold" Text="Expiry return policy" />
+              <WrapPanel Margin="3,0">
+                <TextBlock VerticalAlignment="Center" Text="Accepts returns from " />
+                <TextBox Width="56" Padding="4" Text="{Binding ExpiryDaysBefore, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Supplier days before expiry" />
+                <TextBlock VerticalAlignment="Center" Text=" days before expiry to " />
+                <TextBox Width="56" Padding="4" Text="{Binding ExpiryDaysAfter, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Supplier days after expiry" />
+                <TextBlock VerticalAlignment="Center" Text=" days after." />
+              </WrapPanel>
+              <TextBlock Margin="3,2" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding ExpiryPolicyHint}" />
+              <StackPanel Margin="3">
+                <TextBlock Text="Their stated policy (printed on every expiry claim)" />
+                <TextBox Padding="6" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="44" Text="{Binding ExpiryPolicyNote, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Supplier expiry policy note" />
+              </StackPanel>
               <CheckBox Margin="6,8" Content="Active (clear to hide from new purchases)" IsChecked="{Binding IsActive}" />
               <TextBlock Foreground="#FFB42318" TextWrapping="Wrap" Margin="3,4" Text="{Binding ErrorMessage}" />
               <TextBlock Foreground="#FF065F46" TextWrapping="Wrap" Margin="3,4" Text="{Binding StatusMessage}" />

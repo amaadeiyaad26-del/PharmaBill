@@ -14,6 +14,9 @@ public static class LedgerEntryTypes
 
 	public const string SupplierPayment = "SupplierPayment";
 
+	/// <summary>A distributor's credit note against an expiry return claim, adjusted against purchases (a Debit).</summary>
+	public const string ExpiryClaimCredit = "ExpiryClaimCredit";
+
 	public const string WholesaleInvoice = "WholesaleInvoice";
 
 	public const string WholesaleInvoiceCancellation = "WholesaleInvoiceCancellation";

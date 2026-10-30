@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -98,9 +98,9 @@ public sealed class PersistenceTests
         await database.CreateDbInitializer().InitializeAsync();
 
         Assert.EndsWith(
-            "_RecordCreditDebitNoteValues",
+            "_ExpiryReturnClaims",
             (await database.Context.Database.GetAppliedMigrationsAsync()).Last());
-        Assert.Equal(53, database.Context.Model.GetEntityTypes().Count());
+        Assert.Equal(57, database.Context.Model.GetEntityTypes().Count());
 
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using (var command = database.Connection.CreateCommand())

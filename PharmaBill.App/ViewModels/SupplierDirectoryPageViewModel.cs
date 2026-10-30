@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +31,14 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 	private string _drugLicenceNumber = string.Empty;
 
 	private bool _isActive = true;
+
+	private string _expiryDaysBefore = string.Empty;
+
+	private string _expiryDaysAfter = string.Empty;
+
+	private string _expiryPolicyNote = string.Empty;
+
+	private string _expiryPolicyHint = string.Empty;
 
 	private string _errorMessage = string.Empty;
 
@@ -136,6 +144,33 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 		}
 	}
 
+	/// <summary>Days before expiry this supplier accepts returns; blank follows the pharmacy's default.</summary>
+	public string ExpiryDaysBefore
+	{
+		get => _expiryDaysBefore;
+		set => SetProperty(ref _expiryDaysBefore, value);
+	}
+
+	/// <summary>Days after expiry this supplier still accepts returns; blank follows the pharmacy's default.</summary>
+	public string ExpiryDaysAfter
+	{
+		get => _expiryDaysAfter;
+		set => SetProperty(ref _expiryDaysAfter, value);
+	}
+
+	public string ExpiryPolicyNote
+	{
+		get => _expiryPolicyNote;
+		set => SetProperty(ref _expiryPolicyNote, value);
+	}
+
+	/// <summary>What blank days mean here: the default window, with its days.</summary>
+	public string ExpiryPolicyHint
+	{
+		get => _expiryPolicyHint;
+		private set => SetProperty(ref _expiryPolicyHint, value);
+	}
+
 	public bool IsActive
 	{
 		get
@@ -177,6 +212,8 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 		using IServiceScope scope = _scopeFactory.CreateScope();
 		PharmaBillDbContext context = scope.ServiceProvider.GetRequiredService<PharmaBillDbContext>();
 		List<Supplier> list = await context.Suppliers.AsNoTracking().OrderBy((Supplier item) => item.Name).ToListAsync(cancellationToken);
+		PharmacyProfile? profile = await context.PharmacyProfiles.AsNoTracking().OrderBy(item => item.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
+		ExpiryPolicyHint = $"Leave both blank to follow the default for all suppliers ({profile?.ExpiryReturnDaysBefore ?? 90} days before to {profile?.ExpiryReturnDaysAfter ?? 30} days after expiry), set on the Expiry returns screen.";
 		Guid? keepId = _editingId;
 		Suppliers.Clear();
 		foreach (Supplier item in list)
@@ -200,6 +237,9 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 		Address = string.Empty;
 		Gstin = string.Empty;
 		DrugLicenceNumber = string.Empty;
+		ExpiryDaysBefore = string.Empty;
+		ExpiryDaysAfter = string.Empty;
+		ExpiryPolicyNote = string.Empty;
 		IsActive = true;
 		ErrorMessage = string.Empty;
 		StatusMessage = string.Empty;
@@ -214,6 +254,9 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 		Address = supplier.Address ?? string.Empty;
 		Gstin = supplier.Gstin ?? string.Empty;
 		DrugLicenceNumber = supplier.DrugLicenceNumber ?? string.Empty;
+		ExpiryDaysBefore = supplier.ExpiryReturnDaysBefore?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+		ExpiryDaysAfter = supplier.ExpiryReturnDaysAfter?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+		ExpiryPolicyNote = supplier.ExpiryReturnPolicyNote ?? string.Empty;
 		IsActive = supplier.IsActive;
 		ErrorMessage = string.Empty;
 		StatusMessage = string.Empty;
@@ -226,6 +269,26 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 		{
 			ErrorMessage = "Enter the supplier name.";
 			return;
+		}
+
+		int? daysBefore = null;
+		int? daysAfter = null;
+		bool beforeBlank = string.IsNullOrWhiteSpace(ExpiryDaysBefore), afterBlank = string.IsNullOrWhiteSpace(ExpiryDaysAfter);
+		if (beforeBlank != afterBlank)
+		{
+			ErrorMessage = "Expiry return policy: enter both the days before and the days after expiry, or leave both blank to follow the default.";
+			return;
+		}
+		if (!beforeBlank)
+		{
+			if (!int.TryParse(ExpiryDaysBefore.Trim(), out int before) || !int.TryParse(ExpiryDaysAfter.Trim(), out int after)
+				|| before is < 0 or > PharmaBill.Core.Inventory.ExpiryReturnWindow.MaxDays || after is < 0 or > PharmaBill.Core.Inventory.ExpiryReturnWindow.MaxDays)
+			{
+				ErrorMessage = "Expiry return policy: the days are whole numbers from 0 upwards.";
+				return;
+			}
+			daysBefore = before;
+			daysAfter = after;
 		}
 
 		try
@@ -258,6 +321,20 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 			entity.Gstin = Clean(Gstin);
 			entity.DrugLicenceNumber = Clean(DrugLicenceNumber);
 			entity.IsActive = IsActive;
+			string? note = Clean(ExpiryPolicyNote);
+			if (entity.ExpiryReturnDaysBefore != daysBefore || entity.ExpiryReturnDaysAfter != daysAfter || entity.ExpiryReturnPolicyNote != note)
+			{
+				context.AuditLogs.Add(new AuditLog
+				{
+					Action = "SupplierExpiryPolicyChanged",
+					EntityName = "Supplier",
+					EntityId = entity.Id,
+					Details = $"{name}: {Window(entity.ExpiryReturnDaysBefore, entity.ExpiryReturnDaysAfter)} -> {Window(daysBefore, daysAfter)}" + (note == entity.ExpiryReturnPolicyNote ? "" : "; policy note changed")
+				});
+			}
+			entity.ExpiryReturnDaysBefore = daysBefore;
+			entity.ExpiryReturnDaysAfter = daysAfter;
+			entity.ExpiryReturnPolicyNote = note;
 			await context.SaveChangesAsync();
 			_editingId = entity.Id;
 			ErrorMessage = string.Empty;
@@ -269,6 +346,8 @@ public sealed partial class SupplierDirectoryPageViewModel : ObservableObject, I
 			ErrorMessage = "The supplier could not be saved: " + PharmaBill.Core.UserMessage.Of(ex);
 		}
 	}
+
+	private static string Window(int? before, int? after) => before.HasValue ? $"{before}/{after} days before/after expiry" : "the default window";
 
 	private static string? Clean(string value)
 	{

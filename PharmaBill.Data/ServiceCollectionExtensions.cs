@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using PharmaBill.Core.Ai;
@@ -98,6 +98,7 @@ public static class ServiceCollectionExtensions
 		services.AddScoped<StockIntelligenceService>();
 		services.AddScoped<SalesAnalysisService>();
 		services.AddScoped<BreakageExpiryReturnService>();
+		services.AddScoped<ExpiryReturnService>();
 		services.AddScoped<ReportsDashboardService>();
 		services.AddSingleton<AiAssistantOptions>();
 		services.AddScoped<IAiPharmacyAssistantService, LocalPharmacyAssistantService>();

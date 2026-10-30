@@ -1,0 +1,292 @@
+<UserControl x:Class="PharmaBill.App.Views.ExpiryReturnsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:PharmaBill.App.Controls">
+  <!-- Expiry Returns: claim expiring stock back from distributors, and follow every claim until it is credited. -->
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    <controls:BindingProxy x:Key="Page" Data="{Binding}" />
+    <Style x:Key="ErCard" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="14,12" />
+      <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+    <Style x:Key="ErCaption" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+    <Style x:Key="ErBox" TargetType="TextBox">
+      <Setter Property="Padding" Value="6,4" />
+      <Setter Property="Margin" Value="0,0,10,0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="ErGrid" TargetType="DataGrid">
+      <Setter Property="AutoGenerateColumns" Value="False" />
+      <Setter Property="CanUserAddRows" Value="False" />
+      <Setter Property="CanUserDeleteRows" Value="False" />
+      <Setter Property="HeadersVisibility" Value="Column" />
+      <Setter Property="GridLinesVisibility" Value="Horizontal" />
+      <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+      <Setter Property="SelectionMode" Value="Single" />
+    </Style>
+
+    <!-- The selected claim: its lines, what was credited, and what can be done with it now. Shared by Open and Closed. -->
+    <DataTemplate x:Key="ClaimDetail">
+      <Border Style="{StaticResource ErCard}" Visibility="{Binding HasClaim, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Content="Print claim" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Command="{Binding PrintCommand}" AutomationProperties.Name="Print claim" />
+                <Button Content="Save PDF" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Command="{Binding SavePdfCommand}" AutomationProperties.Name="Save claim PDF" />
+                <Button Content="Export Excel" Style="{StaticResource SecondaryButton}" Command="{Binding ExportExcelCommand}" AutomationProperties.Name="Export claim to Excel" />
+              </StackPanel>
+              <StackPanel>
+                <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding ClaimHeading}" AutomationProperties.Name="Claim heading" />
+                <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding ClaimSubheading}" />
+                <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding ClaimSentText}" />
+                <TextBlock Margin="0,6,0,0" FontWeight="SemiBold" Text="{Binding ClaimTotals}" AutomationProperties.Name="Claim totals" />
+                <TextBlock Margin="0,2,0,0" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Text="{Binding ClaimBalance}" AutomationProperties.Name="Claim balance" />
+              </StackPanel>
+            </DockPanel>
+
+            <DataGrid Style="{StaticResource ErGrid}" Margin="0,10,0,0" MaxHeight="260" ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}" AutomationProperties.Name="Claim lines">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Product" IsReadOnly="True" Width="*" MinWidth="210" Binding="{Binding Item}" />
+                <DataGridTextColumn Header="Pack" IsReadOnly="True" Width="64" Binding="{Binding Pack}" />
+                <DataGridTextColumn Header="Batch" IsReadOnly="True" Width="84" Binding="{Binding Batch}" />
+                <DataGridTextColumn Header="Expiry" IsReadOnly="True" Width="64" Binding="{Binding Expiry}" />
+                <DataGridTextColumn Header="Qty" IsReadOnly="True" Width="46" Binding="{Binding Quantity}" />
+                <DataGridTextColumn Header="Rate" IsReadOnly="True" Width="62" Binding="{Binding Rate}" />
+                <DataGridTextColumn Header="GST" IsReadOnly="True" Width="50" Binding="{Binding Gst}" />
+                <DataGridTextColumn Header="Value" IsReadOnly="True" Width="80" Binding="{Binding Value}" />
+                <DataGridTextColumn Header="Credited" IsReadOnly="True" Width="80" Binding="{Binding Credited}" />
+                <DataGridTextColumn Header="Rejected" IsReadOnly="True" Width="92" Binding="{Binding Rejected}" />
+                <DataGridTextColumn Header="Shortfall" IsReadOnly="True" Width="110" Binding="{Binding Shortfall}" />
+                <DataGridTextColumn Header="Owed" IsReadOnly="True" Width="74" Binding="{Binding Open}" />
+                <DataGridTextColumn Header="Status" IsReadOnly="True" Width="250" Binding="{Binding State}">
+                  <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="TextWrapping" Value="Wrap" />
+                    </Style>
+                  </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Credit now" Width="84" Binding="{Binding CreditNow, UpdateSourceTrigger=PropertyChanged}"
+                                    Visibility="{Binding Data.IsAwaitingCredit, Source={StaticResource Page}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                <DataGridTextColumn Header="Shortfall reason" Width="140" Binding="{Binding ShortfallReason, UpdateSourceTrigger=PropertyChanged}"
+                                    Visibility="{Binding Data.IsAwaitingCredit, Source={StaticResource Page}, Converter={StaticResource BooleanToVisibilityConverter}}" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+
+          <StackPanel>
+            <!-- A draft: send the goods, or void it (its stock goes back on sale). -->
+            <StackPanel Margin="0,10,0,0" Visibility="{Binding IsDraft, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock FontWeight="SemiBold" Text="Send the goods" />
+              <WrapPanel Margin="0,6,0,0">
+                <TextBlock Style="{StaticResource ErCaption}" Text="Date sent" />
+                <DatePicker Width="130" Margin="0,0,10,0" SelectedDate="{Binding SendDate}" AutomationProperties.Name="Date sent" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="How" />
+                <ComboBox Width="170" Margin="0,0,10,0" IsEditable="True" ItemsSource="{Binding SendMethods}" Text="{Binding SendVia, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Sent via" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="To whom" />
+                <TextBox Width="180" Style="{StaticResource ErBox}" Text="{Binding SendTo, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Sent to" />
+                <Button Content="Mark sent" Style="{StaticResource PrimaryButton}" Command="{Binding MarkSentCommand}" AutomationProperties.Name="Mark sent" />
+              </WrapPanel>
+              <WrapPanel Margin="0,10,0,0">
+                <TextBlock Style="{StaticResource ErCaption}" Text="Void this draft because" />
+                <TextBox Width="260" Style="{StaticResource ErBox}" Text="{Binding VoidReason, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Void reason" />
+                <Button Content="Void draft" Style="{StaticResource SecondaryButton}" Command="{Binding VoidCommand}" AutomationProperties.Name="Void draft" />
+              </WrapPanel>
+            </StackPanel>
+
+            <!-- Sent and awaiting credit: record credit notes and rejections. -->
+            <StackPanel Margin="0,10,0,0" Visibility="{Binding IsAwaitingCredit, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock FontWeight="SemiBold" Text="Credit note received" />
+              <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                         Text="Enter the credit note as printed, then on each line how much it covers (Credit now). Give a shortfall reason to close the rest of a line; leave it blank if the rest is still owed." />
+              <WrapPanel Margin="0,6,0,0">
+                <TextBlock Style="{StaticResource ErCaption}" Text="Credit note no" />
+                <TextBox Width="120" Style="{StaticResource ErBox}" Text="{Binding CreditNoteNo, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Credit note number" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="Date" />
+                <DatePicker Width="130" Margin="0,0,10,0" SelectedDate="{Binding CreditNoteDate}" AutomationProperties.Name="Credit note date" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="Total ₹" />
+                <TextBox Width="90" Style="{StaticResource ErBox}" Text="{Binding CreditAmount, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Credit note total" />
+                <Button Content="Spread over lines" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0" Command="{Binding SpreadCreditCommand}" AutomationProperties.Name="Spread credit over lines" />
+              </WrapPanel>
+              <WrapPanel Margin="0,6,0,0">
+                <TextBlock Style="{StaticResource ErCaption}" Text="GST on the credit note: taxable ₹" />
+                <TextBox Width="90" Style="{StaticResource ErBox}" Text="{Binding CreditTaxable, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Credit note taxable value" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="CGST" />
+                <TextBox Width="70" Style="{StaticResource ErBox}" Text="{Binding CreditCgst, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Credit note CGST" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="SGST" />
+                <TextBox Width="70" Style="{StaticResource ErBox}" Text="{Binding CreditSgst, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Credit note SGST" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="IGST" />
+                <TextBox Width="70" Style="{StaticResource ErBox}" Text="{Binding CreditIgst, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Credit note IGST" />
+                <CheckBox VerticalAlignment="Center" Margin="0,0,10,0" IsChecked="{Binding CreditIsCash}" Content="Paid in cash (not adjusted against purchases)" AutomationProperties.Name="Paid in cash" />
+                <Button Content="Record credit note" Style="{StaticResource PrimaryButton}" Command="{Binding RecordCreditCommand}" AutomationProperties.Name="Record credit note" />
+              </WrapPanel>
+
+              <TextBlock Margin="0,12,0,0" FontWeight="SemiBold" Text="Rejected by the distributor (select the line above)" />
+              <WrapPanel Margin="0,6,0,0">
+                <TextBlock Style="{StaticResource ErCaption}" Text="Quantity" />
+                <TextBox Width="70" Style="{StaticResource ErBox}" Text="{Binding RejectQuantity, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Rejected quantity" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="Reason" />
+                <TextBox Width="240" Style="{StaticResource ErBox}" Text="{Binding RejectReason, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Rejection reason" />
+                <Button Content="Write the goods off" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Command="{Binding RejectWriteOffCommand}" AutomationProperties.Name="Rejected: write off" />
+                <Button Content="Take them back as held stock" Style="{StaticResource SecondaryButton}" Command="{Binding RejectHoldCommand}" AutomationProperties.Name="Rejected: take back as held stock" />
+              </WrapPanel>
+              <WrapPanel Margin="0,10,0,0">
+                <TextBlock Style="{StaticResource ErCaption}" Text="Nothing more will come: write off the balance because" />
+                <TextBox Width="240" Style="{StaticResource ErBox}" Text="{Binding WriteOffReason, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Balance write-off reason" />
+                <Button Content="Write off balance" Style="{StaticResource SecondaryButton}" Command="{Binding WriteOffBalanceCommand}" AutomationProperties.Name="Write off balance" />
+              </WrapPanel>
+            </StackPanel>
+
+            <!-- Rejected goods taken back: still held, until written off or put back on sale. -->
+            <WrapPanel Margin="0,10,0,0" Visibility="{Binding SelectedLineHasHeldRejected, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Style="{StaticResource ErCaption}" Text="Rejected goods held in the shop:" />
+              <Button Content="Write off held goods" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Command="{Binding WriteOffHeldCommand}" AutomationProperties.Name="Write off held goods" />
+              <Button Content="Put back on sale" Style="{StaticResource SecondaryButton}" Command="{Binding ReleaseHeldCommand}" AutomationProperties.Name="Put back on sale" />
+            </WrapPanel>
+
+            <TextBlock Margin="0,12,0,4" FontWeight="SemiBold" Text="Credit notes received" />
+            <DataGrid Style="{StaticResource ErGrid}" IsReadOnly="True" MaxHeight="150" ItemsSource="{Binding Credits}" AutomationProperties.Name="Credit notes received">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Credit note" Width="110" Binding="{Binding Number}" />
+                <DataGridTextColumn Header="Date" Width="96" Binding="{Binding Date}" />
+                <DataGridTextColumn Header="Amount" Width="90" Binding="{Binding Amount}" />
+                <DataGridTextColumn Header="Settled" Width="170" Binding="{Binding Settlement}" />
+                <DataGridTextColumn Header="GST on the distributor's credit note" Width="*" MinWidth="260" Binding="{Binding Gst}" />
+                <DataGridTextColumn Header="Recorded by" Width="120" Binding="{Binding RecordedBy}" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <DockPanel Margin="18">
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="Refresh" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" />
+        <TextBlock Text="Expiry returns to distributors" FontSize="23" FontWeight="SemiBold" />
+      </DockPanel>
+      <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"
+                 Text="Gather what can still be claimed, send it back with a claim statement, and follow each claim until the distributor's credit note arrives." />
+      <Border Margin="0,8,0,0" Padding="10,6" CornerRadius="8" Background="#FFFFFAEB" BorderBrush="#FFFEC84B" BorderThickness="1">
+        <TextBlock TextWrapping="Wrap" Foreground="#FF93370D" Text="{Binding ItcNote}" AutomationProperties.Name="Input tax credit note" />
+      </Border>
+      <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="{DynamicResource AccentBrush}" Text="{Binding StatusMessage}" AutomationProperties.Name="Expiry returns status" />
+      <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" Foreground="#FFB42318" Text="{Binding ErrorMessage}" AutomationProperties.Name="Expiry returns error" />
+    </StackPanel>
+
+    <TabControl SelectedIndex="{Binding SelectedTab}">
+      <TabItem Header="Claimable now" AutomationProperties.Name="Claimable now">
+        <DockPanel Margin="0,10,0,0">
+          <Border DockPanel.Dock="Top" Style="{StaticResource ErCard}">
+            <StackPanel>
+              <WrapPanel>
+                <TextBlock Style="{StaticResource ErCaption}" Text="Default return window for suppliers without their own:" />
+                <TextBox Width="56" Style="{StaticResource ErBox}" Margin="0,0,4,0" Text="{Binding DefaultDaysBefore, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Default days before expiry" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="days before expiry to" />
+                <TextBox Width="56" Style="{StaticResource ErBox}" Margin="0,0,4,0" Text="{Binding DefaultDaysAfter, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Default days after expiry" />
+                <TextBlock Style="{StaticResource ErCaption}" Text="days after." />
+                <Button Content="Save default" Style="{StaticResource SecondaryButton}" Command="{Binding SaveDefaultWindowCommand}" />
+              </WrapPanel>
+              <TextBlock Margin="0,6,0,0" Foreground="{DynamicResource SecondaryTextBrush}" Text="Each supplier's own window and stated policy are set in Accounts &amp; Parties › Suppliers." />
+              <TextBlock Margin="0,4,0,0" FontWeight="SemiBold" Text="{Binding HeldSummary}" AutomationProperties.Name="Held for return summary" />
+            </StackPanel>
+          </Border>
+          <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <ItemsControl ItemsSource="{Binding ClaimableGroups}" AutomationProperties.Name="Claimable groups">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Style="{StaticResource ErCard}">
+                      <StackPanel>
+                        <TextBlock FontSize="15" FontWeight="SemiBold" Text="{Binding Heading}" />
+                        <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding PolicyText}" />
+                        <WrapPanel Margin="0,6,0,0" Visibility="{Binding IsUntraceable, Converter={StaticResource BooleanToVisibilityConverter}}">
+                          <TextBlock Style="{StaticResource ErCaption}" Text="These go back to" />
+                          <ComboBox Width="260" DisplayMemberPath="Name" ItemsSource="{Binding Data.Suppliers, Source={StaticResource Page}}" SelectedItem="{Binding ChosenSupplier}" AutomationProperties.Name="Supplier for untraced batches" />
+                        </WrapPanel>
+                        <DataGrid Style="{StaticResource ErGrid}" Margin="0,8,0,0" ItemsSource="{Binding Items}" AutomationProperties.Name="Claimable batches">
+                          <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="Claim" Width="54" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" />
+                            <DataGridTextColumn Header="Product" IsReadOnly="True" Width="*" MinWidth="170" Binding="{Binding Row.ItemName}" />
+                            <DataGridTextColumn Header="Pack" IsReadOnly="True" Width="70" Binding="{Binding Row.Pack}" />
+                            <DataGridTextColumn Header="Batch" IsReadOnly="True" Width="96" Binding="{Binding Row.BatchNo}" />
+                            <DataGridTextColumn Header="Expiry" IsReadOnly="True" Width="92" Binding="{Binding ExpiryText}" />
+                            <DataGridTextColumn Header="When" IsReadOnly="True" Width="110" Binding="{Binding DaysText}" />
+                            <DataGridTextColumn Header="Bought on" IsReadOnly="True" Width="96" Binding="{Binding Row.PurchaseInvoiceNo}" />
+                            <DataGridTextColumn Header="In stock" IsReadOnly="True" Width="64" Binding="{Binding AvailableText}" />
+                            <DataGridTextColumn Header="Claim qty" Width="72" Binding="{Binding ClaimQuantity, UpdateSourceTrigger=PropertyChanged}" />
+                            <DataGridTextColumn Header="Rate paid" IsReadOnly="True" Width="78" Binding="{Binding RateText}" />
+                            <DataGridTextColumn Header="GST" IsReadOnly="True" Width="50" Binding="{Binding GstText}" />
+                            <DataGridTextColumn Header="Value at rate" IsReadOnly="True" Width="96" Binding="{Binding ValueText}" />
+                          </DataGrid.Columns>
+                        </DataGrid>
+                        <DockPanel Margin="0,8,0,0">
+                          <Button DockPanel.Dock="Right" Content="{Binding BuildLabel}" Style="{StaticResource PrimaryButton}" Command="{Binding BuildCommand}" CommandParameter="{Binding}" AutomationProperties.Name="Build draft claim" />
+                          <StackPanel VerticalAlignment="Center">
+                            <TextBlock FontWeight="SemiBold" Text="{Binding SelectedText}" />
+                            <TextBlock Foreground="{DynamicResource SecondaryTextBrush}" Text="{Binding TotalText}" />
+                          </StackPanel>
+                        </DockPanel>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="{Binding OpenTabTitle}" AutomationProperties.Name="Open claims">
+        <DockPanel Margin="0,10,0,0">
+          <TextBlock DockPanel.Dock="Top" Margin="0,0,0,6" Foreground="{DynamicResource SecondaryTextBrush}" Text="Sent and awaiting credit, oldest first: those are the ones that get forgotten. Drafts follow." />
+          <DataGrid DockPanel.Dock="Top" Style="{StaticResource ErGrid}" IsReadOnly="True" MaxHeight="220" ItemsSource="{Binding OpenClaims}" SelectedItem="{Binding SelectedOpenClaim}" AutomationProperties.Name="Open claims list">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Claim" Width="170" Binding="{Binding ClaimNo}" />
+              <DataGridTextColumn Header="Supplier" Width="*" MinWidth="160" Binding="{Binding Supplier}" />
+              <DataGridTextColumn Header="Claim date" Width="96" Binding="{Binding ClaimDate}" />
+              <DataGridTextColumn Header="Status" Width="100" Binding="{Binding Status}" />
+              <DataGridTextColumn Header="Sent" Width="96" Binding="{Binding SentDate}" />
+              <DataGridTextColumn Header="Age" Width="72" Binding="{Binding Age}" />
+              <DataGridTextColumn Header="Claimed" Width="96" Binding="{Binding Claimed}" />
+              <DataGridTextColumn Header="Credited" Width="96" Binding="{Binding Credited}" />
+              <DataGridTextColumn Header="Balance owed" Width="104" Binding="{Binding Balance}" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <ScrollViewer Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ClaimDetail}" Focusable="False" />
+          </ScrollViewer>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem Header="Closed" AutomationProperties.Name="Closed claims">
+        <DockPanel Margin="0,10,0,0">
+          <DataGrid DockPanel.Dock="Top" Style="{StaticResource ErGrid}" IsReadOnly="True" MaxHeight="220" ItemsSource="{Binding ClosedClaims}" SelectedItem="{Binding SelectedClosedClaim}" AutomationProperties.Name="Closed claims list">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Claim" Width="170" Binding="{Binding ClaimNo}" />
+              <DataGridTextColumn Header="Supplier" Width="*" MinWidth="160" Binding="{Binding Supplier}" />
+              <DataGridTextColumn Header="Claim date" Width="96" Binding="{Binding ClaimDate}" />
+              <DataGridTextColumn Header="Status" Width="100" Binding="{Binding Status}" />
+              <DataGridTextColumn Header="Claimed" Width="96" Binding="{Binding Claimed}" />
+              <DataGridTextColumn Header="Credited" Width="96" Binding="{Binding Credited}" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <ScrollViewer Margin="0,10,0,0" VerticalScrollBarVisibility="Auto">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ClaimDetail}" Focusable="False" />
+          </ScrollViewer>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

@@ -1,4 +1,4 @@
-using System.Windows.Media;
+﻿using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PharmaBill.Data.Services;
@@ -138,7 +138,9 @@ public partial class ReportsPageViewModel
 			Group("Purchases & suppliers", "#FF2F5DA8",
 				(ReportKind.PurchaserSupplierWise, "", "Suppliers"),
 				(ReportKind.Purchases, "", "Invoices"),
-				(ReportKind.PurchaseReturnBook, "", "Returns")),
+				(ReportKind.PurchaseReturnBook, "", "Returns"),
+				(ReportKind.ExpiryClaimsAgeing, "", "Expiry ageing"),
+				(ReportKind.ExpiryClaimRecovery, "", "Recovery")),
 			Group("Stock & product", "#FF6B4FA0",
 				(ReportKind.BatchWise, "", "Batch"),
 				(ReportKind.BrandProductWise, "", "Brand"),

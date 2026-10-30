@@ -1075,6 +1075,435 @@ namespace PharmaBill.Data.Migrations
                     b.ToTable("DrugPackLevels");
                 });
 
+            modelBuilder.Entity("PharmaBill.Core.Entities.ExpiryClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("CgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("ClaimDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClaimNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HlcStamp")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("IgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsInterState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyAddress")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyDrugLicence")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyGstin")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyPhone")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PharmacyStateCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PolicyDaysAfterExpiry")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PolicyDaysBeforeExpiry")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PolicyNote")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("SentAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SentByName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SentByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("SentDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SentTo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SentVia")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("SgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SupplierAddress")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SupplierDrugLicence")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SupplierGstin")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SupplierPhone")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SupplierStateCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SyncState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("TaxableValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VoidReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("VoidedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VoidedByName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("VoidedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimNo")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierId", "Status");
+
+                    b.ToTable("ExpiryClaims");
+                });
+
+            modelBuilder.Entity("PharmaBill.Core.Entities.ExpiryClaimCredit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("CgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("CreditNoteDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreditNoteNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ExpiryClaimId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HlcStamp")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("IgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecordedByName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("RecordedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Settlement")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("SgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SupplierLedgerEntryId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SyncState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("TaxableValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiryClaimId");
+
+                    b.ToTable("ExpiryClaimCredits");
+                });
+
+            modelBuilder.Entity("PharmaBill.Core.Entities.ExpiryClaimCreditLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ExpiryClaimCreditId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ExpiryClaimLineId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HlcStamp")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ShortfallReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("ShortfallValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("SyncState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiryClaimCreditId");
+
+                    b.HasIndex("ExpiryClaimLineId");
+
+                    b.ToTable("ExpiryClaimCreditLines");
+                });
+
+            modelBuilder.Entity("PharmaBill.Core.Entities.ExpiryClaimLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("BatchExpiry")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BatchNo")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("CgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("CreditedValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DrugId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ExpiryClaimId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("GstRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("HlcStamp")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HsnCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("IgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("LineValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("LocationId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Pack")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PurchaseItemId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("PurchaseRate")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("RejectedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RejectedByName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("RejectedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("RejectedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("RejectedValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("ReleasedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("SgstAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ShortfallReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("ShortfallValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SyncState")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("TaxableValue")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("WrittenOffAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WrittenOffByName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("WrittenOffByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("WrittenOffQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiryClaimId");
+
+                    b.HasIndex("BatchId", "State");
+
+                    b.ToTable("ExpiryClaimLines");
+                });
+
             modelBuilder.Entity("PharmaBill.Core.Entities.ExpiryWriteOff", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1327,6 +1756,12 @@ namespace PharmaBill.Data.Migrations
 
                     b.Property<string>("Email")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("ExpiryReturnDaysAfter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ExpiryReturnDaysBefore")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Gstin")
                         .HasColumnType("TEXT");
@@ -2879,6 +3314,15 @@ namespace PharmaBill.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ExpiryReturnDaysAfter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ExpiryReturnDaysBefore")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ExpiryReturnPolicyNote")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Gstin")

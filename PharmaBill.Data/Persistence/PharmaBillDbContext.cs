@@ -102,6 +102,14 @@ public sealed class PharmaBillDbContext : DbContext
 
 	public DbSet<ReturnNote> ReturnNotes => Set<ReturnNote>();
 
+	public DbSet<ExpiryClaim> ExpiryClaims => Set<ExpiryClaim>();
+
+	public DbSet<ExpiryClaimLine> ExpiryClaimLines => Set<ExpiryClaimLine>();
+
+	public DbSet<ExpiryClaimCredit> ExpiryClaimCredits => Set<ExpiryClaimCredit>();
+
+	public DbSet<ExpiryClaimCreditLine> ExpiryClaimCreditLines => Set<ExpiryClaimCreditLine>();
+
 	public DbSet<SaleReturnItem> SaleReturnItems => Set<SaleReturnItem>();
 
 	public DbSet<WholesaleReturnItem> WholesaleReturnItems => Set<WholesaleReturnItem>();
@@ -191,6 +199,16 @@ public sealed class PharmaBillDbContext : DbContext
 		modelBuilder.Entity<PurchaseReturn>().HasIndex((PurchaseReturn item) => item.ReturnDate);
 		modelBuilder.Entity<StockVerificationSession>().HasIndex((StockVerificationSession item) => item.SessionNo).IsUnique();
 		modelBuilder.Entity<ExpiryWriteOff>().HasIndex((ExpiryWriteOff item) => item.ExpiryDate);
+		modelBuilder.Entity<ExpiryClaim>().HasIndex(item => item.ClaimNo).IsUnique();
+		modelBuilder.Entity<ExpiryClaim>().HasIndex(item => new { item.SupplierId, item.Status });
+		modelBuilder.Entity<ExpiryClaim>().Property(item => item.Status).HasConversion<int>();
+		modelBuilder.Entity<ExpiryClaimLine>().HasIndex(item => item.ExpiryClaimId);
+		modelBuilder.Entity<ExpiryClaimLine>().HasIndex(item => new { item.BatchId, item.State });
+		modelBuilder.Entity<ExpiryClaimLine>().Property(item => item.State).HasConversion<int>();
+		modelBuilder.Entity<ExpiryClaimCredit>().HasIndex(item => item.ExpiryClaimId);
+		modelBuilder.Entity<ExpiryClaimCredit>().Property(item => item.Settlement).HasConversion<int>();
+		modelBuilder.Entity<ExpiryClaimCreditLine>().HasIndex(item => item.ExpiryClaimCreditId);
+		modelBuilder.Entity<ExpiryClaimCreditLine>().HasIndex(item => item.ExpiryClaimLineId);
 		modelBuilder.Entity<WholesaleInvoice>().HasIndex((WholesaleInvoice item) => item.InvoiceNo).IsUnique();
 		modelBuilder.Entity<WholesaleInvoice>().HasIndex((WholesaleInvoice item) => item.InvoiceAtUtc).IsDescending()
 			.HasDatabaseName("idx_wholesale_invoices_date");

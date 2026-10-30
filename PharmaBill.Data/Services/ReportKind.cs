@@ -1,4 +1,4 @@
-namespace PharmaBill.Data.Services;
+﻿namespace PharmaBill.Data.Services;
 
 public enum ReportKind
 {
@@ -24,5 +24,7 @@ public enum ReportKind
 	PurchaseReturnBook = 205,
 	DayBook = 206,
 	PartyBalances = 207,
-	SaleReturnBook = 208
+	SaleReturnBook = 208,
+	ExpiryClaimsAgeing = 209,
+	ExpiryClaimRecovery = 210
 }

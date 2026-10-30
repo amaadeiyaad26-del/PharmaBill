@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
@@ -9,6 +9,7 @@ using PharmaBill.App.Services;
 using PharmaBill.App.ViewModels;
 using PharmaBill.Core.Entities;
 using PharmaBill.Core.Security;
+using PharmaBill.Data.Persistence;
 using PharmaBill.Data.Services;
 using QuestPDF.Infrastructure;
 using Xunit;
@@ -97,6 +98,14 @@ public sealed class ReportsPanelTests(ITestOutputHelper output) : IDisposable
 
         Guid batchId = await database.Context.Batches.Where(batch => batch.BatchNo == "CET-EXP").Select(batch => batch.Id).SingleAsync();
         await database.CreatePurchaseService(allowed).SavePurchaseReturnAsync(supplier.Id, "PR-1", today, [new PurchaseReturnLineInput(batchId, 5m)], "Damaged strips", catalog.Admin.Id, UserRole.Owner);
+
+        // An expiry claim sent and part credited: both expiry claim reports have a row.
+        var claimsUow = new UnitOfWork(database.Context);
+        var claims = new ExpiryReturnService(claimsUow, new NumberSeriesService(claimsUow), allowed);
+        ExpiryClaim claim = await claims.CreateDraftAsync(supplier.Id, [new ExpiryClaimLineRequest(batchId, 10m)], null, catalog.Admin.Id, UserRole.Owner);
+        await claims.MarkSentAsync(claim.Id, today, "By hand", null, catalog.Admin.Id, UserRole.Owner);
+        Guid claimLine = await database.Context.ExpiryClaimLines.Where(line => line.ExpiryClaimId == claim.Id).Select(line => line.Id).SingleAsync();
+        await claims.RecordCreditNoteAsync(claim.Id, new ExpiryCreditInput("CN-EXP-1", today, 100m, 89.29m, 5.36m, 5.35m, 0m, ExpiryCreditSettlement.AdjustedAgainstPurchases, [new ExpiryCreditLineInput(claimLine, 100m, null)]), catalog.Admin.Id, UserRole.Owner);
 
         database.Context.Receipts.Add(new Receipt { ReceiptNo = "PAY-1", SupplierId = supplier.Id, Amount = 500m, PaymentMethod = "Bank", ReceiptAtUtc = PharmaBill.Core.BusinessClock.UtcNow });
         Drug metformin = await database.Context.Drugs.SingleAsync(drug => drug.Id == catalog.Metformin500.Id);

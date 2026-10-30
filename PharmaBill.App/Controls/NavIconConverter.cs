@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
 
 namespace PharmaBill.App.Controls;
@@ -24,6 +24,7 @@ public sealed class NavIconConverter : IValueConverter
 		["BankReconciliation"] = "\ue8c8",
 		["CollectionsDunning"] = "\ue8bd",
 		["Returns"] = "\ue7a7",
+		["ExpiryReturns"] = "\ue81c",
 		["StockInHand"] = "\ue8f1",
 		["Registers"] = "\ue8a5",
 		["DrugRecords"] = "\ueb51",

@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
@@ -27,6 +27,10 @@ public sealed class OperationalDataResetService(IUnitOfWork unitOfWork)
 		"SupplierLedgerEntries",
 		"QuotationItems",
 		"Quotations",
+		"ExpiryClaimCreditLines",
+		"ExpiryClaimCredits",
+		"ExpiryClaimLines",
+		"ExpiryClaims",
 		"PurchaseReturnItems",
 		"PurchaseReturns",
 		"PurchaseItems",

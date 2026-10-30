@@ -1,4 +1,4 @@
-using System.CodeDom.Compiler;
+﻿using System.CodeDom.Compiler;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
@@ -106,6 +106,8 @@ public partial class ReportsPageViewModel : ObservableObject, ILoadablePage
 		new ReportChoice(ReportKind.LowStock, "Low stock"),
 		new ReportChoice(ReportKind.PurchaseReturnBook, "Purchase return book"),
 		new ReportChoice(ReportKind.SaleReturnBook, "Sale return book (credit notes)"),
+		new ReportChoice(ReportKind.ExpiryClaimsAgeing, "Pending expiry claims ageing"),
+		new ReportChoice(ReportKind.ExpiryClaimRecovery, "Expiry claim recovery by distributor"),
 		new ReportChoice(ReportKind.DayBook, "Day book (cash & bank receipts / payments)"),
 		new ReportChoice(ReportKind.PartyBalances, "Party balances (debtors & creditors)")
 	};

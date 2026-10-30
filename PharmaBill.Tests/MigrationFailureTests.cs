@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PharmaBill.Data.Persistence;
 using Xunit;
 
@@ -20,9 +20,9 @@ public sealed class MigrationFailureTests
 
         Assert.Equal(latest, error.MigrationId);
         Assert.Contains("Database upgrade failed at migration '" + latest + "'", error.Message);
-        // SQLite's own reason is passed on. The latest migration (RecordCreditDebitNoteValues) adds columns, the first being
-        // WholesaleReturnItems.BatchExpiry; one that creates a table reports "already exists" instead.
-        Assert.Contains("duplicate column name: BatchExpiry", error.Message, StringComparison.OrdinalIgnoreCase);
+        // SQLite's own reason is passed on. The latest migration (ExpiryReturnClaims) adds columns, the first being
+        // Suppliers.ExpiryReturnDaysAfter; one that creates a table reports "already exists" instead.
+        Assert.Contains("duplicate column name: ExpiryReturnDaysAfter", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(latest, await database.Context.Database.GetPendingMigrationsAsync());
     }
 

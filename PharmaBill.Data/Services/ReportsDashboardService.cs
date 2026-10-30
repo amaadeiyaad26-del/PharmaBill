@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using System.Globalization;
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -261,6 +261,12 @@ public sealed class ReportsDashboardService(PharmaBillDbContext context, BranchS
 			break;
 		case ReportKind.PartyBalances:
 			result = await PartyBalancesAsync(to, cancellationToken);
+			break;
+		case ReportKind.ExpiryClaimsAgeing:
+			result = await ExpiryClaimQueries.PendingAgeingAsync(context, cancellationToken);
+			break;
+		case ReportKind.ExpiryClaimRecovery:
+			result = await ExpiryClaimQueries.RecoveryAsync(context, from, to, cancellationToken);
 			break;
 		case ReportKind.SaleReturnBook:
 			result = await SaleReturnBookAsync(from, to, cancellationToken);

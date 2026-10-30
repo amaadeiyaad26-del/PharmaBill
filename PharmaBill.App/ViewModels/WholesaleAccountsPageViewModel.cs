@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using System.CodeDom.Compiler;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -984,7 +984,7 @@ public partial class WholesaleAccountsPageViewModel : ObservableObject, ILoadabl
 			.Select(invoice => (invoice.SupplierId, invoice.InvoiceDate, invoice.TotalAmount))
 			.ToList();
 		Dictionary<Guid, decimal> paymentsBySupplier = await context.SupplierLedgerEntries.AsNoTracking()
-			.Where(entry => entry.EntryType == LedgerEntryTypes.SupplierPayment || entry.EntryType == LedgerEntryTypes.PurchaseReturn)
+			.Where(entry => entry.EntryType == LedgerEntryTypes.SupplierPayment || entry.EntryType == LedgerEntryTypes.PurchaseReturn || entry.EntryType == LedgerEntryTypes.ExpiryClaimCredit)
 			.GroupBy(entry => entry.SupplierId)
 			.Select(group => new { SupplierId = group.Key, Paid = group.Sum(entry => entry.Debit) })
 			.ToDictionaryAsync(item => item.SupplierId, item => item.Paid, cancellationToken);

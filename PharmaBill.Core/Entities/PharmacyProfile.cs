@@ -42,6 +42,12 @@ public sealed class PharmacyProfile : EntityBase
 
 	public string InvoicePrefix { get; set; } = "WIN1";
 
+	/// <summary>Expiry returns: days before expiry a supplier accepts returns, for every supplier without its own window.</summary>
+	public int ExpiryReturnDaysBefore { get; set; } = 90;
+
+	/// <summary>Expiry returns: days after expiry a supplier still accepts returns, for every supplier without its own window.</summary>
+	public int ExpiryReturnDaysAfter { get; set; } = 30;
+
 	public string WholesaleLicenceTypesJson { get; set; } = "[]";
 
 	public string WholesaleBuyerLicenceRulesJson { get; set; } = PharmaBill.Core.Wholesale.BuyerLicenceRules.DefaultsJson;

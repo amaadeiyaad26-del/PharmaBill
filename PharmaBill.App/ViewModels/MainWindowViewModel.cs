@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using System.CodeDom.Compiler;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -2073,6 +2073,10 @@ public partial class MainWindowViewModel : ObservableObject
 
 	private const string ComplianceSectionKey = ComplianceRegistersPageViewModel.SectionKey;
 
+	private const string ExpiryReturnsKey = "ExpiryReturns";
+
+	private ExpiryReturnsPageViewModel? _expiryReturnsPage;
+
 	private const string StockHubKey = "StockHub";
 
 	private const string PartiesHubKey = "Parties";
@@ -2741,6 +2745,8 @@ public partial class MainWindowViewModel : ObservableObject
 		// Stock, stock in hand and stock transfer are tabs of Stock Management.
 		NavigationItems.Add(new NavigationItem(StockHubKey, _languageService.GetString("NavStockHub")));
 		NavigationItems.Add(new NavigationItem("Purchases", wholesaleDesk ? "Inward / Distributor Bills" : _languageService.GetString("NavPurchases")));
+		// Expiring stock claimed back from distributors, followed until credited. Every business mode buys from them.
+		NavigationItems.Add(new NavigationItem(ExpiryReturnsKey, "Expiry returns"));
 		NavigationItems.Add(new NavigationItem("Quotations", wholesaleDesk ? "Quotations (wholesale)" : "Quotations"));
 		// Ledgers and the patient, buyer and supplier lists are tabs of Accounts & Parties.
 		NavigationItems.Add(new NavigationItem(PartiesHubKey, _languageService.GetString("NavParties")));
@@ -2807,6 +2813,7 @@ public partial class MainWindowViewModel : ObservableObject
 		return sectionKey switch
 		{
 			"Billing" => _languageService.GetString("NavRetailBilling"),
+			ExpiryReturnsKey => "Expiry returns",
 			"WholesaleBilling" => _languageService.GetString("NavWholesaleInvoice"),
 			_ => _languageService.GetString("Nav" + sectionKey),
 		};
@@ -2883,6 +2890,7 @@ public partial class MainWindowViewModel : ObservableObject
 			"BankReconciliation" => _wholesaleReconciliationPage,
 			"CollectionsDunning" => _dunningDashboardPage, 
 			"Returns" => _wholesaleReturnsPage,
+			ExpiryReturnsKey => _expiryReturnsPage ??= new ExpiryReturnsPageViewModel(_scopeFactory, _currentSession, _filePickerService, _tabularExportService, _confirmationService),
 			"Quotations" => _quotationsPage,
 			"Tools" => _toolsPage,
 			"Billing" => _retailBillingPage, 

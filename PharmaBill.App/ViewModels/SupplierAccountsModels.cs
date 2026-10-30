@@ -63,6 +63,7 @@ public sealed class SupplierLedgerDisplayRow
 		{
 			LedgerEntryTypes.SupplierPayment => "Payment Voucher",
 			LedgerEntryTypes.PurchaseReturn => "Purchase Return",
+			LedgerEntryTypes.ExpiryClaimCredit => "Expiry claim credit note",
 			_ => string.IsNullOrWhiteSpace(entryType) ? "Entry" : entryType
 		};
 	}

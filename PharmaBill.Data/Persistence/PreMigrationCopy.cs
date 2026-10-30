@@ -21,7 +21,8 @@ public static class PreMigrationCopy
 		["20261022135624_SupplierPaymentAllocations"] = "1.0.10",
 		["20261015180314_ProductNilRated"] = "1.0.6",
 		["20261021095025_PharmacyLogo"] = "1.0.9",
-		["20261029155419_RecordCreditDebitNoteValues"] = "1.0.11",
+		// Local Market 1.0.11 and 1.0.12 both shipped with this schema.
+		["20261029155419_RecordCreditDebitNoteValues"] = "1.0.11-1.0.12",
 	};
 
 	/// <summary>The version label in the copy's name: the release that wrote this schema, or "schema-&lt;date&gt;".</summary>

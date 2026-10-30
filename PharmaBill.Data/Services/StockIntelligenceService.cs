@@ -1,4 +1,4 @@
-using PharmaBill.Core;
+﻿using PharmaBill.Core;
 using Microsoft.EntityFrameworkCore;
 using PharmaBill.Core.Entities;
 using PharmaBill.Data.Persistence;
@@ -21,7 +21,9 @@ public sealed record StockValuationSummary(
 	decimal FifoPurchaseValue,
 	decimal MrpValue,
 	int BatchCount,
-	int DrugCount);
+	int DrugCount,
+	decimal HeldForReturnValue = 0m,
+	decimal HeldForReturnQuantity = 0m);
 
 public sealed record StockValuationRow(
 	Guid DrugId,
@@ -31,7 +33,8 @@ public sealed record StockValuationRow(
 	decimal PurchaseRate,
 	decimal Mrp,
 	decimal FifoValue,
-	decimal MrpHoldingValue);
+	decimal MrpHoldingValue,
+	bool IsHeldForReturn = false);
 
 public sealed record ReorderAlertRow(
 	Guid DrugId,
@@ -137,7 +140,9 @@ public sealed class StockIntelligenceService(PharmaBillDbContext context)
 			Round(rows.Sum(r => r.FifoValue)),
 			Round(rows.Sum(r => r.MrpHoldingValue)),
 			rows.Count,
-			rows.Select(r => r.DrugId).Distinct().Count());
+			rows.Select(r => r.DrugId).Distinct().Count(),
+			Round(rows.Where(r => r.IsHeldForReturn).Sum(r => r.FifoValue)),
+			rows.Where(r => r.IsHeldForReturn).Sum(r => r.Quantity));
 	}
 
 	public async Task<IReadOnlyList<StockValuationRow>> GetValuationRowsAsync(CancellationToken cancellationToken = default)
@@ -146,6 +151,18 @@ public sealed class StockIntelligenceService(PharmaBillDbContext context)
 			.Where(b => b.Quantity > 0m)
 			.ToListAsync(cancellationToken);
 		Dictionary<Guid, Drug> drugs = await context.Drugs.AsNoTracking().ToDictionaryAsync(d => d.Id, cancellationToken);
+		// Held for an expiry return (on a draft claim, or rejected goods back in the shop): still the shop's stock, valued at
+		// the rate the claim records, and marked so. Sent goods are not stock: they are owed by the distributor.
+		IReadOnlyList<HeldStockRow> held = await ExpiryClaimQueries.HeldStockAsync(context, cancellationToken);
+		IEnumerable<StockValuationRow> heldRows = held
+			.Where(h => drugs.ContainsKey(h.DrugId))
+			.Select(h =>
+			{
+				Batch? batch = batches.FirstOrDefault(item => item.Id == h.BatchId);
+				decimal mrp = batch?.Mrp ?? drugs[h.DrugId].Mrp ?? 0m;
+				return new StockValuationRow(h.DrugId, drugs[h.DrugId].Name, h.BatchNo, h.Quantity, h.Quantity == 0m ? 0m : Round(h.Value / h.Quantity), mrp,
+					h.Value, Round(h.Quantity * mrp), IsHeldForReturn: true);
+			});
 		return batches
 			.Where(b => drugs.ContainsKey(b.DrugId))
 			.Select(b =>
@@ -162,8 +179,10 @@ public sealed class StockIntelligenceService(PharmaBillDbContext context)
 					Round(b.Quantity * b.PurchasePrice),
 					Round(b.Quantity * mrp));
 			})
+			.Concat(heldRows)
 			.OrderBy(r => r.DrugName)
 			.ThenBy(r => r.BatchNo)
+			.ThenBy(r => r.IsHeldForReturn)
 			.ToList();
 	}
 
