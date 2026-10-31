@@ -135,6 +135,72 @@ begin
     Log('Earlier per-user uninstaller finished with code ' + IntToStr(ResultCode) + '.');
 end;
 
+// Pharma Remit from the Microsoft Store (package S.A.E.R.PharmaBill) keeps its own records. Installing this version as
+// well gives the shop two separate sets of bills and stock, so Setup stops and says so before installing anything.
+// It is found the way Windows records it for the Windows user running Setup: a package of that name in the user's
+// package repository. Nothing is uninstalled.
+const
+  StorePackageRepository = 'Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages';
+  StorePackagePrefix = 'S.A.E.R.PharmaBill_';
+
+function StorePackageInstalled(var PackageName: String): Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+begin
+  Result := False;
+  if RegGetSubkeyNames(HKCU, StorePackageRepository, Names) then
+    for I := 0 to GetArrayLength(Names) - 1 do
+      if Pos(StorePackagePrefix, Names[I]) = 1 then
+      begin
+        PackageName := Names[I];
+        Result := True;
+        Exit;
+      end;
+end;
+
+function InitializeSetup(): Boolean;
+var
+  PackageName: String;
+begin
+  Result := True;
+  if not StorePackageInstalled(PackageName) then
+    Exit;
+  Log('Pharma Remit from the Microsoft Store is installed for this user: ' + PackageName);
+  if WizardSilent() then
+  begin
+    // A silent install never proceeds beside the Store version unless explicitly asked to.
+    if CompareText(ExpandConstant('{param:INSTALLBESIDESTORE|no}'), 'yes') = 0 then
+    begin
+      Log('Continuing beside the Microsoft Store version: /INSTALLBESIDESTORE=yes was given.');
+      Exit;
+    end;
+    Log('Stopped: the Microsoft Store version is installed. Nothing was installed or changed.');
+    Result := False;
+    Exit;
+  end;
+  if MsgBox('Pharma Remit from the Microsoft Store is already installed on this computer.' + #13#10#13#10
+    + 'It keeps its own records. Installing this version as well would give you two separate sets of bills and stock '
+    + 'that disagree, with the same invoice numbers in each.' + #13#10#13#10
+    + 'Keep using the Microsoft Store version, or uninstall it first (Settings > Apps) if you want to use this version instead. '
+    + 'Nothing has been installed or changed.' + #13#10#13#10
+    + 'Cancel this installation?', mbError, MB_YESNO) = IDYES then
+  begin
+    Log('Stopped at the user''s choice: the Microsoft Store version is installed.');
+    Result := False;
+    Exit;
+  end;
+  if MsgBox('Install this version beside the Microsoft Store version anyway?' + #13#10#13#10
+    + 'Only choose Yes if you know what you are doing (for example, a separate pharmacy on this computer). '
+    + 'The two versions will NOT share records.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    Log('Continuing beside the Microsoft Store version at the user''s explicit confirmation.')
+  else
+  begin
+    Log('Stopped at the user''s choice: the Microsoft Store version is installed.');
+    Result := False;
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then

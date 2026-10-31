@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 
@@ -32,7 +32,25 @@ public enum DataLocationOutcome
 	AttachedExisting,
 
 	/// <summary>Data from the Store package's own folder was copied there, verified, and is now used.</summary>
-	MigratedFromPackage
+	MigratedFromPackage,
+
+	/// <summary>Another installation's records were copied there with the pharmacist's consent and the originals locked.</summary>
+	TakenOver
+}
+
+/// <summary>The website version's records were taken over by the Microsoft Store version, into <paramref name="Folder"/>.</summary>
+public sealed record TakeoverRecord(string Folder, DateTime AtUtc);
+
+/// <summary>
+/// Records from another installation of Pharma Remit are in the folder: they are never copied without the pharmacist's
+/// decision (take them over, or start a new pharmacy elsewhere, or close and uninstall one version).
+/// </summary>
+public sealed class OtherInstallationRecordsException(string folder, IReadOnlyList<string> databases)
+	: InvalidOperationException("Records from another installation of Pharma Remit were found in " + folder + ". They were not copied.")
+{
+	public string Folder { get; } = folder;
+
+	public IReadOnlyList<string> Databases { get; } = databases;
 }
 
 public sealed record DataLocationResult(string DataRoot, DataLocationOutcome Outcome, int FilesCopied);
@@ -209,12 +227,19 @@ public static class StoreDataLocation
 	}
 
 	/// <summary>
-	/// Records <paramref name="chosenFolder"/> as the data folder. If the package's own folder
-	/// (<paramref name="localRoot"/>) already holds data, it is copied there first and verified (every file byte-for-byte,
-	/// every database opened with its key) before the switch; the original is left in place. A folder that already holds
-	/// Pharma Remit data is attached as it is (a reinstall).
+	/// Records <paramref name="chosenFolder"/> as the data folder. If this installation's own earlier data is in
+	/// <paramref name="localRoot"/>, it is copied there first and verified (every file byte-for-byte, every database opened
+	/// with its key) before the switch; the original is left in place. A folder that already holds Pharma Remit data is
+	/// attached as it is (a reinstall).
+	/// <para>
+	/// Records this installation did not create (another installation of Pharma Remit, such as the website version, sharing
+	/// %LocalAppData%\PharmaBill) are never copied here: <see cref="OtherInstallationRecordsException"/> is thrown, and the
+	/// pharmacist decides with <see cref="TakeOver"/> or <see cref="StartNew"/>. <paramref name="ownPrivateRoot"/> is where
+	/// Windows physically keeps the files this Store package created under %LocalAppData%; null when unknown (not running
+	/// as a package), in which case every database found there is treated as another installation's.
+	/// </para>
 	/// </summary>
-	public static DataLocationResult Choose(string localRoot, string chosenFolder)
+	public static DataLocationResult Choose(string localRoot, string chosenFolder, string? ownPrivateRoot = null)
 	{
 		string target = Path.GetFullPath(chosenFolder);
 		string package = Path.GetFullPath(localRoot);
@@ -229,9 +254,15 @@ public static class StoreDataLocation
 			throw new InvalidOperationException("That folder belongs to an installed app and would be deleted with it. Choose a folder such as " + DefaultFolder() + ".");
 		}
 
-		Directory.CreateDirectory(target);
+		IReadOnlyList<string> others = OtherInstallationDatabases(package, ownPrivateRoot);
 		bool targetHasData = ContainsDatabase(target) || File.Exists(Path.Combine(target, MarkerFileName));
-		bool packageHasData = ContainsDatabase(package);
+		if (others.Count > 0 && !targetHasData)
+		{
+			throw new OtherInstallationRecordsException(package, others);
+		}
+
+		Directory.CreateDirectory(target);
+		bool packageHasData = ContainsDatabase(package) && others.Count == 0;
 		if (targetHasData && packageHasData)
 		{
 			throw new InvalidOperationException("That folder already holds Pharma Remit data, and this installation has its own. Choose an empty folder so neither is overwritten.");
@@ -267,6 +298,174 @@ public static class StoreDataLocation
 			"Pharma Remit now keeps this pharmacy's data in:" + Environment.NewLine + target + Environment.NewLine
 			+ "The files here are the copy taken before the move, left untouched." + Environment.NewLine);
 		return new DataLocationResult(target, DataLocationOutcome.MigratedFromPackage, copied);
+	}
+
+	/// <summary>
+	/// The pharmacy databases in <paramref name="localRoot"/> that this installation did not create: every non-empty
+	/// pharmabill.db there whose file is not physically in <paramref name="ownPrivateRoot"/> (all of them when that is null).
+	/// </summary>
+	public static IReadOnlyList<string> OtherInstallationDatabases(string localRoot, string? ownPrivateRoot)
+	{
+		return Databases(localRoot)
+			.Where(path =>
+			{
+				if (ownPrivateRoot == null)
+				{
+					return true;
+				}
+				string own = Path.Combine(ownPrivateRoot, Path.GetRelativePath(localRoot, path));
+				return !(File.Exists(own) && new FileInfo(own).Length > 0);
+			})
+			.ToList();
+	}
+
+	private static IEnumerable<string> Databases(string root)
+	{
+		if (!Directory.Exists(root))
+		{
+			return [];
+		}
+		return new[] { Path.Combine(root, "data", AppDataPaths.DatabaseFileName) }
+			.Concat(Directory.EnumerateDirectories(root).Select(store => Path.Combine(store, AppDataPaths.DatabaseFileName)))
+			.Where(path => File.Exists(path) && new FileInfo(path).Length > 0)
+			.Select(Path.GetFullPath)
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.ToList();
+	}
+
+	/// <summary>
+	/// Option (a) when another installation's records were found: this installation takes them over. The Store version
+	/// cannot use %LocalAppData%\PharmaBill in place (Windows keeps the new files a Store app creates there in the app's
+	/// private storage, deleted on uninstall, and hidden from the website version), so the records are copied to
+	/// <paramref name="chosenFolder"/> and verified, then the originals are locked: every database there is marked as taken
+	/// over, and the website version refuses to open it from then on. Exactly one copy is ever in use. The originals are
+	/// not changed or deleted. This installation gets its own device identity (device.id and sync pairing keys are not
+	/// copied), so it never shares one with the other installation.
+	/// </summary>
+	public static DataLocationResult TakeOver(string localRoot, string chosenFolder, string? ownPrivateRoot = null)
+	{
+		string target = Path.GetFullPath(chosenFolder);
+		string package = Path.GetFullPath(localRoot);
+		RequireSafeTarget(target, package);
+		IReadOnlyList<string> others = OtherInstallationDatabases(package, ownPrivateRoot);
+		if (others.Count == 0)
+		{
+			throw new InvalidOperationException("No records from another installation were found to take over.");
+		}
+		Directory.CreateDirectory(target);
+		if (Directory.EnumerateFileSystemEntries(target).Any())
+		{
+			throw new InvalidOperationException("Choose an empty folder for the records, so nothing already there is overwritten.");
+		}
+
+		int copied = CopyAndVerify(package, target, keepIdentity: false);
+		DateTime now = DateTime.UtcNow;
+		WriteMarker(target, hasDatabase: true, takenOverFrom: package, takenOverAtUtc: now);
+		foreach (string database in others)
+		{
+			// The website version reads this file before opening the database. It exists beside every database the website
+			// version has opened, and changing an existing file is what Windows lets a Store app do there in place.
+			File.WriteAllText(database + ".created", JsonSerializer.Serialize(new TakeoverNote(TakeoverNote.Kind, target, now), Json));
+		}
+		WritePointer(package, target);
+		return new DataLocationResult(target, DataLocationOutcome.TakenOver, copied);
+	}
+
+	/// <summary>
+	/// Option (b): a new, empty pharmacy in <paramref name="chosenFolder"/>. Nothing found in <paramref name="localRoot"/>
+	/// is copied, read or changed.
+	/// </summary>
+	public static DataLocationResult StartNew(string localRoot, string chosenFolder)
+	{
+		string target = Path.GetFullPath(chosenFolder);
+		string package = Path.GetFullPath(localRoot);
+		RequireSafeTarget(target, package);
+		Directory.CreateDirectory(target);
+		if (ContainsDatabase(target) || File.Exists(Path.Combine(target, MarkerFileName)) || Directory.EnumerateFileSystemEntries(target).Any())
+		{
+			throw new InvalidOperationException("Choose an empty folder for the new pharmacy.");
+		}
+		WriteMarker(target, hasDatabase: false);
+		WritePointer(package, target);
+		return new DataLocationResult(target, DataLocationOutcome.NewEmpty, 0);
+	}
+
+	private static void RequireSafeTarget(string target, string package)
+	{
+		if (IsSameOrInside(target, package) || IsSameOrInside(package, target))
+		{
+			throw new InvalidOperationException("Choose a folder outside " + package + ", such as " + DefaultFolder() + ".");
+		}
+		string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+		if (!string.IsNullOrEmpty(appData) && IsSameOrInside(target, Path.Combine(appData, "Packages")))
+		{
+			throw new InvalidOperationException("That folder belongs to an installed app and would be deleted with it. Choose a folder such as " + DefaultFolder() + ".");
+		}
+	}
+
+	/// <summary>
+	/// Whether the records in <paramref name="websiteRoot"/> (the website version's %LocalAppData%\PharmaBill) were taken
+	/// over by the Microsoft Store version: from the note beside any of its databases, or from a Store data folder (found
+	/// through <paramref name="storePointerFiles"/>) that records taking them over. Null when they were not.
+	/// </summary>
+	public static TakeoverRecord? FindTakeover(string websiteRoot, IEnumerable<string> storePointerFiles)
+	{
+		string root = Path.GetFullPath(websiteRoot);
+		foreach (string database in Databases(root).Concat(DatabasePathsWithNotes(root)).Distinct(StringComparer.OrdinalIgnoreCase))
+		{
+			try
+			{
+				string notePath = database + ".created";
+				if (File.Exists(notePath) && File.ReadAllText(notePath).TrimStart().StartsWith('{')
+					&& JsonSerializer.Deserialize<TakeoverNote>(File.ReadAllText(notePath)) is { Type: TakeoverNote.Kind } note)
+				{
+					return new TakeoverRecord(note.Folder, note.AtUtc);
+				}
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+			{
+			}
+		}
+		foreach (string pointer in storePointerFiles)
+		{
+			try
+			{
+				if (!File.Exists(pointer) || JsonSerializer.Deserialize<Pointer>(File.ReadAllText(pointer))?.DataRoot is not string dataRoot)
+				{
+					continue;
+				}
+				string markerPath = Path.Combine(dataRoot, MarkerFileName);
+				if (File.Exists(markerPath) && JsonSerializer.Deserialize<Marker>(File.ReadAllText(markerPath)) is { TakenOverFrom: string from } marker
+					&& string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(from)), Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase))
+				{
+					return new TakeoverRecord(dataRoot, marker.TakenOverAtUtc ?? marker.UpdatedAtUtc);
+				}
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+			{
+			}
+		}
+		return null;
+	}
+
+	private static IEnumerable<string> DatabasePathsWithNotes(string root) =>
+		Directory.Exists(root)
+			? new[] { Path.Combine(root, "data") }.Concat(Directory.EnumerateDirectories(root))
+				.Select(folder => Path.Combine(folder, AppDataPaths.DatabaseFileName))
+				.Where(path => File.Exists(path + ".created"))
+			: [];
+
+	/// <summary>The data folder a Store installation's pointer file names, or null.</summary>
+	public static string? ReadPointer(string pointerFile)
+	{
+		try
+		{
+			return File.Exists(pointerFile) ? JsonSerializer.Deserialize<Pointer>(File.ReadAllText(pointerFile))?.DataRoot : null;
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+		{
+			return null;
+		}
 	}
 
 	/// <summary>Repoints to a folder that already holds this pharmacy's data (after a drive letter changed or the folder was moved).</summary>
@@ -314,10 +513,15 @@ public static class StoreDataLocation
 		return candidates.Any(path => File.Exists(path) && new FileInfo(path).Length > 0);
 	}
 
-	private static int CopyAndVerify(string source, string target)
+	private static int CopyAndVerify(string source, string target, bool keepIdentity = true)
 	{
+		bool Excluded(string file)
+		{
+			string relative = Path.GetRelativePath(source, file);
+			return IsLocalOnly(relative) || (!keepIdentity && IsDeviceIdentity(relative)) || relative.EndsWith(".created", StringComparison.OrdinalIgnoreCase);
+		}
 		List<string> files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
-			.Where(file => !IsLocalOnly(Path.GetRelativePath(source, file)))
+			.Where(file => !Excluded(file))
 			.ToList();
 		try
 		{
@@ -326,7 +530,7 @@ public static class StoreDataLocation
 			CheckpointDatabases(source);
 			ClearPoolsUnder(source);
 			files = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
-				.Where(file => !IsLocalOnly(Path.GetRelativePath(source, file)))
+				.Where(file => !Excluded(file))
 				.ToList();
 			foreach (string file in files)
 			{
@@ -503,6 +707,17 @@ public static class StoreDataLocation
 		}
 	}
 
+	/// <summary>
+	/// Which device this is to paired phones, counters and sync peers. An installation taking over another's records gets
+	/// its own: two installations sharing one would break sync and pairing.
+	/// </summary>
+	private static bool IsDeviceIdentity(string relativePath)
+	{
+		string path = relativePath.Replace('/', '\\');
+		return path.Equals("device.id", StringComparison.OrdinalIgnoreCase)
+			|| path.Equals("sync-peer-keys.dat", StringComparison.OrdinalIgnoreCase);
+	}
+
 	/// <summary>Stays with this PC, not with the records: the pointer itself, logs, and licence/trial state.</summary>
 	private static bool IsLocalOnly(string relativePath)
 	{
@@ -538,10 +753,29 @@ public static class StoreDataLocation
 		File.Move(temp, path, overwrite: true);
 	}
 
-	private static void WriteMarker(string dataRoot, bool hasDatabase) =>
-		File.WriteAllText(Path.Combine(dataRoot, MarkerFileName), JsonSerializer.Serialize(new Marker(hasDatabase, Environment.MachineName, DateTime.UtcNow), Json));
+	private static void WriteMarker(string dataRoot, bool hasDatabase, string? takenOverFrom = null, DateTime? takenOverAtUtc = null)
+	{
+		string path = Path.Combine(dataRoot, MarkerFileName);
+		Marker? existing = null;
+		try
+		{
+			existing = File.Exists(path) ? JsonSerializer.Deserialize<Marker>(File.ReadAllText(path)) : null;
+		}
+		catch (JsonException)
+		{
+		}
+		File.WriteAllText(path, JsonSerializer.Serialize(new Marker(hasDatabase, Environment.MachineName, DateTime.UtcNow,
+			takenOverFrom ?? existing?.TakenOverFrom, takenOverAtUtc ?? existing?.TakenOverAtUtc), Json));
+	}
 
 	private sealed record Pointer(string DataRoot, DateTime ChosenAtUtc);
 
-	private sealed record Marker(bool HasDatabase, string? Machine, DateTime UpdatedAtUtc);
+	/// <param name="TakenOverFrom">Where these records were taken over from (another installation's folder), if they were.</param>
+	private sealed record Marker(bool HasDatabase, string? Machine, DateTime UpdatedAtUtc, string? TakenOverFrom = null, DateTime? TakenOverAtUtc = null);
+
+	/// <summary>Written beside each database that was taken over, in place of the "created" note.</summary>
+	private sealed record TakeoverNote(string Type, string Folder, DateTime AtUtc)
+	{
+		public const string Kind = "TakenOverByMicrosoftStoreVersion";
+	}
 }

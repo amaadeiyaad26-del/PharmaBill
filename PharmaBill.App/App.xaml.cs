@@ -83,6 +83,14 @@ public partial class App : Application
 				return;
 			}
 
+			// Website version: if the Microsoft Store version has taken over these records, they must not be used here as
+			// well (two copies would drift apart). Stops before anything opens a database.
+			if (AppEdition.Current == Edition.LocalMarket && TakenOverByStoreVersion())
+			{
+				Shutdown(-1);
+				return;
+			}
+
 			// Store edition: records live in a folder the user chose, because Windows deletes the package's own folder
 			// on uninstall. Resolved before anything opens a database; a missing folder stops here, never an empty start.
 			if (AppEdition.UsesChosenDataFolder(AppEdition.Current) && !ResolveStoreDataFolder())
@@ -268,6 +276,7 @@ public partial class App : Application
 				_loginWindow?.Close();
 				_loginWindow = null;
 				ScheduleBackgroundUpdateCheck();
+				ScheduleOtherInstallationCheck();
 			}, Shutdown);
 		}
 		catch (Exception ex) when (FindInner<PharmaBill.Data.Persistence.DatabaseMissingException>(ex) is { } missing)
@@ -343,7 +352,9 @@ public partial class App : Application
 		if (check.Status != PharmaBill.Data.Persistence.DataLocationStatus.Ready)
 		{
 			Log.Warning("Pharmacy data folder: {Status}. {Message}", check.Status, check.Message);
-			DataLocationWindow window = new DataLocationWindow(localRoot, check);
+			// Another installation's records in localRoot are never copied without the pharmacist's choice (see the window).
+			bool websiteInstalled = new WindowsInstallationProbe().Probe().WebsiteVersionInstalled;
+			DataLocationWindow window = new DataLocationWindow(localRoot, check, OwnPackageLocalRoot(), websiteInstalled);
 			if (window.ShowDialog() != true || string.IsNullOrWhiteSpace(window.DataRoot))
 			{
 				return false;
@@ -355,6 +366,72 @@ public partial class App : Application
 		PharmaBill.Data.Persistence.AppDataPaths.UseDataRoot(root!);
 		Log.Information("Pharmacy data folder: {Root}", root);
 		return true;
+	}
+
+	/// <summary>
+	/// Where Windows physically keeps the files this Store package created under %LocalAppData%\PharmaBill: they are this
+	/// installation's own. Null when not running as a package (then every database found there counts as another's).
+	/// </summary>
+	private static string? OwnPackageLocalRoot()
+	{
+		try
+		{
+			_ = global::Windows.ApplicationModel.Package.Current;
+			return Path.Combine(global::Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path, "Local", PharmaBill.Data.Persistence.AppDataPaths.RootFolderName);
+		}
+		catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
+		{
+			return null;
+		}
+	}
+
+	/// <summary>Website version: the records here were taken over by the Microsoft Store version. Says so and stops.</summary>
+	private static bool TakenOverByStoreVersion()
+	{
+		PharmaBill.Data.Persistence.TakeoverRecord? takeover = PharmaBill.Data.Persistence.StoreDataLocation.FindTakeover(
+			PharmaBill.Data.Persistence.AppDataPaths.LocalRootDirectory, WindowsInstallationProbe.StorePointerFiles());
+		if (takeover == null)
+		{
+			return false;
+		}
+		Log.Warning("Records taken over by the Microsoft Store version on {At:O} into {Folder}; this installation will not open them.", takeover.AtUtc, takeover.Folder);
+		MessageBox.Show(
+			"Your pharmacy records were moved to the Microsoft Store version of Pharma Remit on "
+			+ PharmaBill.Core.BusinessClock.ToLocalDate(takeover.AtUtc).ToString("dd-MMM-yyyy") + ", into:" + Environment.NewLine + takeover.Folder
+			+ Environment.NewLine + Environment.NewLine
+			+ "This website version no longer opens them, so the shop never has two sets of bills and stock that disagree. "
+			+ "Use the Microsoft Store version, and uninstall this one (Settings > Apps). Your records are safe in the folder above; "
+			+ "the files left here are the untouched copy from before the move.",
+			"Pharma Remit - records moved to the Microsoft Store version", MessageBoxButton.OK, MessageBoxImage.Information);
+		return true;
+	}
+
+	/// <summary>After the main window is up: warns on the dashboards if the other edition is installed too.</summary>
+	private void ScheduleOtherInstallationCheck()
+	{
+		if (_host == null)
+		{
+			return;
+		}
+		MainWindowViewModel mainVm = _host.Services.GetRequiredService<MainWindowViewModel>();
+		string dataFolder = PharmaBill.Data.Persistence.AppDataPaths.RootDirectory;
+		Task.Run(() =>
+		{
+			try
+			{
+				OtherInstallationFacts facts = new WindowsInstallationProbe().Probe();
+				string? warning = OtherInstallationNotice.For(AppEdition.Current, facts, dataFolder);
+				if (warning != null)
+				{
+					Log.Warning("Other installation of Pharma Remit on this computer: {Facts}", facts);
+				}
+				Dispatcher.Invoke(() => mainVm.ApplyOtherInstallationWarning(warning, OneTimeNoticeStore.Default));
+			}
+			catch (Exception exception)
+			{
+				Log.Debug(exception, "Other-installation check skipped.");
+			}
+		});
 	}
 
 	private static T? FindInner<T>(Exception? exception) where T : Exception

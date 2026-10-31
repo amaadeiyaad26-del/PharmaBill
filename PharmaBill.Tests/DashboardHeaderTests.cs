@@ -181,8 +181,14 @@ public sealed class DashboardHeaderTests
             Button bright = Ui.Button(host, "Update Available");
             Assert.Equal(true, bright.Tag);
             Assert.Contains(AppEdition.Current == Edition.Store ? "Update Available" : "is available", vm.BarcodeToastMessage);
+            string toastBefore = vm.BarcodeToastMessage;
             await Ui.PressAsync(bright);
-            Assert.Equal(1, updates.Launches);
+            // Only the Store edition installs through the Store; the website version never says "Microsoft Store".
+            Assert.Equal(AppEdition.Current == Edition.Store ? 1 : 0, updates.Launches);
+            if (AppEdition.Current != Edition.Store)
+            {
+                Assert.Equal(toastBefore, vm.BarcodeToastMessage);
+            }
             Assert.Equal([true, true], updates.Forced);
             host.Close();
         });
@@ -336,6 +342,13 @@ public sealed class DashboardHeaderShell : ObservableObject
     public System.Windows.Input.ICommand DismissUpdateCommand { get; } = new RelayCommand(() => { });
 
     public System.Windows.Input.ICommand OpenUpdateDownloadCommand { get; } = new RelayCommand(() => { });
+
+    // The two-installations warning on the dashboards.
+    public bool ShowOtherInstallationWarning => false;
+
+    public string OtherInstallationWarning => string.Empty;
+
+    public System.Windows.Input.ICommand DismissOtherInstallationCommand { get; } = new RelayCommand(() => { });
 
     public void ShowAvailable()
     {

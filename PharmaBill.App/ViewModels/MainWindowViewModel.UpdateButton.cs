@@ -97,6 +97,11 @@ public partial class MainWindowViewModel
 				IsUpdateDetailsOpen = true;
 				return;
 			}
+			// Only the Store edition installs through the Store; the website version never mentions it.
+			if (AppEdition.Current != Edition.Store)
+			{
+				return;
+			}
 			ShowItemQuickToast("Opening the Microsoft Store update…");
 			await UpdateNowAsync();
 			return;

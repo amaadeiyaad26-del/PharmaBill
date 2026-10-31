@@ -50,6 +50,7 @@
       <TextBlock Foreground="#047857" TextWrapping="Wrap" Margin="0,0,0,10" Text="{Binding StatusMessage}" />
 
       <!-- Reports & Daily MIS, front and centre: the day's sales, peak hours and statutory movement in one click. -->
+      <controls:OtherInstallationBanner />
       <controls:ReportsQuickCard Margin="0,0,0,16" />
 
       <!-- Section A: KPI cards -->

@@ -73,6 +73,7 @@
                                         Note="{Binding LastUpdated, StringFormat=Updated {0:dd-MMM-yyyy HH:mm}}" />
           </DockPanel>
           <!-- Reports & Daily MIS, front and centre: the day's sales, peak hours and statutory movement in one click. -->
+          <controls:OtherInstallationBanner DockPanel.Dock="Top" />
           <controls:ReportsQuickCard DockPanel.Dock="Top" Margin="0,0,0,16" />
           <!-- Getting started: a new shop's first three milestones, ticked from its records; gone once done or hidden. -->
           <Border DockPanel.Dock="Top" Margin="0,0,0,16" Padding="16,12" CornerRadius="12" Background="#FFF5F3FF" BorderBrush="#FFC4B5FD" BorderThickness="1"

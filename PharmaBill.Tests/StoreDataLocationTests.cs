@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using PharmaBill.Data.Persistence;
 using Xunit;
@@ -22,7 +22,10 @@ public sealed class StoreDataLocationTests : IDisposable
         Directory.Delete(_sandbox, recursive: true);
     }
 
-    /// <summary>Stands in for the Store package's virtualised %LocalAppData%\PharmaBill.</summary>
+    /// <summary>
+    /// Stands in for the Store package's virtualised %LocalAppData%\PharmaBill. These tests are about the Store
+    /// installation's own earlier data, so the same folder is passed as where its own files physically are.
+    /// </summary>
     private string PackageRoot => Path.Combine(_sandbox, "package", "PharmaBill");
 
     private string Documents => Path.Combine(_sandbox, "Documents");
@@ -36,7 +39,7 @@ public sealed class StoreDataLocationTests : IDisposable
         // In the user's profile (no administrator rights needed), not in Documents, which is often synced by OneDrive.
         Assert.Equal(Path.Combine(profile, "Pharma Remit Data"), chosen.Replace(" Debug", string.Empty));
 
-        DataLocationResult result = StoreDataLocation.Choose(PackageRoot, chosen);
+        DataLocationResult result = StoreDataLocation.Choose(PackageRoot, chosen, PackageRoot);
 
         Assert.Equal(DataLocationOutcome.NewEmpty, result.Outcome);
         DataLocationCheck check = StoreDataLocation.Check(PackageRoot);
@@ -52,7 +55,7 @@ public sealed class StoreDataLocationTests : IDisposable
         string target = Path.Combine(Documents, "Pharma Remit");
         Dictionary<string, byte[]> before = HashTree(PackageRoot);
 
-        DataLocationResult result = StoreDataLocation.Choose(PackageRoot, target);
+        DataLocationResult result = StoreDataLocation.Choose(PackageRoot, target, PackageRoot);
 
         Assert.Equal(DataLocationOutcome.MigratedFromPackage, result.Outcome);
         // Records, key, backups and attachments arrived byte for byte; logs and licence state stayed on the PC.
@@ -83,7 +86,7 @@ public sealed class StoreDataLocationTests : IDisposable
         new DatabaseEncryptionKeyProvider(Path.Combine(PackageRoot, @"data\database.key")).GetOrCreateKey();
         string target = Path.Combine(Documents, "Pharma Remit");
 
-        var error = Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Choose(PackageRoot, target));
+        var error = Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Choose(PackageRoot, target, PackageRoot));
 
         Assert.Contains("not moved", error.Message);
         Assert.Empty(Directory.EnumerateFileSystemEntries(target));
@@ -96,7 +99,7 @@ public sealed class StoreDataLocationTests : IDisposable
     {
         CreatePackageData();
         string target = Path.Combine(Documents, "Pharma Remit");
-        StoreDataLocation.Choose(PackageRoot, target);
+        StoreDataLocation.Choose(PackageRoot, target, PackageRoot);
         SqliteConnection.ClearAllPools();
         Directory.Delete(target, recursive: true);
 
@@ -110,7 +113,7 @@ public sealed class StoreDataLocationTests : IDisposable
     public void DatabaseGoneFromAFolderThatHadOne_IsReported_NotTreatedAsAFreshStart()
     {
         string target = Path.Combine(Documents, "Pharma Remit");
-        StoreDataLocation.Choose(PackageRoot, target);
+        StoreDataLocation.Choose(PackageRoot, target, PackageRoot);
         Directory.CreateDirectory(Path.Combine(target, "Sameerchemists"));
         File.WriteAllBytes(Path.Combine(target, @"Sameerchemists\pharmabill.db"), [1, 2, 3]);
         StoreDataLocation.MarkHasDatabase(target);
@@ -126,7 +129,7 @@ public sealed class StoreDataLocationTests : IDisposable
         Directory.CreateDirectory(Path.Combine(target, "Sameerchemists"));
         File.WriteAllBytes(Path.Combine(target, @"Sameerchemists\pharmabill.db"), [9, 9, 9]);
 
-        DataLocationResult result = StoreDataLocation.Choose(PackageRoot, target);
+        DataLocationResult result = StoreDataLocation.Choose(PackageRoot, target, PackageRoot);
 
         Assert.Equal(DataLocationOutcome.AttachedExisting, result.Outcome);
         Assert.Equal(new byte[] { 9, 9, 9 }, File.ReadAllBytes(Path.Combine(target, @"Sameerchemists\pharmabill.db")));
@@ -140,8 +143,8 @@ public sealed class StoreDataLocationTests : IDisposable
         Directory.CreateDirectory(Path.Combine(other, "data"));
         File.WriteAllBytes(Path.Combine(other, @"data\pharmabill.db"), [1]);
 
-        Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Choose(PackageRoot, other));
-        Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Choose(PackageRoot, Path.Combine(PackageRoot, "inside")));
+        Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Choose(PackageRoot, other, PackageRoot));
+        Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Choose(PackageRoot, Path.Combine(PackageRoot, "inside"), PackageRoot));
         Assert.Throws<InvalidOperationException>(() => StoreDataLocation.Relocate(PackageRoot, Path.Combine(Documents, "empty")));
     }
 
@@ -184,7 +187,7 @@ public sealed class StoreDataLocationTests : IDisposable
         SqliteConnection.ClearAllPools();
         string target = Path.Combine(_sandbox, "Users", "Shop", "Pharma Remit Data");
 
-        StoreDataLocation.Choose(PackageRoot, target);
+        StoreDataLocation.Choose(PackageRoot, target, PackageRoot);
 
         string moved = Path.Combine(target, @"prescriptions\2026\WIN1_000004\rx-1.jpg");
         Assert.Equal(moved, Query(Path.Combine(target, @"Sameerchemists\pharmabill.db"), password, "SELECT PrescriptionFilePath FROM Sales"));
