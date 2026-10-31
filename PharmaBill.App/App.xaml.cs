@@ -394,6 +394,17 @@ public partial class App : Application
 		{
 			return false;
 		}
+#if DEBUG
+		// Both debug editions share %LocalAppData%\PharmaBill-Debug. A Store debug run records a takeover into
+		// "Pharma Remit Data Debug". That is this PC's development copy, not a customer moving to the Store.
+		string debugDataFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(PharmaBill.Data.Persistence.StoreDataLocation.DefaultFolder()));
+		string takenFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(takeover.Folder));
+		if (string.Equals(debugDataFolder, takenFolder, StringComparison.OrdinalIgnoreCase))
+		{
+			Log.Warning("Ignoring a debug-folder takeover note for {Folder}; opening the local debug data.", takeover.Folder);
+			return false;
+		}
+#endif
 		Log.Warning("Records taken over by the Microsoft Store version on {At:O} into {Folder}; this installation will not open them.", takeover.AtUtc, takeover.Folder);
 		MessageBox.Show(
 			"Your pharmacy records were moved to the Microsoft Store version of Pharma Remit on "
