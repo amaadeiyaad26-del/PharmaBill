@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,7 +86,7 @@ public sealed class PurchaseInwardHsnTests
             Assert.Contains("HSN", page.NewItemError);
             Assert.Single(page.Lines);
             await FillAndAddAsync("3004");
-            Assert.Equal(string.Empty, page.NewItemError);
+            Assert.True(page.NewItemError.Length == 0, $"{page.NewItemError} [HSN box \"{hsn.Text}\", GST box \"{Box("PurchaseNewItemGst").Text}\", hint \"{page.TaxSourceHint}\"]");
             Drug completed = await database.Context.Drugs.AsNoTracking().SingleAsync(drug => drug.Id == older.Id);
             Assert.Equal(("3004", (decimal?)12m), (completed.HsnCode, completed.GstRate));
             Assert.Equal(2, page.Lines.Count);
